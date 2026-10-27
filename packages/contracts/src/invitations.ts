@@ -22,6 +22,18 @@ export const createInvitationResponseSchema = z.object({
 });
 export type CreateInvitationResponse = z.infer<typeof createInvitationResponseSchema>;
 
+/** Invitación todavía sin aceptar ni revocar, tal como la ve quien la envió. Nunca lleva el token. */
+export const pendingInvitationSchema = z.object({
+  id: z.uuid(),
+  email: z.string(),
+  rank: invitableRankSchema,
+  createdAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+  /** `true` si ya venció: sigue pendiente hasta que se reenvíe o se invite de nuevo. */
+  expired: z.boolean(),
+});
+export type PendingInvitation = z.infer<typeof pendingInvitationSchema>;
+
 export const invitationPreviewResponseSchema = z.object({
   email: z.string(),
   rank: invitableRankSchema,
