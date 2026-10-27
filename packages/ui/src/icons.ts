@@ -8,6 +8,7 @@ export {
   Check,
   CheckCircle2,
   Copy,
+  Ellipsis,
   Eye,
   EyeOff,
   Info,

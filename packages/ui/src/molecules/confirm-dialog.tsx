@@ -1,4 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog';
+import type { ReactNode } from 'react';
 
 import { Button } from '../atoms/button';
 
@@ -14,6 +15,8 @@ export type ConfirmDialogProps = {
   tone?: 'default' | 'danger';
   /** Mientras la mutación corre: el botón queda en `loading` y se evita el doble envío. */
   loading?: boolean;
+  /** Contenido extra bajo la descripción (por ejemplo, el error de la operación). */
+  children?: ReactNode;
 };
 
 /**
@@ -30,6 +33,7 @@ export function ConfirmDialog({
   onConfirm,
   tone = 'default',
   loading = false,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -40,6 +44,7 @@ export function ConfirmDialog({
           <Dialog.Description className="mt-2 text-sm text-text-secondary">
             {description}
           </Dialog.Description>
+          {children !== undefined ? <div className="mt-4">{children}</div> : null}
           <div className="mt-6 flex justify-end gap-3">
             <Dialog.Close asChild>
               <Button variant="secondary">{cancelLabel}</Button>

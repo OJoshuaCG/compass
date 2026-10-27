@@ -1,72 +1,57 @@
-import {
-  PageHeader,
-  SearchInput,
-  Button,
-  DataTable,
-  EmptyState,
-  UserPlus,
-  type Column,
-} from '@iam/ui';
-import type { DirectoryUser } from '@iam/contracts';
-import { useMemo, useState } from 'react';
+import { PageHeader, Button, Tabs, UserPlus } from '@iam/ui';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useTableQuery, type TableSearch } from '../../../shared/api';
+import type { TableSearch } from '../../../shared/api';
 import { useMe, usePermission } from '../../../shared/auth';
-import { useDataTableLabels, useErrorMessage } from '../../../shared/i18n';
-import { useDebouncedCommit } from '../../../shared/lib';
-import { directoryKeys, fetchUsersPage } from '../api/directory-api';
+import { canManageTeam } from '../model/team-actions';
 
+import { DirectoryTable } from './directory-table';
 import { InviteUserDialog } from './invite-user-dialog';
+import { TeamManagement } from './team-management';
+
+/** Sección activa de la página: se guarda en la URL como el resto del estado de la vista. */
+export type UsersView = 'directory' | 'team';
+
+export type UsersSearch = TableSearch & { view?: UsersView | undefined };
 
 export type UsersPageProps = {
   /** Estado de la tabla que vive en la URL (validado por la ruta). */
-  search: TableSearch;
-  onSearchChange: (patch: Partial<TableSearch>) => void;
+  search: UsersSearch;
+  onSearchChange: (patch: Partial<UsersSearch>) => void;
 };
 
-/** Container de `/users`: el directorio con la `DataTable` estándar y la acción de invitar. */
+/**
+ * Container de `/users`: el directorio con la `DataTable` estándar y la acción de invitar y, para
+ * quien puede gestionar personas, la pestaña "Gestión del equipo".
+ */
 export function UsersPage({ search, onSearchChange }: UsersPageProps) {
   const { t } = useTranslation(['directory', 'common']);
-  const labels = useDataTableLabels();
-  const errorMessage = useErrorMessage();
   const me = useMe();
-  // Solo comodidad: el botón se oculta sin el permiso, pero el backend decide siempre.
+  // Solo comodidad: el botón y la pestaña se ocultan sin el permiso, pero el backend decide siempre.
   const canInvite = usePermission('user.invite');
+  const showTeam = me !== undefined && canManageTeam(me.permissions);
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  const table = useTableQuery<DirectoryUser>({
-    queryKey: directoryKeys.users(),
-    fetchPage: fetchUsersPage,
-    search,
-    onSearchChange,
-  });
-  // La búsqueda se escribe sin pedir en cada tecla: la URL se actualiza al dejar de teclear.
-  const [draft, setDraft] = useDebouncedCommit(table.q, table.onQueryChange);
+  // La vista `team` en la URL sin permiso cae al directorio en vez de mostrar un error.
+  const view: UsersView = showTeam && search.view === 'team' ? 'team' : 'directory';
+  const tableSearch: TableSearch = {
+    limit: search.limit,
+    sort: search.sort,
+    dir: search.dir,
+    q: search.q,
+  };
 
-  const columns = useMemo<Column<DirectoryUser>[]>(
-    () => [
-      {
-        id: 'displayName',
-        header: t('users.col.name', { ns: 'directory' }),
-        cell: (row) => row.displayName,
-        sortKey: 'displayName',
-      },
-      {
-        id: 'email',
-        header: t('users.col.email', { ns: 'directory' }),
-        cell: (row) => <span className="text-text-secondary">{row.email}</span>,
-        sortKey: 'email',
-      },
-      {
-        id: 'rank',
-        header: t('users.col.rank', { ns: 'directory' }),
-        cell: (row) => t(`rank.${String(row.rank)}`, { ns: 'common' }),
-        sortKey: 'rank',
-      },
-    ],
-    [t],
-  );
+  const panel =
+    view === 'team' && me !== undefined ? (
+      <TeamManagement
+        search={tableSearch}
+        onSearchChange={onSearchChange}
+        actor={{ rank: me.user.rank, permissions: me.permissions }}
+      />
+    ) : (
+      <DirectoryTable search={tableSearch} onSearchChange={onSearchChange} />
+    );
 
   return (
     <>
@@ -86,39 +71,30 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
           ) : undefined
         }
       />
-      <DataTable<DirectoryUser>
-        caption={t('users.caption', { ns: 'directory' })}
-        columns={columns}
-        rows={table.rows}
-        getRowId={(row) => row.id}
-        status={table.status}
-        sort={table.sort}
-        onSortChange={table.onSortChange}
-        limit={table.limit}
-        onLimitChange={table.onLimitChange}
-        pagination={table.pagination}
-        refreshing={table.refreshing}
-        hasActiveFilters={table.hasActiveFilters}
-        onClearFilters={table.clearFilters}
-        labels={labels}
-        emptyState={
-          <EmptyState
-            title={t('users.empty.title', { ns: 'directory' })}
-            description={t('users.empty.description', { ns: 'directory' })}
-          />
-        }
-        errorState={{ message: errorMessage(table.error), onRetry: table.retry }}
-        toolbar={
-          <SearchInput
-            className="max-w-sm"
-            label={t('search.label', { ns: 'common' })}
-            clearLabel={t('search.clear', { ns: 'common' })}
-            placeholder={t('search.placeholder', { ns: 'common' })}
-            value={draft}
-            onValueChange={setDraft}
-          />
-        }
-      />
+      {showTeam ? (
+        <Tabs
+          label={t('users.tabs.label', { ns: 'directory' })}
+          tabs={[
+            { id: 'directory', label: t('users.tabs.directory', { ns: 'directory' }) },
+            { id: 'team', label: t('users.tabs.team', { ns: 'directory' }) },
+          ]}
+          value={view}
+          onValueChange={(next) => {
+            // Cada sección tiene su propia búsqueda y orden: al cambiar se parte de cero
+            // (el límite de filas sí se conserva).
+            onSearchChange({
+              view: next === 'team' ? 'team' : undefined,
+              q: undefined,
+              sort: undefined,
+              dir: undefined,
+            });
+          }}
+        >
+          {panel}
+        </Tabs>
+      ) : (
+        panel
+      )}
       {canInvite && me !== undefined ? (
         <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} actorRank={me.user.rank} />
       ) : null}

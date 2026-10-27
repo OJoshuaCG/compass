@@ -10,6 +10,8 @@ import { apiClient, createListFetcher, type ApiClient } from '../../../shared/ap
 export const directoryKeys = {
   all: ['directory'] as const,
   users: () => [...directoryKeys.all, 'users'] as const,
+  managed: () => [...directoryKeys.all, 'managed'] as const,
+  managerCandidates: (q: string) => [...directoryKeys.all, 'manager-candidates', q] as const,
 };
 
 /** `GET /users?cursor=&limit=&sort=&dir=&q=` validado con el contrato. */

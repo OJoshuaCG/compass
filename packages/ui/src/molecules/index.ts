@@ -18,3 +18,6 @@ export { StatusBadge, type Status, type StatusBadgeProps } from './status-badge'
 export { PasswordInput, type PasswordInputProps } from './password-input';
 export { StrengthMeter, type StrengthLevel, type StrengthMeterProps } from './strength-meter';
 export { ToastViewport, type ToastItem, type ToastViewportProps } from './toast';
+export { RadioGroup, type RadioGroupProps, type RadioOption } from './radio-group';
+export { RowActionsMenu, type RowActionItem, type RowActionsMenuProps } from './row-actions-menu';
+export { Tabs, type TabItem, type TabsProps } from './tabs';
