@@ -7,6 +7,7 @@ import {
   totpConfirmRequestSchema,
 } from '@iam/contracts';
 import type {
+  SessionSummary,
   ChangePasswordRequest,
   LoginRequest,
   LoginResponse,
@@ -17,7 +18,8 @@ import type {
   TotpConfirmResponse,
   TotpEnrollResponse,
 } from '@iam/contracts';
-import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
+import { z } from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import {
@@ -29,6 +31,7 @@ import {
 import { clearSessionCookie, setSessionCookie } from './session-cookie.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
 import { REAUTH_WINDOW_MS } from '../../access/index.js';
+import { ListMySessions, RevokeMySession } from '../application/my-sessions.js';
 import { GetProfile } from '../application/profile.js';
 import { ChangePassword } from '../application/change-password.js';
 import { Login } from '../application/login.js';
@@ -139,7 +142,33 @@ export class AuthController {
 
 @Controller('me')
 export class MeController {
-  constructor(private readonly profile: GetProfile) {}
+  constructor(
+    private readonly profile: GetProfile,
+    private readonly listMySessions: ListMySessions,
+    private readonly revokeMySession: RevokeMySession,
+  ) {}
+
+  @Get('sessions')
+  async sessions(): Promise<{ data: SessionSummary[] }> {
+    const sessions = await this.listMySessions.execute();
+    return {
+      data: sessions.map((s) => ({
+        id: s.id,
+        createdAt: s.createdAt.toISOString(),
+        lastSeenAt: s.lastSeenAt.toISOString(),
+        expiresAt: s.expiresAt.toISOString(),
+        userAgent: s.userAgent,
+        ip: s.ip,
+        current: s.current,
+      })),
+    };
+  }
+
+  @Post('sessions/:id/revoke')
+  @HttpCode(204)
+  async revokeSession(@Param('id', new ZodValidationPipe(z.uuid())) id: string): Promise<void> {
+    unwrap(await this.revokeMySession.execute(id));
+  }
 
   @Get()
   async me(@Req() request: FastifyRequest): Promise<MeResponse> {

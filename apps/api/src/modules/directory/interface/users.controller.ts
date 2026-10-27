@@ -77,6 +77,12 @@ export class UsersController {
     unwrap(await this.manageUsers.deactivate(asUserId(id)));
   }
 
+  @Post(':id/sessions/revoke')
+  @HttpCode(204)
+  async revokeSessions(@Param('id', new ZodValidationPipe(idSchema)) id: string): Promise<void> {
+    unwrap(await this.manageUsers.revokeSessions(asUserId(id)));
+  }
+
   @Post(':id/rank')
   @HttpCode(204)
   async changeRank(

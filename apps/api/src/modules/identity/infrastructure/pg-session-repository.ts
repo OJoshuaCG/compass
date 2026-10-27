@@ -5,7 +5,11 @@
  */
 import type { UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
-import type { NewSession, SessionRepository } from '../application/ports/identity-ports.js';
+import type {
+  NewSession,
+  SessionListing,
+  SessionRepository,
+} from '../application/ports/identity-ports.js';
 
 export class PgSessionRepository implements SessionRepository {
   constructor(private readonly transactions: TransactionProvider) {}
@@ -70,6 +74,45 @@ export class PgSessionRepository implements SessionRepository {
         'update sessions set revoked_at = $3 where user_id = $1 and id <> $2 and revoked_at is null',
         [userId, exceptSessionId, at],
       );
+  }
+
+  async listLiveOfUser(
+    userId: UserId,
+    now: Date,
+    idleSince: Date,
+  ): Promise<readonly SessionListing[]> {
+    const result = await this.transactions.current().query<{
+      id: string;
+      created_at: Date;
+      last_seen_at: Date;
+      expires_at: Date;
+      user_agent: string | null;
+      ip: string | null;
+    }>(
+      `select id, created_at, last_seen_at, expires_at, user_agent, host(ip) as ip
+         from sessions
+        where user_id = $1 and revoked_at is null and expires_at > $2 and last_seen_at > $3
+        order by last_seen_at desc, id desc`,
+      [userId, now, idleSince],
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      createdAt: row.created_at,
+      lastSeenAt: row.last_seen_at,
+      expiresAt: row.expires_at,
+      userAgent: row.user_agent,
+      ip: row.ip,
+    }));
+  }
+
+  async revokeOfUser(sessionId: string, userId: UserId, at: Date): Promise<boolean> {
+    const result = await this.transactions
+      .current()
+      .query(
+        'update sessions set revoked_at = $3 where id = $1 and user_id = $2 and revoked_at is null',
+        [sessionId, userId, at],
+      );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async revokeAllOfUser(userId: UserId, at: Date): Promise<void> {

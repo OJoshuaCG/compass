@@ -9,6 +9,8 @@ export { ChangePassword } from './application/change-password.js';
 export { Login } from './application/login.js';
 export type { LoginCommand, LoginOutcome } from './application/login.js';
 export { Logout } from './application/logout.js';
+export { ListInvitations, ResendInvitation } from './application/invitations.js';
+export { ListMySessions, RevokeMySession } from './application/my-sessions.js';
 export { GetProfile } from './application/profile.js';
 export type { Profile } from './application/profile.js';
 export type {

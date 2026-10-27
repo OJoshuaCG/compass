@@ -8,6 +8,9 @@ import type { AuditMetadata, AuditMetadataValue } from './audit-event.js';
  */
 export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]>> = {
   'user.invited': ['rank', 'roleCount'],
+  'user.invitation_resent': ['rank', 'roleCount'],
+  'role.created': ['permissionCount'],
+  'role.archived': [],
   'user.deactivated': ['rotationTasks', 'reassignedReports'],
   'user.suspended': [],
   'user.reactivated': [],
@@ -28,6 +31,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.totp_enrolled': [],
   'auth.reauthenticated': [],
   'auth.logout': [],
+  'auth.session_revoked': [],
+  'user.sessions_revoked': [],
   'auth.password_changed': [],
   'organization.provisioned': [],
   'auth.password_change_failed': [],

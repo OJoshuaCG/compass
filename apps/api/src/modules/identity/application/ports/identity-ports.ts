@@ -34,6 +34,16 @@ export interface SessionRecord {
   readonly revokedAt: Date | null;
 }
 
+/** Lo que se muestra de una sesión viva a su dueña; nunca el token ni su hash. */
+export interface SessionListing {
+  readonly id: string;
+  readonly createdAt: Date;
+  readonly lastSeenAt: Date;
+  readonly expiresAt: Date;
+  readonly userAgent: string | null;
+  readonly ip: string | null;
+}
+
 export interface NewSession {
   readonly id: string;
   readonly organizationId: OrganizationId;
@@ -54,6 +64,10 @@ export interface SessionRepository {
   touch(sessionId: string, at: Date): Promise<void>;
   revoke(sessionId: string, at: Date): Promise<void>;
   revokeAllOfUser(userId: UserId, at: Date): Promise<void>;
+  /** Sesiones vivas de la persona: sin revocar, sin vencer y con actividad posterior a `idleSince`. */
+  listLiveOfUser(userId: UserId, now: Date, idleSince: Date): Promise<readonly SessionListing[]>;
+  /** Cierra una sesión solo si es de esa persona; `false` si no existe, no es suya o ya estaba cerrada. */
+  revokeOfUser(sessionId: string, userId: UserId, at: Date): Promise<boolean>;
   /** Cierra todas las sesiones de la persona salvo la indicada (por ejemplo, tras cambiar su contraseña). */
   revokeOthersOfUser(userId: UserId, exceptSessionId: string, at: Date): Promise<void>;
 }
@@ -83,6 +97,14 @@ export interface InvitationRecord {
   readonly revokedAt: Date | null;
 }
 
+export interface PendingInvitationRecord {
+  readonly id: string;
+  readonly email: string;
+  readonly rank: Rank;
+  readonly createdAt: Date;
+  readonly expiresAt: Date;
+}
+
 export interface InvitationRepository {
   /** Devuelve `conflict` si ya hay una invitación pendiente para ese correo en la organización. */
   insert(invitation: NewInvitation): Promise<'inserted' | 'conflict'>;
@@ -91,6 +113,9 @@ export interface InvitationRepository {
   /** Bloquea la fila hasta el fin de la transacción: dos aceptaciones simultáneas no pasan ambas. */
   findByIdForUpdate(id: string): Promise<InvitationRecord | null>;
   markAccepted(id: string, at: Date): Promise<void>;
+  /** Invitaciones sin aceptar ni revocar; `invitedBy` las limita a las de una persona (la Raíz ve todas). */
+  listPending(invitedBy: UserId | null): Promise<readonly PendingInvitationRecord[]>;
+  revoke(id: string, at: Date): Promise<void>;
   revokePendingOfUser(userId: UserId, at: Date): Promise<void>;
 }
 
