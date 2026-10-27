@@ -17,11 +17,12 @@ Este documento describe el comportamiento completo previsto. La fase 1a ya imple
 | Inicio de sesión con segundo factor o código de recuperación | **Funciona** |
 | Retraso progresivo, bloqueo temporal y mensajes idénticos | **Funciona.** Los contadores son por instancia del servidor; falta el almacén compartido |
 | Sesiones (30 minutos de inactividad, 12 horas absolutas, cierre en el servidor) | **Funciona** |
-| Ver y cerrar sesiones, cierre por el responsable, cierre automático al cambiar rango | **Pendiente** |
+| Ver y cerrar sesiones, cierre por el responsable | **Pendiente** |
+| Cierre automático de sesiones al suspender, desactivar o cambiar el rango | **Funciona** (el cambio de roles aún no existe como acción) |
 | Reautenticación de 5 minutos | **Funciona** con la aplicación autenticadora |
 | Avisos por correo (dispositivo nuevo, código de recuperación, cambios de factores) | **Pendiente** |
 | Recuperación por el responsable o la Raíz; códigos de emergencia de la Raíz | **Pendiente** |
-| Cambio de contraseña, incluido el cambio obligatorio de la contraseña inicial de la Raíz | **Pendiente** |
+| Cambio de contraseña, incluido el cambio obligatorio de la contraseña inicial de la Raíz | **Funciona** |
 | Inicio de sesión con proveedores externos | Fuera de la primera versión |
 
 ## Contenido
@@ -64,7 +65,7 @@ Reglas importantes:
 - **Al aceptar se revalida todo.** Entre invitar y aceptar pueden pasar hasta 72 horas. Al aceptar, el sistema vuelve a comprobar que los roles siguen existiendo, que quien invitó sigue activo y que todavía puede otorgar esos roles. Si algo cambió, la persona ve el mismo mensaje que ante una invitación inválida, sin saber la causa.
 - **Todas las invitaciones inválidas se ven igual.** Una invitación vencida, ya usada o inexistente produce el mismo mensaje, para no revelar qué le pasó.
 
-**La Raíz.** Cuando una persona de operaciones da de alta una organización, el sistema crea a la Raíz en estado "invitada" con una contraseña inicial que pone operaciones. Esa persona entra con esa contraseña y registra su segundo factor, y solo entonces queda activa. El plan prevé que la contraseña inicial se cambie en el primer ingreso; *hoy esa obligación no se aplica y no hay pantalla de cambio de contraseña* (ver [preguntas abiertas](#10-preguntas-abiertas)).
+**La Raíz.** Cuando una persona de operaciones da de alta una organización, el sistema crea a la Raíz en estado "invitada" con una contraseña inicial aleatoria de 24 caracteres, que se muestra una sola vez a quien da de alta la organización y nunca se guarda en claro. En su primer ingreso con esa contraseña, el sistema le avisa antes que nada que debe cambiarla, y mientras no lo haga no puede registrar ni verificar su segundo factor. Para cambiarla debe escribir la contraseña actual; la nueva sigue la misma política de contraseñas y no puede ser igual a la actual. Los intentos fallidos se cuentan con el mismo límite del ingreso, y el contador se reinicia al demostrar la contraseña actual. Al cambiarla, se cierran las demás sesiones de esa persona. Tanto el cambio como los intentos fallidos quedan en la auditoría. Después registra su segundo factor, y solo entonces queda activa (ver [preguntas abiertas](#10-preguntas-abiertas)).
 
 **Ejemplo.** Luis invita a Sofía como Operadora. Sofía recibe el correo, abre el enlace dentro de las 72 horas, define su contraseña, registra una passkey en su laptop y recibe sus diez códigos de recuperación. Los imprime y los guarda. Solo entonces puede entrar. Si el enlace hubiera vencido, Luis tendría que enviar una nueva invitación.
 
@@ -99,7 +100,7 @@ Una sesión es el periodo en que una persona permanece autenticada.
 | Cierre automático | Desactivar o suspender a una persona, o cambiarle el rango o los roles, cierra sus sesiones **en el acto** |
 | Varias pestañas | El cierre por inactividad se sincroniza entre pestañas del mismo navegador |
 
-**Estado hoy.** Funcionan: el identificador de sesión protegido, la caducidad por inactividad (30 minutos) y absoluta (12 horas), el cierre de sesión que la revoca en el servidor, la protección contra solicitudes enviadas desde otros sitios y el rechazo de la sesión de una persona suspendida o dada de baja. La caducidad por inactividad se calcula con el reloj del servidor de la aplicación, una sola fuente de tiempo (ver [ADR 0025](../adr/0025-session-time-single-clock-source.md)). Mientras la persona no complete el segundo factor, su sesión solo sirve para completarlo. Siguen pendientes: ver y cerrar sesiones propias, el cierre de todas las sesiones por el responsable, el cierre automático al cambiar rango o roles (las acciones que lo provocan aún no existen) y la sincronización entre pestañas.
+**Estado hoy.** Funcionan: el identificador de sesión protegido, la caducidad por inactividad (30 minutos) y absoluta (12 horas), el cierre de sesión que la revoca en el servidor, la protección contra solicitudes enviadas desde otros sitios y el rechazo de la sesión de una persona suspendida o dada de baja. La caducidad por inactividad se calcula con el reloj del servidor de la aplicación, una sola fuente de tiempo (ver [ADR 0025](../adr/0025-session-time-single-clock-source.md)). Mientras la persona no complete el segundo factor, su sesión solo sirve para completarlo. Suspender o desactivar a una persona cierra todas sus sesiones en la misma operación, y también lo hace el cambio de contraseña con las demás sesiones de esa persona. Siguen pendientes: ver y cerrar sesiones propias, el cierre de todas las sesiones por el responsable, el cierre automático al cambiar roles (la acción aún no existe) y la sincronización entre pestañas.
 
 **Por qué sesiones de servidor y no fichas autónomas.** Una sesión de servidor se puede revocar al instante: cerrar la sesión significa que el siguiente intento de usarla falla. Con fichas autónomas habría que esperar a que expiren.
 
@@ -168,7 +169,7 @@ No se usa en la primera versión. El sistema solo deja preparado el punto de con
 | Estado | Reglas |
 | --- | --- |
 | Se cumplen hoy | AU-1, AU-3, AU-6, AU-8, AU-11, AU-12 |
-| Se cumplen parcialmente | AU-2 (falta el reenvío), AU-4 (solo aplicación autenticadora, sin passkeys), AU-9 (la sesión de una persona suspendida o dada de baja no vale, pero las acciones que la suspenden o cambian su rango aún no existen) |
+| Se cumplen parcialmente | AU-2 (falta el reenvío), AU-4 (solo aplicación autenticadora, sin passkeys), AU-9 (suspender, desactivar y cambiar el rango cierran las sesiones; falta el cambio de roles) |
 | Se cumple la parte que ya existe | AU-5 (no se usan mensajes de texto ni correo como segundo factor) |
 | Pendientes | AU-7 (el uso queda auditado, falta el aviso), AU-10, AU-13, AU-14 |
 
@@ -179,8 +180,8 @@ No se usa en la primera versión. El sistema solo deja preparado el punto de con
 | 1 | Si se exigirán passkeys a la Raíz y a los Administradores desde el inicio | El plan lo recomienda, pero sigue como decisión pendiente del equipo. Hoy las passkeys no están implementadas |
 | 2 | Cuánto dura el bloqueo temporal y cuántos fallos lo activan | El plan fija el principio, no los valores. **La implementación asumió:** retraso creciente desde el tercer fallo (de 1 a 64 segundos) y bloqueo temporal de 15 minutos tras 10 intentos fallidos, contado por correo en el ingreso y por usuario en el segundo factor. Pendiente de confirmar con el negocio |
 | 3 | Qué se considera un "dispositivo nuevo" para enviar el aviso por correo | Define cuántos avisos recibirá una persona |
-| 4 | Cómo se cambia la contraseña de una persona y si ese cambio exige reautenticación | El plan lo menciona como motivo de aviso, no como acción detallada. Hoy no existe la acción |
+| 4 | Si el cambio de contraseña debe exigir reautenticación y avisar por correo | El plan lo menciona como motivo de aviso, no como acción detallada. **La implementación asumió** que basta con demostrar la contraseña actual; el aviso por correo sigue pendiente |
 | 5 | Si los códigos de recuperación se pueden regenerar y qué pasa con los anteriores | El plan los entrega una vez y no describe su renovación |
 | 6 | Quién puede cerrar las sesiones de un Administrador: su responsable es la Raíz, pero no se explicita | Aplica la misma regla de responsables, a confirmar |
-| 7 | Con qué contraseña nace la Raíz y cuándo debe cambiarla | **La implementación asumió:** la Raíz nace en estado "invitada" con una contraseña inicial que pone operaciones, y debe registrar su segundo factor para quedar activa. La marca de cambio obligatorio existe, pero no se aplica. Falta decidir cómo se entrega esa contraseña a la Raíz, si su cambio es obligatorio en el primer ingreso y cómo se registra el alta en la auditoría |
+| 7 | Con qué contraseña nace la Raíz y cuándo debe cambiarla | **La implementación asumió:** la Raíz nace en estado "invitada" con una contraseña inicial aleatoria que genera el comando de alta, se muestra una sola vez a operaciones y se debe cambiar en el primer ingreso, antes de registrar el segundo factor. El alta queda en la auditoría. Falta decidir por qué canal operaciones entrega esa contraseña a la Raíz |
 | 8 | Si la reautenticación debe admitir también los códigos de recuperación | Hoy solo admite el código de la aplicación autenticadora |

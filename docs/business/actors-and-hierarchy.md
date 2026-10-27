@@ -10,11 +10,11 @@ Este documento explica quién existe en la organización, quién crea a quién, 
 | --- | --- |
 | Los cuatro actores y sus rangos | **Funciona.** Una organización nace con exactamente una Raíz |
 | Matriz de creación (quién crea a quién) | **Funciona.** Se aplica al invitar y se valida en el servidor |
-| Regla de gestión y subárbol | **Implementada y probada** como regla. Se usa hoy para decidir sobre una persona; las acciones de gestión que la aprovechan están pendientes |
+| Regla de gestión y subárbol | **Funciona.** Decide quién puede suspender, reactivar, desactivar, cambiar el rango o transferir a una persona |
 | Creador y responsable separados | **Funciona.** Al aceptar una invitación, quien invita queda como creador y como responsable |
-| Transferencia de responsable, cambio de rango, bajas con reasignación | **Pendiente** |
+| Transferencia de responsable, cambio de rango, bajas con reasignación | **Funciona.** Hay además una vista de equipo con las personas del subárbol de quien consulta (la Raíz ve a todas) en cualquier estado |
 | Transferencia de la Raíz y recuperación con códigos de emergencia | **Pendiente** |
-| Estados de una persona | Hoy se alcanzan "invitada" y "activa". Los estados "suspendida" y "desactivada" existen en las reglas, pero todavía no hay acciones para llegar a ellos |
+| Estados de una persona | **Funcionan** los cuatro: invitada, activa, suspendida y desactivada. Se puede suspender, reactivar y desactivar; la Raíz nunca se suspende ni se desactiva |
 | Directorio visible | **Funciona** para personas activas |
 | Grupos | **Pendiente** (llegan con la compartición, fase 1b) |
 
@@ -44,7 +44,7 @@ Cada actor tiene un **rango** numérico. Un número menor significa más autorid
 | Líder | 2 | Varios | Operadores | Los Operadores de su subárbol |
 | Operador | 3 | Varios | Nadie | Nadie |
 
-**Cómo nace la Raíz.** Una persona de operaciones da de alta la organización. En ese mismo acto nacen la Raíz, en estado "invitada" y con una contraseña inicial que fija operaciones, y las cuatro plantillas de rol del sistema: Raíz (todos los permisos), Administrador (todos salvo la configuración de la organización), Líder y Operador (todo lo que su rango puede tener; ver [`permissions-and-sharing.md`](permissions-and-sharing.md)). La Raíz queda activa cuando completa su segundo factor. Por diseño no puede existir una organización sin Raíz ni con dos.
+**Cómo nace la Raíz.** Una persona de operaciones da de alta la organización con un comando propio, y el alta queda en la auditoría. En ese mismo acto nacen la Raíz, en estado "invitada" y con una contraseña inicial aleatoria que se muestra una sola vez y que la Raíz debe cambiar en su primer ingreso, y las cuatro plantillas de rol del sistema: Raíz (todos los permisos), Administrador (todos salvo la configuración de la organización), Líder y Operador (todo lo que su rango puede tener; ver [`permissions-and-sharing.md`](permissions-and-sharing.md)). La Raíz queda activa cuando completa su segundo factor. Por diseño no puede existir una organización sin Raíz ni con dos.
 
 **Por qué cuatro actores.** El plan resolvió una contradicción de origen: se pedía a la vez "un solo dueño" y "varios del mismo nivel". Con la Raíz única en la cima y varios Administradores por debajo, ambas cosas son ciertas.
 
@@ -137,6 +137,8 @@ Ana (Administradora) crea a Luis (Líder). Luis crea a Sofía (Operadora). Pedro
 
 ## 5. Transferencia de responsable
 
+**Estado hoy.** Funciona. Si el nuevo responsable no cumple las condiciones de rango, se rechaza con un error propio; si no está activo o no está en el subárbol de quien actúa, la acción se niega sin revelar el motivo. Queda en la auditoría.
+
 Cambiar el responsable de una persona (la "mueve" de rama) exige tres condiciones:
 
 1. Quien lo hace gestiona a esa persona.
@@ -151,6 +153,8 @@ Cambiar el responsable de una persona (la "mueve" de rama) exige tres condicione
 
 ## 6. Cambio de rango
 
+**Estado hoy.** Funciona. Exige reautenticación reciente y que el nuevo rango tenga menos autoridad que el de su responsable actual; si la persona tiene subordinados, se bloquea al bajarla de rango. Se cierran sus sesiones y la acción queda en la auditoría con el rango anterior y el nuevo. La Raíz nunca cambia de rango.
+
 Solo lo hace quien gestiona a la persona, y exige reautenticación (ver [`permissions-and-sharing.md`](permissions-and-sharing.md)). Además:
 
 - El nuevo rango debe ser **mayor** (menos autoridad) que el del actor que lo ejecuta.
@@ -161,6 +165,8 @@ Solo lo hace quien gestiona a la persona, y exige reautenticación (ver [`permis
 **Ejemplo.** Ana quiere dejar a Luis como Operador. Luis tiene a Sofía como subordinada, así que se bloquea. Ana primero pasa a Sofía a su propio equipo (sección 5) y después baja el rango de Luis. Los permisos de Luis que solo caben en el rango de Líder o superior se retiran automáticamente.
 
 ## 7. Bajas con reasignación
+
+**Estado hoy.** Funcionan la suspensión, la reactivación y la desactivación. Solo suspende quien gestiona a una persona activa, y solo reactiva quien gestiona a una persona suspendida; en otro estado la acción se rechaza. Suspender o desactivar cierra todas las sesiones de la persona en la misma operación. Desactivar además pasa a sus subordinados activos a su propio responsable y revoca las invitaciones pendientes que dejó; la auditoría registra cuántos subordinados se reasignaron. La Raíz nunca se suspende ni se desactiva. Siguen pendientes el retiro de comparticiones y la rotación de secretos, que llegan con la bóveda y la gobernanza.
 
 Desactivar a una persona **no la borra**. En el mismo momento:
 
@@ -251,7 +257,7 @@ El plan no define estos puntos. Deben resolverse antes de implementar la parte a
 
 | N.º | Pregunta | Por qué importa |
 | --- | --- | --- |
-| 1 | Si una persona suspendida puede volver a activarse, quién lo hace y cómo | El plan lista los estados, pero solo detalla la baja (desactivación) |
+| 1 | Si una persona suspendida puede volver a activarse, quién lo hace y cómo | El plan lista los estados, pero solo detalla la baja (desactivación). **La implementación asumió** que quien gestiona a la persona puede reactivarla |
 | 2 | Si una persona desactivada puede reactivarse | Afecta a la reasignación y a las tareas de rotación ya creadas |
 | 3 | Tras una transferencia de la Raíz, qué pasa con los Administradores que dependían de la Raíz anterior y con el responsable del nuevo dueño | El plan solo dice que la Raíz anterior queda como Administradora gestionada por la nueva |
 | 4 | Quién puede cancelar una transferencia de la Raíz durante las 72 horas | El plan indica que es cancelable, sin precisar por quién |
@@ -259,6 +265,6 @@ El plan no define estos puntos. Deben resolverse antes de implementar la parte a
 | 6 | Quién puede nombrar a otro gestor de un grupo, y quién archiva un grupo | El plan define los papeles, pero no esas acciones |
 | 7 | Cómo se interpreta "bajar de rango": este documento lo lee como pasar a un rango con menos autoridad (número mayor) | Es la lectura coherente con el resto de la regla, pero conviene confirmarla |
 | 8 | Qué pasa con las cuentas cuyos únicos gestores (MANAGE) son personas dadas de baja | La baja retira comparticiones directas; el plan no dice quién queda a cargo de esas cuentas |
-| 9 | Cómo nace la Raíz y con qué estado | **La implementación asumió:** la Raíz nace en estado "invitada", con una contraseña inicial que pone la persona de operaciones, y pasa a activa al registrar su segundo factor. Falta confirmar cómo se entrega esa contraseña, que su cambio sea obligatorio en el primer ingreso (hoy no se aplica) y cómo se audita el alta de la organización |
+| 9 | Cómo nace la Raíz y con qué estado | **La implementación asumió:** la Raíz nace en estado "invitada", con una contraseña inicial aleatoria que se muestra una sola vez a la persona de operaciones, y pasa a activa al registrar su segundo factor, después de cambiar esa contraseña en su primer ingreso. El alta de la organización queda en la auditoría. Falta confirmar cómo se entrega esa contraseña a la Raíz |
 | 10 | Si quien invita puede elegir un responsable distinto de sí mismo | El plan dice que quien invita define el responsable. **La implementación asumió** que el responsable de la persona invitada es siempre quien la invita, que es el caso que la matriz de creación permite sin ambigüedad |
 | 11 | Si el directorio debe mostrar el rango de cada persona | El plan solo menciona nombre y correo. **La implementación muestra además el rango**; falta confirmar que esa información deba ser visible para cualquier persona activa |

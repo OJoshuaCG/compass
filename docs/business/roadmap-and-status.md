@@ -1,6 +1,6 @@
 # Hoja de ruta y estado
 
-**Fuente en el plan:** "Alcance y hoja de ruta por fases", "Criterios de salida por fase", "Hoja de ruta SSO y preparación del broker tipo Cerby", "Preparación para lectura de correos y SMS", "Estrategia de pruebas" (apartado "Antes de producción"), "Registro de riesgos" y "Decisiones pendientes del equipo". El estado de la fase 0 se toma de [`odd/tasks/phase-0-foundations.md`](../../odd/tasks/phase-0-foundations.md) y del [`README.md`](../../README.md) del repositorio. El estado de la fase 1a se toma de la verificación directa del comportamiento implementado en el backend y en la web: todavía no existe un documento de seguimiento de esa fase en `odd/tasks`.
+**Fuente en el plan:** "Alcance y hoja de ruta por fases", "Criterios de salida por fase", "Hoja de ruta SSO y preparación del broker tipo Cerby", "Preparación para lectura de correos y SMS", "Estrategia de pruebas" (apartado "Antes de producción"), "Registro de riesgos" y "Decisiones pendientes del equipo". El estado de la fase 0 se toma de [`odd/tasks/phase-0-foundations.md`](../../odd/tasks/phase-0-foundations.md) y del [`README.md`](../../README.md) del repositorio. El estado de la fase 1a se toma de la verificación directa del comportamiento implementado en el backend y en la web y de [`odd/tasks/phase-1a-closure.md`](../../odd/tasks/phase-1a-closure.md).
 
 Este documento explica qué entrega cada fase al negocio, cuándo se considera terminada, en qué punto está el producto hoy y qué decisiones siguen abiertas.
 
@@ -79,7 +79,9 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 
 | Capacidad | Qué hace hoy |
 | --- | --- |
-| Alta de una organización | Una persona de operaciones da de alta la organización. Nace con exactamente una Raíz, en estado "invitada", con una contraseña inicial, y con las cuatro plantillas de rol del sistema |
+| Alta de una organización | Una persona de operaciones da de alta la organización con un comando propio, y el alta queda en la auditoría. Nace con exactamente una Raíz, en estado "invitada", con una contraseña inicial aleatoria que se muestra una sola vez y nunca se guarda en claro, y con las cuatro plantillas de rol del sistema |
+| Cambio obligatorio de la contraseña inicial | En su primer ingreso, la Raíz debe cambiar la contraseña inicial antes de registrar su segundo factor. El cambio exige la contraseña actual, aplica la política de contraseñas, cuenta los intentos fallidos con el mismo límite y cierra las demás sesiones de la persona |
+| Gestión de personas | Quien gestiona a una persona puede suspenderla, reactivarla, desactivarla, cambiarle el rango o transferirla a otro responsable. Suspender y desactivar cierran sus sesiones; desactivar reasigna a sus subordinados activos y revoca las invitaciones pendientes que dejó. La Raíz queda protegida de todas estas acciones. Cada acción se audita y la pestaña de gestión de equipo de la página de Usuarios las ofrece |
 | Invitaciones | Quien tiene el permiso de invitar crea una invitación según la matriz de creación, sin poder otorgar permisos que no tiene. El enlace llega por correo, vence a las 72 horas y es de un solo uso. Quien invita no lo ve ni conoce la contraseña. Al aceptar se revalidan los roles y que quien invitó siga activo |
 | Alta de la persona invitada | Contraseña (mínimo 12 caracteres, sin reglas de composición, se rechazan las comunes y las que contienen datos personales), segundo factor obligatorio con confirmación y 10 códigos de recuperación que se muestran una sola vez. Solo entonces la persona queda activa |
 | Inicio de sesión | Contraseña más segundo factor (código de la aplicación autenticadora o código de recuperación de un solo uso). Un código de la aplicación no se puede reutilizar. Mensajes y tiempos equivalentes para usuario inexistente o contraseña incorrecta |
@@ -97,16 +99,15 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Pendiente | Efecto en el negocio |
 | --- | --- |
 | Passkeys | No están implementadas. Hoy el segundo factor es solo la aplicación autenticadora, por lo que el criterio "entrada con passkey" no se cumple |
-| Cambio obligatorio de la contraseña inicial de la Raíz | La contraseña inicial queda marcada para cambiarse, pero la marca no se aplica y no existe una pantalla de cambio de contraseña. La contraseña que puso operaciones sigue vigente |
 | Códigos de emergencia de la Raíz y su recuperación | No existen. Si la Raíz pierde todos sus factores, hoy no hay camino de recuperación |
 | Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores |
 | Envío real de correo | Hoy el enlace de invitación solo se escribe en el registro del servidor en desarrollo. Falta el proveedor de correo, y mientras no exista no se puede invitar en producción |
 | Idempotencia de las peticiones que crean recursos | Un reintento de la misma petición puede crear dos veces el recurso. No está implementada |
 | Asignación de roles personalizados desde la interfaz | Al invitar, la interfaz solo asigna la plantilla del rango. Los roles personalizados no se pueden elegir |
-| Acciones de gestión de personas | Existen las reglas (regla de gestión, matriz, no escalamiento), pero todavía no las acciones que las usan: cambiar rango, transferir responsable, suspender, desactivar con reasignación y transferir la Raíz |
-| Gestión de sesiones y avisos por correo | No hay pantalla para ver o cerrar sesiones propias ni ajenas, ni cierre automático al cambiar rango o roles, ni avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores) |
+| Transferencia de la Raíz | No existe. Las demás acciones de gestión de personas ya funcionan |
+| Gestión de sesiones y avisos por correo | No hay pantalla para ver o cerrar sesiones propias ni ajenas, ni cierre automático al cambiar roles, ni avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores) |
 | Reenvío de invitaciones | No existe. Mientras una invitación siga vigente, no se puede crear otra para el mismo correo; una vencida no lo impide |
-| Alta de la organización como comando | La capacidad existe y se ejercita en las pruebas, pero no hay todavía un comando de operaciones empaquetado ni un registro del alta en la auditoría |
+| Códigos de emergencia en el alta de la organización | El comando de alta ya existe y audita el alta, pero todavía no genera los códigos de emergencia de la Raíz |
 | Ejecución de las pruebas en la verificación automática (CI) de GitHub | Nunca se ha ejecutado. Las pruebas pasan en el entorno local |
 
 #### Criterios de salida: cuáles se cumplen
@@ -115,11 +116,11 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | --- | --- | --- |
 | Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora |
 | Entrada con passkey | **No cumplido** | Las passkeys no están implementadas |
-| Matriz de jerarquía y permisos completa en verde | Cumplido en las reglas | La matriz de creación, la regla de gestión y el catálogo de 27 permisos con techos están implementados y probados. Las acciones de gestión que los usan siguen pendientes |
+| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 27 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub |
 
-**Conclusión.** La fase 1a no se puede dar por cerrada: falta al menos la entrada con passkey, y varios pendientes de seguridad (cambio de la contraseña inicial de la Raíz, recuperación de la Raíz, límites compartidos entre instancias) deben resolverse antes de la puerta de producción.
+**Conclusión.** La fase 1a no se puede dar por cerrada: falta al menos la entrada con passkey, y varios pendientes de seguridad (recuperación de la Raíz con códigos de emergencia, límites compartidos entre instancias) deben resolverse antes de la puerta de producción.
 
 ### 4.2 Fase 1b: Bóveda y 2FA (pendiente)
 
@@ -217,7 +218,7 @@ El plan no fijaba estos valores. La implementación adoptó una opción para pod
 | --- | --- | --- |
 | A | Los permisos por defecto de las plantillas de Líder y de Operador son "todo lo que su rango puede tener" | [`permissions-and-sharing.md`](permissions-and-sharing.md) |
 | B | Tras 10 intentos fallidos hay un bloqueo temporal de 15 minutos, con retraso progresivo desde el tercer fallo | [`authentication.md`](authentication.md) |
-| C | La Raíz nace en estado "invitada", con una contraseña inicial puesta por operaciones | [`actors-and-hierarchy.md`](actors-and-hierarchy.md) y [`authentication.md`](authentication.md) |
+| C | La Raíz nace en estado "invitada", con una contraseña inicial aleatoria que se cambia en el primer ingreso | [`actors-and-hierarchy.md`](actors-and-hierarchy.md) y [`authentication.md`](authentication.md) |
 
 ## 8. Preguntas abiertas
 

@@ -458,9 +458,10 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Aceptación de invitación (contraseña con indicador de fortaleza) | `features/auth` | Funciona |
 | Directorio de personas con búsqueda, orden y paginación por cursor, y diálogo para invitar | `features/directory` | Funciona. Solo ofrece los rangos que quien invita puede crear y no permite elegir roles personalizados |
 | Diálogo de reautenticación (abre ante el error de reautenticación requerida y reintenta la acción una vez) | `shared/auth` y `shared/api` | Funciona con el código de la aplicación |
+| Cambio de contraseña (ruta `/password/change`; es obligatorio para la Raíz tras su primer ingreso con la contraseña inicial: mientras no se cambia, el ingreso lleva a esta pantalla y el registro del segundo factor se rechaza con `AUTH.PASSWORD_CHANGE_REQUIRED`) | `features/auth` | Funciona |
+| Gestión de equipo (pestaña en la página de Usuarios, junto al directorio) con acciones por fila: suspender, reactivar, cambiar rango (con reautenticación), transferir responsable y desactivar (con diálogo de confirmación) | `features/directory` | Funciona. Lista el subárbol de quien consulta (la Raíz ve a todos) con su estado y su responsable |
 | Cierre de sesión | `shared/auth` | Funciona |
 | Registro e ingreso con passkey | Sin implementar | Pendiente |
-| Cambio de contraseña (incluido el cambio obligatorio de la Raíz) | Sin implementar | Pendiente |
 | Ver y cerrar sesiones, restablecer factores de otra persona | Sin implementar | Pendiente |
 | Selección de roles personalizados al invitar | Sin implementar | Pendiente |
 

@@ -18,7 +18,7 @@ Está pensada para una sola organización de unas tres personas operando, aunque
 | Fase | Qué entrega | Estado |
 | --- | --- | --- |
 | 0 · Fundaciones | Base técnica, base de datos con aislamiento por organización, cifrado, registro y diseño visual | Terminada |
-| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona; faltan piezas** (llaves de acceso, gestión de personas, recuperación de la Raíz, correo real) |
+| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona; faltan piezas** (llaves de acceso, códigos de emergencia de la Raíz, correo real). Ya incluye la gestión de personas y el cambio obligatorio de la contraseña inicial |
 | 1b · Bóveda y segundo factor | Guardar y compartir cuentas, revelar contraseñas con motivo y generar códigos | Pendiente |
 | 1c · Gobernanza | Pantalla de auditoría, bajas con rotación, salud de credenciales y acceso temporal | Pendiente |
 | 2 a 7 | Inicio de sesión único, lectura de correos y SMS, extensión de navegador y broker | Pendientes |
@@ -48,9 +48,11 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 ### Probarlo como usuario
 
 1. Abre la dirección que imprimió `pnpm stack` y entra con el correo y la contraseña de la Raíz.
-2. Registra el segundo factor: escanea el código QR con tu aplicación autenticadora y escribe el código de seis dígitos. Guarda los diez códigos de recuperación que se muestran **una sola vez**.
-3. Entra a **Usuarios** e invita a alguien. El correo no se envía de verdad: el entorno local publica el último mensaje en un buzón de pruebas cuya dirección también imprime `pnpm stack`.
-4. Abre el enlace de la invitación en otra ventana privada, elige una contraseña y registra su segundo factor.
+2. El sistema te pide cambiar la contraseña inicial: escribe la actual y elige una nueva.
+3. Registra el segundo factor: escanea el código QR con tu aplicación autenticadora y escribe el código de seis dígitos. Guarda los diez códigos de recuperación que se muestran **una sola vez**.
+4. Entra a **Usuarios** e invita a alguien. El correo no se envía de verdad: el entorno local publica el último mensaje en un buzón de pruebas cuya dirección también imprime `pnpm stack`.
+5. Abre el enlace de la invitación en otra ventana privada, elige una contraseña y registra su segundo factor.
+6. De vuelta como Raíz, abre la pestaña de gestión de equipo en **Usuarios** para suspender, reactivar, cambiar el rango, transferir o desactivar a la persona invitada.
 
 ### Otras tareas habituales
 
@@ -60,6 +62,7 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | Ejecutar las pruebas del sistema | `pnpm test` |
 | Ejecutar las pruebas en navegador real | `pnpm e2e` |
 | Trabajar solo en la interfaz web con recarga en vivo | `pnpm --filter @iam/web dev` |
+| Dar de alta una organización con su Raíz (operaciones) | `pnpm --filter @iam/api provision` |
 
 ## Cómo está organizado
 
