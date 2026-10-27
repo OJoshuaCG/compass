@@ -4,10 +4,17 @@ import { Settings } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  Alert,
   AppShell,
   Badge,
   Button,
+  Checkbox,
+  CodeInput,
   ConfirmDialog,
+  CopyButton,
+  PasswordInput,
+  StrengthMeter,
+  ToastViewport,
   EmptyState,
   FormField,
   IconButton,
@@ -113,5 +120,35 @@ describe('ConfirmDialog behavior', () => {
     );
     await user.keyboard('{Escape}');
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('new form components accessibility (axe-core)', () => {
+  it('PasswordInput, CodeInput, CopyButton, Checkbox, Alert, StrengthMeter and ToastViewport have no violations', async () => {
+    const { container } = render(
+      <div>
+        <FormField label="Password">
+          {(control) => (
+            <PasswordInput {...control} showLabel="Show password" hideLabel="Hide password" />
+          )}
+        </FormField>
+        <FormField label="Code">
+          {(control) => <CodeInput {...control} value="123" onValueChange={vi.fn()} />}
+        </FormField>
+        <CopyButton value="x" label="Copy" copiedLabel="Copied" failedLabel="Failed" />
+        <label>
+          <Checkbox /> Saved
+        </label>
+        <Alert tone="warning">Careful</Alert>
+        <StrengthMeter level={2} label="Strength" levelText="Fair" />
+        <ToastViewport
+          toasts={[{ id: '1', message: 'Done', tone: 'success' }]}
+          onDismiss={vi.fn()}
+          dismissLabel="Dismiss"
+          regionLabel="Notices"
+        />
+      </div>,
+    );
+    expect(await axeViolations(container)).toEqual([]);
   });
 });
