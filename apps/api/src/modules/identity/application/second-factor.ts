@@ -25,7 +25,10 @@ import type {
   LoginAttemptStore,
   SessionRepository,
   TotpEngine,
+  ChallengeStore,
+  PasskeyRepository,
   TotpFactorRecord,
+  WebAuthnEngine,
 } from './ports/identity-ports.js';
 
 export interface SecondFactorDeps {
@@ -42,7 +45,13 @@ export interface SecondFactorDeps {
   readonly clock: Clock;
   /** Para avisar a los Administradores cuando se usa un código de emergencia. */
   readonly mailer: Mailer;
+  readonly passkeys: PasskeyRepository;
+  readonly challenges: ChallengeStore;
+  readonly webauthn: WebAuthnEngine;
 }
+
+/** Vigencia del desafío de una ceremonia WebAuthn. */
+const PASSKEY_CHALLENGE_MS = 5 * 60 * 1000;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -191,6 +200,65 @@ export class SecondFactor {
       metadata: { alertRecipients: recipients.length },
     });
     return ok({ requestId, usedAt: now, recipients });
+  }
+
+  /**
+   * Inicio de sesión con llave de acceso, paso 1: el desafío y las llaves que la persona puede usar.
+   * Sin llaves registradas responde igual que un fallo, para no revelar si las tiene.
+   */
+  beginPasskeyLogin(): Promise<Result<{ options: unknown }, DomainError>> {
+    const { uow, passkeys, challenges, webauthn, clock } = this.deps;
+    return uow.run(async () => {
+      const { user, requestId } = await this.currentUser();
+      // Pedir el desafío no cuenta como intento (solo la verificación): el límite por IP ya acota
+      // cuántos se piden, y quien falla al verificar queda frenado por el contador de la persona.
+      const live = await passkeys.listLive(user.id);
+      if (live.length === 0) return this.failed(user.id, requestId);
+      const { options, challenge } = await webauthn.authenticationOptions({
+        allowed: live.map((p) => ({ id: p.credentialId, transports: p.transports })),
+      });
+      await challenges.issue({
+        userId: user.id,
+        purpose: 'authentication',
+        challenge,
+        expiresAt: new Date(clock.now().getTime() + PASSKEY_CHALLENGE_MS),
+      });
+      return ok({ options });
+    });
+  }
+
+  /** Paso 2: verifica la firma de la llave (con verificación de la persona) y cumple el segundo factor. */
+  verifyPasskey(response: unknown): Promise<Result<void, DomainError>> {
+    const { uow, passkeys, challenges, webauthn, sessions, audit, clock } = this.deps;
+    return uow.run(async () => {
+      const { user, sessionId, requestId } = await this.currentUser();
+      const blocked = await this.checkThrottle(user.id);
+      if (blocked !== null) return err(blocked);
+      const now = clock.now();
+      const expected = await challenges.consume(user.id, 'authentication', now);
+      const presented = (response as { id?: unknown }).id;
+      const credential =
+        typeof presented === 'string'
+          ? (await passkeys.listLive(user.id)).find((p) => p.credentialId === presented)
+          : undefined;
+      if (expected === null || credential === undefined) return this.failed(user.id, requestId);
+      const verified = await webauthn.verifyAuthentication({
+        response,
+        expectedChallenge: expected,
+        credential,
+      });
+      // Un contador que no avanza indica un clon o una repetición: se rechaza como cualquier fallo.
+      if (
+        verified === null ||
+        !(await passkeys.recordUse(credential.id, verified.newCounter, now))
+      ) {
+        return this.failed(user.id, requestId);
+      }
+      await sessions.setMfa(sessionId, now);
+      await this.clearFailures(user.id);
+      await audit.record(this.event('auth.passkey_login', 'success', user.id, requestId));
+      return ok(undefined);
+    });
   }
 
   /** Reautenticación (step-up): un factor verificado en los últimos 5 minutos habilita acciones sensibles. */

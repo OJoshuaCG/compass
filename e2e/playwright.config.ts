@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-const ORIGIN = 'http://127.0.0.1:3100';
+const ORIGIN = 'http://localhost:3100';
 
 export default defineConfig({
   testDir: 'tests',

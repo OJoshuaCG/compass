@@ -15,6 +15,11 @@ export {
   normalizeRecoveryCode,
   RECOVERY_CODE_RANDOM_BYTES,
 } from './domain/recovery-codes.js';
+export { Passkeys } from './application/passkeys.js';
+export { PgChallengeStore } from './infrastructure/pg-challenge-store.js';
+export { PgPasskeyRepository } from './infrastructure/pg-passkey-repository.js';
+export { SimpleWebAuthnEngine } from './infrastructure/simplewebauthn-engine.js';
+export type { WebAuthnConfig } from './infrastructure/simplewebauthn-engine.js';
 export { ListInvitations, ResendInvitation } from './application/invitations.js';
 export { ListMySessions, RevokeMySession } from './application/my-sessions.js';
 export { GetProfile } from './application/profile.js';

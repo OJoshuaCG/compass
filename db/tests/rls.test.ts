@@ -7,6 +7,7 @@ const PHASE1_TENANT_TABLES = [
   'users',
   'user_passwords',
   'webauthn_credentials',
+  'webauthn_challenges',
   'user_totp_factors',
   'user_recovery_codes',
   'sessions',

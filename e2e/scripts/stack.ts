@@ -74,7 +74,11 @@ const adminPool = new Pool({ connectionString: adminUrl, max: 2 });
 const kekDir = mkdtempSync(join(tmpdir(), 'iam-e2e-kek-'));
 const mailer = new InMemoryMailer();
 const logger = createLogger({ level: process.env['E2E_LOG'] ?? 'warn' });
+// WebAuthn no admite una dirección IP como identificador del sitio: el navegador entra por `localhost`.
+const origin = `http://localhost:${String(API_PORT)}`;
+
 const platform = buildContainer({
+  webauthn: { rpName: 'IAM e2e', rpId: 'localhost', origin },
   pool,
   independentPool,
   mailer,
@@ -97,7 +101,6 @@ await new BootstrapOrganization({
   rootPassword: ROOT_PASSWORD,
 });
 
-const origin = `http://127.0.0.1:${String(API_PORT)}`;
 const app = await createApp({
   logger,
   container: platform,

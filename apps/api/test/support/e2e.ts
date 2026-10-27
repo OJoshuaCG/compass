@@ -55,6 +55,7 @@ export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvi
     pool: db.appPool,
     independentPool: db.independentPool,
     mailer,
+    webauthn: { rpName: 'IAM test', rpId: new URL(APP_ORIGIN).hostname, origin: APP_ORIGIN },
     kms: new LocalKeyManagement({ keyFilePath: join(kekDir, 'kek.key'), nodeEnv: 'test' }),
     logger,
     clock,

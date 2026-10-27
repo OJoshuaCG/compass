@@ -19,6 +19,8 @@ export type LoginRequest = z.infer<typeof loginRequestSchema>;
  */
 export const loginResponseSchema = z.object({
   status: z.enum(['password_change_required', 'mfa_required', 'enrollment_required']),
+  /** Solo con `mfa_required`: la persona tiene llaves de acceso y puede usarlas en lugar del código. */
+  passkeys: z.boolean().optional(),
 });
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
 

@@ -29,7 +29,11 @@ import {
   ChangePassword,
   CreateInvitation,
   ListInvitations,
+  Passkeys,
+  PgChallengeStore,
+  PgPasskeyRepository,
   ResendInvitation,
+  SimpleWebAuthnEngine,
   GetProfile,
   ListMySessions,
   RevokeMySession,
@@ -60,6 +64,8 @@ export interface ContainerOptions {
   /** Pool pequeño y separado para transacciones independientes (ver `PgUnitOfWork`). */
   readonly independentPool: Pool;
   readonly mailer: Mailer;
+  /** Sitio donde corre la aplicación: de aquí salen el origen y el identificador de las llaves de acceso. */
+  readonly webauthn: { readonly rpName: string; readonly rpId: string; readonly origin: string };
   readonly kms: KeyManagementPort;
   readonly logger: Logger;
   /** Solo para pruebas: parámetros de Argon2 más baratos. */
@@ -128,7 +134,20 @@ export function buildContainer(options: ContainerOptions) {
     clock,
   });
 
-  const login = new Login({ lookup, hasher, attempts, scope, sessions, credentials, audit, clock });
+  const passkeyRepository = new PgPasskeyRepository(uow);
+  const challenges = new PgChallengeStore(uow);
+  const webauthn = new SimpleWebAuthnEngine(options.webauthn);
+  const login = new Login({
+    lookup,
+    hasher,
+    attempts,
+    scope,
+    sessions,
+    credentials,
+    passkeys: passkeyRepository,
+    audit,
+    clock,
+  });
 
   return {
     clock,
@@ -143,6 +162,16 @@ export function buildContainer(options: ContainerOptions) {
     strength,
     listDirectory,
     listManaged,
+    passkeys: new Passkeys({
+      context: requestContext,
+      uow,
+      directory,
+      passkeys: passkeyRepository,
+      challenges,
+      webauthn,
+      audit,
+      clock,
+    }),
     manageRoles: new ManageRoles({
       context: requestContext,
       uow,
@@ -190,6 +219,9 @@ export function buildContainer(options: ContainerOptions) {
       audit,
       clock,
       mailer,
+      passkeys: passkeyRepository,
+      challenges,
+      webauthn,
     }),
     changePassword: new ChangePassword({
       context: requestContext,

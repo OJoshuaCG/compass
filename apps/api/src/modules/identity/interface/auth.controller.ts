@@ -1,12 +1,17 @@
 import {
   changePasswordRequestSchema,
   loginRequestSchema,
+  passkeyLoginRequestSchema,
+  registerPasskeyRequestSchema,
   mfaVerifyRequestSchema,
   recoveryCodeRequestSchema,
   reauthRequestSchema,
   totpConfirmRequestSchema,
 } from '@iam/contracts';
 import type {
+  Passkey,
+  PasskeyLoginRequest,
+  RegisterPasskeyRequest,
   SessionSummary,
   ChangePasswordRequest,
   LoginRequest,
@@ -32,6 +37,7 @@ import { clearSessionCookie, setSessionCookie } from './session-cookie.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
 import { REAUTH_WINDOW_MS } from '../../access/index.js';
 import { ListMySessions, RevokeMySession } from '../application/my-sessions.js';
+import { Passkeys } from '../application/passkeys.js';
 import { GetProfile } from '../application/profile.js';
 import { ChangePassword } from '../application/change-password.js';
 import { Login } from '../application/login.js';
@@ -49,6 +55,23 @@ export class AuthController {
     private readonly secondFactor: SecondFactor,
     private readonly changePassword: ChangePassword,
   ) {}
+
+  /** Paso 1 del inicio de sesión con llave de acceso (contraseña ya verificada, segundo factor pendiente). */
+  @PartialSession()
+  @Post('passkey/options')
+  @HttpCode(200)
+  async passkeyOptions(): Promise<unknown> {
+    return unwrap(await this.secondFactor.beginPasskeyLogin()).options;
+  }
+
+  @PartialSession()
+  @Post('passkey/verify')
+  @HttpCode(204)
+  async passkeyVerify(
+    @Body(new ZodValidationPipe(passkeyLoginRequestSchema)) body: PasskeyLoginRequest,
+  ): Promise<void> {
+    unwrap(await this.secondFactor.verifyPasskey(body.response));
+  }
 
   @Public()
   @Post('login')
@@ -68,7 +91,9 @@ export class AuthController {
       }),
     );
     setSessionCookie(reply, outcome.token, outcome.expiresAt);
-    return { status: outcome.status };
+    return outcome.status === 'mfa_required'
+      ? { status: outcome.status, passkeys: outcome.passkeys }
+      : { status: outcome.status };
   }
 
   /** Acepta sesión a medias: la contraseña inicial de la Raíz se cambia antes de registrar el segundo factor. */
@@ -146,7 +171,48 @@ export class MeController {
     private readonly profile: GetProfile,
     private readonly listMySessions: ListMySessions,
     private readonly revokeMySession: RevokeMySession,
+    private readonly passkeys: Passkeys,
   ) {}
+
+  @Get('passkeys')
+  async listPasskeys(): Promise<{ data: Passkey[] }> {
+    const rows = await this.passkeys.list();
+    return {
+      data: rows.map((p) => ({
+        id: p.id,
+        name: p.name,
+        createdAt: p.createdAt.toISOString(),
+        lastUsedAt: p.lastUsedAt?.toISOString() ?? null,
+      })),
+    };
+  }
+
+  @Post('passkeys/registration/options')
+  @HttpCode(200)
+  async passkeyRegistrationOptions(): Promise<unknown> {
+    return unwrap(await this.passkeys.beginRegistration()).options;
+  }
+
+  @Post('passkeys/registration/verify')
+  async passkeyRegistrationVerify(
+    @Body(new ZodValidationPipe(registerPasskeyRequestSchema)) body: RegisterPasskeyRequest,
+  ): Promise<Passkey> {
+    const created = unwrap(
+      await this.passkeys.finishRegistration({ name: body.name, response: body.response }),
+    );
+    return {
+      id: created.id,
+      name: created.name,
+      createdAt: created.createdAt.toISOString(),
+      lastUsedAt: created.lastUsedAt?.toISOString() ?? null,
+    };
+  }
+
+  @Post('passkeys/:id/revoke')
+  @HttpCode(204)
+  async revokePasskey(@Param('id', new ZodValidationPipe(z.uuid())) id: string): Promise<void> {
+    unwrap(await this.passkeys.revoke(id));
+  }
 
   @Get('sessions')
   async sessions(): Promise<{ data: SessionSummary[] }> {

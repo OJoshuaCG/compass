@@ -169,6 +169,10 @@ export async function seedTenant(appUrl: string, adminUrl: string, tag: string):
         [orgId, rootId, sha256(`cred-${tag}`)],
       );
       await app.query(
+        "insert into webauthn_challenges (organization_id, user_id, purpose, challenge, expires_at) values ($1, $2, 'registration', $3, now() + interval '5 minutes')",
+        [orgId, rootId, `challenge-${tag}-0123456789`],
+      );
+      await app.query(
         "insert into user_totp_factors (organization_id, user_id, secret_ciphertext, nonce, dek_version) values ($1, $2, '\\x00112233445566778899aabbccddeeff', '\\x000000000000000000000000', 1)",
         [orgId, rootId],
       );

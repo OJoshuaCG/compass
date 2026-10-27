@@ -28,6 +28,8 @@ const envSchema = z
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
     MAIL_FROM: z.string().min(3).optional(),
+    /** Nombre que el autenticador muestra al registrar una llave de acceso. */
+    WEBAUTHN_RP_NAME: z.string().min(1).max(100).default('IAM'),
   })
   .superRefine((env, ctx) => {
     if (env.MAIL_TRANSPORT === 'smtp') {

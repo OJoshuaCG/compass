@@ -77,3 +77,10 @@ export { createRoleRequestSchema, roleSchema } from './roles.js';
 export type { CreateRoleRequest, Role } from './roles.js';
 export { pendingInvitationSchema } from './invitations.js';
 export type { PendingInvitation } from './invitations.js';
+
+export {
+  passkeyLoginRequestSchema,
+  passkeySchema,
+  registerPasskeyRequestSchema,
+} from './passkeys.js';
+export type { Passkey, PasskeyLoginRequest, RegisterPasskeyRequest } from './passkeys.js';

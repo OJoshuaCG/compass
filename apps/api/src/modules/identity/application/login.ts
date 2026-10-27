@@ -12,6 +12,7 @@ import type { TenantScope } from '../../organization/index.js';
 import type {
   CredentialRepository,
   LoginAttemptStore,
+  PasskeyRepository,
   PasswordHasher,
   PreAuthLookup,
 } from './ports/identity-ports.js';
@@ -29,6 +30,8 @@ export interface LoginOutcome {
   readonly token: string;
   readonly expiresAt: Date;
   readonly status: 'password_change_required' | 'mfa_required' | 'enrollment_required';
+  /** Solo con `mfa_required`: la persona tiene llaves de acceso que puede usar en lugar del código. */
+  readonly passkeys: boolean;
 }
 
 export interface LoginDeps {
@@ -38,6 +41,7 @@ export interface LoginDeps {
   readonly scope: TenantScope;
   readonly sessions: SessionService;
   readonly credentials: CredentialRepository;
+  readonly passkeys: PasskeyRepository;
   readonly audit: AuditLog;
   readonly clock: Clock;
 }
@@ -101,6 +105,7 @@ export class Login {
           userAgent: command.userAgent,
         });
         const factor = await credentials.findTotpFactor(row.userId);
+        const hasPasskeys = (await this.deps.passkeys.listLive(row.userId)).length > 0;
         await audit.record({
           action: 'auth.login_password_verified',
           actorId: row.userId,
@@ -120,6 +125,7 @@ export class Login {
             : factor?.verifiedAt === undefined || factor.verifiedAt === null
               ? ('enrollment_required' as const)
               : ('mfa_required' as const),
+          passkeys: hasPasskeys,
         };
       },
     );

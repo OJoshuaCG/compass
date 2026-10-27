@@ -212,3 +212,77 @@ export interface LoginAttemptStore {
   consume(key: string, at: Date): Promise<ThrottleStatus>;
   reset(key: string): Promise<void>;
 }
+
+// ---- llaves de acceso (WebAuthn) ---------------------------------------------------------------
+
+export interface PasskeyRecord {
+  readonly id: string;
+  readonly userId: UserId;
+  /** Identificador de credencial en base64url (lo que el navegador presenta). */
+  readonly credentialId: string;
+  readonly publicKey: Uint8Array;
+  readonly counter: number;
+  readonly transports: readonly string[];
+  readonly name: string;
+  readonly createdAt: Date;
+  readonly lastUsedAt: Date | null;
+}
+
+/** Todo corre en la transacción en curso, con la organización fijada por RLS. */
+export interface PasskeyRepository {
+  listLive(userId: UserId): Promise<readonly PasskeyRecord[]>;
+  /** `duplicate` si esa credencial ya está registrada (el identificador es único en la plataforma). */
+  insert(input: {
+    readonly userId: UserId;
+    readonly credentialId: string;
+    readonly publicKey: Uint8Array;
+    readonly counter: number;
+    readonly transports: readonly string[];
+    readonly name: string;
+  }): Promise<'inserted' | 'duplicate'>;
+  /** Guarda el contador y la fecha de uso; `false` si el contador no avanzó (clon o repetición). */
+  recordUse(id: string, counter: number, at: Date): Promise<boolean>;
+  /** Revoca una llave solo si es de esa persona; `false` si no existe o ya estaba revocada. */
+  revoke(id: string, userId: UserId, at: Date): Promise<boolean>;
+}
+
+export type ChallengePurpose = 'registration' | 'authentication';
+
+export interface ChallengeStore {
+  issue(input: {
+    readonly userId: UserId;
+    readonly purpose: ChallengePurpose;
+    readonly challenge: string;
+    readonly expiresAt: Date;
+  }): Promise<void>;
+  /** Toma el desafío vigente más reciente y lo marca usado (un solo uso); `null` si no hay. */
+  consume(userId: UserId, purpose: ChallengePurpose, now: Date): Promise<string | null>;
+}
+
+export interface VerifiedRegistration {
+  readonly credentialId: string;
+  readonly publicKey: Uint8Array;
+  readonly counter: number;
+  readonly transports: readonly string[];
+}
+
+/** Ceremonias WebAuthn detrás de un puerto: la biblioteca queda en infraestructura. */
+export interface WebAuthnEngine {
+  registrationOptions(input: {
+    readonly userId: UserId;
+    readonly userName: string;
+    readonly existing: readonly { readonly id: string; readonly transports: readonly string[] }[];
+  }): Promise<{ readonly options: unknown; readonly challenge: string }>;
+  verifyRegistration(input: {
+    readonly response: unknown;
+    readonly expectedChallenge: string;
+  }): Promise<VerifiedRegistration | null>;
+  authenticationOptions(input: {
+    readonly allowed: readonly { readonly id: string; readonly transports: readonly string[] }[];
+  }): Promise<{ readonly options: unknown; readonly challenge: string }>;
+  verifyAuthentication(input: {
+    readonly response: unknown;
+    readonly expectedChallenge: string;
+    readonly credential: PasskeyRecord;
+  }): Promise<{ readonly newCounter: number } | null>;
+}

@@ -11,7 +11,14 @@ const config = loadConfig(process.env);
 const logger = createLogger({ level: config.LOG_LEVEL });
 if (config.DATABASE_URL === undefined) throw new Error('DATABASE_URL is required');
 
+const appOrigin = new URL(config.APP_ORIGIN);
+
 const container = buildContainer({
+  webauthn: {
+    rpName: config.WEBAUTHN_RP_NAME,
+    rpId: appOrigin.hostname,
+    origin: appOrigin.origin,
+  },
   pool: new Pool({ connectionString: config.DATABASE_URL, max: config.DB_POOL_MAX }),
   independentPool: new Pool({ connectionString: config.DATABASE_URL, max: 2 }),
   // Solo desarrollo: en producción se usa el adaptador del KMS del proveedor (ADR 0020).
