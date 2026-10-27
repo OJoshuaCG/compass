@@ -46,6 +46,7 @@ pnpm build            # compila todos los workspaces que tienen build
 pnpm lint             # ESLint en cada workspace
 pnpm typecheck        # tsc --noEmit en cada workspace
 pnpm test             # Vitest en cada workspace
+pnpm e2e              # navegador real (Chrome) contra la plataforma completa
 pnpm format           # Prettier --write
 pnpm format:check     # Prettier --check
 ```
