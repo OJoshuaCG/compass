@@ -1,0 +1,22 @@
+{
+  "generic": "Ocurrió un error inesperado. Intenta de nuevo.",
+  "network": "No se pudo conectar con el servidor. Revisa tu conexión.",
+  "requestId": "ID de solicitud: {{requestId}}",
+  "AUTHZ.TENANT": "No tienes acceso a esta organización.",
+  "AUTHZ.SESSION": "Tu sesión no es válida o expiró. Inicia sesión de nuevo.",
+  "AUTHZ.PERMISSION": "No tienes permiso para realizar esta acción.",
+  "AUTHZ.HIERARCHY.NOT_IN_SUBTREE": "No puedes administrar a este usuario: está fuera de tu jerarquía.",
+  "AUTHZ.SHARE": "No tienes acceso a este elemento compartido.",
+  "AUTHZ.REAUTH_REQUIRED": "Confirma tu identidad para continuar.",
+  "VALIDATION.FAILED": "Algunos datos no son válidos. Revísalos e intenta de nuevo.",
+  "CONFLICT.VERSION": "El recurso cambió mientras lo editabas. Recarga para ver la versión actual.",
+  "NOT_FOUND": "No se encontró el recurso solicitado.",
+  "RATE_LIMITED": "Demasiados intentos. Espera un momento antes de reintentar.",
+  "INTERNAL": "Error interno del servidor. Si persiste, comparte el ID de solicitud con soporte.",
+  "CRYPTO.DECRYPT_FAILED": "No se pudo descifrar el secreto.",
+  "CRYPTO.KMS_UNAVAILABLE": "El servicio de claves no está disponible por ahora.",
+  "CRYPTO.UNKNOWN_DEK_VERSION": "El secreto usa una versión de clave desconocida.",
+  "AUDIT.METADATA_FIELD_NOT_ALLOWED": "El evento de auditoría contiene un campo no permitido.",
+  "AUDIT.CHAIN_BROKEN": "Se detectó una inconsistencia en la cadena de auditoría.",
+  "AUDIT.REASON_CODE_REQUIRED": "Una negación debe registrarse con un código de motivo."
+}

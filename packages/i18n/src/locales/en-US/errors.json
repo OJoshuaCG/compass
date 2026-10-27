@@ -1,0 +1,22 @@
+{
+  "generic": "An unexpected error occurred. Please try again.",
+  "network": "Could not reach the server. Check your connection.",
+  "requestId": "Request ID: {{requestId}}",
+  "AUTHZ.TENANT": "You do not have access to this organization.",
+  "AUTHZ.SESSION": "Your session is invalid or has expired. Sign in again.",
+  "AUTHZ.PERMISSION": "You do not have permission to perform this action.",
+  "AUTHZ.HIERARCHY.NOT_IN_SUBTREE": "You cannot manage this user: they are outside your hierarchy.",
+  "AUTHZ.SHARE": "You do not have access to this shared item.",
+  "AUTHZ.REAUTH_REQUIRED": "Confirm your identity to continue.",
+  "VALIDATION.FAILED": "Some values are not valid. Review them and try again.",
+  "CONFLICT.VERSION": "The resource changed while you were editing. Reload to see the current version.",
+  "NOT_FOUND": "The requested resource was not found.",
+  "RATE_LIMITED": "Too many attempts. Wait a moment before retrying.",
+  "INTERNAL": "Internal server error. If it persists, share the request ID with support.",
+  "CRYPTO.DECRYPT_FAILED": "The secret could not be decrypted.",
+  "CRYPTO.KMS_UNAVAILABLE": "The key service is unavailable right now.",
+  "CRYPTO.UNKNOWN_DEK_VERSION": "The secret uses an unknown key version.",
+  "AUDIT.METADATA_FIELD_NOT_ALLOWED": "The audit event contains a disallowed field.",
+  "AUDIT.CHAIN_BROKEN": "An inconsistency was detected in the audit chain.",
+  "AUDIT.REASON_CODE_REQUIRED": "A denial must be recorded with a reason code."
+}
