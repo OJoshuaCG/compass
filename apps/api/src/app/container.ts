@@ -15,10 +15,17 @@ import {
   SecretCipher,
 } from '../modules/crypto/index.js';
 import type { KeyManagementPort } from '../modules/crypto/index.js';
-import { CreateUser, ListDirectory, PgUserDirectory } from '../modules/directory/index.js';
+import {
+  CreateUser,
+  ListDirectory,
+  ListManaged,
+  ManageUsers,
+  PgUserDirectory,
+} from '../modules/directory/index.js';
 import {
   AcceptInvitation,
   Argon2PasswordHasher,
+  ChangePassword,
   CreateInvitation,
   GetProfile,
   InMemoryLoginAttemptStore,
@@ -96,6 +103,7 @@ export function buildContainer(options: ContainerOptions) {
   });
   const createUser = new CreateUser({ directory, ids });
   const listDirectory = new ListDirectory({ directory, uow });
+  const listManaged = new ListManaged({ directory, uow, context: requestContext });
 
   // identity
   const lookup = new PgPreAuthLookup(pool);
@@ -129,6 +137,17 @@ export function buildContainer(options: ContainerOptions) {
     hasher,
     strength,
     listDirectory,
+    listManaged,
+    manageUsers: new ManageUsers({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory,
+      sessions: sessionRepository,
+      invitations,
+      audit,
+      clock,
+    }),
     login,
     logout: new Logout({
       context: requestContext,
@@ -146,6 +165,18 @@ export function buildContainer(options: ContainerOptions) {
       cipher,
       totp,
       primitives,
+      attempts,
+      audit,
+      clock,
+    }),
+    changePassword: new ChangePassword({
+      context: requestContext,
+      uow,
+      directory,
+      credentials,
+      sessions: sessionRepository,
+      hasher,
+      strength,
       attempts,
       audit,
       clock,

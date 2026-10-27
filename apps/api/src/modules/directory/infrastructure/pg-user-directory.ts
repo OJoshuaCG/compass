@@ -15,6 +15,8 @@ import type {
   DirectoryPage,
   DirectoryQuery,
   DirectoryRow,
+  ManagedPage,
+  ManagedRow,
   NewUser,
   UserDirectory,
 } from '../application/ports/user-directory.js';
@@ -123,11 +125,75 @@ export class PgUserDirectory implements UserDirectory {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
+  async lockHierarchy(): Promise<void> {
+    await this.transactions
+      .current()
+      .query(
+        "select pg_advisory_xact_lock(hashtextextended('hierarchy:' || current_setting('app.org_id', true), 0))",
+      );
+  }
+
+  async setRank(id: UserId, rank: Rank): Promise<void> {
+    await this.transactions.current().query('update users set rank = $2 where id = $1', [id, rank]);
+  }
+
+  async setManager(id: UserId, managerId: UserId): Promise<void> {
+    await this.transactions
+      .current()
+      .query('update users set managed_by = $2 where id = $1', [id, managerId]);
+  }
+
+  async reassignReports(fromManagerId: UserId, toManagerId: UserId): Promise<number> {
+    const result = await this.transactions
+      .current()
+      .query("update users set managed_by = $2 where managed_by = $1 and status <> 'deactivated'", [
+        fromManagerId,
+        toManagerId,
+      ]);
+    return result.rowCount ?? 0;
+  }
+
   async list(query: DirectoryQuery): Promise<DirectoryPage> {
+    const page = await this.page(query, { where: "status = 'active'", params: [] });
+    return { rows: page.rows.map(toDirectoryRow), nextCursor: page.nextCursor };
+  }
+
+  async listManaged(
+    actor: { readonly id: UserId; readonly isRoot: boolean },
+    query: DirectoryQuery,
+  ): Promise<ManagedPage> {
+    // Subárbol descendente (`union` sin `all` corta cualquier ciclo). La Raíz ve toda la organización.
+    const scope = actor.isRoot
+      ? { where: 'id <> $1', params: [actor.id] }
+      : {
+          where: `id in (
+            with recursive subtree(id) as (
+              select id from users where managed_by = $1
+              union
+              select u.id from users u join subtree s on u.managed_by = s.id
+            ) select id from subtree)`,
+          params: [actor.id],
+        };
+    const page = await this.page(query, scope);
+    return {
+      rows: page.rows.map((row): ManagedRow => ({
+        ...toDirectoryRow(row),
+        status: row.status,
+        managedBy: toRecord(row).managedBy,
+      })),
+      nextCursor: page.nextCursor,
+    };
+  }
+
+  /** Paginación por cursor común; `scope.where` es SQL fijo del repositorio, nunca texto del cliente. */
+  private async page(
+    query: DirectoryQuery,
+    scope: { readonly where: string; readonly params: readonly unknown[] },
+  ): Promise<{ rows: UserRow[]; nextCursor: string | null }> {
     const column = SORT_COLUMN[query.sort];
     const asc = query.dir === 'asc';
-    const params: unknown[] = [];
-    const where: string[] = ["status = 'active'"];
+    const params: unknown[] = [...scope.params];
+    const where: string[] = [scope.where];
 
     if (query.search !== null) {
       params.push(`%${escapeLike(query.search)}%`);
@@ -158,7 +224,7 @@ export class PgUserDirectory implements UserDirectory {
     const page = hasMore ? result.rows.slice(0, query.limit) : result.rows;
     const last = page.at(-1);
     return {
-      rows: page.map(toDirectoryRow),
+      rows: page,
       nextCursor:
         hasMore && last !== undefined
           ? encodeCursor(query.sort, sortValue(last, query.sort), last.id)

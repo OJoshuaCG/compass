@@ -1,6 +1,7 @@
 import type { QueryResultRow } from 'pg';
 
 import { asOrganizationId, asUserId, isRank } from '../../../shared/kernel/index.js';
+import type { UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type {
   InvitationRecord,
@@ -60,6 +61,15 @@ export class PgInvitationRepository implements InvitationRepository {
       `update invitations set revoked_at = $2
         where email = lower($1) and accepted_at is null and revoked_at is null and expires_at <= $2`,
       [email, now],
+    );
+  }
+
+  /** Revoca las pendientes que la persona dejó (como quien invita o como responsable del invitado). */
+  async revokePendingOfUser(userId: UserId, at: Date): Promise<void> {
+    await this.transactions.current().query(
+      `update invitations set revoked_at = $2
+        where (invited_by = $1 or managed_by = $1) and accepted_at is null and revoked_at is null`,
+      [userId, at],
     );
   }
 

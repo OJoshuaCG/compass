@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import type { DynamicModule, Provider } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
-import { ListDirectory } from '../modules/directory/index.js';
+import { ListDirectory, ListManaged, ManageUsers } from '../modules/directory/index.js';
 import { UsersController } from '../modules/directory/interface/users.controller.js';
 import {
   AcceptInvitation,
   CreateInvitation,
+  ChangePassword,
   GetProfile,
   Login,
   Logout,
@@ -41,11 +42,14 @@ export class AppModule {
       { provide: Login, useValue: container.login },
       { provide: Logout, useValue: container.logout },
       { provide: SecondFactor, useValue: container.secondFactor },
+      { provide: ChangePassword, useValue: container.changePassword },
       { provide: CreateInvitation, useValue: container.createInvitation },
       { provide: PreviewInvitation, useValue: container.previewInvitation },
       { provide: AcceptInvitation, useValue: container.acceptInvitation },
       { provide: GetProfile, useValue: container.getProfile },
       { provide: ListDirectory, useValue: container.listDirectory },
+      { provide: ListManaged, useValue: container.listManaged },
+      { provide: ManageUsers, useValue: container.manageUsers },
       { provide: REQUEST_CONTEXT_RUNNER, useValue: container.requestContext },
       { provide: APP_GUARD, useClass: RateLimitGuard },
       { provide: APP_GUARD, useFactory: () => new CsrfGuard(appOrigin) },

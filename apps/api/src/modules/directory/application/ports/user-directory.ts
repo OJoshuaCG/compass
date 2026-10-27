@@ -31,6 +31,17 @@ export interface DirectoryRow {
   readonly rank: Rank;
 }
 
+/** Fila de la vista de gestión: además de lo visible, estado y responsable. */
+export interface ManagedRow extends DirectoryRow {
+  readonly status: UserStatus;
+  readonly managedBy: UserId | null;
+}
+
+export interface ManagedPage {
+  readonly rows: readonly ManagedRow[];
+  readonly nextCursor: string | null;
+}
+
 export interface DirectoryPage {
   readonly rows: readonly DirectoryRow[];
   readonly nextCursor: string | null;
@@ -46,6 +57,23 @@ export interface UserDirectory {
   /** ¿`userId` está en el subárbol de gestión de `managerId` (su cadena de responsables llega a él)? */
   isInSubtree(managerId: UserId, userId: UserId): Promise<boolean>;
   hasReports(userId: UserId): Promise<boolean>;
+  /**
+   * Serializa las mutaciones de jerarquía de la organización hasta el fin de la transacción: las
+   * reglas (rango, responsable, subordinados) se comprueban con lecturas y no deben cambiar debajo.
+   */
+  lockHierarchy(): Promise<void>;
+  setRank(id: UserId, rank: Rank): Promise<void>;
+  setManager(id: UserId, managerId: UserId): Promise<void>;
+  /** Pasa a `toManagerId` a todos los subordinados vigentes (no dados de baja) de `fromManagerId`. */
+  reassignReports(fromManagerId: UserId, toManagerId: UserId): Promise<number>;
+  /**
+   * Personas que `actor` gestiona (cualquier estado): su subárbol, o toda la organización si es la
+   * Raíz. Nunca incluye al propio actor.
+   */
+  listManaged(
+    actor: { readonly id: UserId; readonly isRoot: boolean },
+    query: DirectoryQuery,
+  ): Promise<ManagedPage>;
   /** Directorio visible: usuarios activos, solo nombre, correo y rango. */
   list(query: DirectoryQuery): Promise<DirectoryPage>;
 }

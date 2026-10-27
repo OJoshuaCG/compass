@@ -1,5 +1,10 @@
-import type { UserId } from '../../../shared/kernel/index.js';
-import type { DirectoryPage, NewUser, UserDirectory } from '../application/ports/user-directory.js';
+import type { Rank, UserId } from '../../../shared/kernel/index.js';
+import type {
+  DirectoryPage,
+  ManagedPage,
+  NewUser,
+  UserDirectory,
+} from '../application/ports/user-directory.js';
 import type { UserRecord, UserStatus } from '../domain/user.js';
 
 /** Doble de prueba con la misma semántica de subárbol que la consulta recursiva real. */
@@ -47,6 +52,37 @@ export class InMemoryUserDirectory implements UserDirectory {
     return Promise.resolve(
       [...this.users.values()].some((u) => u.managedBy === userId && u.status !== 'deactivated'),
     );
+  }
+
+  lockHierarchy(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  setRank(id: UserId, rank: Rank): Promise<void> {
+    const user = this.users.get(id);
+    if (user !== undefined) this.users.set(id, { ...user, rank });
+    return Promise.resolve();
+  }
+
+  setManager(id: UserId, managerId: UserId): Promise<void> {
+    const user = this.users.get(id);
+    if (user !== undefined) this.users.set(id, { ...user, managedBy: managerId });
+    return Promise.resolve();
+  }
+
+  reassignReports(fromManagerId: UserId, toManagerId: UserId): Promise<number> {
+    let moved = 0;
+    for (const user of this.users.values()) {
+      if (user.managedBy === fromManagerId && user.status !== 'deactivated') {
+        this.users.set(user.id, { ...user, managedBy: toManagerId });
+        moved += 1;
+      }
+    }
+    return Promise.resolve(moved);
+  }
+
+  listManaged(): Promise<ManagedPage> {
+    return Promise.resolve({ rows: [], nextCursor: null });
   }
 
   list(): Promise<DirectoryPage> {
