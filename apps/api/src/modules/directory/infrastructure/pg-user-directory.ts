@@ -1,0 +1,230 @@
+/**
+ * Invariantes de seguridad
+ * - Toda consulta corre en la transacción en curso: RLS limita las filas a la organización.
+ * - Los campos de orden salen de una lista blanca fija; nada del cliente se interpola en SQL.
+ * - El directorio solo devuelve usuarios activos y solo nombre, correo y rango.
+ */
+import { hasControlCharacter } from '@iam/contracts';
+import type { QueryResultRow } from 'pg';
+
+import { asOrganizationId, asUserId, isRank } from '../../../shared/kernel/index.js';
+import type { Rank, UserId } from '../../../shared/kernel/index.js';
+import type { TransactionProvider } from '../../organization/index.js';
+import type {
+  DirectoryPage,
+  DirectoryQuery,
+  DirectoryRow,
+  NewUser,
+  UserDirectory,
+} from '../application/ports/user-directory.js';
+import type { UserRecord, UserStatus } from '../domain/user.js';
+
+const SORT_COLUMN = {
+  displayName: 'display_name',
+  email: 'email',
+  rank: 'rank',
+} as const;
+
+interface UserRow extends QueryResultRow {
+  id: string;
+  organization_id: string;
+  email: string;
+  display_name: string;
+  rank: number;
+  status: UserStatus;
+  managed_by: string | null;
+  created_by: string | null;
+  locale: 'es-MX' | 'en-US';
+  timezone: string;
+}
+
+const UNIQUE_VIOLATION = '23505';
+
+export class PgUserDirectory implements UserDirectory {
+  constructor(private readonly transactions: TransactionProvider) {}
+
+  async findById(id: UserId): Promise<UserRecord | null> {
+    const result = await this.transactions.current().query<UserRow>(
+      `select id, organization_id, email, display_name, rank, status, managed_by, created_by, locale, timezone
+           from users where id = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : toRecord(row);
+  }
+
+  async existsByEmail(email: string): Promise<boolean> {
+    const result = await this.transactions
+      .current()
+      .query('select 1 from users where email = lower($1)', [email]);
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async insert(user: NewUser): Promise<'inserted' | 'email_taken'> {
+    const client = this.transactions.current();
+    // Savepoint: un correo repetido es un resultado esperado y no debe abortar la transacción.
+    await client.query('savepoint insert_user');
+    try {
+      await client.query(
+        `insert into users (id, organization_id, email, display_name, rank, status, managed_by, created_by, locale, timezone)
+         values ($1, $2, lower($3), $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          user.id,
+          user.organizationId,
+          user.email,
+          user.displayName,
+          user.rank,
+          user.status,
+          user.managedBy,
+          user.createdBy,
+          user.locale,
+          user.timezone,
+        ],
+      );
+      await client.query('release savepoint insert_user');
+      return 'inserted';
+    } catch (error) {
+      await client.query('rollback to savepoint insert_user');
+      if ((error as { code?: string }).code === UNIQUE_VIOLATION) return 'email_taken';
+      throw error;
+    }
+  }
+
+  async setStatus(id: UserId, status: UserStatus): Promise<void> {
+    await this.transactions
+      .current()
+      .query('update users set status = $2 where id = $1', [id, status]);
+  }
+
+  async isInSubtree(managerId: UserId, userId: UserId): Promise<boolean> {
+    // Se sube por la cadena `managed_by` del usuario; `union` (sin `all`) corta cualquier ciclo.
+    const result = await this.transactions.current().query<{ found: boolean }>(
+      `with recursive chain(id, managed_by) as (
+         select id, managed_by from users where id = $2
+         union
+         select u.id, u.managed_by from users u join chain c on u.id = c.managed_by
+       )
+       select exists(select 1 from chain where managed_by = $1) as found`,
+      [managerId, userId],
+    );
+    return result.rows[0]?.found ?? false;
+  }
+
+  async hasReports(userId: UserId): Promise<boolean> {
+    const result = await this.transactions
+      .current()
+      .query("select 1 from users where managed_by = $1 and status <> 'deactivated' limit 1", [
+        userId,
+      ]);
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async list(query: DirectoryQuery): Promise<DirectoryPage> {
+    const column = SORT_COLUMN[query.sort];
+    const asc = query.dir === 'asc';
+    const params: unknown[] = [];
+    const where: string[] = ["status = 'active'"];
+
+    if (query.search !== null) {
+      params.push(`%${escapeLike(query.search)}%`);
+      where.push(
+        `(display_name ilike $${String(params.length)} or email ilike $${String(params.length)})`,
+      );
+    }
+    const cursor = query.cursor === null ? null : decodeCursor(query.cursor, query.sort);
+    if (cursor !== null) {
+      params.push(cursor.value, cursor.id);
+      const a = `$${String(params.length - 1)}`;
+      const b = `$${String(params.length)}`;
+      where.push(
+        `(${column}, id) ${asc ? '>' : '<'} (${query.sort === 'rank' ? `${a}::smallint` : a}, ${b}::uuid)`,
+      );
+    }
+    params.push(query.limit + 1);
+    const direction = asc ? 'asc' : 'desc';
+    const result = await this.transactions.current().query<UserRow>(
+      `select id, organization_id, email, display_name, rank, status, managed_by, created_by, locale, timezone
+         from users
+        where ${where.join(' and ')}
+        order by ${column} ${direction}, id ${direction}
+        limit $${String(params.length)}`,
+      params,
+    );
+    const hasMore = result.rows.length > query.limit;
+    const page = hasMore ? result.rows.slice(0, query.limit) : result.rows;
+    const last = page.at(-1);
+    return {
+      rows: page.map(toDirectoryRow),
+      nextCursor:
+        hasMore && last !== undefined
+          ? encodeCursor(query.sort, sortValue(last, query.sort), last.id)
+          : null,
+    };
+  }
+}
+
+const escapeLike = (value: string): string => value.replace(/[\\%_]/g, (char) => `\\${char}`);
+
+function sortValue(row: UserRow, field: DirectoryQuery['sort']): string {
+  if (field === 'rank') return String(row.rank);
+  return field === 'email' ? row.email : row.display_name;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Cursor opaco: campo de orden, valor y id en base64url. Solo mueve la ventana, no da acceso. Se
+ * valida por completo: un cursor manipulado, ilegible o de otro campo de orden se ignora y la
+ * consulta devuelve la primera página (nunca un error de base de datos).
+ */
+function encodeCursor(sort: DirectoryQuery['sort'], value: string, id: string): string {
+  return Buffer.from(JSON.stringify([sort, value, id])).toString('base64url');
+}
+
+function decodeCursor(
+  cursor: string,
+  sort: DirectoryQuery['sort'],
+): { value: string; id: string } | null {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (!Array.isArray(parsed) || parsed.length !== 3) return null;
+    const [field, value, id] = parsed as unknown[];
+    if (field !== sort || typeof value !== 'string' || typeof id !== 'string') return null;
+    if (!UUID_PATTERN.test(id)) return null;
+    if (sort === 'rank' && !/^[0-3]$/.test(value)) return null;
+    // PostgreSQL rechaza el carácter NUL en texto (error de base de datos): ningún control entra.
+    if (value.length > 300 || hasControlCharacter(value)) return null;
+    return { value, id };
+  } catch {
+    return null;
+  }
+}
+
+function toRecord(row: UserRow): UserRecord {
+  return {
+    id: asUserId(row.id),
+    organizationId: asOrganizationId(row.organization_id),
+    email: row.email,
+    displayName: row.display_name,
+    rank: toRank(row.rank),
+    status: row.status,
+    managedBy: row.managed_by === null ? null : asUserId(row.managed_by),
+    createdBy: row.created_by === null ? null : asUserId(row.created_by),
+    locale: row.locale,
+    timezone: row.timezone,
+  };
+}
+
+function toDirectoryRow(row: UserRow): DirectoryRow {
+  return {
+    id: asUserId(row.id),
+    displayName: row.display_name,
+    email: row.email,
+    rank: toRank(row.rank),
+  };
+}
+
+function toRank(value: number): Rank {
+  if (!isRank(value)) throw new Error(`Unexpected rank in database: ${String(value)}`);
+  return value;
+}
