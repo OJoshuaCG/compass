@@ -253,6 +253,37 @@ test.describe
     await expect(page).toHaveURL(/q=operator/);
   });
 
+  test('a sensitive action asks to confirm the identity: a wrong code is refused, the right one completes it', async ({
+    page,
+  }) => {
+    const violations = watchSecurityViolations(page);
+    await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
+    await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
+    await page.getByRole('button', { name: 'Verify' }).click();
+    await page.getByRole('link', { name: 'Users' }).click();
+    await page.getByRole('tab', { name: 'Team management' }).click();
+
+    const table = page.getByRole('table', { name: 'People you manage' });
+    await expect(table.getByText('operator@e2e.test')).toBeVisible();
+    await page.getByRole('button', { name: /Actions for / }).click();
+    await page.getByRole('menuitem', { name: 'Change rank' }).click();
+    await page.getByLabel('New rank').selectOption({ label: 'Lead' });
+    await page.getByRole('button', { name: 'Change rank' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Confirm your identity' });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel('Verification code').fill('000000');
+    await dialog.getByRole('button', { name: 'Confirm' }).click();
+    await expect(dialog).toBeVisible(); // el código erróneo no confirma nada
+    await expect(dialog.getByRole('alert')).toBeVisible();
+
+    await dialog.getByLabel('Verification code').fill(await freshCode(rootSecret));
+    await dialog.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page.getByText(/rank was changed to Lead/)).toBeVisible();
+    await expect(table.getByText('Lead', { exact: true })).toBeVisible();
+    expect(violations).toEqual([]);
+  });
+
   test('the language can be switched and the choice survives a reload', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
