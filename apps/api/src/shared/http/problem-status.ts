@@ -1,7 +1,10 @@
 import { ErrorCode } from '@iam/contracts';
 
-/** Estado HTTP de cada código del catálogo. Un código sin entrada responde 500. */
-const STATUS_BY_CODE: Readonly<Partial<Record<ErrorCode, number>>> = {
+/**
+ * Estado HTTP de cada código del catálogo. El tipo exige una entrada por código: agregar un código
+ * nuevo al catálogo sin decidir su estado deja de compilar (antes caía en silencio en 500).
+ */
+const STATUS_BY_CODE: Readonly<Record<ErrorCode, number>> = {
   [ErrorCode.AUTHZ_SESSION]: 401,
   // El recurso de otra organización se responde como inexistente (404): no se revela que existe.
   [ErrorCode.AUTHZ_TENANT]: 404,
@@ -22,10 +25,16 @@ const STATUS_BY_CODE: Readonly<Partial<Record<ErrorCode, number>>> = {
   [ErrorCode.CONFLICT_VERSION]: 409,
   [ErrorCode.NOT_FOUND]: 404,
   [ErrorCode.RATE_LIMITED]: 429,
+  [ErrorCode.INTERNAL]: 500,
+  [ErrorCode.CRYPTO_DECRYPT_FAILED]: 500,
   [ErrorCode.CRYPTO_KMS_UNAVAILABLE]: 503,
+  [ErrorCode.CRYPTO_UNKNOWN_DEK_VERSION]: 500,
+  [ErrorCode.AUDIT_METADATA_FIELD_NOT_ALLOWED]: 500,
+  [ErrorCode.AUDIT_CHAIN_BROKEN]: 500,
+  [ErrorCode.AUDIT_REASON_CODE_REQUIRED]: 500,
 };
 
-export const statusFor = (code: ErrorCode): number => STATUS_BY_CODE[code] ?? 500;
+export const statusFor = (code: ErrorCode): number => STATUS_BY_CODE[code];
 
 /**
  * Código que se muestra al cliente. Los 5xx internos (salvo la caída del KMS, que la UI sabe

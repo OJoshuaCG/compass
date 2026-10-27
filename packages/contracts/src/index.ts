@@ -9,7 +9,7 @@ export {
   pageSchema,
 } from './pagination.js';
 export type { PageLimit, PageQuery } from './pagination.js';
-export { hasControlCharacter } from './text.js';
+export { emailSchema, hasControlCharacter, safeText } from './text.js';
 export { PERMISSIONS } from './permissions.js';
 export type { Permission } from './permissions.js';
 export {

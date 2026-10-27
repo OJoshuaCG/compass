@@ -1,4 +1,4 @@
-import { DIRECTORY_SORT_FIELDS, hasControlCharacter, pageQuerySchema } from '@iam/contracts';
+import { DIRECTORY_SORT_FIELDS, pageQuerySchema, safeText } from '@iam/contracts';
 import type { DirectoryUser } from '@iam/contracts';
 import { Controller, Get, Query } from '@nestjs/common';
 import { z } from 'zod';
@@ -8,12 +8,7 @@ import { ListDirectory } from '../application/list-directory.js';
 
 const directoryQuerySchema = pageQuerySchema.extend({
   sort: z.enum(DIRECTORY_SORT_FIELDS).optional(),
-  q: z
-    .string()
-    .trim()
-    .max(100)
-    .refine((value) => !hasControlCharacter(value), 'no control characters')
-    .optional(),
+  q: safeText({ max: 100 }).optional(),
 });
 
 interface DirectoryPageResponse {

@@ -1,12 +1,11 @@
 import { z } from 'zod';
 
 import { PERMISSIONS } from './permissions.js';
+import { emailSchema } from './text.js';
 
 /** Rango numérico: 0 Raíz, 1 Administrador, 2 Líder, 3 Operador (menor = más autoridad). */
 export const rankSchema = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]);
 export type Rank = z.infer<typeof rankSchema>;
-
-const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
 
 export const loginRequestSchema = z.object({
   email: emailSchema,

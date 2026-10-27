@@ -6,6 +6,7 @@
  */
 import { hasControlCharacter } from '@iam/contracts';
 import type { QueryResultRow } from 'pg';
+import { z } from 'zod';
 
 import { asOrganizationId, asUserId, isRank } from '../../../shared/kernel/index.js';
 import type { Rank, UserId } from '../../../shared/kernel/index.js';
@@ -40,12 +41,15 @@ interface UserRow extends QueryResultRow {
 
 const UNIQUE_VIOLATION = '23505';
 
+const USER_COLUMNS =
+  'id, organization_id, email, display_name, rank, status, managed_by, created_by, locale, timezone';
+
 export class PgUserDirectory implements UserDirectory {
   constructor(private readonly transactions: TransactionProvider) {}
 
   async findById(id: UserId): Promise<UserRecord | null> {
     const result = await this.transactions.current().query<UserRow>(
-      `select id, organization_id, email, display_name, rank, status, managed_by, created_by, locale, timezone
+      `select ${USER_COLUMNS}
            from users where id = $1`,
       [id],
     );
@@ -143,7 +147,7 @@ export class PgUserDirectory implements UserDirectory {
     params.push(query.limit + 1);
     const direction = asc ? 'asc' : 'desc';
     const result = await this.transactions.current().query<UserRow>(
-      `select id, organization_id, email, display_name, rank, status, managed_by, created_by, locale, timezone
+      `select ${USER_COLUMNS}
          from users
         where ${where.join(' and ')}
         order by ${column} ${direction}, id ${direction}
@@ -170,8 +174,6 @@ function sortValue(row: UserRow, field: DirectoryQuery['sort']): string {
   return field === 'email' ? row.email : row.display_name;
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
  * Cursor opaco: campo de orden, valor y id en base64url. Solo mueve la ventana, no da acceso. Se
  * valida por completo: un cursor manipulado, ilegible o de otro campo de orden se ignora y la
@@ -190,7 +192,7 @@ function decodeCursor(
     if (!Array.isArray(parsed) || parsed.length !== 3) return null;
     const [field, value, id] = parsed as unknown[];
     if (field !== sort || typeof value !== 'string' || typeof id !== 'string') return null;
-    if (!UUID_PATTERN.test(id)) return null;
+    if (!z.uuid().safeParse(id).success) return null;
     if (sort === 'rank' && !/^[0-3]$/.test(value)) return null;
     // PostgreSQL rechaza el carácter NUL en texto (error de base de datos): ningún control entra.
     if (value.length > 300 || hasControlCharacter(value)) return null;
@@ -216,12 +218,8 @@ function toRecord(row: UserRow): UserRecord {
 }
 
 function toDirectoryRow(row: UserRow): DirectoryRow {
-  return {
-    id: asUserId(row.id),
-    displayName: row.display_name,
-    email: row.email,
-    rank: toRank(row.rank),
-  };
+  const { id, displayName, email, rank } = toRecord(row);
+  return { id, displayName, email, rank };
 }
 
 function toRank(value: number): Rank {
