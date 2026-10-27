@@ -7,6 +7,14 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DATABASE_URL: z.string().min(1).optional(),
   LOCAL_KMS_KEY_FILE: z.string().min(1).default('.local-kms/kek.key'),
+  /** Origen del navegador que usa la API (verificación de `Origin` contra CSRF y enlaces de correo). */
+  APP_ORIGIN: z.url().default('http://localhost:5173'),
+  DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+  /** Solo detrás de un balanceador de confianza: usa `X-Forwarded-For` para la IP del cliente. */
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 });
 
 export type Config = z.infer<typeof envSchema>;

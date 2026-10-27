@@ -5,5 +5,6 @@ export const contextFor = (organizationId: string, requestId = 'req-test'): Requ
   organizationId: asOrganizationId(organizationId),
   actorId: asUserId('0198cccc-0000-7000-8000-000000000003'),
   requestId,
+  sessionId: null,
   reauthAt: null,
 });

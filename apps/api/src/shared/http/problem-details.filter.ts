@@ -43,6 +43,10 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     if (problem.status >= 500) {
       this.logger.error({ err: exception, requestId: request.id }, 'request failed');
     }
+    if (exception instanceof DomainError && exception.code === ErrorCode.RATE_LIMITED) {
+      const seconds = exception.meta['retryAfterSeconds'];
+      if (typeof seconds === 'number') void reply.header('retry-after', String(seconds));
+    }
     void reply
       .status(problem.status)
       .header('content-type', 'application/problem+json; charset=utf-8')
