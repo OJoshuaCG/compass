@@ -30,7 +30,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | Fase | Qué entrega al negocio | Estado |
 | --- | --- | --- |
 | 0 · Fundaciones | Una base técnica segura, sin pantallas de negocio todavía | **Hecho** (con una observación, ver sección 3) |
-| 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Implementada en lo esencial, con pendientes** (el segundo factor funciona con aplicación autenticadora; las passkeys no están; ver sección 4.1) |
+| 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Implementada en lo esencial, con pendientes** (el segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia; faltan los límites de intentos compartidos y otros pendientes; ver sección 4.1) |
 | 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | Pendiente |
 | 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente |
 | Puerta de producción | Prueba de intrusión, simulacro de restauración y procedimientos ensayados | Pendiente |
@@ -80,7 +80,10 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 
 | Capacidad | Qué hace hoy |
 | --- | --- |
-| Alta de una organización | Una persona de operaciones da de alta la organización con un comando propio, y el alta queda en la auditoría. Nace con exactamente una Raíz, en estado "invitada", con una contraseña inicial aleatoria que se muestra una sola vez y nunca se guarda en claro, y con las cuatro plantillas de rol del sistema |
+| Alta de una organización | Una persona de operaciones da de alta la organización con un comando propio, y el alta queda en la auditoría. Nace con exactamente una Raíz, en estado "invitada", con una contraseña inicial aleatoria que se muestra una sola vez y nunca se guarda en claro, y con las cuatro plantillas de rol del sistema. Junto a la contraseña se imprimen una sola vez ocho códigos de emergencia de la Raíz, para imprimirlos y entregarlos a las dos personas que los custodian |
+| Códigos de emergencia de la Raíz | Si la Raíz pierde su segundo factor, uno de los códigos de emergencia, después de su contraseña, restablece ese segundo factor y la obliga a registrar uno nuevo. Cada código sirve una sola vez. Se cierran las demás sesiones de la Raíz, el uso queda como evento crítico y se avisa por correo a todos los Administradores activos; si el aviso falla o no hay Administradores a quienes avisar, también queda registrado. Los códigos que no se usaron siguen vigentes. Solo quienes custodian los códigos pueden restablecer la Raíz: ningún Administrador puede hacerlo, solo recibe la alerta. El código no sustituye a la contraseña |
+| Passkeys | Quien tiene passkeys ve, tras la contraseña, la opción de usar una passkey en lugar del código de la aplicación autenticadora. Son opcionales para todas las personas, resistentes al phishing, y cada persona puede tener varias (hasta 10), con nombre. Agregar o quitar una exige haber confirmado la identidad hace poco, y hay una pantalla de seguridad para gestionarlas. Los fallos cuentan en el mismo límite de intentos que el código. Cada alta, baja e ingreso con passkey queda en la auditoría |
+| Correo de invitación | Sale del servidor de correo del dominio propio de la organización, con conexión cifrada obligatoria y certificado verificado. Se redacta en español de México o en inglés de Estados Unidos, el enlace lleva el token de modo que no queda en los registros de acceso y la fecha de vencimiento se indica en hora universal. Los errores del proveedor no se muestran porque podrían citar al destinatario o el contenido. En producción el envío real es obligatorio |
 | Cambio obligatorio de la contraseña inicial | En su primer ingreso, la Raíz debe cambiar la contraseña inicial antes de registrar su segundo factor. El cambio exige la contraseña actual, aplica la política de contraseñas, cuenta los intentos fallidos con el mismo límite y cierra las demás sesiones de la persona |
 | Gestión de personas | Quien gestiona a una persona puede suspenderla, reactivarla, desactivarla, cambiarle el rango o transferirla a otro responsable. Suspender y desactivar cierran sus sesiones; desactivar reasigna a sus subordinados activos y revoca las invitaciones pendientes que dejó. La Raíz queda protegida de todas estas acciones. Cada acción se audita y la pestaña de gestión de equipo de la página de Usuarios las ofrece |
 | Invitaciones | Quien tiene el permiso de invitar crea una invitación según la matriz de creación, sin poder otorgar permisos que no tiene. El enlace llega por correo, vence a las 72 horas y es de un solo uso. Quien invita no lo ve ni conoce la contraseña. Al aceptar se revalidan los roles y que quien invitó siga activo. Se puede reenviar una invitación (solo quien la envió o la Raíz): el enlace anterior queda invalidado y se envía uno nuevo con otras 72 horas. Una pestaña de invitaciones muestra las pendientes y señala las vencidas |
@@ -102,29 +105,29 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 
 | Pendiente | Efecto en el negocio |
 | --- | --- |
-| Passkeys | No están implementadas. Hoy el segundo factor es solo la aplicación autenticadora, por lo que el criterio "entrada con passkey" no se cumple |
-| Códigos de emergencia de la Raíz y su recuperación | No existen y su diseño espera una decisión del equipo: el plan no define qué otorga usar un código, en qué se distingue de uno de recuperación ni quién los custodia. Se propone, sin implementar, generar ocho códigos de un solo uso al dar de alta la organización, que usar uno deje un evento crítico y avise a todos los Administradores, y llevar después a la Raíz a registrar un segundo factor nuevo. Si la Raíz pierde todos sus factores, hoy no hay camino de recuperación |
-| Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores |
-| Envío real de correo | Hoy el enlace de invitación solo se escribe en el registro del servidor en desarrollo. Falta el proveedor de correo, y mientras no exista no se puede invitar en producción |
+| Exigir passkeys a la Raíz y a los Administradores | Hoy son opcionales para todos. Exigirlas queda como una futura configuración de la organización: todavía no hay pantalla de configuración y un registro forzado, sin alternativa, podría dejar a las personas fuera |
+| Recuperación de la Raíz sin contraseña | Si la Raíz olvida su contraseña y además pierde sus factores, el sistema no tiene recuperación; hace falta un procedimiento de operaciones. Los códigos de emergencia no sustituyen a la contraseña |
+| Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores; no entró en esta entrega |
+| Dominio de envío del correo | Para que las invitaciones lleguen a la bandeja de entrada, el dominio de la organización necesita registros de autenticación del remitente (SPF, DKIM y DMARC) en su configuración de DNS. Es una tarea del equipo, fuera del sistema |
 | Limpieza de la protección contra reintentos | Las claves vencidas aún no se borran (falta una tarea de limpieza) y un reintento dentro de las 24 horas no vuelve a comprobar los permisos de quien lo hace |
 | Edición de roles personalizados | Se pueden crear y archivar, pero no editar un rol ya creado |
 | Transferencia de la Raíz | No existe. Las demás acciones de gestión de personas ya funcionan |
 | Cierre automático de sesiones al cambiar roles y avisos por correo | La acción de cambiar roles aún no existe. Tampoco hay avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores) |
 | Reautenticación con código de recuperación | No está soportada; solo se acepta el código de la aplicación autenticadora |
-| Códigos de emergencia en el alta de la organización | El comando de alta ya existe y audita el alta, pero todavía no genera los códigos de emergencia de la Raíz (decisión abierta, ver arriba) |
-| Ejecución de las pruebas en la verificación automática (CI) de GitHub | Nunca se ha ejecutado. Las pruebas pasan en el entorno local |
+| Ejecución de las pruebas en la verificación automática (CI) de GitHub | Nunca se ha ejecutado. Las pruebas pasan en el entorno local. El dueño la despriorizó ("no es primordial ni la requerimos"); no está bloqueada, y el repositorio ya tiene remoto |
+| Revisión independiente de las passkeys | Hecha por dos revisores ciegos; sus hallazgos están corregidos |
 
 #### Criterios de salida: cuáles se cumplen
 
 | Criterio del plan | Estado | Detalle |
 | --- | --- | --- |
 | Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora |
-| Entrada con passkey | **No cumplido** | Las passkeys no están implementadas |
+| Entrada con passkey | Cumplido, con la revisión independiente en curso | Funciona de punta a punta, probada en un navegador real con un autenticador virtual. Es opcional para todas las personas |
 | Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 27 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
-| Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub |
+| Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub; despriorizada por el dueño |
 
-**Conclusión.** La fase 1a no se puede dar por cerrada: falta al menos la entrada con passkey, y varios pendientes de seguridad (recuperación de la Raíz con códigos de emergencia, límites compartidos entre instancias) deben resolverse antes de la puerta de producción.
+**Conclusión.** La fase 1a no se puede dar por cerrada todavía: la entrada con passkey y los códigos de emergencia de la Raíz ya existen, pero falta la revisión independiente de las passkeys y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias y la recuperación de una Raíz que pierde contraseña y factores, que deben resolverse antes de la puerta de producción.
 
 ### 4.2 Fase 1b: Bóveda y 2FA (pendiente)
 
@@ -210,9 +213,9 @@ La documentación del repositorio no registra el cierre de ninguna de las decisi
 | 4 | Subdominio para los alias de las cuentas, con su configuración de DNS | Permite crear cada cuenta con su correo definitivo desde el primer día | Abierta |
 | 5 | Presupuesto de la prueba de intrusión externa | Es condición para cargar credenciales reales | Abierta |
 | 6 | Política de retención de la auditoría y de las versiones de secretos, validada por el área legal | Define cuánto tiempo se conserva cada dato | Abierta |
-| 7 | Exigir passkeys a la Raíz y a los Administradores desde el inicio (el plan recomienda que sí) | Eleva la seguridad de las cuentas con más poder | Abierta. Las passkeys aún no están implementadas, así que hoy no se podría exigir |
+| 7 | Exigir passkeys a la Raíz y a los Administradores desde el inicio (el plan recomienda que sí) | Eleva la seguridad de las cuentas con más poder | Decidido (2026-10-27): las passkeys son opcionales para todos; exigirlas queda como futura configuración de la organización, porque aún no hay pantalla de configuración y un registro forzado sin alternativa podría dejar a las personas fuera |
 | 8 | Elegibilidad para cuentas administradas de Meta (antes de la fase 3) | Sin ella, la fase 3 pierde su objetivo principal | Abierta |
-| 9 | Personas que custodiarán los códigos de emergencia de la Raíz (dos) | Sin custodios no hay recuperación posible de la Raíz | Abierta. Los códigos de emergencia tampoco están implementados; además falta decidir si los Administradores también pueden activar el restablecimiento |
+| 9 | Personas que custodiarán los códigos de emergencia de la Raíz (dos) | Sin custodios no hay recuperación posible de la Raíz | Parcialmente decidida (2026-10-27): solo quienes custodian los códigos pueden restablecer la Raíz y ningún Administrador puede hacerlo, para que no sea un camino de toma de la cuenta de mayor privilegio. Los códigos ya existen; sigue abierto quiénes son las dos personas custodias |
 
 ### 7.1 Decisiones que la implementación de la fase 1a tuvo que asumir
 
@@ -230,9 +233,9 @@ Además de las decisiones anteriores, estos puntos no están definidos por el pl
 
 | N.º | Pregunta | Por qué importa |
 | --- | --- | --- |
-| 1 | Cuándo se ejecutará la verificación automática en GitHub y si el criterio "CI completo en verde" se considera cumplido antes de esa ejecución | Las fases 0 y 1a se consideran avanzadas, pero esa ejecución nunca ha ocurrido |
+| 1 | Cuándo se ejecutará la verificación automática en GitHub y si el criterio "CI completo en verde" se considera cumplido antes de esa ejecución | Las fases 0 y 1a se consideran avanzadas, pero esa ejecución nunca ha ocurrido. El dueño la despriorizó el 2026-10-27; el repositorio ya tiene remoto |
 | 2 | Quién es el equipo de guardia para incidentes | Los procedimientos sugieren responsables, pero el plan no fija un equipo de guardia |
 | 3 | Cuándo se resuelven las dos decisiones técnicas que siguen en estado de propuesta: los bloqueos de auditoría en transacciones largas y la retención de auditoría | La auditoría de las negaciones ya quedó resuelta y aceptada en la fase 1a. Las dos restantes afectan a la auditoría de acciones largas y a cuánto tiempo se conserva. Ver [`docs/adr/`](../adr/README.md) |
 | 4 | Qué documento fija el procedimiento de caída total | El plan lo menciona y el repositorio todavía no lo tiene redactado |
-| 5 | Si la fase 1a puede darse por cerrada sin passkeys y sin recuperación de la Raíz, o si ambas son condición de salida | El criterio de salida del plan exige la entrada con passkey; hoy no se cumple |
-| 6 | Qué proveedor de correo se usará y desde qué dominio de envío | Sin él no se pueden enviar invitaciones reales |
+| 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin una recuperación para la Raíz que pierde contraseña y factores | Las passkeys y los códigos de emergencia ya existen; esos dos pendientes siguen abiertos |
+| 6 | Cuál es el dominio de envío del correo y quién configura sus registros de autenticación del remitente | Se decidió que el correo sale del dominio propio de la organización; el dominio concreto y su configuración de DNS dependen del equipo |

@@ -91,11 +91,11 @@ Además de `crypto`, `audit` y `organization` (fase 0), la fase 1a añadió cinc
 
 | Módulo | Responsabilidad en la fase 1a | Depende de |
 | --- | --- | --- |
-| `identity` (protegido) | Inicio de sesión con segundo factor, sesiones y cierre de sesión, reautenticación, alta del segundo factor (aplicación autenticadora) y códigos de recuperación, invitaciones (crear, previsualizar, aceptar), cambio de contraseña (`POST /auth/password/change`; el cambio obligatorio de la contraseña inicial bloquea el segundo factor con `403 AUTH.PASSWORD_CHANGE_REQUIRED`; audita `auth.password_changed` y `auth.password_change_failed`), política de contraseñas y política de intentos fallidos. Sus consultas previas a la autenticación usan las funciones mínimas del [ADR 0021](adr/0021-pre-authentication-access-with-rls.md) | `access`, `audit`, `crypto`, `directory`, `notification`, `organization` |
+| `identity` (protegido) | Inicio de sesión con segundo factor, sesiones y cierre de sesión, reautenticación, alta del segundo factor (aplicación autenticadora) y códigos de recuperación, passkeys WebAuthn (ingreso y gestión; ver la tabla de endpoints de A2 y A3 más abajo), uso de los códigos de emergencia de la Raíz en el paso de recuperación, invitaciones (crear, previsualizar, aceptar), cambio de contraseña (`POST /auth/password/change`; el cambio obligatorio de la contraseña inicial bloquea el segundo factor con `403 AUTH.PASSWORD_CHANGE_REQUIRED`; audita `auth.password_changed` y `auth.password_change_failed`), política de contraseñas y política de intentos fallidos. Sus consultas previas a la autenticación usan las funciones mínimas del [ADR 0021](adr/0021-pre-authentication-access-with-rls.md) | `access`, `audit`, `crypto`, `directory`, `notification`, `organization` |
 | `access` (protegido) | Catálogo de 27 permisos con techo de rango, plantillas de rol del sistema, permisos efectivos, no escalamiento de roles, función pura de decisión y el motor de autorización que audita cada negación ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md)) | `directory`, `audit` |
 | `directory` | Usuarios, rangos, responsable y creador, regla de gestión, matriz de creación, alta de un usuario y listado del directorio con búsqueda, orden y paginación por cursor, y gestión de personas (`GET /users/managed` y `POST /users/:id/suspend`, `reactivate`, `deactivate`, `rank` y `manager`; audita `user.suspended`, `user.reactivated`, `user.deactivated`, `user.rank_changed` y `user.manager_changed`) | `organization` |
-| `provisioning` | Alta de una organización por operaciones, con una conexión de administración: crea la organización, las plantillas de rol, la Raíz en estado invitada y su contraseña inicial en una sola transacción. Nunca se invoca desde una petición HTTP: lo ejecuta el comando de operaciones `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`), que genera una contraseña inicial aleatoria, la imprime una sola vez y audita `organization.provisioned`. Faltan los códigos de emergencia de la Raíz | `access`, `identity` |
-| `notification` | Puerto de correo saliente. Hoy solo envía invitaciones; el adaptador de desarrollo escribe el enlace en el registro y se niega a arrancar en producción, y un adaptador en memoria sirve a las pruebas. Falta el adaptador del proveedor real | Ninguno |
+| `provisioning` | Alta de una organización por operaciones, con una conexión de administración: crea la organización, las plantillas de rol, la Raíz en estado invitada y su contraseña inicial en una sola transacción. Nunca se invoca desde una petición HTTP: lo ejecuta el comando de operaciones `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`), que genera una contraseña inicial aleatoria, la imprime una sola vez y audita `organization.provisioned`. Genera además 8 códigos de emergencia de un solo uso para la Raíz (misma forma que los de recuperación), los imprime UNA vez junto a la contraseña inicial con la instrucción de imprimirlos y entregarlos a los dos custodios, y los guarda solo como hash con `kind = 'emergency'` | `access`, `identity` |
+| `notification` | Puerto de correo saliente. Envía las invitaciones y el aviso a los Administradores por uso de un código de emergencia. Adaptadores: SMTP del dominio de la organización (ver §6.3.1), uno de desarrollo que escribe el enlace en el registro (se niega a arrancar en producción) y uno en memoria para las pruebas | Ninguno |
 
 Endpoints y auditoría añadidos al cerrar la fase 1a (A5, A6 y A7):
 
@@ -111,6 +111,20 @@ Endpoints y auditoría añadidos al cerrar la fase 1a (A5, A6 y A7):
 | `POST /invitations/:id/resend` | Solo quien la envió o la Raíz. Revoca el enlace anterior, genera token nuevo con 72 h y lo envía por correo. Si la inserción falla, el anterior no queda revocado (retroceso ante conflicto). Usa idempotencia | `user.invitation_resent` |
 
 Una sesión cuenta como viva si no está revocada, no ha vencido y tuvo actividad en los últimos 30 minutos.
+
+Endpoints y auditoría añadidos con A2 (passkeys) y A3 (códigos de emergencia). WebAuthn con verificación de usuario obligatoria y sin atestación; el identificador de la parte confiable y el origen salen de `APP_ORIGIN`.
+
+| Endpoint | Regla | Auditoría |
+| --- | --- | --- |
+| `POST /auth/passkey/options` | Tras la contraseña, entrega el desafío de ingreso. Desafío de 5 minutos, de un solo uso y ligado a la persona y al propósito. Pedirlo no cuenta como intento fallido. La respuesta del ingreso indica si la persona tiene passkeys | — |
+| `POST /auth/passkey/verify` | Verifica la firma; el contador de firmas debe avanzar. Los fallos comparten el límite de intentos de la persona | `auth.passkey_login` |
+| `GET /me/passkeys` | Passkeys de quien consulta. Nunca devuelve claves | — |
+| `POST /me/passkeys/registration/options` | Sesión completa y reautenticación reciente. Máximo 10 por persona | — |
+| `POST /me/passkeys/registration/verify` | Cuerpo con el nombre de la passkey. Sesión completa y reautenticación reciente | `auth.passkey_registered` |
+| `POST /me/passkeys/:id/revoke` | Sesión completa y reautenticación reciente | `auth.passkey_revoked` |
+| Paso de recuperación del ingreso (código de emergencia) | Solo después de la contraseña. Restablece el segundo factor de la Raíz (TOTP y códigos de recuperación ordinarios revocados), la deja en estado invitada con el registro del segundo factor pendiente (incluida la sesión que lo usó), cierra sus demás sesiones y envía el aviso por correo a cada Administrador activo después del *commit*. Los códigos de emergencia sin usar siguen vigentes; registrar un segundo factor nuevo reemite solo los códigos de recuperación ordinarios. No sustituye la contraseña | `auth.emergency_code_used` (crítico; con el número de destinatarios del aviso) y `auth.emergency_alert_incomplete` (si el correo falla o no hay destinatarios) |
+
+Decisión del dueño (2026-10-27): solo quienes custodian los códigos pueden restablecer la Raíz; ningún Administrador puede hacerlo, solo recibe la alerta. Limitación: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema; falta un procedimiento de operaciones.
 
 ### 3.7 Flujo de una petición autenticada
 
@@ -196,6 +210,23 @@ Ejemplo, el caso de uso de revelar una contraseña: recibe por constructor el mo
 - **Redis**: contadores, límites y colas. **Nunca** material criptográfico.
 - **Correo y SMS**: detrás de puertos; el proveedor concreto es intercambiable.
 - **Outbox**: el worker publica y marca la fecha de publicación; reintentos con *backoff*.
+
+#### 6.3.1 Correo saliente (SMTP)
+
+El correo de invitación sale por el servidor SMTP del dominio propio de la organización (decisión del dueño, 2026-10-27: no Gmail ni Outlook). Se configura con variables de entorno, validadas al arrancar:
+
+| Variable | Valor |
+| --- | --- |
+| `MAIL_TRANSPORT` | `log` (desarrollo) o `smtp` (real). Producción EXIGE `smtp` |
+| `SMTP_HOST` | Servidor SMTP del dominio |
+| `SMTP_PORT` | 587 por defecto |
+| `SMTP_SECURITY` | `starttls` (por defecto), `tls` o `none`. `none` se rechaza en producción |
+| `SMTP_USER`, `SMTP_PASSWORD` | Se definen juntas |
+| `MAIL_FROM` | Remitente del dominio propio, p. ej. `IAM <no-reply@sudominio>` |
+| `APP_ORIGIN` | Origen de la aplicación; de él salen el identificador de la parte confiable y el origen de WebAuthn |
+| `WEBAUTHN_RP_NAME` | Opcional; nombre que ve la persona al registrar una passkey. Por defecto `IAM` |
+
+Reglas del adaptador SMTP: STARTTLS obligatorio, certificado verificado, TLS 1.2 como mínimo y tiempos límite. Los errores del proveedor se sustituyen por uno genérico (pueden citar destinatario o contenido) y los errores de configuración nunca repiten valores. El correo se redacta en es-MX o en-US según la persona destinataria; el enlace lleva el token en el fragmento (`#token=`) y el vencimiento se indica en UTC. Probado contra un servidor SMTP de pruebas real en un contenedor. Para la entregabilidad, el dominio necesita registros SPF, DKIM y DMARC en el DNS (fuera del sistema).
 
 ## 7. Interfaz HTTP (NestJS)
 
@@ -403,14 +434,15 @@ Resueltas en la fase 1a:
 
 Pendientes de la fase 1a:
 
-- [ ] **Passkeys (WebAuthn)**: no implementadas; hoy el segundo factor es solo TOTP. La dependencia `@simplewebauthn/server` está en la lista aprobada del plan.
+- [x] **Passkeys (WebAuthn)** (A2): hechas, opcionales para todos y varias por persona; tabla `webauthn_challenges` (migración 0011). Revisadas por dos jueces ciegos (hallazgos corregidos); pendiente la purga de desafíos vencidos. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización (aún no hay pantalla de configuración).
 - [x] **Cambio obligatorio de la contraseña inicial de la Raíz** (A4): hecho.
-- [ ] **Códigos de emergencia de la Raíz** y su recuperación, y el restablecimiento de factores por el responsable. **Decisión abierta (A3)**: el plan no define qué otorga un código de emergencia, en qué se distingue de uno de recuperación ni quién lo custodia. Propuesta sin implementar: 8 códigos de un solo uso ligados a la Raíz (columna `kind` en la tabla de códigos de recuperación, migración nueva); usar uno completa el ingreso, escribe un evento de auditoría crítico y avisa por correo a todos los Administradores activos; después la Raíz debe registrar un segundo factor nuevo, lo que depende de la recuperación pendiente.
-- [ ] **Redis para los límites de intentos y por IP**: hoy son por instancia y en memoria. Sin Redis, el sistema debe operar con una sola instancia.
-- [ ] **Proveedor de correo real**: hoy solo existe el adaptador de desarrollo que escribe el enlace en el registro; se necesita el adaptador del proveedor (SES en la referencia AWS) y los avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores).
+- [x] **Códigos de emergencia de la Raíz** (A3): hechos (migración 0010, columna `kind`). Decisión del dueño: solo los custodios pueden restablecer la Raíz; ningún Administrador. Limitación: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema. Sigue pendiente el restablecimiento de factores por el responsable.
+- [ ] **Redis para los límites de intentos y por IP**: hoy son por instancia y en memoria. Sin Redis, el sistema debe operar con una sola instancia. No entró en la entrega de correo; el dueño solo respondió sobre el correo.
+- [x] **Correo real** (A8, parte de correo): adaptador SMTP del dominio propio (§6.3.1). Siguen pendientes los demás avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores).
+- [ ] **CI en GitHub y escáneres** (A9): despriorizada por el dueño (2026-10-27), no bloqueada; el repositorio ya tiene remoto.
 - [x] **Idempotencia** de las peticiones que crean recursos (§7.2.1, A7): hecha. Limitaciones: sin purga de filas vencidas y sin nueva comprobación de permisos en el reintento.
 - [ ] **Guard de permisos** como primera barrera (§7.2).
-- [x] **Comando de operaciones** para dar de alta una organización y registrar el alta en la auditoría (A3, parte hecha).
+- [x] **Comando de operaciones** para dar de alta una organización y registrar el alta en la auditoría (A3), ahora también con los códigos de emergencia.
 - [x] **Gestión de personas** (A1) y **gestión de sesiones propias y ajenas** (A5): hechas. Sigue pendiente transferir la Raíz.
 - [x] **Roles personalizados e invitaciones** (A6): crear y archivar roles, elegirlos al invitar y reenviar invitaciones. Sigue pendiente editar un rol ya creado.
 - [ ] **Primera ejecución de la verificación automática (CI) en GitHub**: nunca se ha corrido.

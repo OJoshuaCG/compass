@@ -18,7 +18,7 @@ Está pensada para una sola organización de unas tres personas operando, aunque
 | Fase | Qué entrega | Estado |
 | --- | --- | --- |
 | 0 · Fundaciones | Base técnica, base de datos con aislamiento por organización, cifrado, registro y diseño visual | Terminada |
-| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona; faltan piezas** (llaves de acceso, códigos de emergencia de la Raíz, que esperan una decisión del equipo, almacén compartido de contadores, correo real y la ejecución del CI en GitHub). Ya incluye la gestión de personas, el cambio obligatorio de la contraseña inicial, la gestión de sesiones, los roles personalizados con reenvío de invitaciones y la idempotencia de las peticiones de creación |
+| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona; faltan piezas** (almacén compartido de contadores de intentos, una recuperación para la Raíz que pierde contraseña y factores, y la ejecución del CI en GitHub, que el dueño dejó para después). Ya incluye la gestión de personas, el cambio obligatorio de la contraseña inicial, la gestión de sesiones, los roles personalizados con reenvío de invitaciones, la idempotencia de las peticiones de creación, las llaves de acceso (passkeys), los códigos de emergencia de la Raíz y el envío real de invitaciones por el correo del dominio de la organización |
 | 1b · Bóveda y segundo factor | Guardar y compartir cuentas, revelar contraseñas con motivo y generar códigos | Pendiente |
 | 1c · Gobernanza | Pantalla de auditoría, bajas con rotación, salud de credenciales y acceso temporal | Pendiente |
 | 2 a 7 | Inicio de sesión único, lectura de correos y SMS, extensión de navegador y broker | Pendientes |
@@ -62,7 +62,7 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | Ejecutar las pruebas del sistema | `pnpm test` |
 | Ejecutar las pruebas en navegador real | `pnpm e2e` |
 | Trabajar solo en la interfaz web con recarga en vivo | `pnpm --filter @iam/web dev` |
-| Dar de alta una organización con su Raíz (operaciones) | `pnpm --filter @iam/api provision` |
+| Dar de alta una organización con su Raíz (operaciones); imprime una sola vez la contraseña inicial y los códigos de emergencia | `pnpm --filter @iam/api provision` |
 
 ## Cómo está organizado
 

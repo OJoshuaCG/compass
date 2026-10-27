@@ -21,6 +21,9 @@ Diseño de la base de datos de la plataforma (PostgreSQL 17). Este documento des
 | `0006_governance_audit.sql` | `access_requests`, `rotation_tasks`, `totp_handoffs`, `audit_events` (cadena de hashes) |
 | `0007_effective_access_view.sql` | Vista `effective_access` |
 | `0008_auth_functions.sql` | Funciones `auth.*` (`SECURITY DEFINER`) |
+| `0009_totp_replay_protection.sql` | Columna `last_used_step` en `user_totp_factors`: un código TOTP solo se acepta si su paso es mayor al último aceptado |
+| `0010_emergency_codes.sql` | Columna `kind` (`recovery` por defecto, o `emergency`) en `user_recovery_codes`, para los códigos de emergencia de la Raíz |
+| `0011_webauthn_challenges.sql` | Tabla `webauthn_challenges` (desafíos de las ceremonias de passkey) con aislamiento por fila |
 
 ### Cómo se ejecuta
 
@@ -52,7 +55,7 @@ Los **respaldos de datos** dentro de una migración deben recordar que el aislam
 
 **Excepciones a "nada se borra"** (el rol de la aplicación tiene `DELETE` solo ahí):
 
-- Datos efímeros con TTL: `sessions`, `invitations`, `totp_handoffs`, `idempotency_keys`, `outbox_events` (publicados).
+- Datos efímeros con TTL: `sessions`, `invitations`, `totp_handoffs`, `idempotency_keys`, `webauthn_challenges`, `outbox_events` (publicados).
 - Filas de relación cuya historia vive en la auditoría: `group_memberships`, `user_roles`.
 - Versiones antiguas de secretos (`credential_secrets` con `is_current = false`), que un job destruye a los 30 días. Una política RLS de `DELETE` impide borrar la versión vigente.
 
@@ -85,6 +88,7 @@ erDiagram
   users ||--o{ webauthn_credentials : "user_id"
   users ||--o| user_totp_factors : "user_id (vivo)"
   users ||--o{ user_recovery_codes : "user_id"
+  users ||--o{ webauthn_challenges : "user_id"
   users ||--o{ sessions : "user_id"
   users ||--o{ invitations : "invited_by / managed_by"
   users |o--o{ users : "managed_by / created_by"
@@ -141,6 +145,15 @@ erDiagram
     uuid id PK
     uuid user_id FK
     bytea code_hash
+    timestamptz used_at
+    text kind
+  }
+  webauthn_challenges {
+    uuid id PK
+    uuid user_id FK
+    text purpose
+    text challenge
+    timestamptz expires_at
     timestamptz used_at
   }
   sessions {
@@ -434,7 +447,9 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`user_totp_factors`** (MFA del propio sistema): `user_id` FK(c), `secret_ciphertext bytea`, `nonce bytea(12) +`, `dek_version int +` (necesarios para abrir el texto cifrado), `verified_at`, `revoked_at +`. Único parcial `(organization_id, user_id) where revoked_at is null`: un solo factor vivo.
 
-**`user_recovery_codes`**: `user_id` FK(c), `code_hash bytea(32)`, `used_at`. **UK** `(organization_id, user_id, code_hash)`.
+**`user_recovery_codes`**: `user_id` FK(c), `code_hash bytea(32)`, `used_at`, `kind text not null default 'recovery'` (`recovery` \| `emergency`, migración 0010). **UK** `(organization_id, user_id, code_hash)`. Los códigos de emergencia (8, solo de la Raíz, emitidos al crear la organización) usan el mismo hash y el mismo uso único; al registrar un segundo factor nuevo solo se reemiten los de `recovery`, y los de `emergency` sin usar siguen vigentes.
+
+**`webauthn_challenges`** (efímera, migración 0011): `user_id` (FK compuesta con `organization_id` a `users`), `purpose` (`registration` \| `authentication`), `challenge text` (16 a 512 caracteres), `expires_at`, `used_at`. Un desafío es aleatorio, de un solo uso, de 5 minutos y ligado a la persona y al propósito, para que el emitido para una ceremonia no valide otra. Índice parcial `(organization_id, user_id, purpose) where used_at is null`. `ENABLE + FORCE RLS` con la política de aislamiento por organización en la misma migración.
 
 **`sessions`** (efímera): `user_id` FK(c), `token_hash bytea(32)` **UK**, `ip inet`, `user_agent`, `mfa_at`, `reauth_at`, `last_seen_at +` (caducidad por inactividad de 30 min), `expires_at not null`, `revoked_at`. Índices `(organization_id, user_id) where revoked_at is null`, `(organization_id, expires_at)`.
 

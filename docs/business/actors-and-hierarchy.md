@@ -13,7 +13,8 @@ Este documento explica quién existe en la organización, quién crea a quién, 
 | Regla de gestión y subárbol | **Funciona.** Decide quién puede suspender, reactivar, desactivar, cambiar el rango o transferir a una persona |
 | Creador y responsable separados | **Funciona.** Al aceptar una invitación, quien invita queda como creador y como responsable |
 | Transferencia de responsable, cambio de rango, bajas con reasignación | **Funciona.** Hay además una vista de equipo con las personas del subárbol de quien consulta (la Raíz ve a todas) en cualquier estado |
-| Transferencia de la Raíz y recuperación con códigos de emergencia | **Pendiente** |
+| Recuperación de la Raíz con códigos de emergencia | **Funciona.** Solo quienes custodian los códigos pueden restablecer la Raíz; ningún Administrador puede hacerlo |
+| Transferencia de la Raíz | **Pendiente** |
 | Estados de una persona | **Funcionan** los cuatro: invitada, activa, suspendida y desactivada. Se puede suspender, reactivar y desactivar; la Raíz nunca se suspende ni se desactiva |
 | Directorio visible | **Funciona** para personas activas |
 | Grupos | **Pendiente** (llegan con la compartición, fase 1b) |
@@ -205,9 +206,9 @@ Al crear la organización se generan **códigos de emergencia** de la Raíz. Se 
 
 Es la última salida para que la organización no quede sin dueña. Si no existiera, el riesgo es que nadie pueda gestionar a los Administradores. Los procedimientos operativos están en [`runbooks/transfer-root.md`](../runbooks/transfer-root.md).
 
-**Estado hoy: pendiente.** Ni la transferencia de la Raíz ni los códigos de emergencia están implementados. Mientras no existan, si la Raíz pierde todos sus factores y sus códigos de recuperación, el sistema no ofrece un camino para recuperarla. Es un pendiente de seguridad que debe cerrarse antes de la puerta de producción.
+**Estado hoy.** Los códigos de emergencia **funcionan**; la transferencia planeada de la Raíz (sección 8.1) sigue **pendiente**. Al crear la organización se generan ocho códigos de un solo uso, que se imprimen una sola vez junto a la contraseña inicial, con la instrucción de imprimirlos y entregarlos a las dos personas custodias. Usar uno exige antes la contraseña de la Raíz; no la sustituye. Al usarlo, el segundo factor de la Raíz se restablece y ella debe registrar uno nuevo; se cierran sus demás sesiones, queda un evento crítico en la auditoría y se avisa por correo a todos los Administradores activos. Si el aviso falla o no hay Administradores a quienes avisar, eso también queda registrado. Los códigos que no se usaron siguen vigentes. Si la Raíz olvida su contraseña y además pierde sus factores, el sistema no ofrece recuperación; hace falta un procedimiento de operaciones.
 
-**Decisión abierta sobre los códigos de emergencia.** El plan no define qué otorga usar uno, en qué se distingue de un código de recuperación ni quién los custodia, y hoy tampoco existe una pantalla para registrar un segundo factor nuevo tras entrar con un código. Hay una propuesta, no implementada: al dar de alta la organización se generan 8 códigos de un solo uso ligados a la Raíz; usar uno completa el ingreso, deja un evento crítico en la auditoría y avisa por correo a todos los Administradores activos; después se lleva a la Raíz a registrar un segundo factor nuevo, lo que depende de la recuperación de acceso, que sigue pendiente. Falta una decisión humana sobre quiénes custodian los códigos y sobre si los Administradores también pueden activar el restablecimiento.
+**Decisión del dueño (2026-10-27).** Solo las personas que custodian los códigos pueden restablecer la Raíz. Ningún Administrador puede restablecerla: los Administradores únicamente reciben la alerta. La razón es que un Administrador capaz de restablecer la Raíz sería un camino para tomar la cuenta de mayor privilegio.
 
 ## 9. Directorio visible y gestión restringida
 
@@ -263,7 +264,7 @@ El plan no define estos puntos. Deben resolverse antes de implementar la parte a
 | 2 | Si una persona desactivada puede reactivarse | Afecta a la reasignación y a las tareas de rotación ya creadas |
 | 3 | Tras una transferencia de la Raíz, qué pasa con los Administradores que dependían de la Raíz anterior y con el responsable del nuevo dueño | El plan solo dice que la Raíz anterior queda como Administradora gestionada por la nueva |
 | 4 | Quién puede cancelar una transferencia de la Raíz durante las 72 horas | El plan indica que es cancelable, sin precisar por quién |
-| 5 | Si hacen falta las dos personas custodias juntas para usar un código de emergencia, cuántos códigos hay y si cada uno es de un solo uso | El plan menciona dos custodios y su identidad sigue como decisión pendiente |
+| 5 | Quiénes son las dos personas custodias y si hacen falta juntas para usar un código de emergencia | Se implementaron ocho códigos de un solo uso y se decidió que ningún Administrador puede restablecer la Raíz. La identidad de los custodios sigue como decisión pendiente |
 | 6 | Quién puede nombrar a otro gestor de un grupo, y quién archiva un grupo | El plan define los papeles, pero no esas acciones |
 | 7 | Cómo se interpreta "bajar de rango": este documento lo lee como pasar a un rango con menos autoridad (número mayor) | Es la lectura coherente con el resto de la regla, pero conviene confirmarla |
 | 8 | Qué pasa con las cuentas cuyos únicos gestores (MANAGE) son personas dadas de baja | La baja retira comparticiones directas; el plan no dice quién queda a cargo de esas cuentas |

@@ -461,7 +461,8 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Cambio de contraseña (ruta `/password/change`; es obligatorio para la Raíz tras su primer ingreso con la contraseña inicial: mientras no se cambia, el ingreso lleva a esta pantalla y el registro del segundo factor se rechaza con `AUTH.PASSWORD_CHANGE_REQUIRED`) | `features/auth` | Funciona |
 | Gestión de equipo (pestaña en la página de Usuarios, junto al directorio) con acciones por fila: suspender, reactivar, cambiar rango (con reautenticación), transferir responsable y desactivar (con diálogo de confirmación) | `features/directory` | Funciona. Lista el subárbol de quien consulta (la Raíz ve a todos) con su estado y su responsable |
 | Cierre de sesión | `shared/auth` | Funciona |
-| Registro e ingreso con passkey | Sin implementar | Pendiente |
+| Botón "Use a passkey" en el paso de verificación del ingreso (aparece junto al código solo si la respuesta del ingreso indica que la persona tiene passkeys; comprueba el soporte del navegador) | `features/auth` | Funciona. Cubierto por una ceremonia real en Chrome con el autenticador virtual |
+| Pantalla "Seguridad" (ruta `/security`, ruta diferida): lista las passkeys, permite agregar (con nombre) y quitar (ambas con reautenticación reciente); si el navegador no soporta WebAuthn, la pantalla lo explica | `features/security` | Funciona. Las respuestas nunca incluyen claves; máximo 10 por persona |
 | Mis sesiones (ruta `/sessions`: lista con la sesión actual señalada y cierre de las demás) | `features/sessions` | Funciona |
 | "Cerrar sesiones" en el menú de fila de la gestión de equipo | `features/directory` | Funciona |
 | Sincronización entre pestañas (`BroadcastChannel`; el único mensaje es el nombre de un evento, nunca datos) | `shared/auth` | Funciona. Tras cerrar sesión o perderla, las otras pestañas del mismo navegador pasan al ingreso en cerca de un segundo |
@@ -469,6 +470,10 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Restablecer factores de otra persona | Sin implementar | Pendiente |
 
 El cliente HTTP envía una clave de idempotencia en las peticiones que crean recursos y el backend ya la aplica (ver [`backend.md`](backend.md) §7.2.1).
+
+**Presupuesto de JavaScript.** El JavaScript inicial de la web mide cerca de 200,04 KB comprimido: 0,04 KB por encima de la propuesta de partida de 200 KB de la sección 12. El presupuesto no se hace cumplir y el exceso se justifica por la nueva ruta diferida y los hashes del catálogo.
+
+**WebAuthn y el origen.** WebAuthn necesita un dominio, no una IP: el identificador de la parte confiable y el origen salen del origen de la aplicación (`APP_ORIGIN`), y la pila de pruebas e2e corre ahora en `localhost`.
 
 Una prueba de web intermitente se corrigió esperando la consulta en lugar de afirmar justo después del encabezado: ante una prueba intermitente se arregla la espera, no se suben reintentos.
 

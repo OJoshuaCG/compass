@@ -10,18 +10,19 @@ Este documento describe el comportamiento completo previsto. La fase 1a ya imple
 
 | Tema | Estado hoy |
 | --- | --- |
-| Alta por invitación (72 horas, un solo uso, quien invita no conoce la contraseña) | **Funciona.** El envío real del correo está pendiente: hoy el enlace solo se registra en el servidor en desarrollo |
+| Alta por invitación (72 horas, un solo uso, quien invita no conoce la contraseña) | **Funciona.** El correo sale del servidor de correo del dominio propio de la organización; en desarrollo el enlace solo se registra en el servidor |
 | Contraseña (12 caracteres, sin composición, rechazo de comunes y de datos personales) | **Funciona** |
 | Segundo factor con aplicación autenticadora y 10 códigos de recuperación | **Funciona** |
-| Passkeys | **Pendiente.** No están implementadas |
-| Inicio de sesión con segundo factor o código de recuperación | **Funciona** |
+| Passkeys | **Funcionan.** Opcionales para todos, como alternativa completa al código de la aplicación; varias por persona. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización |
+| Inicio de sesión con segundo factor (aplicación o passkey) o código de recuperación | **Funciona** |
 | Retraso progresivo, bloqueo temporal y mensajes idénticos | **Funciona.** Los contadores son por instancia del servidor; falta el almacén compartido |
 | Sesiones (30 minutos de inactividad, 12 horas absolutas, cierre en el servidor) | **Funciona** |
 | Ver y cerrar sesiones, cierre por el responsable, sincronización entre pestañas | **Funciona** |
 | Cierre automático de sesiones al suspender, desactivar o cambiar el rango | **Funciona** (el cambio de roles aún no existe como acción) |
 | Reautenticación de 5 minutos | **Funciona** con la aplicación autenticadora (probada también en navegador real). No admite código de recuperación |
-| Avisos por correo (dispositivo nuevo, código de recuperación, cambios de factores) | **Pendiente** |
-| Recuperación por el responsable o la Raíz; códigos de emergencia de la Raíz | **Pendiente** |
+| Avisos por correo (dispositivo nuevo, código de recuperación, cambios de factores) | **Pendiente.** Ya existe el aviso a los Administradores cuando se usa un código de emergencia de la Raíz |
+| Códigos de emergencia de la Raíz | **Funcionan.** Solo quienes los custodian pueden restablecer la Raíz; los Administradores solo reciben la alerta |
+| Recuperación por el responsable o la Raíz | **Pendiente** |
 | Cambio de contraseña, incluido el cambio obligatorio de la contraseña inicial de la Raíz | **Funciona** |
 | Inicio de sesión con proveedores externos | Fuera de la primera versión |
 
@@ -54,7 +55,7 @@ El sistema guarda las contraseñas y los segundos factores de toda la organizaci
 | --- | --- |
 | 1 | Quien tiene el permiso de invitar crea la invitación: correo, rango, responsable y roles iniciales. El sistema valida la matriz de creación y el no escalamiento (ver [`actors-and-hierarchy.md`](actors-and-hierarchy.md)) |
 | 2 | El sistema envía un enlace de **un solo uso**, vigente **72 horas** |
-| 3 | La persona invitada define su contraseña y registra **obligatoriamente** un segundo factor (una passkey o una aplicación autenticadora) antes de poder entrar. *Hoy solo está disponible la aplicación autenticadora* |
+| 3 | La persona invitada define su contraseña y registra **obligatoriamente** un segundo factor (una passkey o una aplicación autenticadora) antes de poder entrar |
 | 4 | El sistema entrega **10 códigos de recuperación** de un solo uso. Se muestran una sola vez. Solo cuando la persona confirma el segundo factor con un código válido queda activa |
 
 Reglas importantes:
@@ -74,15 +75,18 @@ Reglas importantes:
 | Factor | Cómo es | Papel |
 | --- | --- | --- |
 | Contraseña | Mínimo 12 caracteres, sin reglas de composición (no se exige mezclar mayúsculas, números ni símbolos); se rechazan las contraseñas comunes y las demasiado débiles según un puntaje mínimo | Primer factor |
-| Passkey | Acceso con el dispositivo (huella, rostro o llave de seguridad), resistente a la suplantación. Se pueden registrar varias, cada una con un nombre, por ejemplo "Laptop oficina" | Segundo factor **preferido**. **Pendiente: no está implementada** |
-| Aplicación autenticadora | Código de seis dígitos que cambia cada 30 segundos. Un mismo código no se puede usar dos veces | Alternativa para quien no pueda usar passkeys. **Hoy es el único segundo factor disponible** |
+| Passkey | Acceso con el dispositivo (huella, rostro o llave de seguridad), resistente a la suplantación. Se pueden registrar varias, cada una con un nombre, por ejemplo "Laptop oficina" | Segundo factor **preferido** y alternativa completa al código de la aplicación. Es opcional para todos. Se pueden tener hasta 10; agregar o quitar una exige haber confirmado la identidad hace poco. Tras la contraseña, quien tiene passkeys ve la opción de usarla junto al código. El sistema exige siempre que el dispositivo verifique a la persona. Funciona |
+| Aplicación autenticadora | Código de seis dígitos que cambia cada 30 segundos. Un mismo código no se puede usar dos veces | Alternativa para quien no pueda usar passkeys. Funciona |
 | Códigos de recuperación | Diez códigos de un solo uso. Sirven para completar el ingreso, pero no para reautenticarse | **Último recurso**. Funciona |
+| Códigos de emergencia de la Raíz | Ocho códigos de un solo uso, generados al crear la organización, que se imprimen una sola vez y se entregan a las dos personas que los custodian. Solo existen para la Raíz y no sustituyen a la contraseña | Recuperación de la Raíz sin segundo factor (ver sección 7). Funciona |
 
 **Qué no se usa.** No se usan mensajes de texto ni correo como segundo factor del propio sistema. Son los métodos más fáciles de interceptar o de suplantar, y el sistema protege el segundo factor de toda la organización.
 
 **Por qué no hay reglas de composición.** Las guías vigentes de identidad digital (NIST) recomiendan priorizar la longitud y bloquear contraseñas conocidas sobre exigir combinaciones de caracteres, que producen contraseñas predecibles.
 
-**Política por organización.** La organización puede exigir passkeys a la Raíz y a los Administradores. El plan recomienda activarla desde el inicio (sigue como decisión pendiente).
+**Política por organización.** Está previsto que la organización pueda exigir passkeys a la Raíz y a los Administradores. El plan lo recomienda, pero se decidió (2026-10-27) que por ahora las passkeys sean opcionales para todos, y que exigirlas sea una configuración futura de la organización: todavía no hay pantalla de configuración, y un registro forzado sin alternativa podría dejar a las personas fuera.
+
+**Resistencia al phishing.** A diferencia del código de la aplicación, que una persona engañada puede escribir en un sitio falso, la passkey solo responde al sitio legítimo. Por eso es el método preferido.
 
 **Aviso de uso de un código de recuperación.** Usar uno notifica a la propia persona y a su responsable. *Hoy el uso queda registrado en la auditoría, pero todavía no se envía el aviso por correo.*
 
@@ -123,7 +127,7 @@ Las acciones más sensibles piden haber verificado un factor **en los últimos 5
 | Límite de intentos | Se limitan los intentos por correo en el ingreso y por usuario en el segundo factor, y por dirección de red en las pantallas de acceso e invitación (60 peticiones por minuto) |
 | Retraso y bloqueo temporal | Desde el tercer fallo hay un retraso creciente entre intentos (1, 2, 4 segundos, hasta 64) y, tras 10 intentos fallidos, un bloqueo de 15 minutos. El bloqueo **no es permanente**: así nadie puede dejar fuera a otra persona de forma maliciosa. Pasados 15 minutos sin intentos, el contador se reinicia, y un ingreso correcto también lo reinicia. Valores asumidos por la implementación (ver [preguntas abiertas](#10-preguntas-abiertas)) |
 | Mensajes idénticos | El error es el mismo si el usuario no existe o si la contraseña es incorrecta, y los tiempos de respuesta son equivalentes. Así no se puede descubrir qué correos existen |
-| Avisos por correo | Se avisa de un ingreso desde un dispositivo nuevo y de cambios de contraseña o de factores. **Pendiente**: hoy el sistema solo envía (en desarrollo, registra) la invitación |
+| Avisos por correo | Se avisa de un ingreso desde un dispositivo nuevo y de cambios de contraseña o de factores. **Pendiente**: hoy el sistema solo envía la invitación y el aviso a los Administradores cuando se usa un código de emergencia de la Raíz |
 
 **Estado hoy.** El retraso, el bloqueo y los mensajes idénticos funcionan, y cada intento se cuenta y se decide en una sola operación, para que una ráfaga de intentos simultáneos no pueda colarse (ver [ADR 0026](../adr/0026-atomic-failed-attempt-counting.md)). Limitación importante: los contadores y el límite por dirección viven en la memoria de cada instancia del servidor. Con varias instancias, cada una cuenta por separado y un reinicio borra los contadores. Hasta incorporar el almacén compartido de contadores, el sistema debe operar con una sola instancia.
 
@@ -133,9 +137,11 @@ Las acciones más sensibles piden haber verificado un factor **en los últimos 5
 | --- | --- | --- | --- |
 | Perdió su passkey o su aplicación autenticadora, pero conserva sus códigos de recuperación | Usa un código de recuperación y registra un nuevo factor | Nadie más (autoservicio) | Se notifica a la persona y a su responsable |
 | Perdió todos sus factores y no tiene códigos | Pide ayuda | Su responsable o la Raíz restablece sus factores | Reautenticación y motivo escrito de quien restablece |
-| Es la Raíz y perdió todos sus factores | Usa los códigos de emergencia custodiados | Las dos personas custodias | Alerta a todos los Administradores y evento crítico (ver [`actors-and-hierarchy.md`](actors-and-hierarchy.md)) |
+| Es la Raíz y perdió todos sus factores | Usa uno de los códigos de emergencia custodiados, después de su contraseña | Las dos personas custodias; ningún Administrador puede restablecer la Raíz | Alerta a todos los Administradores y evento crítico (ver [`actors-and-hierarchy.md`](actors-and-hierarchy.md)) |
 
-**Estado hoy.** Los códigos de emergencia de la Raíz siguen en decisión abierta: el plan no define qué otorga usar uno, en qué se distingue de un código de recuperación ni quién los custodia, y hoy tampoco existe una pantalla para registrar un segundo factor nuevo tras entrar con un código. Solo funciona el primer caso, parcialmente: el código de recuperación permite completar el ingreso, pero todavía no hay pantalla para registrar un nuevo factor después. El restablecimiento por el responsable o la Raíz, la nueva invitación de configuración y los códigos de emergencia de la Raíz **no están implementados**. Mientras tanto, una persona que pierde todos sus factores y sus códigos, y en particular la Raíz, no tiene un camino de recuperación en el sistema.
+**Decisión del dueño (2026-10-27).** Solo las personas que custodian los códigos pueden restablecer la Raíz; ningún Administrador puede hacerlo y solo recibe la alerta. Si un Administrador pudiera restablecer la Raíz, sería un camino para tomar la cuenta de mayor privilegio.
+
+**Estado hoy.** Los códigos de emergencia de la Raíz **funcionan**. Se generan al crear la organización y se imprimen una sola vez. Usar uno exige antes la contraseña: no la sustituye. Al usarlo se restablece el segundo factor de la Raíz (el de la aplicación y los códigos de recuperación ordinarios dejan de servir) y la Raíz vuelve al estado de registro del segundo factor pendiente, incluida la sesión que lo usó. Se cierran sus demás sesiones, queda un evento crítico en la auditoría y se avisa por correo a todos los Administradores activos; si el aviso falla o no hay Administradores a quienes avisar, eso también queda registrado. La Raíz debe registrar un segundo factor nuevo; los códigos de emergencia que no se usaron siguen vigentes, y al registrar el nuevo factor solo se emiten de nuevo los códigos de recuperación ordinarios. El restablecimiento por el responsable o la Raíz y la nueva invitación de configuración **no están implementados**. **Limitación:** si la Raíz olvida su contraseña y además pierde sus factores, el sistema no tiene recuperación; hace falta un procedimiento de operaciones. Lo mismo ocurre con cualquier otra persona que pierde todos sus factores y sus códigos.
 
 Cuando un responsable restablece los factores de alguien, esa persona recibe una **nueva invitación de configuración** y **conserva sus comparticiones**. No empieza de cero.
 
@@ -168,20 +174,20 @@ No se usa en la primera versión. El sistema solo deja preparado el punto de con
 
 | Estado | Reglas |
 | --- | --- |
-| Se cumplen hoy | AU-1, AU-2, AU-3, AU-6, AU-8, AU-10, AU-11, AU-12 |
-| Se cumplen parcialmente | AU-4 (solo aplicación autenticadora, sin passkeys), AU-9 (suspender, desactivar y cambiar el rango cierran las sesiones; falta el cambio de roles) |
+| Se cumplen hoy | AU-1, AU-2, AU-3, AU-4 (passkey o aplicación autenticadora), AU-6, AU-8, AU-10, AU-11, AU-12, AU-14 (con la limitación de que, si la Raíz además olvida su contraseña, no hay recuperación en el sistema) |
+| Se cumplen parcialmente | AU-9 (suspender, desactivar y cambiar el rango cierran las sesiones; falta el cambio de roles) |
 | Se cumple la parte que ya existe | AU-5 (no se usan mensajes de texto ni correo como segundo factor) |
-| Pendientes | AU-7 (el uso queda auditado, falta el aviso), AU-13, AU-14 |
+| Pendientes | AU-7 (el uso queda auditado, falta el aviso), AU-13 |
 
 ## 10. Preguntas abiertas
 
 | N.º | Pregunta | Por qué importa |
 | --- | --- | --- |
-| 1 | Si se exigirán passkeys a la Raíz y a los Administradores desde el inicio | El plan lo recomienda, pero sigue como decisión pendiente del equipo. Hoy las passkeys no están implementadas |
+| 1 | Si se exigirán passkeys a la Raíz y a los Administradores desde el inicio | El plan lo recomienda. **Decidido (2026-10-27):** son opcionales para todos y exigirlas queda como futura configuración de la organización |
 | 2 | Cuánto dura el bloqueo temporal y cuántos fallos lo activan | El plan fija el principio, no los valores. **La implementación asumió:** retraso creciente desde el tercer fallo (de 1 a 64 segundos) y bloqueo temporal de 15 minutos tras 10 intentos fallidos, contado por correo en el ingreso y por usuario en el segundo factor. Pendiente de confirmar con el negocio |
 | 3 | Qué se considera un "dispositivo nuevo" para enviar el aviso por correo | Define cuántos avisos recibirá una persona |
 | 4 | Si el cambio de contraseña debe exigir reautenticación y avisar por correo | El plan lo menciona como motivo de aviso, no como acción detallada. **La implementación asumió** que basta con demostrar la contraseña actual; el aviso por correo sigue pendiente |
 | 5 | Si los códigos de recuperación se pueden regenerar y qué pasa con los anteriores | El plan los entrega una vez y no describe su renovación |
 | 6 | Quién puede cerrar las sesiones de un Administrador: su responsable es la Raíz, pero no se explicita | Aplica la misma regla de responsables, a confirmar |
-| 7 | Con qué contraseña nace la Raíz y cuándo debe cambiarla | **La implementación asumió:** la Raíz nace en estado "invitada" con una contraseña inicial aleatoria que genera el comando de alta, se muestra una sola vez a operaciones y se debe cambiar en el primer ingreso, antes de registrar el segundo factor. El alta queda en la auditoría. Falta decidir por qué canal operaciones entrega esa contraseña a la Raíz |
+| 7 | Con qué contraseña nace la Raíz y cuándo debe cambiarla | **La implementación asumió:** la Raíz nace en estado "invitada" con una contraseña inicial aleatoria que genera el comando de alta, se muestra una sola vez a operaciones y se debe cambiar en el primer ingreso, antes de registrar el segundo factor. El alta queda en la auditoría. Junto a la contraseña se imprimen una sola vez los códigos de emergencia, para entregarlos a las dos personas custodias. Falta decidir por qué canal operaciones entrega esa contraseña a la Raíz |
 | 8 | Si la reautenticación debe admitir también los códigos de recuperación | Hoy solo admite el código de la aplicación autenticadora |
