@@ -1,62 +1,57 @@
 # Plataforma interna de identidad, accesos y bóveda
 
-Monorepo (pnpm + Turborepo): `apps/api` (NestJS), `apps/web` (React), `apps/mobile-handoff`, `packages/*`, `db/migrations`, `docs/`. El producto guarda secretos reales: la seguridad pesa más que la velocidad.
+Guarda secretos reales de una empresa: ante la duda, la seguridad gana a la velocidad. El diseño completo está en `plan.md`; si algo lo contradice en seguridad, manda el plan.
 
-## Documentos de referencia (léelos antes de escribir)
+## Comandos (desde la raíz)
 
-| Documento | Cuándo |
-| --- | --- |
-| `plan.md` | Fuente de verdad: ADR, jerarquía, autorización, cripto, fases. Si algo contradice al plan en seguridad, manda el plan |
-| `docs/backend.md` | Cualquier cambio en `apps/api`, `db/` o `packages/contracts` |
-| `docs/frontend.md` | Cualquier cambio en `apps/web`, `apps/mobile-handoff` o `packages/ui`/`i18n` |
-| `docs/handoff.md` | Estado actual, plan de continuación ordenado, decisiones abiertas y trampas de entorno. Léelo al retomar el trabajo |
-| `docs/business/` | Lógica de negocio (sin código): actores, permisos, bóveda, 2FA, autenticación, gobernanza y estado por fase. Léelo antes de tocar reglas |
-| `docs/database.md` | Cambios en `db/`, tablas, RLS, roles o auditoría |
-| `docs/architecture.md`, `docs/threat-model.md`, `docs/adr/`, `docs/runbooks/` | Visión global, amenazas, decisiones (ADR 0001–0024) y procedimientos (borradores) |
-| `odd/tasks/` | Seguimiento de cada funcionalidad grande (especificaciones, tareas, bitácora) |
+- Verificar todo, en este orden: `pnpm format:check`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`.
+- Un solo paquete: `pnpm --filter <paquete> test`. En `@iam/api` hay `test:unit` (sin contenedores) y `test:integration`.
+- Las pruebas de integración y `pnpm e2e` necesitan Podman o Docker. Con Podman exporta `DOCKER_HOST` apuntando al socket de usuario y `TESTCONTAINERS_RYUK_DISABLED=true`.
+- `pnpm e2e` usa el Chrome instalado en el sistema. `pnpm stack` levanta la plataforma completa en local para probar a mano.
 
-Si una regla no está cubierta por estos documentos, propónla y detente. No improvises.
+## Dónde está la verdad
 
-## Reglas no negociables
+- Qué hace el producto y sus reglas: `docs/business/`. Léelo antes de cambiar una regla de negocio.
+- Cómo se construye: `docs/backend.md`, `docs/frontend.md`, `docs/database.md`. Decisiones: `docs/adr/`.
+- Estado, plan ordenado y decisiones abiertas: `docs/handoff.md`. Seguimiento de cada trabajo grande: `odd/tasks/`.
+- Si una regla no está cubierta, propónla y detente. No improvises.
 
-- Arquitectura hexagonal en backend: respeta las capas y la regla de dependencia de `docs/backend.md`. Entre módulos, solo por `index.ts` o eventos (outbox).
-- Toda consulta pasa por repositorios con contexto de organización. Nunca SQL sin RLS.
-- Todo caso de uso que toca usuarios o bóveda llama a `Authorizer.authorize()`. El guard del controlador no es la autorización.
-- Toda acción sensible escribe auditoría en la misma transacción.
-- Criptografía solo vía `modules/crypto` (`SecretCipher`). Prohibido importar `node:crypto` fuera.
-- Nunca registres secretos, tokens, cookies ni cuerpos de peticiones de rutas sensibles.
-- Los secretos solo viven en el estado local del componente que los muestra; nunca en TanStack Query, contexto ni almacenamiento del navegador.
-- Frontend: usa siempre componentes de `shared/ui`; toda tabla es `DataTable`; solo tokens de estilo, sin colores ni tamaños literales; ningún texto literal (i18n `es-MX` y `en-US`).
-- Prohibido `any`, `dangerouslySetInnerHTML`, `innerHTML` y `eval`.
-- No agregues dependencias. Si crees que hace falta una, propónla con su justificación y detente.
-- No edites migraciones ya aplicadas; crea una nueva. Toda tabla nueva lleva `organization_id`, índice y política RLS en la misma migración.
-- Nunca leas `.env*`, secretos ni datos de producción. No ejecutes comandos de red ni de despliegue.
+## Seguridad (no negociable)
+
+- Todo acceso a datos pasa por el contexto de organización con aislamiento por filas. Nunca una consulta sin él.
+- Toda acción sobre usuarios o bóveda la decide el motor de autorización del módulo de acceso; la guarda del controlador no es la autorización.
+- Toda acción sensible escribe auditoría en la misma transacción. Las negaciones también se auditan.
+- Solo el módulo de criptografía cifra, descifra o toca primitivas criptográficas.
+- Nunca registres secretos, tokens, cookies ni cuerpos de rutas sensibles. En el navegador, los secretos viven solo en el estado local del componente que los muestra.
+- Las migraciones aplicadas no se editan: crea una nueva. Toda tabla nueva lleva organización, índice y política de aislamiento en la misma migración.
+- No leas `.env*`, secretos ni datos de producción. No ejecutes comandos de red ni de despliegue sin autorización expresa.
+- Las reglas de capas e importaciones las hace cumplir el lint; no las desactives ni agregues excepciones.
 
 ## Rutas protegidas
 
-`modules/identity`, `modules/access`, `modules/crypto`, `modules/audit`, migraciones con RLS, `SecretReveal`, y la configuración de CSP y cabeceras.
-
-- No las modifiques salvo encargo humano explícito. Sí puedes revisarlas.
-- Todo cambio ahí se revisa línea por línea con dos personas; "las pruebas pasan" no basta.
-- Las pruebas de la matriz de autorización, criptografía y aislamiento de tenants las escribe o las revisa una persona.
+Identidad, acceso, criptografía, auditoría, migraciones con aislamiento, CSP y cabeceras, y la revelación de secretos. No las modifiques sin encargo humano explícito; sí puedes revisarlas. Sus pruebas de autorización, criptografía y aislamiento las escribe o las revisa una persona.
 
 ## Convenciones
 
-- Código, identificadores y nombres de archivos en inglés; comentarios y documentación en español. Los comentarios explican **por qué**, no qué.
-- Conventional Commits, PR pequeños, trunk-based con ramas cortas.
-- Estilo y estructura: sigue el código vecino. Reutiliza antes de crear (`Result`, `DataTable`, `cn()`, `useTableQuery`, `Authorizer`, `AuditLog`, `UnitOfWork`).
-- Comandos (desde la raíz): `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm format:check`. Las pruebas de integración necesitan Docker o Podman (`DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock TESTCONTAINERS_RYUK_DISABLED=true`).
-- Stack fijo: Node >= 24, pnpm 10, TypeScript 6.0 (no 7, incompatible con `typescript-eslint`), todo ESM. Las dependencias se instalan con versión exacta y respetan `minimumReleaseAge` (7 días).
+- Código e identificadores en inglés; comentarios y documentación en español. Los comentarios explican el porqué.
+- `README.md` y `docs/business/` son para lectores humanos: sin código.
+- Frontend: solo componentes y tokens del sistema de diseño, toda tabla usa la tabla estándar y ningún texto va literal (siempre es-MX y en-US).
+- Dependencias: no agregues ninguna sin aprobación; versión exacta; se respeta la espera de 7 días. TypeScript se queda en 6.0 (la 7 rompe el lint) y todo el repositorio es ESM.
+- Commits convencionales, por parte terminada, sin `Co-Authored-By` ni atribución a herramientas. No subas nada al remoto sin decisión del equipo.
+- Imita el código vecino y reutiliza antes de crear.
 
-## Trabajo con agentes
+## Cómo trabajar
 
-- Frontend: `frontend-developer`, `typescript-pro`, `ui-ux-designer` (solo lectura). Backend: `general-purpose` para implementar con alcance acotado, `Explore`/`Plan` para mapear y diseñar, `review-risk`, `review-resilience`, `review-reliability` y `review-readability` para revisar. Detalle y límites en `docs/frontend.md` §16 y `docs/backend.md` §14.
-- Todo encargo a un agente nombra el documento que debe leer, las rutas que puede editar y los criterios de aceptación. Los agentes no agregan dependencias ni tocan rutas protegidas.
-- La revisión de código sensible la hace alguien distinto de quien lo escribió.
+- En un trabajo grande, crea o actualiza su documento en `odd/tasks/` (especificaciones citando lo pedido, tareas y bitácora) y itera hasta 5 veces: implementar, probar, corregir.
+- Código sensible: revisión adversarial con dos revisores ciegos (los agentes `jd-judge-a` y `jd-judge-b`) sobre el mismo alcance congelado; corrige solo lo que ambos confirman. Después rompe la regla a propósito y comprueba que alguna prueba falla. Los agentes `review-*` no funcionan en este entorno.
+- Agentes de ejecución: `documentation-expert`, `database-architect`, `frontend-developer`. No tocan rutas protegidas ni agregan dependencias. Cada encargo nombra el documento que deben leer, las rutas que pueden editar y los criterios de aceptación.
 
-## Definición de terminado
+## Trampas del entorno
 
-- Lint, tipos y pruebas en verde.
-- Backend: pruebas de dominio; integración con PostgreSQL real si toca repositorios; matriz de autorización si toca permisos; prueba de aislamiento si añade tablas o listados.
-- Frontend: pruebas de componente y de accesibilidad; claves i18n en ambos idiomas; contraste de tokens y límites de arquitectura en verde.
-- Las listas completas están en `docs/backend.md` §15 y `docs/frontend.md` §15.
+- No uses `pkill -f`: coincide con tu propia línea de comandos y cierra la terminal.
+- Si una prueba es intermitente bajo carga, arregla la espera; no subas reintentos a ciegas.
+
+## Terminado significa
+
+- Formato, compilación, tipos, lint y pruebas en verde; `pnpm e2e` también si cambió la interfaz o la API HTTP.
+- Pruebas de la capa tocada: dominio; integración con base de datos real si toca repositorios; matriz de autorización si toca permisos; aislamiento si agrega tablas o listados; en la web, accesibilidad y textos en ambos idiomas. Detalle en `docs/backend.md` y `docs/frontend.md`.

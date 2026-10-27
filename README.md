@@ -1,115 +1,97 @@
 # Plataforma interna de identidad, accesos y bóveda
 
-Sistema interno, de una sola organización, para gestionar personas, permisos y una bóveda compartida de credenciales y 2FA de plataformas (por ejemplo, redes sociales), con auditoría a prueba de manipulación. Está pensado para un equipo de tres personas y guarda secretos reales: la seguridad pesa más que la velocidad.
+Una herramienta interna para que un equipo pequeño gestione **quién puede entrar a qué**, y para guardar y compartir de forma segura las **cuentas de plataformas externas** (por ejemplo, redes sociales) con sus segundos factores de verificación. Cada acceso importante queda registrado en una bitácora que nadie puede reescribir.
 
-El diseño completo está en [`plan.md`](plan.md), que es la fuente de verdad. Si algo de otro documento contradice al plan en seguridad, manda el plan.
+Está pensada para una sola organización de unas tres personas operando, aunque el diseño ya permite crecer a varias. Guarda secretos reales de la empresa, así que en cada decisión **la seguridad pesa más que la velocidad**.
 
-## Estado
+## Qué resuelve
 
-**Fase 0 · Fundaciones** terminada. **Fase 1a · Identidad** implementada en backend y frontend (invitaciones, segundo factor con aplicación autenticadora, sesiones, permisos y directorio; pruebas de punta a punta contra PostgreSQL real), pero sin cerrar: faltan passkeys, recuperación de la Raíz, Redis, proveedor de correo y la primera ejecución del CI. Las fases 1b y 1c siguen pendientes. Estado detallado en [`docs/business/roadmap-and-status.md`](docs/business/roadmap-and-status.md); qué hace el producto, en [`docs/business/`](docs/business/README.md); seguimiento en [`odd/tasks/`](odd/tasks). **Si vas a retomar el proyecto en otro equipo, empieza por [`docs/handoff.md`](docs/handoff.md)** (estado, plan ordenado, decisiones abiertas y trampas de entorno).
+- **Personas y jerarquía.** Cuatro niveles (Raíz, Administrador, Líder y Operador). Cada persona solo gestiona a quien está por debajo de ella en su propia línea de responsabilidad.
+- **Entrada segura.** Nadie se registra por su cuenta: se entra por invitación, con contraseña y un segundo factor obligatorio.
+- **Bóveda compartida.** Las credenciales se comparten con niveles de acceso claros (usar, ver, editar, gestionar) y los secretos viven cifrados.
+- **Segundo factor centralizado.** Un operador puede usar el código de una cuenta sin llegar a conocer el secreto que lo genera.
+- **Registro a prueba de manipulación.** Quién hizo qué, cuándo y con qué resultado, incluidas las acciones que se negaron.
+- **Salida ordenada.** Cuando alguien deja el equipo, se cierra su acceso y se señalan los secretos que conoció para cambiarlos.
+
+## En qué punto está
+
+| Fase | Qué entrega | Estado |
+| --- | --- | --- |
+| 0 · Fundaciones | Base técnica, base de datos con aislamiento por organización, cifrado, registro y diseño visual | Terminada |
+| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona; faltan piezas** (llaves de acceso, gestión de personas, recuperación de la Raíz, correo real) |
+| 1b · Bóveda y segundo factor | Guardar y compartir cuentas, revelar contraseñas con motivo y generar códigos | Pendiente |
+| 1c · Gobernanza | Pantalla de auditoría, bajas con rotación, salud de credenciales y acceso temporal | Pendiente |
+| 2 a 7 | Inicio de sesión único, lectura de correos y SMS, extensión de navegador y broker | Pendientes |
+
+**Todavía no debe cargarse ninguna credencial real.** Antes hace falta terminar la fase 1 y pasar una prueba de penetración externa.
 
 ## Requisitos
 
-| Herramienta | Versión | Para qué |
+| Necesitas | Versión | Para qué |
 | --- | --- | --- |
-| Node.js | >= 24 (campo `engines` de `package.json`) | Runtime y herramientas |
-| pnpm | 10 (`packageManager`: `pnpm@10.33.0`) | Gestor de paquetes del monorepo |
-| Podman o Docker | Cualquiera con socket compatible | Pruebas de integración con PostgreSQL real (Testcontainers) y entorno local |
-| Google Chrome | Reciente, instalado en el sistema | Pruebas de navegador (`pnpm e2e`); no se descargan navegadores |
+| Node.js | 24 o superior | Ejecutar y construir el proyecto |
+| pnpm | 10 | Instalar dependencias y lanzar las tareas |
+| Podman o Docker | Cualquiera reciente | Levantar una base de datos de pruebas y el entorno local |
+| Google Chrome | Reciente, instalado en el sistema | Pruebas en navegador real (no se descarga ningún navegador) |
+| Aplicación autenticadora | Cualquiera compatible | Para registrar tu segundo factor al probar a mano |
 
-Las dependencias se instalan con espera de 7 días tras cada publicación (`minimumReleaseAge`) y con scripts de instalación deshabilitados salvo lista blanca; ver `pnpm-workspace.yaml`. Agregar una dependencia requiere aprobación humana (ver [`CLAUDE.md`](CLAUDE.md)).
+Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a internet la primera vez (se descargan dependencias e imágenes).
 
-## Estructura del repositorio
+## Primeros pasos
 
-| Carpeta o archivo | Contenido |
+1. **Obtén el código** y entra en la carpeta del proyecto.
+2. **Instala las dependencias** con `pnpm install`.
+3. **Si usas Podman** (con Docker no hace falta nada), activa su servicio de usuario con `systemctl --user enable --now podman.socket` y define dos variables de entorno antes de lanzar las pruebas: `DOCKER_HOST` con la dirección del servicio de Podman de tu usuario (`unix:///run/user/<tu id>/podman/podman.sock`) y `TESTCONTAINERS_RYUK_DISABLED` con el valor `true` (desactiva un contenedor de limpieza que Podman sin privilegios no admite).
+4. **Comprueba que todo funciona** con `pnpm build` y luego `pnpm test`. Si ambos terminan sin errores, el entorno está listo.
+5. **Pruébalo a mano** con `pnpm stack`. Compila la plataforma, levanta una base de datos temporal, crea una organización de ejemplo y te muestra la dirección, el correo y la contraseña de la persona Raíz. Los datos se borran al detenerlo.
+
+### Probarlo como usuario
+
+1. Abre la dirección que imprimió `pnpm stack` y entra con el correo y la contraseña de la Raíz.
+2. Registra el segundo factor: escanea el código QR con tu aplicación autenticadora y escribe el código de seis dígitos. Guarda los diez códigos de recuperación que se muestran **una sola vez**.
+3. Entra a **Usuarios** e invita a alguien. El correo no se envía de verdad: el entorno local publica el último mensaje en un buzón de pruebas cuya dirección también imprime `pnpm stack`.
+4. Abre el enlace de la invitación en otra ventana privada, elige una contraseña y registra su segundo factor.
+
+### Otras tareas habituales
+
+| Quiero | Comando |
 | --- | --- |
-| `apps/api` | Backend (NestJS con Fastify) |
-| `apps/web` | Aplicación web (React, Vite y Tailwind) |
-| `packages/config` | Configuración base compartida: TypeScript, ESLint y reglas de límites entre capas |
-| `packages/contracts` | Esquemas de validación, tipos y códigos de error compartidos entre API y web |
-| `packages/i18n` | Catálogos de textos en `es-MX` y `en-US` |
-| `packages/ui` | Tokens de diseño y componentes de interfaz |
-| `db` | Migraciones versionadas con aislamiento por organización |
-| `docs` | Guías, lógica de negocio, arquitectura, amenazas, ADR y runbooks |
-| `odd/tasks` | Especificaciones y seguimiento por funcionalidad |
-| `plan.md` | Plan técnico (fuente de verdad) |
-| `CLAUDE.md` | Reglas no negociables para agentes |
+| Verificar formato, tipos y reglas de estilo | `pnpm format:check`, `pnpm typecheck`, `pnpm lint` |
+| Ejecutar las pruebas del sistema | `pnpm test` |
+| Ejecutar las pruebas en navegador real | `pnpm e2e` |
+| Trabajar solo en la interfaz web con recarga en vivo | `pnpm --filter @iam/web dev` |
 
-Detalle y diagramas en [`docs/architecture.md`](docs/architecture.md). `apps/mobile-handoff` (página de cámara para el 2FA por celular) está en el plan y aún no existe.
+## Cómo está organizado
 
-## Comandos
-
-Todos se ejecutan desde la raíz y corren en cada workspace mediante Turborepo (`turbo run <tarea>`). Los scripts por workspace son los de cada `package.json`.
-
-```bash
-pnpm install          # instala dependencias del monorepo
-pnpm build            # compila todos los workspaces que tienen build
-pnpm lint             # ESLint en cada workspace
-pnpm typecheck        # tsc --noEmit en cada workspace
-pnpm test             # Vitest en cada workspace
-pnpm e2e              # navegador real (Chrome) contra la plataforma completa
-pnpm stack            # levanta la plataforma completa en local para probar a mano
-pnpm format           # Prettier --write
-pnpm format:check     # Prettier --check
-```
-
-Por workspace (ejemplos reales de los `scripts`):
-
-```bash
-pnpm --filter @iam/web dev        # servidor de desarrollo de la SPA (Vite)
-pnpm --filter @iam/api test       # pruebas del backend
-pnpm --filter @iam/db test        # pruebas de la base de datos (migraciones, RLS)
-```
-
-| Workspace | Scripts disponibles |
+| Carpeta | Qué contiene |
 | --- | --- |
-| raíz | `build`, `typecheck`, `lint`, `test`, `format`, `format:check` |
-| `@iam/api` | `build`, `typecheck`, `lint`, `test` |
-| `@iam/web` | `dev`, `build`, `typecheck`, `lint`, `test` |
-| `@iam/db` | `build`, `typecheck`, `lint`, `test` |
-| `@iam/contracts` | `build`, `typecheck`, `lint`, `test` |
-| `@iam/i18n` | `typecheck`, `lint`, `test` |
-| `@iam/ui` | `typecheck`, `lint`, `test` |
+| `apps/api` | El servicio principal (reglas de negocio, seguridad y acceso a datos) |
+| `apps/web` | La aplicación web |
+| `packages` | Piezas compartidas: componentes visuales, textos en español e inglés, contratos entre servicio y web, configuración común |
+| `db` | Las migraciones de la base de datos y sus pruebas |
+| `e2e` | Pruebas en navegador real y el entorno local completo |
+| `docs` | Toda la documentación |
+| `odd` | Seguimiento de cada trabajo grande: qué se pidió, qué se hizo y qué se encontró |
 
-Tabla verificada contra los `package.json` del repositorio al redactar este README; si agregas o cambias scripts, actualízala.
+## Dónde leer más
 
-### Pruebas de integración con Podman
-
-Las pruebas de integración (RLS, aislamiento de tenants) levantan PostgreSQL real con Testcontainers. Con Docker funcionan sin configuración adicional. Con Podman, activa el socket de usuario y exporta estas variables antes de `pnpm test`:
-
-```bash
-systemctl --user enable --now podman.socket   # una sola vez, si el socket no está activo
-export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
-export TESTCONTAINERS_RYUK_DISABLED=true
-pnpm test
-```
-
-`TESTCONTAINERS_RYUK_DISABLED=true` desactiva el contenedor de limpieza (Ryuk), que no funciona con Podman sin privilegios. Las imágenes usadas son `postgres:17-alpine` y `redis:7-alpine`.
-
-## Documentación
-
-| Documento | Contenido |
+| Si quieres... | Lee |
 | --- | --- |
-| [`plan.md`](plan.md) | Plan técnico: decisiones, jerarquía, autorización, cifrado, fases, riesgos |
-| [`docs/README.md`](docs/README.md) | Índice de toda la documentación |
-| [`docs/handoff.md`](docs/handoff.md) | **Traspaso:** estado, cómo retomar en otro equipo, plan ordenado y decisiones abiertas |
-| [`docs/business/`](docs/business/README.md) | Lógica de negocio: qué hace el sistema y por qué, sin código |
-| [`docs/backend.md`](docs/backend.md) | Guía de backend (arquitectura, código, pruebas) |
-| [`docs/frontend.md`](docs/frontend.md) | Guía de frontend (diseño, componentes, i18n, `DataTable`) |
-| [`docs/database.md`](docs/database.md) | Diseño de la base de datos |
-| [`docs/architecture.md`](docs/architecture.md) | Arquitectura, módulos y flujos |
-| [`docs/adr/`](docs/adr/README.md) | Registro de decisiones (ADR 0001 a 0026) |
-| [`docs/threat-model.md`](docs/threat-model.md) | Modelo de amenazas (borrador de la fase 0, actualizado con la fase 1a) |
-| [`docs/runbooks/`](docs/runbooks/README.md) | Runbooks de operación (borradores) |
-| [`CLAUDE.md`](CLAUDE.md) | Reglas no negociables para el desarrollo con agentes |
+| Retomar el proyecto en otro equipo | [`docs/handoff.md`](docs/handoff.md) |
+| Entender qué hace el producto y qué reglas aplica | [`docs/business/`](docs/business/README.md) |
+| Ver el diseño completo y las decisiones | [`plan.md`](plan.md) y [`docs/adr/`](docs/adr/README.md) |
+| Entender cómo encajan las piezas | [`docs/architecture.md`](docs/architecture.md) |
+| Conocer las amenazas contempladas | [`docs/threat-model.md`](docs/threat-model.md) |
+| Saber qué hacer ante un incidente | [`docs/runbooks/`](docs/runbooks/README.md) |
+| Ver todo el índice | [`docs/README.md`](docs/README.md) |
 
-## Convenciones
+## Cómo se colabora
 
-- Código, identificadores y nombres de archivo en inglés; comentarios y documentación en español.
-- Conventional Commits, PR pequeños, trunk-based con ramas de vida corta.
-- Toda PR requiere revisión humana; las que tocan rutas protegidas (`identity`, `access`, `crypto`, `audit`, migraciones con RLS, CSP y cabeceras) requieren dos revisores.
-- Reglas de seguridad innegociables y definición de terminado: [`CLAUDE.md`](CLAUDE.md), `docs/backend.md` §15 y `docs/frontend.md` §15.
+- Los cambios se hacen en pasos pequeños, con mensajes de commit en el formato convencional y revisión de una persona. Lo que toca identidad, permisos, cifrado, auditoría o el aislamiento de datos requiere dos revisores.
+- No se agregan dependencias sin aprobación humana.
+- El código y los nombres técnicos están en inglés; los comentarios y la documentación, en español.
+- Las reglas para trabajar con asistentes de inteligencia artificial están en [`CLAUDE.md`](CLAUDE.md).
 
 ## Seguridad
 
-No se registran ni se guardan secretos en el repositorio ni en logs. Los hallazgos de seguridad se reportan a las personas responsables del proyecto por un canal privado (canal por definir antes de producción).
+Nunca se guardan secretos en el repositorio ni en los registros. Los hallazgos de seguridad se comunican por un canal privado a las personas responsables del proyecto (canal por definir antes de producción).
