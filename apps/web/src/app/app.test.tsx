@@ -1,0 +1,125 @@
+import { resources } from '@iam/i18n';
+import { createMemoryHistory } from '@tanstack/react-router';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from 'vitest';
+
+import { LOCALE_STORAGE_KEY, createI18n, detectInitialLocale } from '../shared/i18n';
+import { axeViolations } from '../test/axe';
+
+import { App } from './app';
+import { createQueryClient } from './query-client';
+import { createAppRouter } from './router';
+
+const es = resources['es-MX'].common;
+const en = resources['en-US'].common;
+
+function renderApp(path: string, locale: 'es-MX' | 'en-US' = 'es-MX') {
+  const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }));
+  return {
+    router,
+    ...render(<App router={router} i18n={createI18n(locale)} queryClient={createQueryClient()} />),
+  };
+}
+
+describe('app shell and routing', () => {
+  it('renders Home inside the shell with landmarks, in Spanish by default', async () => {
+    renderApp('/');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: es['home.title'] }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: es['nav.label'] })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('es-MX');
+  });
+
+  it('switches language, updates <html lang> and remembers the choice', async () => {
+    const user = userEvent.setup();
+    renderApp('/');
+    await screen.findByRole('heading', { level: 1, name: es['home.title'] });
+    await user.selectOptions(screen.getByRole('combobox', { name: es['language.label'] }), 'en-US');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: en['home.title'] }),
+    ).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en-US');
+    expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('en-US');
+  });
+
+  it('shows the not-found page for unknown routes', async () => {
+    renderApp('/nope');
+    expect(await screen.findByText(resources['es-MX'].errors.NOT_FOUND)).toBeInTheDocument();
+  });
+
+  it('has no accessibility violations on Home', async () => {
+    const { container } = renderApp('/');
+    await screen.findByRole('heading', { level: 1 });
+    expect(await axeViolations(container)).toEqual([]);
+  });
+});
+
+describe('first-access locale detection', () => {
+  it('detects the browser language only when no preference is stored, and stores it', () => {
+    expect(detectInitialLocale('en-GB')).toBe('en-US');
+    expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('en-US');
+    // Ya hay preferencia: el idioma del navegador deja de mandar.
+    expect(detectInitialLocale('es-MX')).toBe('en-US');
+  });
+
+  it('falls back to es-MX for unsupported languages', () => {
+    expect(detectInitialLocale('fr-FR')).toBe('es-MX');
+  });
+});
+
+describe('component catalog route (development only)', () => {
+  it('demonstrates the components and a working DataTable', async () => {
+    const user = userEvent.setup();
+    const { container } = renderApp('/catalog');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: es['catalog.title'] }),
+    ).toBeInTheDocument();
+
+    const table = await screen.findByRole('table', { name: es['catalog.table.caption'] });
+    expect(await within(table).findByRole('cell', { name: 'Persona 001' })).toBeInTheDocument();
+
+    // Ordenar por nombre (servidor simulado) deja la columna con aria-sort.
+    await user.click(within(table).getByRole('button', { name: es['catalog.table.col.name'] }));
+    await waitFor(() => {
+      expect(
+        within(table).getByRole('columnheader', { name: es['catalog.table.col.name'] }),
+      ).toHaveAttribute('aria-sort', 'ascending');
+    });
+
+    // Paginación por cursor hacia adelante.
+    await user.click(screen.getByRole('button', { name: es['table.next'] }));
+    expect(await within(table).findByRole('cell', { name: 'Persona 026' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: es['table.previous'] })).toBeEnabled();
+
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  it('shows the filtered empty state and clears the filter', async () => {
+    const user = userEvent.setup();
+    renderApp('/catalog?q=zzz');
+    expect(await screen.findByText(es['table.emptyFiltered.title'])).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: es['table.clearFilters'] }));
+    expect(await screen.findByRole('cell', { name: 'Persona 001' })).toBeInTheDocument();
+  });
+
+  it('opens a labelled confirmation dialog before a destructive row action', async () => {
+    const user = userEvent.setup();
+    renderApp('/catalog');
+    const [firstDelete] = await screen.findAllByRole('button', { name: es['actions.delete'] });
+    if (firstDelete === undefined) throw new Error('No row delete button');
+    await user.click(firstDelete);
+    expect(
+      await screen.findByRole('dialog', { name: es['catalog.dialog.title'] }),
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to valid defaults when the URL carries an invalid limit', async () => {
+    renderApp('/catalog?limit=7');
+    const select = await screen.findByRole('combobox', { name: es['table.rowsPerPage'] });
+    expect(select).toHaveValue('25');
+  });
+});

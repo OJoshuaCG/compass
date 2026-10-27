@@ -1,0 +1,8 @@
+/*
+ * Único punto de estilos globales de la app (docs/frontend.md §3.1).
+ * Los tokens viven en @iam/ui; aquí solo se enlazan, junto con las fuentes autoalojadas.
+ */
+@import '@iam/ui/tokens.css';
+
+/* Tailwind debe escanear las clases usadas por los componentes compartidos. */
+@source "../../../../../packages/ui/src";
