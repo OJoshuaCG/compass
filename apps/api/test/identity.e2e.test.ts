@@ -889,6 +889,14 @@ describe('8. Organizations never see each other', () => {
 });
 
 describe('9. Hardening: IP limit by route, deferred audit and burst guessing', () => {
+  it('liveness is public: a load balancer without a session gets 200, not 401', async () => {
+    const response = await new TestClient(env, '203.0.113.229').get<{ status: string }>(
+      '/health/live',
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: 'ok' });
+  });
+
   it('the per-IP limit also applies to percent-encoded paths (it is decided by route, not by URL text)', async () => {
     const statuses: number[] = [];
     for (let i = 0; i < 80; i += 1) {
