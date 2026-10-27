@@ -2,15 +2,28 @@ import { DIRECTORY_SORT_FIELDS } from '@iam/contracts';
 import { z } from 'zod';
 
 /**
+ * Una ruta de retorno es válida solo si, tal como la interpreta el navegador, es interna.
+ * El navegador elimina tab/saltos de línea al analizar URLs (`/\t/evil.com` pasa a
+ * `//evil.com`), así que primero se rechaza todo lo que no sea ASCII imprimible sin espacios
+ * y después se verifica con `URL` que el origen resultante es el propio.
+ */
+export function isSafeReturnTo(value: string): boolean {
+  if (value.length > 2048 || !/^[\x21-\x7e]+$/.test(value) || value.includes('\\')) return false;
+  if (!value.startsWith('/') || value.startsWith('//')) return false;
+  try {
+    const { origin } = globalThis.location;
+    const url = new URL(value, origin);
+    return url.origin === origin && url.pathname.startsWith('/') && !url.pathname.startsWith('//');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Ruta de retorno tras iniciar sesión. Solo se acepta una ruta interna ("/algo"): una URL
  * absoluta o "//host" permitiría redirigir a un sitio externo tras el login (open redirect).
  */
-export const returnToSchema = z
-  .string()
-  .max(2048)
-  .refine((value) => value.startsWith('/') && !value.startsWith('//') && !value.includes('\\'))
-  .optional()
-  .catch(undefined);
+export const returnToSchema = z.string().refine(isSafeReturnTo).optional().catch(undefined);
 
 export const returnToSearchSchema = z.object({ returnTo: returnToSchema });
 export type ReturnToSearch = z.infer<typeof returnToSearchSchema>;

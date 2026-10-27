@@ -1,6 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
+import { emitSessionExpired, reauthCoordinator } from '../api';
 
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, noContent, problem, stubApi } from '../../test/fake-api';
@@ -153,5 +156,91 @@ describe('step-up reauthentication', () => {
     await user.click(within(dialog).getByRole('button', { name: es.common['reauth.submit'] }));
     expect(await screen.findByText('Invitación enviada a nuevo@example.com.')).toBeInTheDocument();
     expect(api.callsTo('POST', '/invitations')).toHaveLength(2);
+  });
+
+  it('can resubmit after cancelling an in-flight code, and the late result frees nothing else', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const lateReauth: { release: () => void } = { release: () => undefined };
+    let reauthCalls = 0;
+    const api = stubApi({
+      ...baseRoutes(),
+      'POST /invitations': () => {
+        attempts += 1;
+        // Intentos 1 y 2 piden reautenticar; el 3.º (reintento tras éxito) crea la invitación.
+        return attempts <= 2 ? problem(403, 'AUTHZ.REAUTH_REQUIRED') : CREATED.clone();
+      },
+      'POST /auth/reauth': () => {
+        reauthCalls += 1;
+        if (reauthCalls === 1) {
+          return new Promise<Response>((resolve) => {
+            lateReauth.release = () => {
+              resolve(noContent());
+            };
+          });
+        }
+        return noContent();
+      },
+    });
+    renderApp('/users');
+    await submitInvitation(user);
+    let dialog = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
+    const codeLabel = new RegExp(`^${es.common['reauth.code']}`);
+    await user.type(within(dialog).getByLabelText(codeLabel), '111111');
+    await user.click(within(dialog).getByRole('button', { name: es.common['reauth.submit'] }));
+    await waitFor(() => {
+      expect(api.callsTo('POST', '/auth/reauth')).toHaveLength(1);
+    });
+    // Cancela con el envío en vuelo: la operación original falla con su error.
+    await user.click(within(dialog).getByRole('button', { name: es.common['actions.cancel'] }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: es.common['reauth.title'] }),
+      ).not.toBeInTheDocument();
+    });
+
+    // Segunda operación: abre una solicitud NUEVA.
+    const inviteDialog = await screen.findByRole('dialog', { name: es.directory['invite.title'] });
+    await user.click(
+      within(inviteDialog).getByRole('button', { name: es.directory['invite.submit'] }),
+    );
+    dialog = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
+
+    // El resultado tardío de la solicitud cancelada NO libera a la nueva.
+    await act(async () => {
+      lateReauth.release();
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('dialog', { name: es.common['reauth.title'] })).toBeInTheDocument();
+    expect(api.callsTo('POST', '/invitations')).toHaveLength(2);
+
+    // Y se puede volver a enviar: no hay "Action already in progress" silencioso.
+    await user.type(within(dialog).getByLabelText(codeLabel), '222222');
+    await user.click(within(dialog).getByRole('button', { name: es.common['reauth.submit'] }));
+    expect(await screen.findByText('Invitación enviada a nuevo@example.com.')).toBeInTheDocument();
+    expect(api.callsTo('POST', '/auth/reauth')).toHaveLength(2);
+  });
+
+  it('closes the dialog and rejects the pending operation when the session expires', async () => {
+    const user = userEvent.setup();
+    stubApi({
+      ...baseRoutes(),
+      'POST /invitations': () => problem(403, 'AUTHZ.REAUTH_REQUIRED'),
+    });
+    renderApp('/users');
+    await submitInvitation(user);
+    await screen.findByRole('dialog', { name: es.common['reauth.title'] });
+
+    act(() => {
+      emitSessionExpired();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: es.common['reauth.title'] }),
+      ).not.toBeInTheDocument();
+    });
+    // La solicitud pendiente se rechazó: nada queda colgado esperando al diálogo.
+    expect(reauthCoordinator.isOpen()).toBe(false);
   });
 });

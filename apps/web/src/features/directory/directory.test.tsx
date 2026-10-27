@@ -256,4 +256,43 @@ describe('invite user dialog', () => {
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
+
+  it('uses a new Idempotency-Key when the body changes, and keeps it for a retry of the same body', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const api = stubApi({
+      'GET /me': jsonResponse(meFixture({ permissions: ['user.invite'] })),
+      'GET /users': jsonResponse({ data: USERS, page: { nextCursor: null, limit: 25 } }),
+      'POST /invitations': () => {
+        attempts += 1;
+        if (attempts === 1) return problem(409, 'INVITATION.CONFLICT');
+        return problem(500, 'INTERNAL');
+      },
+    });
+    renderApp('/users');
+    const dialog = await openDialog(user);
+    const email = field(es.directory['invite.email']);
+    const submit = () =>
+      user.click(within(dialog).getByRole('button', { name: es.directory['invite.submit'] }));
+
+    await user.type(email, 'luis@example.com');
+    await submit();
+    await waitFor(() => {
+      expect(api.callsTo('POST', '/invitations')).toHaveLength(1);
+    });
+    await user.clear(email);
+    await user.type(email, 'otro@example.com');
+    await submit();
+    await waitFor(() => {
+      expect(api.callsTo('POST', '/invitations')).toHaveLength(2);
+    });
+    // Mismo cuerpo tras un fallo de red/5xx: es un reintento y conserva la clave.
+    await submit();
+    await waitFor(() => {
+      expect(api.callsTo('POST', '/invitations')).toHaveLength(3);
+    });
+    const keys = api.callsTo('POST', '/invitations').map((c) => c.headers.get('Idempotency-Key'));
+    expect(keys[1]).not.toBe(keys[0]);
+    expect(keys[2]).toBe(keys[1]);
+  });
 });

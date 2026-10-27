@@ -3,6 +3,7 @@ import { Link, getRouteApi, useRouter, useRouterState } from '@tanstack/react-ro
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { navigateAfterAuth } from './return-navigation';
 import { readInvitationToken } from './invitation-token';
 
 const loginRoute = getRouteApi('/_public/login');
@@ -16,8 +17,7 @@ function useReturnNavigation() {
   const router = useRouter();
   /** Vuelve a donde iba el usuario (si la ruta es interna) o al inicio. */
   return (returnTo: string | undefined) => {
-    if (returnTo === undefined) void router.navigate({ to: '/' });
-    else router.history.push(returnTo);
+    navigateAfterAuth(router, returnTo);
   };
 }
 

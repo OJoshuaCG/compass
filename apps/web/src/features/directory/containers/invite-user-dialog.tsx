@@ -26,15 +26,24 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
   const { t } = useTranslation(['directory', 'common', 'errors']);
   const toast = useToast();
   const validationMessage = useValidationMessage();
-  // Una clave por apertura del diálogo: si el envío se repite (reautenticación, red) el
-  // servidor lo reconoce como la misma invitación en lugar de crear otra.
-  const idempotencyKey = useRef(crypto.randomUUID());
+  // La clave se estabiliza solo ante reintentos de la MISMA petición (mismo cuerpo): si el envío
+  // se repite (reautenticación, red) el servidor lo reconoce como la misma invitación. Si el
+  // usuario edita el correo o el rango, o la petición terminó en conflicto/validación, es otra
+  // petición y necesita clave nueva (si no, el servidor devolvería la respuesta anterior).
+  const attempt = useRef<{ key: string; body: string } | null>(null);
+  function keyFor(body: CreateInvitationRequest): string {
+    const serialized = JSON.stringify(body);
+    if (attempt.current?.body !== serialized) {
+      attempt.current = { key: crypto.randomUUID(), body: serialized };
+    }
+    return attempt.current.key;
+  }
   // Si el rango no permite ninguna opción se ofrecen todas: el servidor decide (es solo comodidad).
   const ranks = creatableRanks(actorRank);
   const options = ranks.length > 0 ? ranks : ([1, 2, 3] as const);
 
   const mutation = useMutation({
-    mutationFn: (body: CreateInvitationRequest) => inviteUser(body, idempotencyKey.current),
+    mutationFn: (body: CreateInvitationRequest) => inviteUser(body, keyFor(body)),
   });
   const cooldown = useRateLimitCooldown(mutation.error);
 
@@ -58,6 +67,13 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
         onDone();
       },
       onError: (error) => {
+        if (
+          error instanceof ApiError &&
+          (error.code === ErrorCode.INVITATION_CONFLICT || error.status === 422)
+        ) {
+          // Respuesta definitiva del servidor: la próxima petición es nueva.
+          attempt.current = null;
+        }
         if (error instanceof ApiError && error.code === ErrorCode.INVITATION_CONFLICT) {
           setError('email', {
             type: 'server',

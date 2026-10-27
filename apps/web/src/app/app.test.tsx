@@ -85,8 +85,13 @@ describe('component catalog route (development only)', () => {
       ).toHaveAttribute('aria-sort', 'ascending');
     });
 
-    // Paginación por cursor hacia adelante.
-    await user.click(screen.getByRole('button', { name: es['table.next'] }));
+    // Paginación por cursor hacia adelante; "Siguiente" espera a que la vista nueva termine de
+    // cargar (con datos de relleno su cursor pertenecería a la vista anterior).
+    const next = screen.getByRole('button', { name: es['table.next'] });
+    await waitFor(() => {
+      expect(next).toBeEnabled();
+    });
+    await user.click(next);
     expect(await within(table).findByRole('cell', { name: 'Persona 026' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: es['table.previous'] })).toBeEnabled();
 

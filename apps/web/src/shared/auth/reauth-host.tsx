@@ -30,6 +30,14 @@ export function ReauthHost() {
   );
   const cooldown = useRateLimitCooldown(submit.error);
 
+  const { reset } = submit;
+
+  // Si la solicitud se cierra por otra vía (sesión expirada, cancelación) se descarta cualquier
+  // envío en vuelo y su error: el siguiente diálogo empieza limpio y puede volver a enviar.
+  useEffect(() => {
+    if (!open) reset();
+  }, [open, reset]);
+
   // Si la app se desmonta con una petición pendiente, se cancela para no dejar promesas colgadas.
   useEffect(() => {
     return () => {
@@ -57,15 +65,19 @@ export function ReauthHost() {
           : undefined
       }
       onSubmit={(code) => {
+        // El envío queda atado a la solicitud abierta ahora: si se cancela, su resultado tardío
+        // no puede liberar otra solicitud.
+        const requestId = reauthCoordinator.currentId();
+        if (requestId === null) return;
         void submit.run(code).then((result) => {
           if (!result.ok) return;
           // `reauthUntil` cambió: se refresca `/me` y se libera a las peticiones en espera.
           void queryClient.invalidateQueries({ queryKey: sessionKeys.all });
-          reauthCoordinator.settle(true);
+          reauthCoordinator.settle(true, requestId);
         });
       }}
       onCancel={() => {
-        submit.reset();
+        reset();
         reauthCoordinator.settle(false);
       }}
     />

@@ -199,4 +199,62 @@ describe('useTableQuery', () => {
     });
     expect(result.current.status).toBe('success');
   });
+
+  it('does not resurrect old cursors when returning to the original signature', async () => {
+    const { result, rerender } = setup();
+    await waitFor(() => {
+      expect(result.current.rows).toEqual(['a', 'b']);
+    });
+    act(() => {
+      result.current.pagination.onNext();
+    });
+    await waitFor(() => {
+      expect(result.current.rows).toEqual(['c', 'd']);
+    });
+    rerender({ search: { limit: 25, sort: 'name', dir: 'asc' } });
+    rerender({ search: { limit: 25 } });
+    expect(result.current.pagination.hasPrevious).toBe(false);
+    expect(result.current.pagination.offset).toBe(0);
+    await waitFor(() => {
+      expect(result.current.rows).toEqual(['a', 'b']);
+    });
+  });
+
+  it('disables Next while the next page loads and never pushes the same cursor twice', async () => {
+    let release: (() => void) | undefined;
+    const slow: FetchPage<string> = (params) =>
+      params.cursor === undefined
+        ? Promise.resolve({ data: ['a'], page: { nextCursor: 'n', limit: 25 } })
+        : new Promise((resolve) => {
+            release = () => {
+              resolve({ data: ['b'], page: { nextCursor: 'm', limit: 25 } });
+            };
+          });
+    const { result } = setup({}, slow);
+    await waitFor(() => {
+      expect(result.current.rows).toEqual(['a']);
+    });
+    // Dos clics antes de que React re-renderice.
+    act(() => {
+      result.current.pagination.onNext();
+      result.current.pagination.onNext();
+    });
+    await waitFor(() => {
+      expect(result.current.refreshing).toBe(true);
+    });
+    expect(result.current.pagination.hasNext).toBe(false);
+    expect(result.current.pagination.offset).toBe(25);
+    // Con datos de relleno un clic tardío no empuja el cursor de otra vista.
+    act(() => {
+      result.current.pagination.onNext();
+    });
+    expect(result.current.pagination.offset).toBe(25);
+    act(() => {
+      release?.();
+    });
+    await waitFor(() => {
+      expect(result.current.pagination.hasNext).toBe(true);
+    });
+    expect(result.current.pagination.offset).toBe(25);
+  });
 });

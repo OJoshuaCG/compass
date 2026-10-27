@@ -77,7 +77,13 @@ export function useTableQuery<T>({
     signature,
     cursors: [],
   });
-  const cursors = stack.signature === signature ? stack.cursors : [];
+  // Al cambiar la firma la pila se REINICIA (no solo se ignora): si no, al volver a la firma
+  // original reaparecerían cursores caducados de la vista anterior.
+  let cursors = stack.cursors;
+  if (stack.signature !== signature) {
+    cursors = [];
+    setStack({ signature, cursors });
+  }
   const cursor = cursors.at(-1);
 
   const query = useQuery({
@@ -87,7 +93,10 @@ export function useTableQuery<T>({
     staleTime,
   });
 
-  const nextCursor = query.data?.page.nextCursor ?? null;
+  // Mientras hay una petición en vuelo o los datos son de relleno (`keepPreviousData`), el
+  // `nextCursor` pertenece a otra vista: no se ofrece ni se usa.
+  const settled = !query.isFetching && !query.isPlaceholderData;
+  const nextCursor = settled ? (query.data?.page.nextCursor ?? null) : null;
   const sort =
     search.sort !== undefined && search.dir !== undefined
       ? { key: search.sort, dir: search.dir }
@@ -118,10 +127,18 @@ export function useTableQuery<T>({
       hasPrevious: cursors.length > 0,
       hasNext: nextCursor !== null,
       onPrevious: () => {
-        setStack({ signature, cursors: cursors.slice(0, -1) });
+        setStack((prev) =>
+          prev.signature === signature ? { signature, cursors: prev.cursors.slice(0, -1) } : prev,
+        );
       },
       onNext: () => {
-        if (nextCursor !== null) setStack({ signature, cursors: [...cursors, nextCursor] });
+        if (nextCursor === null) return;
+        // Un segundo clic antes del re-render no debe empujar el mismo cursor otra vez.
+        setStack((prev) =>
+          prev.signature === signature && prev.cursors.length === cursors.length
+            ? { signature, cursors: [...prev.cursors, nextCursor] }
+            : prev,
+        );
       },
       total: query.data?.page.total,
       offset: cursors.length * search.limit,

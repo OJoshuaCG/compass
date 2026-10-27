@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 export type ActionResult<R> = { ok: true; value: R } | { ok: false; error: unknown };
 
@@ -25,26 +25,41 @@ export function useAsyncAction<A extends unknown[], R>(
     error: undefined,
   });
   const inFlight = useRef(false);
+  // Generación de la acción: `reset` la invalida y el resultado tardío de una ejecución
+  // cancelada se ignora (ni toca el estado ni cuenta como éxito).
+  const generation = useRef(0);
+
+  const reset = useCallback(() => {
+    generation.current += 1;
+    inFlight.current = false;
+    setState({ pending: false, error: undefined });
+  }, []);
 
   return {
     pending: state.pending,
     error: state.error,
-    reset: () => {
-      setState({ pending: false, error: undefined });
-    },
+    reset,
     run: async (...args) => {
       if (inFlight.current) return { ok: false, error: new Error('Action already in progress') };
       inFlight.current = true;
+      const mine = generation.current;
+      const cancelled = (): ActionResult<never> => ({
+        ok: false,
+        error: new Error('Action cancelled'),
+      });
       setState({ pending: true, error: undefined });
       try {
         const value = await action(...args);
+        if (generation.current !== mine) return cancelled();
         setState({ pending: false, error: undefined });
         return { ok: true, value };
       } catch (error) {
+        if (generation.current !== mine) return cancelled();
         setState({ pending: false, error });
         return { ok: false, error };
       } finally {
-        inFlight.current = false;
+        // Solo la ejecución vigente libera el cerrojo; una cancelada ya lo liberó en `reset`.
+        if (generation.current === mine) inFlight.current = false;
       }
     },
   };

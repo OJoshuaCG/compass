@@ -8,15 +8,25 @@
 export type ReauthCoordinator = {
   /** Pide reautenticar. Resuelve `true` si el usuario lo logró y `false` si canceló. */
   request: () => Promise<boolean>;
-  /** Cierra la petición en curso (la llama el diálogo al terminar o cancelar). */
-  settle: (result: boolean) => void;
+  /**
+   * Cierra la petición en curso (la llama el diálogo al terminar o cancelar). Con `id` solo
+   * cierra esa solicitud: un resultado tardío de otra solicitud se ignora.
+   */
+  settle: (result: boolean, id?: number) => void;
+  /** Identidad de la solicitud abierta (`null` si no hay), para atar un envío a ella. */
+  currentId: () => number | null;
   subscribe: (listener: () => void) => () => void;
   isOpen: () => boolean;
 };
 
 export function createReauthCoordinator(): ReauthCoordinator {
   const listeners = new Set<() => void>();
-  let pending: { promise: Promise<boolean>; resolve: (result: boolean) => void } | null = null;
+  let nextId = 0;
+  let pending: {
+    id: number;
+    promise: Promise<boolean>;
+    resolve: (result: boolean) => void;
+  } | null = null;
 
   function notify() {
     for (const listener of listeners) listener();
@@ -29,13 +39,16 @@ export function createReauthCoordinator(): ReauthCoordinator {
       const promise = new Promise<boolean>((res) => {
         resolve = res;
       });
-      pending = { promise, resolve };
+      nextId += 1;
+      pending = { id: nextId, promise, resolve };
       notify();
       return promise;
     },
-    settle: (result) => {
+    settle: (result, id) => {
       const current = pending;
       if (current === null) return;
+      // Un envío cancelado puede terminar tarde: no debe liberar otra solicitud distinta.
+      if (id !== undefined && id !== current.id) return;
       pending = null;
       current.resolve(result);
       notify();
@@ -46,6 +59,7 @@ export function createReauthCoordinator(): ReauthCoordinator {
         listeners.delete(listener);
       };
     },
+    currentId: () => pending?.id ?? null,
     isOpen: () => pending !== null,
   };
 }
