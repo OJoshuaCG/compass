@@ -19,6 +19,7 @@ import { Client, Pool } from 'pg';
 import { buildContainer } from '../../apps/api/dist/app/container.js';
 import { createApp } from '../../apps/api/dist/app/create-app.js';
 import { LocalKeyManagement } from '../../apps/api/dist/modules/crypto/index.js';
+import { NodeCryptoPrimitives } from '../../apps/api/dist/modules/crypto/index.js';
 import { InMemoryMailer } from '../../apps/api/dist/modules/notification/index.js';
 import {
   BootstrapOrganization,
@@ -86,6 +87,7 @@ await new BootstrapOrganization({
   hasher: platform.hasher,
   strength: platform.strength,
   ids: platform.ids,
+  randomBytes: (length) => new NodeCryptoPrimitives().randomBytes(length),
 }).execute({
   name: 'E2E Organization',
   slug: 'e2e',

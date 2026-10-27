@@ -45,6 +45,12 @@ export class PgOrganizationSeeder implements OrganizationSeeder {
          values ($1, $2, $3, $2)`,
         [input.organizationId, input.rootUserId, rootRoleId],
       );
+      // El alta queda en la cadena de auditoría de la organización (sin actor: la hace operaciones).
+      await client.query(
+        `insert into audit_events (organization_id, action, target_type, target_id, outcome, metadata)
+         values ($1, 'organization.provisioned', 'user', $2, 'success', '{}'::jsonb)`,
+        [input.organizationId, input.rootUserId],
+      );
       await client.query('commit');
     } catch (error) {
       await client.query('rollback');

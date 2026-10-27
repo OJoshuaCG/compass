@@ -10,7 +10,8 @@
     "test": "vitest run",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs",
     "test:unit": "vitest run --project unit",
-    "test:integration": "vitest run --project integration"
+    "test:integration": "vitest run --project integration",
+    "provision": "node dist/main.provision.js"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",
