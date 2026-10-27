@@ -140,6 +140,11 @@ export class PgCredentialRepository implements CredentialRepository {
       'update user_totp_factors set revoked_at = $2 where user_id = $1 and revoked_at is null',
       [userId, at],
     );
+    // Las llaves de acceso también son segundo factor: un restablecimiento no puede dejarlas vivas.
+    await client.query(
+      'update webauthn_credentials set revoked_at = $2 where user_id = $1 and revoked_at is null',
+      [userId, at],
+    );
     await client.query(
       "update user_recovery_codes set used_at = $2 where user_id = $1 and used_at is null and kind = 'recovery'",
       [userId, at],

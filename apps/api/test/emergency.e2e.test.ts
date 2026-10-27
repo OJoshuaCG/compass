@@ -7,9 +7,12 @@ import {
   enroll,
   freshTotp,
   inviteAndOnboard,
+  APP_ORIGIN,
   startEnvironment,
 } from './support/e2e.js';
 import type { E2eEnvironment, EnrolledSession } from './support/e2e.js';
+import { VirtualAuthenticator } from './support/virtual-authenticator.js';
+import type { RegistrationOptions } from './support/virtual-authenticator.js';
 
 let env: E2eEnvironment;
 let orgId: string;
@@ -100,6 +103,22 @@ describe('the emergency codes of the Root', () => {
   });
 
   it('using one resets the second factor, closes other sessions, is a critical event and alerts the Administrators', async () => {
+    // La Raíz tiene también una llave de acceso (p. ej. en un dispositivo que se perdió).
+    const lostKey = new VirtualAuthenticator(APP_ORIGIN);
+    expect(
+      (await root.client.post('/auth/reauth', { code: freshTotp(root.secret, env.clock) })).status,
+    ).toBe(204);
+    const regOptions = await root.client.post<RegistrationOptions>(
+      '/me/passkeys/registration/options',
+    );
+    expect(
+      (
+        await root.client.post('/me/passkeys/registration/verify', {
+          name: 'Lost phone',
+          response: lostKey.register(regOptions.body),
+        })
+      ).status,
+    ).toBe(201);
     const stolen = await login('203.0.113.93'); // otra sesión de la Raíz, a medias
     const client = await login('203.0.113.94');
     const oldSecret = root.secret;
@@ -118,6 +137,13 @@ describe('the emergency codes of the Root', () => {
     // El código no se reutiliza, y el secreto TOTP anterior ya no sirve.
     const again = await login('203.0.113.95');
     expect((await again.post('/auth/mfa/recovery', { code: emergencyCodes[0] })).status).toBe(401);
+    // La llave de acceso anterior ya no sirve: el restablecimiento la revoca junto con el resto.
+    const alivePasskeys = await env.db.admin.query(
+      'select 1 from webauthn_credentials where user_id = $1 and revoked_at is null',
+      [rootId],
+    );
+    expect(alivePasskeys.rowCount).toBe(0);
+    expect((await again.post('/auth/passkey/options')).status).toBe(401);
     // Los códigos ordinarios anteriores también quedaron invalidados, y el factor revocado.
     const oldOrdinary = await again.post('/auth/mfa/recovery', { code: root.recoveryCodes[1] });
     expect(oldOrdinary.status).toBe(401);

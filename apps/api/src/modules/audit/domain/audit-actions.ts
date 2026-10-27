@@ -31,6 +31,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.passkey_login': [],
   'auth.passkey_registered': [],
   'auth.passkey_revoked': [],
+  'auth.passkey_registration_failed': [],
+  'auth.passkey_revoke_failed': [],
   'auth.emergency_code_used': ['alertRecipients'],
   'auth.emergency_alert_incomplete': ['recipients', 'failed'],
   'auth.totp_enrolled': [],

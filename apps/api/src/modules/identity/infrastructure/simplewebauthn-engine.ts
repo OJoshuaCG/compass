@@ -34,6 +34,17 @@ export interface WebAuthnConfig {
   readonly origin: string;
 }
 
+/** Solo estos valores se guardan y se devuelven al navegador: nada de texto libre del cliente. */
+const KNOWN_TRANSPORTS = new Set([
+  'usb',
+  'nfc',
+  'ble',
+  'internal',
+  'hybrid',
+  'smart-card',
+  'cable',
+]);
+
 const asTransports = (values: readonly string[]): AuthenticatorTransport[] =>
   values as AuthenticatorTransport[];
 
@@ -75,7 +86,7 @@ export class SimpleWebAuthnEngine implements WebAuthnEngine {
         credentialId: credential.id,
         publicKey: credential.publicKey,
         counter: credential.counter,
-        transports: credential.transports ?? [],
+        transports: (credential.transports ?? []).filter((t) => KNOWN_TRANSPORTS.has(t)),
       };
     } catch {
       return null;

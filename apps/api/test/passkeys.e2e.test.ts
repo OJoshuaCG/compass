@@ -146,6 +146,37 @@ describe('registering a passkey', () => {
   });
 });
 
+describe('the cap is enforced when registering, not only when asking', () => {
+  it('refuses to finish a registration when the limit was reached in between, and audits it', async () => {
+    const list = (await root.client.get<{ data: Passkey[] }>('/me/passkeys')).body.data;
+    const spare = list.find((p) => p.name === 'Key 0');
+    expect((await reauth(root)).status).toBe(204);
+    expect((await root.client.post(`/me/passkeys/${spare?.id ?? ''}/revoke`)).status).toBe(204);
+
+    expect((await reauth(root)).status).toBe(204);
+    const options = await root.client.post<RegistrationOptions>(
+      '/me/passkeys/registration/options',
+    );
+    expect(options.status).toBe(200); // 9 vigentes: aún cabe una
+
+    // Otra alta ocupa el último lugar entre pedir las opciones y terminar.
+    await env.db.admin.query(
+      `insert into webauthn_credentials (organization_id, user_id, credential_id, public_key, name)
+       select organization_id, id, $1, '\\x01', 'Direct' from users where email = 'root@pk.test'`,
+      [Buffer.from(`direct-${String(Date.now())}`)],
+    );
+    const before = (await audit('auth.passkey_registration_failed')).length;
+    const late = await root.client.post<ProblemDetails>('/me/passkeys/registration/verify', {
+      name: 'Late',
+      response: new VirtualAuthenticator(APP_ORIGIN).register(options.body),
+    });
+
+    expect(late.status).toBe(422);
+    expect((await root.client.get<{ data: Passkey[] }>('/me/passkeys')).body.data).toHaveLength(10);
+    expect((await audit('auth.passkey_registration_failed')).length).toBe(before + 1);
+  });
+});
+
 describe('signing in with a passkey', () => {
   it('replaces the code: password, then a verified signature, then a full session', async () => {
     const { client, response } = await passwordLogin();
@@ -191,6 +222,66 @@ describe('signing in with a passkey', () => {
     const noUv = key.authenticate(options5, { userVerified: false });
     expect((await second.post('/auth/passkey/verify', { response: noUv })).status).toBe(401);
     expect((await second.get('/me')).status).toBe(403);
+  });
+
+  it('a challenge belongs to the session that asked for it: another session cannot burn it', async () => {
+    env.clock.advance(2 * 60 * 1000); // pasa la espera por fallos de pruebas anteriores
+    const { client: victim } = await passwordLogin();
+    const { client: attacker } = await passwordLogin();
+    const options = await loginOptions(victim);
+    const assertion = key.authenticate(options);
+
+    // Quien solo conoce la contraseña no puede gastar el desafío de la víctima.
+    expect((await attacker.post('/auth/passkey/verify', { response: assertion })).status).toBe(401);
+    env.clock.advance(60 * 1000);
+    expect((await victim.post('/auth/passkey/verify', { response: assertion })).status).toBe(204);
+  });
+
+  it('only one challenge is live per session: asking again replaces the previous one', async () => {
+    env.clock.advance(2 * 60 * 1000); // pasa la espera por fallos de pruebas anteriores
+    const { client } = await passwordLogin();
+    const first = await loginOptions(client);
+    const second = await loginOptions(client);
+    expect(second.challenge).not.toBe(first.challenge);
+    const newAssertion = key.authenticate(second);
+
+    expect((await client.post('/auth/passkey/verify', { response: newAssertion })).status).toBe(
+      204,
+    );
+    env.clock.advance(60 * 1000);
+    // Firmada después (contador mayor): solo la puede rechazar el desafío ya reemplazado.
+    const oldAssertion = key.authenticate(first);
+    expect((await client.post('/auth/passkey/verify', { response: oldAssertion })).status).toBe(
+      401,
+    );
+  });
+
+  it('a challenge expires after five minutes', async () => {
+    const { client } = await passwordLogin();
+    const options = await loginOptions(client);
+    const assertion = key.authenticate(options);
+    env.clock.advance(6 * 60 * 1000);
+    expect((await client.post('/auth/passkey/verify', { response: assertion })).status).toBe(401);
+  });
+
+  it('a registration challenge cannot be used to sign in (purpose is bound)', async () => {
+    // La Raíz ya tiene 10 llaves: libera un lugar para poder pedir opciones de registro.
+    const spare = (await root.client.get<{ data: Passkey[] }>('/me/passkeys')).body.data.find(
+      (p) => p.name === 'Key 1',
+    );
+    expect((await reauth(root)).status).toBe(204);
+    expect((await root.client.post(`/me/passkeys/${spare?.id ?? ''}/revoke`)).status).toBe(204);
+    expect((await reauth(root)).status).toBe(204);
+    const registration = await root.client.post<RegistrationOptions>(
+      '/me/passkeys/registration/options',
+    );
+    // La misma sesión intenta entrar con el desafío de registro como si fuera de autenticación.
+    const forged = key.authenticate({
+      challenge: registration.body.challenge,
+      rpId: registration.body.rp.id,
+    });
+    env.clock.advance(60 * 1000);
+    expect((await root.client.post('/auth/passkey/verify', { response: forged })).status).toBe(401);
   });
 
   it('a credential the person does not own is refused', async () => {
@@ -271,7 +362,10 @@ describe('a person without passkeys, and revoking them', () => {
       (await root.client.post('/me/passkeys/0194f3a0-0000-7000-8000-000000000000/revoke')).status,
     ).toBe(404);
     expect((await root.client.post(`/me/passkeys/${laptop?.id ?? ''}/revoke`)).status).toBe(204);
-    expect((await audit('auth.passkey_revoked')).map((e) => e.outcome)).toEqual(['success']);
+    const revoked = await audit('auth.passkey_revoked');
+    expect(revoked.length).toBeGreaterThanOrEqual(3);
+    expect(revoked.every((e) => e.outcome === 'success')).toBe(true);
+    expect((await audit('auth.passkey_revoke_failed')).length).toBeGreaterThan(0);
 
     env.clock.advance(5 * 60 * 1000);
     const { client } = await passwordLogin();

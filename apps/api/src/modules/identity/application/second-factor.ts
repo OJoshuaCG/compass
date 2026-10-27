@@ -209,7 +209,7 @@ export class SecondFactor {
   beginPasskeyLogin(): Promise<Result<{ options: unknown }, DomainError>> {
     const { uow, passkeys, challenges, webauthn, clock } = this.deps;
     return uow.run(async () => {
-      const { user, requestId } = await this.currentUser();
+      const { user, sessionId, requestId } = await this.currentUser();
       // Pedir el desafío no cuenta como intento (solo la verificación): el límite por IP ya acota
       // cuántos se piden, y quien falla al verificar queda frenado por el contador de la persona.
       const live = await passkeys.listLive(user.id);
@@ -219,6 +219,7 @@ export class SecondFactor {
       });
       await challenges.issue({
         userId: user.id,
+        sessionId,
         purpose: 'authentication',
         challenge,
         expiresAt: new Date(clock.now().getTime() + PASSKEY_CHALLENGE_MS),
@@ -235,7 +236,7 @@ export class SecondFactor {
       const blocked = await this.checkThrottle(user.id);
       if (blocked !== null) return err(blocked);
       const now = clock.now();
-      const expected = await challenges.consume(user.id, 'authentication', now);
+      const expected = await challenges.consume(user.id, sessionId, 'authentication', now);
       const presented = (response as { id?: unknown }).id;
       const credential =
         typeof presented === 'string'

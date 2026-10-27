@@ -156,8 +156,8 @@ export interface CredentialRepository {
     at: Date,
   ): Promise<'recovery' | 'emergency' | null>;
   /**
-   * Deja a la persona sin segundo factor registrado: revoca el TOTP y los códigos de recuperación
-   * ordinarios. Los códigos de emergencia no se tocan (siguen custodiados fuera del sistema).
+   * Deja a la persona sin segundo factor registrado: revoca el TOTP, las llaves de acceso y los
+   * códigos de recuperación ordinarios. Los códigos de emergencia no se tocan (siguen custodiados fuera del sistema).
    */
   revokeSecondFactor(userId: UserId, at: Date): Promise<void>;
 }
@@ -249,14 +249,21 @@ export interface PasskeyRepository {
 export type ChallengePurpose = 'registration' | 'authentication';
 
 export interface ChallengeStore {
+  /** Emite un desafío para esa sesión; deja sin efecto el anterior aún pendiente de la misma sesión y finalidad. */
   issue(input: {
     readonly userId: UserId;
+    readonly sessionId: string;
     readonly purpose: ChallengePurpose;
     readonly challenge: string;
     readonly expiresAt: Date;
   }): Promise<void>;
-  /** Toma el desafío vigente más reciente y lo marca usado (un solo uso); `null` si no hay. */
-  consume(userId: UserId, purpose: ChallengePurpose, now: Date): Promise<string | null>;
+  /** Toma el desafío vigente de esa sesión y lo marca usado (un solo uso); `null` si no hay. */
+  consume(
+    userId: UserId,
+    sessionId: string,
+    purpose: ChallengePurpose,
+    now: Date,
+  ): Promise<string | null>;
 }
 
 export interface VerifiedRegistration {

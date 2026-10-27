@@ -1,10 +1,13 @@
 -- 0011: challenges of the WebAuthn ceremonies (passkey registration and sign-in).
 -- A challenge is random, single use and short lived; it is bound to the user and to the purpose so a
--- challenge issued for one ceremony can never validate another. Ephemeral data with TTL.
+-- challenge issued for one ceremony can never validate another. It is also bound to the session
+-- that asked for it: another session of the same person cannot burn it, and a new request from the
+-- same session replaces the pending one (a single live challenge per session and purpose). Ephemeral data with TTL.
 create table webauthn_challenges (
   id              uuid primary key default uuid_generate_v7(),
   organization_id uuid not null references organizations (id),
   user_id         uuid not null,
+  session_id      uuid not null,
   purpose         text not null check (purpose in ('registration', 'authentication')),
   challenge       text not null check (length(challenge) between 16 and 512),
   expires_at      timestamptz not null,
@@ -12,7 +15,7 @@ create table webauthn_challenges (
   created_at      timestamptz not null default now(),
   foreign key (organization_id, user_id) references users (organization_id, id)
 );
-create index webauthn_challenges_org_user on webauthn_challenges (organization_id, user_id, purpose)
+create index webauthn_challenges_org_session on webauthn_challenges (organization_id, user_id, session_id, purpose, created_at)
   where used_at is null;
 alter table webauthn_challenges enable row level security;
 alter table webauthn_challenges force row level security;

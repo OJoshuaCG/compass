@@ -60,6 +60,7 @@ export class Passkeys {
       });
       await challenges.issue({
         userId: user.id,
+        sessionId: this.sessionId(),
         purpose: 'registration',
         challenge,
         expiresAt: new Date(clock.now().getTime() + CHALLENGE_MS),
@@ -77,7 +78,12 @@ export class Passkeys {
       this.requireRecentReauth();
       const user = await this.user();
       const now = clock.now();
-      const expected = await challenges.consume(user.id, 'registration', now);
+      const live = await passkeys.listLive(user.id);
+      // El tope se vuelve a comprobar aquí: entre pedir las opciones y terminar pudo haber otra alta.
+      if (live.length >= MAX_PASSKEYS) {
+        return this.refuse(user.id, 'The passkey could not be verified');
+      }
+      const expected = await challenges.consume(user.id, this.sessionId(), 'registration', now);
       const verified =
         expected === null
           ? null
@@ -85,9 +91,7 @@ export class Passkeys {
               response: input.response,
               expectedChallenge: expected,
             });
-      if (verified === null) {
-        return err(new DomainError('VALIDATION.FAILED', 'The passkey could not be verified'));
-      }
+      if (verified === null) return this.refuse(user.id, 'The passkey could not be verified');
       const outcome = await passkeys.insert({
         userId: user.id,
         credentialId: verified.credentialId,
@@ -96,9 +100,7 @@ export class Passkeys {
         transports: verified.transports,
         name: input.name.trim(),
       });
-      if (outcome === 'duplicate') {
-        return err(new DomainError('VALIDATION.FAILED', 'The passkey could not be verified'));
-      }
+      if (outcome === 'duplicate') return this.refuse(user.id, 'The passkey could not be verified');
       const created = (await passkeys.listLive(user.id)).find(
         (p) => p.credentialId === verified.credentialId,
       );
@@ -124,6 +126,7 @@ export class Passkeys {
       this.requireRecentReauth();
       const actorId = this.actorId();
       if (!(await passkeys.revoke(passkeyId, actorId, clock.now()))) {
+        await this.recordFailure('auth.passkey_revoke_failed', actorId, passkeyId, 'NOT_FOUND');
         return err(new DomainError('NOT_FOUND', 'Passkey not found'));
       }
       await audit.record({
@@ -142,6 +145,38 @@ export class Passkeys {
   }
 
   // -----------------------------------------------------------------------------------------------
+
+  private sessionId(): string {
+    const { sessionId } = this.deps.context.current();
+    if (sessionId === null)
+      throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
+    return sessionId;
+  }
+
+  /** Una ceremonia fallida se audita y responde igual para cualquier causa (no revela cuál). */
+  private async refuse(userId: UserId, message: string): Promise<Result<never, DomainError>> {
+    await this.recordFailure('auth.passkey_registration_failed', userId, null, 'VALIDATION.FAILED');
+    return err(new DomainError('VALIDATION.FAILED', message));
+  }
+
+  private async recordFailure(
+    action: string,
+    actorId: UserId,
+    targetId: string | null,
+    reasonCode: string,
+  ): Promise<void> {
+    await this.deps.audit.record({
+      action,
+      actorId,
+      targetType: 'passkey',
+      targetId,
+      outcome: 'failure',
+      reasonCode,
+      ip: null,
+      requestId: this.deps.context.current().requestId,
+      metadata: {},
+    });
+  }
 
   private actorId(): UserId {
     const { actorId } = this.deps.context.current();
