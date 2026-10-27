@@ -48,6 +48,55 @@ export class PgRoleRepository implements RoleRepository {
     return result.rows.map(toRecord);
   }
 
+  async listLive(): Promise<readonly RoleRecord[]> {
+    const result = await this.transactions.current().query<RoleRow>(
+      `select id, name, is_system, permissions from roles
+        where archived_at is null order by is_system desc, lower(name), id`,
+    );
+    return result.rows.map(toRecord);
+  }
+
+  async insertCustom(input: {
+    id: string;
+    name: string;
+    permissions: readonly Permission[];
+    createdBy: UserId;
+  }): Promise<'inserted' | 'name_taken'> {
+    const client = this.transactions.current();
+    // Savepoint: un nombre repetido es un resultado esperado y no debe abortar la transacción.
+    await client.query('savepoint insert_role');
+    try {
+      await client.query(
+        `insert into roles (id, organization_id, name, is_system, permissions, created_by)
+         values ($1, nullif(current_setting('app.org_id', true), '')::uuid, $2, false, $3, $4)`,
+        [input.id, input.name, [...input.permissions], input.createdBy],
+      );
+      await client.query('release savepoint insert_role');
+      return 'inserted';
+    } catch (error) {
+      await client.query('rollback to savepoint insert_role');
+      if ((error as { code?: string }).code === '23505') return 'name_taken';
+      throw error;
+    }
+  }
+
+  async findLiveById(id: string): Promise<RoleRecord | null> {
+    const result = await this.transactions
+      .current()
+      .query<RoleRow>(
+        'select id, name, is_system, permissions from roles where id = $1 and archived_at is null',
+        [id],
+      );
+    const row = result.rows[0];
+    return row === undefined ? null : toRecord(row);
+  }
+
+  async archive(id: string, at: Date): Promise<void> {
+    await this.transactions
+      .current()
+      .query('update roles set archived_at = $2 where id = $1 and archived_at is null', [id, at]);
+  }
+
   async findSystemRole(name: string): Promise<RoleRecord | null> {
     const result = await this.transactions
       .current()

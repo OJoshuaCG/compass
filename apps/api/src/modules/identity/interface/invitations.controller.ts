@@ -1,22 +1,25 @@
 import { acceptInvitationRequestSchema, createInvitationRequestSchema } from '@iam/contracts';
 import type {
+  PendingInvitation,
   AcceptInvitationRequest,
   AcceptInvitationResponse,
   CreateInvitationRequest,
   CreateInvitationResponse,
   InvitationPreviewResponse,
 } from '@iam/contracts';
-import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import { Public, RateLimited, unwrap } from '../../../shared/http/http-decorators.js';
+import { Idempotent, Public, RateLimited, unwrap } from '../../../shared/http/http-decorators.js';
 import { setSessionCookie } from './session-cookie.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
 import {
   AcceptInvitation,
   CreateInvitation,
+  ListInvitations,
   PreviewInvitation,
+  ResendInvitation,
 } from '../application/invitations.js';
 
 const previewRequestSchema = z.object({ token: z.string().min(20).max(200) });
@@ -28,8 +31,40 @@ export class InvitationsController {
     private readonly createInvitation: CreateInvitation,
     private readonly previewInvitation: PreviewInvitation,
     private readonly acceptInvitation: AcceptInvitation,
+    private readonly listInvitations: ListInvitations,
+    private readonly resendInvitation: ResendInvitation,
   ) {}
 
+  @Get()
+  async pending(): Promise<{ data: PendingInvitation[] }> {
+    const rows = await this.listInvitations.execute();
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        rank: row.rank,
+        createdAt: row.createdAt.toISOString(),
+        expiresAt: row.expiresAt.toISOString(),
+        expired: row.expired,
+      })),
+    };
+  }
+
+  @Idempotent()
+  @Post(':id/resend')
+  async resend(
+    @Param('id', new ZodValidationPipe(z.uuid())) id: string,
+  ): Promise<CreateInvitationResponse> {
+    const invitation = unwrap(await this.resendInvitation.execute(id));
+    return {
+      id: invitation.id,
+      email: invitation.email,
+      rank: invitation.rank,
+      expiresAt: invitation.expiresAt.toISOString(),
+    };
+  }
+
+  @Idempotent()
   @Post()
   async create(
     @Body(new ZodValidationPipe(createInvitationRequestSchema)) body: CreateInvitationRequest,

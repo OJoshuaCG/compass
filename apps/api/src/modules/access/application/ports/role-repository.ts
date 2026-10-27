@@ -15,5 +15,16 @@ export interface RoleRepository {
   rolePermissionsOf(userId: UserId): Promise<readonly (readonly Permission[])[]>;
   findByIds(ids: readonly string[]): Promise<readonly RoleRecord[]>;
   findSystemRole(name: string): Promise<RoleRecord | null>;
+  /** Roles vigentes (no archivados), plantillas del sistema primero. */
+  listLive(): Promise<readonly RoleRecord[]>;
+  /** `name_taken` si ya hay un rol vigente con ese nombre (sin distinguir mayúsculas). */
+  insertCustom(input: {
+    readonly id: string;
+    readonly name: string;
+    readonly permissions: readonly Permission[];
+    readonly createdBy: UserId;
+  }): Promise<'inserted' | 'name_taken'>;
+  findLiveById(id: string): Promise<RoleRecord | null>;
+  archive(id: string, at: Date): Promise<void>;
   assign(userId: UserId, roleId: string, grantedBy: UserId): Promise<void>;
 }

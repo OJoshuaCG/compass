@@ -173,6 +173,133 @@ export class CreateInvitation {
 
 // -------------------------------------------------------------------------------------------------
 
+export class ListInvitations {
+  constructor(
+    private readonly deps: {
+      readonly context: RequestContextReader;
+      readonly uow: UnitOfWork;
+      readonly authorizer: Authorizer;
+      readonly directory: UserDirectory;
+      readonly invitations: InvitationRepository;
+      readonly clock: Clock;
+    },
+  ) {}
+
+  /** Las invitaciones pendientes de quien consulta; la Raíz ve las de toda la organización. */
+  execute(): Promise<readonly (Omit<InvitationSummary, 'rank'> & PendingExtras)[]> {
+    const { context, uow, authorizer, directory, invitations, clock } = this.deps;
+    return uow.run(async () => {
+      await authorizer.require({ permission: 'user.invite' });
+      const actorId = context.current().actorId;
+      const actor = actorId === null ? null : await directory.findById(actorId);
+      if (actor === null) throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
+      const pending = await invitations.listPending(actor.rank === 0 ? null : actor.id);
+      const now = clock.now();
+      return pending.map((row) => ({
+        id: row.id,
+        email: row.email,
+        rank: row.rank as 1 | 2 | 3,
+        createdAt: row.createdAt,
+        expiresAt: row.expiresAt,
+        expired: row.expiresAt <= now,
+      }));
+    });
+  }
+}
+
+interface PendingExtras {
+  readonly rank: 1 | 2 | 3;
+  readonly createdAt: Date;
+  readonly expired: boolean;
+}
+
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * Reenviar invalida la invitación anterior (su enlace deja de servir) y envía una nueva con otro
+ * token y otro plazo. Solo quien la envió, o la Raíz, puede reenviarla; el correo se manda antes de
+ * confirmar, igual que al invitar.
+ */
+export class ResendInvitation {
+  constructor(private readonly deps: CreateInvitationDeps) {}
+
+  execute(invitationId: string): Promise<Result<InvitationSummary, DomainError>> {
+    const {
+      context,
+      uow,
+      authorizer,
+      directory,
+      invitations,
+      primitives,
+      ids,
+      clock,
+      audit,
+      mailer,
+    } = this.deps;
+    return uow.run(async () => {
+      await authorizer.require({ permission: 'user.invite' });
+      const current = context.current();
+      const actor = current.actorId === null ? null : await directory.findById(current.actorId);
+      if (actor === null) throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
+
+      const old = await invitations.findByIdForUpdate(invitationId);
+      const now = clock.now();
+      if (old === null || old.acceptedAt !== null || old.revokedAt !== null) {
+        return err(invalidInvitation());
+      }
+      if (old.invitedBy !== actor.id && actor.rank !== 0) {
+        await authorizer.auditDenial({
+          code: 'AUTHZ.HIERARCHY.NOT_IN_SUBTREE',
+          permission: 'user.invite',
+        });
+        return err(new DomainError('AUTHZ.HIERARCHY.NOT_IN_SUBTREE', 'Action not allowed'));
+      }
+      if (!canCreateRank(actor.rank, old.rank)) {
+        await authorizer.auditDenial({
+          code: 'AUTHZ.CREATION_NOT_ALLOWED',
+          permission: 'user.invite',
+        });
+        return err(new DomainError('AUTHZ.CREATION_NOT_ALLOWED', 'Rank not allowed for your role'));
+      }
+
+      // Primero se revoca la anterior: solo puede haber una pendiente por correo.
+      await invitations.revoke(old.id, now);
+      const expiresAt = invitationExpiry(now);
+      const token = toBase64Url(primitives.randomBytes(TOKEN_BYTES));
+      const id = ids.next();
+      const inserted = await invitations.insert({
+        id,
+        organizationId: current.organizationId,
+        email: old.email,
+        rank: old.rank,
+        invitedBy: old.invitedBy,
+        managedBy: old.managedBy,
+        roleIds: old.roleIds,
+        tokenHash: primitives.sha256(encoder.encode(token)),
+        expiresAt,
+      });
+      if (inserted === 'conflict') {
+        return err(new DomainError('INVITATION.CONFLICT', 'A pending invitation already exists'));
+      }
+      await mailer.sendInvitation({ to: old.email, token, expiresAt, locale: 'es-MX' });
+      await audit.record({
+        action: 'user.invitation_resent',
+        actorId: actor.id,
+        targetType: 'invitation',
+        targetId: id,
+        outcome: 'success',
+        reasonCode: null,
+        ip: null,
+        requestId: current.requestId,
+        metadata: { rank: old.rank, roleCount: old.roleIds.length },
+      });
+      return ok({ id, email: old.email, rank: old.rank as 1 | 2 | 3, expiresAt });
+    });
+  }
+}
+
+// -------------------------------------------------------------------------------------------------
+
 export class PreviewInvitation {
   constructor(
     private readonly deps: {

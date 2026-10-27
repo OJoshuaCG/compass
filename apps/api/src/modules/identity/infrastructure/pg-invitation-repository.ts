@@ -1,9 +1,10 @@
 import type { QueryResultRow } from 'pg';
 
 import { asOrganizationId, asUserId, isRank } from '../../../shared/kernel/index.js';
-import type { UserId } from '../../../shared/kernel/index.js';
+import type { Rank, UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type {
+  PendingInvitationRecord,
   InvitationRecord,
   InvitationRepository,
   NewInvitation,
@@ -64,6 +65,37 @@ export class PgInvitationRepository implements InvitationRepository {
     );
   }
 
+  async listPending(invitedBy: UserId | null): Promise<readonly PendingInvitationRecord[]> {
+    const result = await this.transactions.current().query<{
+      id: string;
+      email: string;
+      rank: number;
+      created_at: Date;
+      expires_at: Date;
+    }>(
+      `select id, email, rank, created_at, expires_at from invitations
+        where accepted_at is null and revoked_at is null and ($1::uuid is null or invited_by = $1)
+        order by created_at desc, id desc`,
+      [invitedBy],
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      rank: toRank(row.rank),
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+    }));
+  }
+
+  async revoke(id: string, at: Date): Promise<void> {
+    await this.transactions
+      .current()
+      .query('update invitations set revoked_at = $2 where id = $1 and revoked_at is null', [
+        id,
+        at,
+      ]);
+  }
+
   /** Revoca las pendientes que la persona dejó (como quien invita o como responsable del invitado). */
   async revokePendingOfUser(userId: UserId, at: Date): Promise<void> {
     await this.transactions.current().query(
@@ -103,4 +135,9 @@ export class PgInvitationRepository implements InvitationRepository {
         at,
       ]);
   }
+}
+
+function toRank(value: number): Rank {
+  if (!isRank(value)) throw new Error(`Unexpected rank in database: ${String(value)}`);
+  return value;
 }

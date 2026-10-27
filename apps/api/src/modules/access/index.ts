@@ -2,6 +2,7 @@
 export { Authorizer } from './application/authorizer.js';
 export type { AuthorizationRequest, AuthorizerDeps } from './application/authorizer.js';
 export type { RoleRecord, RoleRepository } from './application/ports/role-repository.js';
+export { ManageRoles } from './application/manage-roles.js';
 export { decide } from './domain/decision.js';
 export type { Decision, DenyReason } from './domain/decision.js';
 export { effectivePermissions } from './domain/effective-permissions.js';

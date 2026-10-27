@@ -5,7 +5,7 @@
 import type { Pool } from 'pg';
 import type { Logger } from 'pino';
 
-import { Authorizer, PgRoleRepository } from '../modules/access/index.js';
+import { Authorizer, ManageRoles, PgRoleRepository } from '../modules/access/index.js';
 import { PgAuditEventRepository, RecordAuditEvent } from '../modules/audit/index.js';
 import {
   DataKeyResolver,
@@ -15,6 +15,7 @@ import {
   SecretCipher,
 } from '../modules/crypto/index.js';
 import type { KeyManagementPort } from '../modules/crypto/index.js';
+import { IdempotencyService, PgIdempotencyStore } from '../modules/idempotency/index.js';
 import {
   CreateUser,
   ListDirectory,
@@ -27,7 +28,11 @@ import {
   Argon2PasswordHasher,
   ChangePassword,
   CreateInvitation,
+  ListInvitations,
+  ResendInvitation,
   GetProfile,
+  ListMySessions,
+  RevokeMySession,
   InMemoryLoginAttemptStore,
   Login,
   Logout,
@@ -138,6 +143,22 @@ export function buildContainer(options: ContainerOptions) {
     strength,
     listDirectory,
     listManaged,
+    manageRoles: new ManageRoles({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory,
+      roles,
+      ids,
+      audit,
+      clock,
+    }),
+    idempotency: new IdempotencyService({
+      scope,
+      store: new PgIdempotencyStore(uow),
+      primitives,
+      clock,
+    }),
     manageUsers: new ManageUsers({
       context: requestContext,
       uow,
@@ -194,6 +215,27 @@ export function buildContainer(options: ContainerOptions) {
       audit,
       mailer,
     }),
+    listInvitations: new ListInvitations({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory,
+      invitations,
+      clock,
+    }),
+    resendInvitation: new ResendInvitation({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory,
+      roles,
+      invitations,
+      primitives,
+      ids,
+      clock,
+      audit,
+      mailer,
+    }),
     previewInvitation: new PreviewInvitation({ lookup, primitives, clock }),
     acceptInvitation: new AcceptInvitation({
       directory,
@@ -211,6 +253,19 @@ export function buildContainer(options: ContainerOptions) {
       clock,
     }),
     getProfile: new GetProfile({ uow, directory, roles }),
+    listMySessions: new ListMySessions({
+      context: requestContext,
+      uow,
+      sessions: sessionRepository,
+      clock,
+    }),
+    revokeMySession: new RevokeMySession({
+      context: requestContext,
+      uow,
+      sessions: sessionRepository,
+      audit,
+      clock,
+    }),
     /** Libera conexiones y borra las DEK de memoria (apagado ordenado). */
     async shutdown(): Promise<void> {
       await login.drain();
