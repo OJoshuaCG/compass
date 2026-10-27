@@ -177,6 +177,40 @@ describe('what the stored key protects and what it does not', () => {
     expect(second.body.code).toBe('INVITATION.CONFLICT');
   });
 
+  it('several simultaneous retries over an expired reservation run the request exactly once', async () => {
+    const payload = body('race@idem.test');
+    const first = await root.client.post('/invitations', payload, withKey('race-key-0001'));
+    expect(first.status).toBe(201);
+    await env.db.admin.query(
+      "update idempotency_keys set expires_at = now() - interval '1 hour', status_code = null, response = null where key = 'race-key-0001'",
+    );
+    await env.db.admin.query(
+      "update invitations set revoked_at = now() where email = 'race@idem.test'",
+    );
+    const mails = env.mailer.sent.length;
+
+    const attempts = await Promise.all(
+      [1, 2, 3, 4].map(() =>
+        root.client.post<ProblemDetails>('/invitations', payload, withKey('race-key-0001')),
+      ),
+    );
+
+    // Una sola se ejecutó; las demás reciben la respuesta guardada o un conflicto "en curso".
+    const executed = attempts.filter(
+      (a) => a.status === 201 && a.headers['idempotent-replayed'] === undefined,
+    );
+    expect(executed).toHaveLength(1);
+    expect(attempts.every((a) => a.status === 201 || a.status === 409)).toBe(true);
+    expect(env.mailer.sent.length).toBe(mails + 1);
+    expect(
+      (
+        await env.db.admin.query(
+          "select 1 from invitations where email = 'race@idem.test' and revoked_at is null",
+        )
+      ).rowCount,
+    ).toBe(1);
+  });
+
   it('never stores a response body with a secret: an invitation answer has no token', async () => {
     const stored = await env.db.admin.query<{ response: string }>(
       'select response::text as response from idempotency_keys where key = $1',

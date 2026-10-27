@@ -87,6 +87,7 @@ export class ManageUsers {
   /** El responsable cierra todas las sesiones de una persona a su cargo (p. ej. ante un dispositivo perdido). */
   revokeSessions(targetId: UserId): Promise<Outcome> {
     return this.deps.uow.run(async () => {
+      await this.deps.directory.lockHierarchy();
       const target = await this.authorizeOn('user.deactivate', targetId);
       await this.deps.sessions.revokeAllOfUser(target.id, this.deps.clock.now());
       await this.record('user.sessions_revoked', target.id, {});

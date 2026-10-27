@@ -279,7 +279,8 @@ export class ResendInvitation {
         expiresAt,
       });
       if (inserted === 'conflict') {
-        return err(new DomainError('INVITATION.CONFLICT', 'A pending invitation already exists'));
+        // Se lanza (no se devuelve) para revertir: la anterior no debe quedar revocada sin reemplazo.
+        throw new DomainError('INVITATION.CONFLICT', 'A pending invitation already exists');
       }
       await mailer.sendInvitation({ to: old.email, token, expiresAt, locale: 'es-MX' });
       await audit.record({

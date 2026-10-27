@@ -21,7 +21,8 @@ export const IN_FLIGHT_MS = 60 * 1000;
 const KEY_PATTERN = /^[A-Za-z0-9._:-]{8,200}$/;
 
 export type IdempotencyDecision =
-  | { readonly kind: 'proceed' }
+  /** `reservedUntil` identifica la reserva de esta petición: solo ella puede completarla o liberarla. */
+  | { readonly kind: 'proceed'; readonly reservedUntil: Date }
   | { readonly kind: 'replay'; readonly statusCode: number; readonly body: unknown };
 
 export interface IdempotencyCall {
@@ -30,6 +31,9 @@ export interface IdempotencyCall {
   readonly requestId: string;
   readonly key: string;
 }
+
+const inProgress = (): DomainError =>
+  new DomainError('IDEMPOTENCY.IN_PROGRESS', 'The original request is in progress');
 
 const encoder = new TextEncoder();
 const toHex = (bytes: Uint8Array): string =>
@@ -65,30 +69,43 @@ export class IdempotencyService {
       const now = clock.now();
       const expiresAt = new Date(now.getTime() + IN_FLIGHT_MS);
       if (await store.reserve({ actorId: call.actorId, key: call.key, requestHash, expiresAt })) {
-        return { kind: 'proceed' };
+        return { kind: 'proceed', reservedUntil: expiresAt };
       }
       const existing = await store.find(call.actorId, call.key);
-      if (existing === null) return { kind: 'proceed' }; // la liberó otra petición entre medias
+      // Sin fila: otra petición la liberó entre medias; que reintente en vez de correr sin reserva.
+      if (existing === null) throw inProgress();
       if (existing.expiresAt <= now) {
-        await store.takeOver({ actorId: call.actorId, key: call.key, requestHash, expiresAt });
-        return { kind: 'proceed' };
+        const won = await store.takeOver({
+          actorId: call.actorId,
+          key: call.key,
+          requestHash,
+          now,
+          expiresAt,
+        });
+        // Si otra petición la tomó primero, esta no continúa.
+        if (!won) throw inProgress();
+        return { kind: 'proceed', reservedUntil: expiresAt };
       }
       if (existing.requestHash !== requestHash) {
         throw new DomainError('IDEMPOTENCY.KEY_REUSED', 'Key already used by another request');
       }
-      if (existing.statusCode === null) {
-        throw new DomainError('IDEMPOTENCY.IN_PROGRESS', 'The original request is in progress');
-      }
+      if (existing.statusCode === null) throw inProgress();
       return { kind: 'replay', statusCode: existing.statusCode, body: existing.body };
     });
   }
 
-  complete(call: IdempotencyCall, statusCode: number, body: unknown): Promise<void> {
+  complete(
+    call: IdempotencyCall,
+    reservedUntil: Date,
+    statusCode: number,
+    body: unknown,
+  ): Promise<void> {
     const { scope, store, clock } = this.deps;
     return scope.runAs(this.contextOf(call), () =>
       store.complete({
         actorId: call.actorId,
         key: call.key,
+        reservedUntil,
         statusCode,
         body: body ?? null,
         expiresAt: new Date(clock.now().getTime() + REPLAY_WINDOW_MS),
@@ -96,9 +113,9 @@ export class IdempotencyService {
     );
   }
 
-  release(call: IdempotencyCall): Promise<void> {
+  release(call: IdempotencyCall, reservedUntil: Date): Promise<void> {
     return this.deps.scope.runAs(this.contextOf(call), () =>
-      this.deps.store.release(call.actorId, call.key),
+      this.deps.store.release(call.actorId, call.key, reservedUntil),
     );
   }
 

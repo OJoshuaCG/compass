@@ -51,33 +51,46 @@ export class PgIdempotencyStore implements IdempotencyStore {
     actorId: UserId;
     key: string;
     requestHash: string;
+    now: Date;
     expiresAt: Date;
-  }): Promise<void> {
-    await this.transactions.current().query(
+  }): Promise<boolean> {
+    const result = await this.transactions.current().query(
       `update idempotency_keys
-          set request_hash = decode($3, 'hex'), response = null, status_code = null, expires_at = $4
-        where actor_id = $1 and key = $2`,
-      [input.actorId, input.key, input.requestHash, input.expiresAt],
+          set request_hash = decode($3, 'hex'), response = null, status_code = null, expires_at = $5
+        where actor_id = $1 and key = $2 and expires_at <= $4`,
+      [input.actorId, input.key, input.requestHash, input.now, input.expiresAt],
     );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async complete(input: {
     actorId: UserId;
     key: string;
+    reservedUntil: Date;
     statusCode: number;
     body: unknown;
     expiresAt: Date;
   }): Promise<void> {
     await this.transactions.current().query(
       `update idempotency_keys set response = $3::jsonb, status_code = $4, expires_at = $5
-        where actor_id = $1 and key = $2`,
-      [input.actorId, input.key, JSON.stringify(input.body), input.statusCode, input.expiresAt],
+        where actor_id = $1 and key = $2 and status_code is null and expires_at = $6`,
+      [
+        input.actorId,
+        input.key,
+        JSON.stringify(input.body),
+        input.statusCode,
+        input.expiresAt,
+        input.reservedUntil,
+      ],
     );
   }
 
-  async release(actorId: UserId, key: string): Promise<void> {
+  async release(actorId: UserId, key: string, reservedUntil: Date): Promise<void> {
     await this.transactions
       .current()
-      .query('delete from idempotency_keys where actor_id = $1 and key = $2', [actorId, key]);
+      .query(
+        'delete from idempotency_keys where actor_id = $1 and key = $2 and status_code is null and expires_at = $3',
+        [actorId, key, reservedUntil],
+      );
   }
 }

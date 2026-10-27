@@ -62,16 +62,24 @@ export class IdempotencyInterceptor implements NestInterceptor {
             .header('idempotent-replayed', 'true');
           return of(decision.body);
         }
+        const { reservedUntil } = decision;
         return next.handle().pipe(
-          mergeMap(async (body: unknown) => {
-            await this.service.complete(call, status, body);
-            return body;
-          }),
+          // Solo un error del caso de uso libera la clave: si guardar la respuesta falla DESPUÉS de
+          // confirmar, el recurso ya existe y liberar permitiría crearlo otra vez.
           catchError((error: unknown) =>
-            from(this.service.release(call).catch(() => undefined)).pipe(
+            from(this.service.release(call, reservedUntil).catch(() => undefined)).pipe(
               mergeMap(() => throwError(() => error)),
             ),
           ),
+          mergeMap(async (body: unknown) => {
+            try {
+              await this.service.complete(call, reservedUntil, status, body);
+            } catch {
+              // La reserva queda en curso hasta vencer (un minuto): un reintento recibe 409 y no
+              // duplica; la persona ya tiene su respuesta correcta.
+            }
+            return body;
+          }),
         );
       }),
     );
