@@ -17,6 +17,7 @@ function setup(organizationId = ORG_A) {
     organizationId,
     actorId: asUserId('0198cccc-0000-7000-8000-000000000003'),
     requestId: 'req-1',
+    sessionId: null,
     reauthAt: null,
   };
   const audit = new RecordAuditEvent({

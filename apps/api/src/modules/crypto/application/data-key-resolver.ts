@@ -58,6 +58,12 @@ export class DataKeyResolver {
     );
   }
 
+  /** Sobrescribe con ceros todas las DEK en memoria (apagado ordenado del proceso). */
+  clearCache(): void {
+    this.deps.cache.clear();
+    this.activeVersions.clear();
+  }
+
   /**
    * Crea una versión nueva de la DEK y retira la anterior. El recifrado de los secretos
    * existentes lo hace un job aparte; mientras tanto conviven ambas versiones.

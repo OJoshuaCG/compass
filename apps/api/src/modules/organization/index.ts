@@ -2,3 +2,5 @@
 export type { UnitOfWork } from './application/ports/unit-of-work.js';
 export { PgUnitOfWork } from './infrastructure/pg-unit-of-work.js';
 export type { TransactionProvider } from './infrastructure/pg-unit-of-work.js';
+export type { ScopeContext, TenantScope } from './application/ports/tenant-scope.js';
+export { PgTenantScope } from './infrastructure/pg-tenant-scope.js';
