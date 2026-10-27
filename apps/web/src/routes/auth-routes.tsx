@@ -1,4 +1,10 @@
-import { EnrollPage, InvitationPage, LoginPage, MfaPage } from '../features/auth';
+import {
+  EnrollPage,
+  InvitationPage,
+  LoginPage,
+  MfaPage,
+  PasswordChangePage,
+} from '../features/auth';
 import { Link, getRouteApi, useRouter, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +14,7 @@ import { readInvitationToken } from './invitation-token';
 
 const loginRoute = getRouteApi('/_public/login');
 const mfaRoute = getRouteApi('/_public/login/mfa');
+const passwordChangeRoute = getRouteApi('/_public/password/change');
 const enrollRoute = getRouteApi('/_public/enroll');
 const invitationRoute = getRouteApi('/_public/invitation');
 
@@ -28,21 +35,39 @@ export function LoginRoute() {
     <LoginPage
       onNext={(status) => {
         const search = returnTo === undefined ? {} : { returnTo };
-        void navigate({ to: status === 'mfa_required' ? '/login/mfa' : '/enroll', search });
+        const to = {
+          password_change_required: '/password/change',
+          mfa_required: '/login/mfa',
+          enrollment_required: '/enroll',
+        } as const;
+        void navigate({ to: to[status], search });
       }}
     />
   );
+}
+
+/** Lleva a `/password/change` conservando la ruta de retorno (el servidor exige el cambio). */
+function usePasswordChangeRedirect(returnTo: string | undefined) {
+  const router = useRouter();
+  return () => {
+    void router.navigate({
+      to: '/password/change',
+      search: returnTo === undefined ? {} : { returnTo },
+    });
+  };
 }
 
 export function MfaRoute() {
   const { t } = useTranslation('auth');
   const { returnTo } = mfaRoute.useSearch();
   const goBack = useReturnNavigation();
+  const toPasswordChange = usePasswordChangeRedirect(returnTo);
   return (
     <MfaPage
       onVerified={() => {
         goBack(returnTo);
       }}
+      onPasswordChangeRequired={toPasswordChange}
       footer={
         <Link to="/login" className={linkClass}>
           {t('mfa.backToLogin')}
@@ -55,11 +80,50 @@ export function MfaRoute() {
 export function EnrollRoute() {
   const { returnTo } = enrollRoute.useSearch();
   const goBack = useReturnNavigation();
+  const toPasswordChange = usePasswordChangeRedirect(returnTo);
   return (
     <EnrollPage
       onDone={() => {
         goBack(returnTo);
       }}
+      onPasswordChangeRequired={toPasswordChange}
+    />
+  );
+}
+
+export function PasswordChangeRoute() {
+  const { t } = useTranslation('auth');
+  const { returnTo } = passwordChangeRoute.useSearch();
+  const navigate = passwordChangeRoute.useNavigate();
+  const goBack = useReturnNavigation();
+  return (
+    <PasswordChangePage
+      onChanged={(state) => {
+        // Se continúa según `/me`: segundo factor, registro del mismo, o la app.
+        const search = returnTo === undefined ? {} : { returnTo };
+        switch (state.kind) {
+          case 'authenticated':
+            goBack(returnTo);
+            break;
+          case 'enrollment_required':
+            void navigate({ to: '/enroll', search });
+            break;
+          case 'mfa_required':
+            void navigate({ to: '/login/mfa', search });
+            break;
+          case 'anonymous':
+            void navigate({ to: '/login', search });
+            break;
+          case 'password_change_required':
+            // El servidor sigue pidiendo el cambio: se queda aquí, no hay a dónde avanzar.
+            break;
+        }
+      }}
+      footer={
+        <Link to="/login" className={linkClass}>
+          {t('passwordChange.backToLogin')}
+        </Link>
+      }
     />
   );
 }

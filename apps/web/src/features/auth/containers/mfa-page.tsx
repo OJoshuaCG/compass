@@ -5,19 +5,21 @@ import { useTranslation } from 'react-i18next';
 
 import { useAsyncAction } from '../../../shared/api';
 import { resetSession } from '../../../shared/auth';
-import { authApi } from '../api/auth-api';
+import { authApi, isPasswordChangeRequired } from '../api/auth-api';
 import { AuthCard } from '../ui/auth-card';
 import { SingleCodeForm } from '../ui/single-code-form';
 
 export type MfaPageProps = {
   /** La sesión quedó completa: el router lleva a la ruta de retorno. */
   onVerified: () => void;
+  /** El servidor exige cambiar la contraseña inicial antes del segundo factor. */
+  onPasswordChangeRequired: () => void;
   /** Enlace para volver a `/login` (lo arma la ruta). */
   footer?: ReactNode;
 };
 
 /** Container de `/login/mfa`: código TOTP, con la opción de usar un código de recuperación. */
-export function MfaPage({ onVerified, footer }: MfaPageProps) {
+export function MfaPage({ onVerified, onPasswordChangeRequired, footer }: MfaPageProps) {
   const { t } = useTranslation('auth');
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<'totp' | 'recovery'>('totp');
@@ -27,7 +29,14 @@ export function MfaPage({ onVerified, footer }: MfaPageProps) {
 
   async function submit(code: string) {
     const result = await action.run(code);
-    if (!result.ok) return;
+    if (!result.ok) {
+      if (isPasswordChangeRequired(result.error)) {
+        // No es un fallo del código: falta un paso previo. Se limpia el error y se redirige.
+        action.reset();
+        onPasswordChangeRequired();
+      }
+      return;
+    }
     resetSession(queryClient);
     onVerified();
   }

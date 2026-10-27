@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isSafeReturnTo, returnToSchema } from './search-schemas';
+import { isSafeReturnTo, returnToSchema, usersSearchSchema } from './search-schemas';
 
 describe('returnTo validation', () => {
   it.each(['/users', '/users?limit=50&q=ana', '/a/b#frag'])('accepts internal path %s', (value) => {
@@ -23,5 +23,14 @@ describe('returnTo validation', () => {
   ])('rejects %j and falls back to undefined', (value) => {
     expect(isSafeReturnTo(value)).toBe(false);
     expect(returnToSchema.parse(value)).toBeUndefined();
+  });
+});
+
+describe('usersSearchSchema view', () => {
+  it('accepts the two sections and drops anything else', () => {
+    expect(usersSearchSchema.parse({ view: 'team' }).view).toBe('team');
+    expect(usersSearchSchema.parse({ view: 'directory' }).view).toBe('directory');
+    expect(usersSearchSchema.parse({ view: 'admin' }).view).toBeUndefined();
+    expect(usersSearchSchema.parse({}).view).toBeUndefined();
   });
 });

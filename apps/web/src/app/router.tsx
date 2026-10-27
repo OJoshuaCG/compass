@@ -53,6 +53,15 @@ const loginRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/auth-routes'), 'LoginRoute'),
 });
 
+const passwordChangeRoute = createRoute({
+  getParentRoute: () => publicLayout,
+  path: '/password/change',
+  validateSearch: returnToSearchSchema,
+  beforeLoad: ({ context, search }) =>
+    requirePendingState(context.queryClient, 'password', search.returnTo),
+  component: lazyRouteComponent(() => import('../routes/auth-routes'), 'PasswordChangeRoute'),
+});
+
 const mfaRoute = createRoute({
   getParentRoute: () => publicLayout,
   path: '/login/mfa',
@@ -107,7 +116,13 @@ const catalogRoute = createRoute({
 
 // Rutas en código (sin file-based routing): el árbol es explícito y revisable.
 const routeTree = rootRoute.addChildren([
-  publicLayout.addChildren([loginRoute, mfaRoute, enrollRoute, invitationRoute]),
+  publicLayout.addChildren([
+    loginRoute,
+    passwordChangeRoute,
+    mfaRoute,
+    enrollRoute,
+    invitationRoute,
+  ]),
   appLayout.addChildren([homeRoute, usersRoute, catalogRoute]),
 ]);
 

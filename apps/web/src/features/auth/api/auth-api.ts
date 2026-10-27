@@ -1,4 +1,5 @@
 import {
+  ErrorCode,
   acceptInvitationResponseSchema,
   invitationPreviewResponseSchema,
   loginResponseSchema,
@@ -6,7 +7,15 @@ import {
   totpEnrollResponseSchema,
 } from '@iam/contracts';
 
-import { apiClient, noContentSchema, type ApiClient } from '../../../shared/api';
+import { ApiError, apiClient, noContentSchema, type ApiClient } from '../../../shared/api';
+
+/**
+ * El servidor responde esto en el registro y la verificación del segundo factor mientras la
+ * contraseña inicial sigue sin cambiarse: la pantalla debe llevar a `/password/change`.
+ */
+export function isPasswordChangeRequired(error: unknown): boolean {
+  return error instanceof ApiError && error.code === ErrorCode.AUTH_PASSWORD_CHANGE_REQUIRED;
+}
 
 /**
  * Llamadas de autenticación. Son funciones simples y NO hooks de Query a propósito: sus
@@ -18,6 +27,8 @@ export function createAuthApi(client: ApiClient = apiClient) {
   return {
     login: (credentials: { email: string; password: string }) =>
       client.post('/auth/login', loginResponseSchema, { body: credentials }),
+    changePassword: (input: { currentPassword: string; newPassword: string }) =>
+      client.post('/auth/password/change', noContentSchema, { body: input }),
     verifyMfa: (code: string) =>
       client.post('/auth/mfa/verify', noContentSchema, { body: { code } }),
     useRecoveryCode: (code: string) =>

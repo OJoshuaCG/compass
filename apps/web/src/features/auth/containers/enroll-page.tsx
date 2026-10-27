@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAsyncAction } from '../../../shared/api';
 import { resetSession } from '../../../shared/auth';
 import { ErrorAlert } from '../../../shared/i18n';
-import { authApi } from '../api/auth-api';
+import { authApi, isPasswordChangeRequired } from '../api/auth-api';
 import { generateQrDataUrl } from '../model/qr';
 import { AuthCard } from '../ui/auth-card';
 import { RecoveryCodesPanel } from '../ui/recovery-codes-panel';
@@ -16,6 +16,8 @@ import { TotpSetupPanel } from '../ui/totp-setup-panel';
 export type EnrollPageProps = {
   /** Se llama tras confirmar que se guardaron los códigos; la sesión ya es completa. */
   onDone: () => void;
+  /** El servidor exige cambiar la contraseña inicial antes de registrar el segundo factor. */
+  onPasswordChangeRequired: () => void;
 };
 
 type Setup = { secret: string; qrSrc: string };
@@ -25,7 +27,7 @@ type Setup = { secret: string; qrSrc: string };
  * 10 códigos de recuperación una sola vez. La clave, el QR y los códigos viven SOLO en el estado
  * de este componente (no en Query ni en almacenamiento) y se descartan al continuar o desmontar.
  */
-export function EnrollPage({ onDone }: EnrollPageProps) {
+export function EnrollPage({ onDone, onPasswordChangeRequired }: EnrollPageProps) {
   const { t } = useTranslation('auth');
   const queryClient = useQueryClient();
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -40,6 +42,10 @@ export function EnrollPage({ onDone }: EnrollPageProps) {
   function begin() {
     void start.run().then((result) => {
       if (result.ok) setSetup(result.value);
+      else if (isPasswordChangeRequired(result.error)) {
+        start.reset();
+        onPasswordChangeRequired();
+      }
     });
   }
 
@@ -56,7 +62,13 @@ export function EnrollPage({ onDone }: EnrollPageProps) {
 
   async function submitCode(code: string) {
     const result = await confirm.run(code);
-    if (!result.ok) return;
+    if (!result.ok) {
+      if (isPasswordChangeRequired(result.error)) {
+        confirm.reset();
+        onPasswordChangeRequired();
+      }
+      return;
+    }
     // Ya hay sesión completa. La clave deja de ser necesaria: se descarta de inmediato.
     resetSession(queryClient);
     setSetup(null);

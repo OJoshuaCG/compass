@@ -10,7 +10,10 @@ import { sessionQueryOptions } from '../shared/auth';
  *
  * `redirect()` de TanStack Router se lanza con `throw` y no es un `Error`: es su mecanismo.
  */
-function go(to: '/login' | '/login/mfa' | '/enroll' | '/', returnTo?: string): never {
+function go(
+  to: '/login' | '/login/mfa' | '/enroll' | '/password/change' | '/',
+  returnTo?: string,
+): never {
   // eslint-disable-next-line @typescript-eslint/only-throw-error
   throw redirect(to === '/' ? { to } : { to, search: returnTo === undefined ? {} : { returnTo } });
 }
@@ -23,6 +26,8 @@ export async function requireSession(queryClient: QueryClient, href: string): Pr
       return state.me;
     case 'anonymous':
       return go('/login', href);
+    case 'password_change_required':
+      return go('/password/change', href);
     case 'mfa_required':
       return go('/login/mfa', href);
     case 'enrollment_required':
@@ -33,13 +38,19 @@ export async function requireSession(queryClient: QueryClient, href: string): Pr
 /** Pasos previos a la sesión completa: `/login` admite anónimo o sesión a medias (cambiar de cuenta). */
 export async function requirePendingState(
   queryClient: QueryClient,
-  step: 'login' | 'mfa' | 'enroll',
+  step: 'login' | 'password' | 'mfa' | 'enroll',
   returnTo: string | undefined,
 ): Promise<void> {
   const state = await queryClient.query(sessionQueryOptions());
   if (state.kind === 'authenticated') return go('/');
   if (step === 'login') return;
   if (state.kind === 'anonymous') return go('/login', returnTo);
+  // Con el cambio pendiente el segundo factor aún no se puede usar: se vuelve a la contraseña.
+  if (state.kind === 'password_change_required' && step !== 'password')
+    return go('/password/change', returnTo);
+  // `/password/change` no se redirige según `/me` (salvo anónimo o sesión completa): mientras el
+  // servidor decide cuál es el siguiente paso, un rebote entre pantallas dejaría a la persona
+  // atrapada. Tras cambiarla, la propia pantalla consulta `/me` y navega.
   if (step === 'mfa' && state.kind === 'enrollment_required') return go('/enroll', returnTo);
   if (step === 'enroll' && state.kind === 'mfa_required') return go('/login/mfa', returnTo);
 }

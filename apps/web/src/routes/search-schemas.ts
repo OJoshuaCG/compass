@@ -38,6 +38,8 @@ export const invitationSearchSchema = z.object({
 
 /** Estado de la tabla del directorio en la URL (docs/frontend.md §6.2); el cursor no va aquí. */
 export const usersSearchSchema = z.object({
+  /** Sección de la página: ausente = directorio. */
+  view: z.enum(['directory', 'team']).optional().catch(undefined),
   sort: z.enum(DIRECTORY_SORT_FIELDS).optional().catch(undefined),
   dir: z.enum(['asc', 'desc']).optional().catch(undefined),
   limit: z

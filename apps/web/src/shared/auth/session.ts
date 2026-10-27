@@ -10,12 +10,14 @@ export const sessionKeys = {
 };
 
 /**
- * Los cuatro estados en que puede estar la sesión según `/me`. Una sesión a medias (falta el
- * segundo factor o registrarlo) responde 403, pero para la UI es un estado esperado, no un fallo.
+ * Los estados en que puede estar la sesión según `/me`. Una sesión a medias (falta cambiar la
+ * contraseña inicial, el segundo factor o registrarlo) responde 403, pero para la UI es un estado
+ * esperado, no un fallo.
  */
 export type SessionState =
   | { kind: 'authenticated'; me: MeResponse }
   | { kind: 'anonymous' }
+  | { kind: 'password_change_required' }
   | { kind: 'mfa_required' }
   | { kind: 'enrollment_required' };
 
@@ -33,6 +35,8 @@ export async function loadSessionState(
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.status === 401) return { kind: 'anonymous' };
+      if (error.status === 403 && error.code === ErrorCode.AUTH_PASSWORD_CHANGE_REQUIRED)
+        return { kind: 'password_change_required' };
       if (error.status === 403 && error.code === ErrorCode.AUTH_MFA_REQUIRED)
         return { kind: 'mfa_required' };
       if (error.status === 403 && error.code === ErrorCode.AUTH_ENROLLMENT_REQUIRED)
