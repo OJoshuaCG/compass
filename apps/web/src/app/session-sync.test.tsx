@@ -68,9 +68,12 @@ describe('cross-tab session sync', () => {
     });
     const { router, queryClient } = renderApp('/users');
     await screen.findByRole('heading', { level: 1, name: es.directory['users.title'] });
-    expect(queryClient.getQueryCache().findAll({ queryKey: ['directory'] }).length).toBeGreaterThan(
-      0,
-    );
+    // La consulta del directorio nace después del encabezado: esperarla, no asumirla.
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryCache().findAll({ queryKey: ['directory'] }).length,
+      ).toBeGreaterThan(0);
+    });
     const sender = new FakeBroadcastChannel(SESSION_CHANNEL);
     open = false;
     sender.postMessage(SESSION_ENDED_EVENT);
