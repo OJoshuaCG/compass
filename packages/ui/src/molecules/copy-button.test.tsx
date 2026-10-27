@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,7 +14,9 @@ describe('CopyButton', () => {
     render(<CopyButton value="ABC" label="Copy" copiedLabel="Copied" failedLabel="Failed" />);
     await user.click(screen.getByRole('button', { name: 'Copy' }));
     expect(await navigator.clipboard.readText()).toBe('ABC');
-    expect(screen.getByRole('status')).toHaveTextContent('Copied');
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('Copied');
+    });
   });
 
   it('announces a failure when the clipboard is rejected', async () => {
@@ -22,7 +24,9 @@ describe('CopyButton', () => {
     render(<CopyButton value="ABC" label="Copy" copiedLabel="Copied" failedLabel="Failed" />);
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
     await user.click(screen.getByRole('button', { name: 'Copy' }));
-    expect(screen.getByRole('status')).toHaveTextContent('Failed');
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('Failed');
+    });
   });
 
   it('clears a copied secret from the clipboard after the delay', async () => {
@@ -83,11 +87,18 @@ describe('CopyButton', () => {
         announceResetMs={60_000}
       />,
     );
+    // La copia es asíncrona (promesa del portapapeles): se vacían las pendientes antes de aserciones.
+    const flush = () =>
+      act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
     await user.click(screen.getByRole('button', { name: 'Copy' }));
+    await flush();
     const first = screen.getByRole('status').textContent;
     expect(first).toContain('Copied');
     // Una segunda copia inmediata debe cambiar el contenido de la región para re-anunciarse.
     await user.click(screen.getByRole('button', { name: 'Copy' }));
+    await flush();
     expect(screen.getByRole('status').textContent).toContain('Copied');
     expect(screen.getByRole('status').textContent).not.toBe(first);
     await act(async () => {
