@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "stack": "tsx scripts/stack.ts"
   },
   "devDependencies": {
     "@iam/api": "workspace:*",

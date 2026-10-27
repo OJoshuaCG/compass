@@ -120,6 +120,19 @@ const mailbox = createServer((request, response) => {
 await new Promise<void>((done) => mailbox.listen(MAILBOX_PORT, '127.0.0.1', done));
 
 process.stdout.write(`E2E stack ready at ${origin}\n`);
+process.stdout.write(
+  [
+    '',
+    'Entorno local listo (datos efímeros: se borran al detener este proceso).',
+    `  Aplicación : ${origin}`,
+    `  Correo     : ${ROOT_EMAIL}`,
+    `  Contraseña : ${ROOT_PASSWORD}`,
+    `  Buzón de pruebas (último correo enviado): http://127.0.0.1:${String(MAILBOX_PORT)}/last`,
+    '  La primera vez, la Raíz debe registrar su segundo factor (TOTP) al entrar.',
+    '  Detener con Ctrl+C.',
+    '',
+  ].join('\n'),
+);
 
 const shutdown = async (): Promise<void> => {
   mailbox.close();

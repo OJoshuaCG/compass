@@ -13,7 +13,8 @@
     "test": "turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "e2e": "turbo run e2e"
+    "e2e": "turbo run e2e",
+    "stack": "pnpm --filter @iam/api --filter @iam/web build && pnpm --filter @iam/e2e stack"
   },
   "devDependencies": {
     "prettier": "3.9.10",
