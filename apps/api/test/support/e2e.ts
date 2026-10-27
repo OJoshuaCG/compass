@@ -12,6 +12,7 @@ import { createApp } from '../../src/app/create-app.js';
 import { LocalKeyManagement } from '../../src/modules/crypto/index.js';
 import { ManualClock } from '../../src/modules/crypto/testing/manual-clock.js';
 import { OWASP_ARGON2_PARAMS } from '../../src/modules/identity/index.js';
+import { NodeCryptoPrimitives } from '../../src/modules/crypto/index.js';
 import { InMemoryMailer } from '../../src/modules/notification/index.js';
 import {
   BootstrapOrganization,
@@ -35,6 +36,8 @@ export interface E2eEnvironment {
     slug: string;
     rootEmail: string;
     rootName: string;
+    /** Deja la contraseña inicial de la Raíz como de un solo uso (por defecto ya está cambiada). */
+    keepInitialPassword?: boolean;
   }): Promise<{ organizationId: string; rootUserId: string }>;
   close(): Promise<void>;
 }
@@ -66,6 +69,7 @@ export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvi
     hasher: container.hasher,
     strength: container.strength,
     ids: container.ids,
+    randomBytes: (length) => new NodeCryptoPrimitives().randomBytes(length),
   });
 
   return {
@@ -83,6 +87,12 @@ export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvi
         rootDisplayName: input.rootName,
         rootPassword: STRONG_PASSWORD,
       });
+      if (input.keepInitialPassword !== true) {
+        // La mayoría de las pruebas parten de una Raíz que ya cambió su contraseña inicial.
+        await adminPool.query('update user_passwords set must_change = false where user_id = $1', [
+          result.rootUserId,
+        ]);
+      }
       return { organizationId: result.organizationId, rootUserId: result.rootUserId };
     },
     async close() {

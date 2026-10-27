@@ -5,6 +5,7 @@ export {
   PreviewInvitation,
 } from './application/invitations.js';
 export type { InvitationSummary } from './application/invitations.js';
+export { ChangePassword } from './application/change-password.js';
 export { Login } from './application/login.js';
 export type { LoginCommand, LoginOutcome } from './application/login.js';
 export { Logout } from './application/logout.js';

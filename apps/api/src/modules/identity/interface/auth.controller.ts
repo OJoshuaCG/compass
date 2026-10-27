@@ -1,4 +1,5 @@
 import {
+  changePasswordRequestSchema,
   loginRequestSchema,
   mfaVerifyRequestSchema,
   recoveryCodeRequestSchema,
@@ -6,6 +7,7 @@ import {
   totpConfirmRequestSchema,
 } from '@iam/contracts';
 import type {
+  ChangePasswordRequest,
   LoginRequest,
   LoginResponse,
   MfaVerifyRequest,
@@ -28,6 +30,7 @@ import { clearSessionCookie, setSessionCookie } from './session-cookie.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
 import { REAUTH_WINDOW_MS } from '../../access/index.js';
 import { GetProfile } from '../application/profile.js';
+import { ChangePassword } from '../application/change-password.js';
 import { Login } from '../application/login.js';
 import { Logout } from '../application/logout.js';
 import { SecondFactor } from '../application/second-factor.js';
@@ -41,6 +44,7 @@ export class AuthController {
     private readonly login: Login,
     private readonly logout: Logout,
     private readonly secondFactor: SecondFactor,
+    private readonly changePassword: ChangePassword,
   ) {}
 
   @Public()
@@ -62,6 +66,22 @@ export class AuthController {
     );
     setSessionCookie(reply, outcome.token, outcome.expiresAt);
     return { status: outcome.status };
+  }
+
+  /** Acepta sesión a medias: la contraseña inicial de la Raíz se cambia antes de registrar el segundo factor. */
+  @PartialSession()
+  @Post('password/change')
+  @HttpCode(204)
+  async changePasswordEndpoint(
+    @Body(new ZodValidationPipe(changePasswordRequestSchema)) body: ChangePasswordRequest,
+    @Req() request: FastifyRequest,
+  ): Promise<void> {
+    unwrap(
+      await this.changePassword.execute({
+        ...body,
+        mfaVerified: request.principal?.mfaVerified === true,
+      }),
+    );
   }
 
   @PartialSession()

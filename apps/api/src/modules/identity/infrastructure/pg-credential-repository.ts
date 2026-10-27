@@ -34,6 +34,19 @@ export class PgCredentialRepository implements CredentialRepository {
     );
   }
 
+  async findPassword(
+    userId: UserId,
+  ): Promise<{ readonly hash: string; readonly mustChange: boolean } | null> {
+    const result = await this.transactions
+      .current()
+      .query<{ argon2_hash: string; must_change: boolean }>(
+        'select argon2_hash, must_change from user_passwords where user_id = $1',
+        [userId],
+      );
+    const row = result.rows[0];
+    return row === undefined ? null : { hash: row.argon2_hash, mustChange: row.must_change };
+  }
+
   async findTotpFactor(userId: UserId): Promise<TotpFactorRecord | null> {
     const result = await this.transactions.current().query<FactorRow>(
       `select id, user_id, secret_ciphertext, nonce, dek_version, verified_at, last_used_step

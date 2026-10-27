@@ -183,6 +183,12 @@ export class SecondFactor {
     }
     const user = await directory.findById(current.actorId);
     if (user === null) throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
+    // Con la contraseña inicial sin cambiar no se registra ni se verifica el segundo factor: quien
+    // solo conoce esa contraseña no puede quedarse con el acceso registrando su propio factor.
+    const password = await this.deps.credentials.findPassword(user.id);
+    if (password?.mustChange === true) {
+      throw new DomainError('AUTH.PASSWORD_CHANGE_REQUIRED', 'Change your initial password first');
+    }
     return {
       user,
       organizationId: current.organizationId,

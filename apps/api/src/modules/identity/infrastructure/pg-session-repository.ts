@@ -63,6 +63,15 @@ export class PgSessionRepository implements SessionRepository {
       ]);
   }
 
+  async revokeOthersOfUser(userId: UserId, exceptSessionId: string, at: Date): Promise<void> {
+    await this.transactions
+      .current()
+      .query(
+        'update sessions set revoked_at = $3 where user_id = $1 and id <> $2 and revoked_at is null',
+        [userId, exceptSessionId, at],
+      );
+  }
+
   async revokeAllOfUser(userId: UserId, at: Date): Promise<void> {
     await this.transactions
       .current()

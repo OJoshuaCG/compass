@@ -28,7 +28,7 @@ export interface LoginCommand {
 export interface LoginOutcome {
   readonly token: string;
   readonly expiresAt: Date;
-  readonly status: 'mfa_required' | 'enrollment_required';
+  readonly status: 'password_change_required' | 'mfa_required' | 'enrollment_required';
 }
 
 export interface LoginDeps {
@@ -115,8 +115,9 @@ export class Login {
         return {
           token: session.token,
           expiresAt: session.expiresAt,
-          status:
-            factor?.verifiedAt === undefined || factor.verifiedAt === null
+          status: row.mustChange
+            ? ('password_change_required' as const)
+            : factor?.verifiedAt === undefined || factor.verifiedAt === null
               ? ('enrollment_required' as const)
               : ('mfa_required' as const),
         };

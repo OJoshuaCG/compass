@@ -19,6 +19,7 @@ interface LoginDbRow {
   organization_id: string;
   status: LoginRow['status'];
   argon2_hash: string | null;
+  must_change: boolean | null;
 }
 
 interface InvitationDbRow {
@@ -57,6 +58,7 @@ export class PgPreAuthLookup implements PreAuthLookup {
       organizationId: asOrganizationId(row.organization_id),
       status: row.status,
       argon2Hash: row.argon2_hash,
+      mustChange: row.must_change ?? false,
     };
   }
 

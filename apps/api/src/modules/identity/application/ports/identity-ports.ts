@@ -54,6 +54,8 @@ export interface SessionRepository {
   touch(sessionId: string, at: Date): Promise<void>;
   revoke(sessionId: string, at: Date): Promise<void>;
   revokeAllOfUser(userId: UserId, at: Date): Promise<void>;
+  /** Cierra todas las sesiones de la persona salvo la indicada (por ejemplo, tras cambiar su contraseña). */
+  revokeOthersOfUser(userId: UserId, exceptSessionId: string, at: Date): Promise<void>;
 }
 
 export interface NewInvitation {
@@ -89,6 +91,7 @@ export interface InvitationRepository {
   /** Bloquea la fila hasta el fin de la transacción: dos aceptaciones simultáneas no pasan ambas. */
   findByIdForUpdate(id: string): Promise<InvitationRecord | null>;
   markAccepted(id: string, at: Date): Promise<void>;
+  revokePendingOfUser(userId: UserId, at: Date): Promise<void>;
 }
 
 export interface TotpFactorRecord {
@@ -103,6 +106,9 @@ export interface TotpFactorRecord {
 
 export interface CredentialRepository {
   savePassword(userId: UserId, argon2Hash: string, mustChange: boolean): Promise<void>;
+  findPassword(
+    userId: UserId,
+  ): Promise<{ readonly hash: string; readonly mustChange: boolean } | null>;
   findTotpFactor(userId: UserId): Promise<TotpFactorRecord | null>;
   /** Reemplaza cualquier factor aún no verificado por uno nuevo. */
   saveUnverifiedTotpFactor(input: {
@@ -124,6 +130,8 @@ export interface LoginRow {
   readonly organizationId: OrganizationId;
   readonly status: 'invited' | 'active' | 'suspended' | 'deactivated';
   readonly argon2Hash: string | null;
+  /** La contraseña es de un solo uso (la inicial de la Raíz): debe cambiarse antes de seguir. */
+  readonly mustChange: boolean;
 }
 
 export interface PreAuthInvitation {

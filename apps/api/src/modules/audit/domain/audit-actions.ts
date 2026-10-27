@@ -9,6 +9,10 @@ import type { AuditMetadata, AuditMetadataValue } from './audit-event.js';
 export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]>> = {
   'user.invited': ['rank', 'roleCount'],
   'user.deactivated': ['rotationTasks', 'reassignedReports'],
+  'user.suspended': [],
+  'user.reactivated': [],
+  'user.rank_changed': ['fromRank', 'toRank'],
+  'user.manager_changed': ['newManagerId'],
   'authz.denied': ['permission', 'resourceType'],
   'credential.revealed': ['reason'],
   'credential.totp_code_issued': [],
@@ -24,6 +28,9 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.totp_enrolled': [],
   'auth.reauthenticated': [],
   'auth.logout': [],
+  'auth.password_changed': [],
+  'organization.provisioned': [],
+  'auth.password_change_failed': [],
   'user.invitation_accepted': [],
   // Reservadas para el broker (fase 7); existen para que los nombres no choquen después.
   'credential.injected': [],
