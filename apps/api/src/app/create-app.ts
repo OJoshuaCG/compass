@@ -8,6 +8,7 @@ import { uuidv7 } from 'uuidv7';
 
 import { ProblemDetailsFilter } from '../shared/http/problem-details.filter.js';
 import { AppModule } from './app.module.js';
+import { serveWebApp } from './serve-web.js';
 import type { Container } from './container.js';
 
 /**
@@ -17,7 +18,10 @@ import type { Container } from './container.js';
 export const CONTENT_SECURITY_POLICY = {
   defaultSrc: ["'self'"],
   scriptSrc: ["'self'"],
-  styleSrc: ["'self'"],
+  // Radix inyecta una hoja de estilos fija al abrir un diálogo modal (bloqueo de scroll). Se permite
+  // SOLO ese contenido exacto por su hash, no `unsafe-inline`. Si una actualización de Radix cambia
+  // la hoja, la prueba de navegador (e2e) falla con el hash nuevo y se actualiza aquí.
+  styleSrc: ["'self'", "'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='"],
   imgSrc: ["'self'", 'data:'],
   fontSrc: ["'self'"],
   connectSrc: ["'self'"],
@@ -36,6 +40,8 @@ export interface CreateAppOptions {
   /** Origen del navegador permitido para las peticiones que modifican (verificación de `Origin`). */
   readonly appOrigin?: string;
   readonly trustProxy?: boolean;
+  /** Carpeta con la SPA compilada (`apps/web/dist`); si se indica, la API la sirve en el mismo origen. */
+  readonly webDistDir?: string;
 }
 
 export async function createApp(options: CreateAppOptions): Promise<NestFastifyApplication> {
@@ -56,6 +62,7 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
   await app.register(helmet, {
     contentSecurityPolicy: { useDefaults: false, directives: CONTENT_SECURITY_POLICY },
   });
+  if (options.webDistDir !== undefined) await serveWebApp(app, options.webDistDir);
   app
     .getHttpAdapter()
     .getInstance()

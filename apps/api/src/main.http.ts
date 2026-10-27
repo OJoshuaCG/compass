@@ -24,6 +24,7 @@ const app = await createApp({
   container,
   appOrigin: config.APP_ORIGIN,
   trustProxy: config.TRUST_PROXY,
+  ...(config.WEB_DIST_DIR === undefined ? {} : { webDistDir: config.WEB_DIST_DIR }),
 });
 
 // Apagado ordenado: dejar de aceptar peticiones, cerrar conexiones y borrar las DEK de memoria.
