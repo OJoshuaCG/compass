@@ -1,7 +1,6 @@
 # Registro de decisiones de arquitectura (ADR)
 
-Una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias (regla de [`plan.md`](../../plan.md), sección "Comentarios y documentación"). Los ADR 0001 a 0020 son las decisiones cerradas de la tabla "Decisiones cerradas (ADR)" del plan y numeran igual que allí (001 a 020). Los ADR 0021 a 0024 nacieron como huecos detectados al analizar el plan (ver [`docs/backend.md`](../backend.md) §16). Con la fase 1a, el 0021 y el 0022 pasaron a **Aceptada (implementada en la fase 1a)**; el 0023 y el 0024 siguen en **Propuesta** y no se implementan hasta aceptarse. Los ADR 0025 y 0026 se escribieron al implementar la fase 1a y nacen **Aceptada**.
-
+Una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias (regla de [`plan.md`](../../plan.md), sección "Comentarios y documentación"). Los ADR 0001 a 0020 son las decisiones cerradas de la tabla "Decisiones cerradas (ADR)" del plan y numeran igual que allí (001 a 020). Los ADR 0021 a 0024 nacieron como huecos detectados al analizar el plan (ver [`docs/backend.md`](../backend.md) §16). Con la fase 1a, el 0021 y el 0022 pasaron a **Aceptada (implementada en la fase 1a)**; el 0023 y el 0024 siguen en **Propuesta** y no se implementan hasta aceptarse. Los ADR 0025 a 0030 se escribieron al implementar la fase 1a y nacen **Aceptada**.
 Plantilla: [`template.md`](template.md).
 
 ## Decisiones cerradas
@@ -37,6 +36,10 @@ Plantilla: [`template.md`](template.md).
 | [0022](0022-audit-of-denials-in-independent-transaction.md) | Auditoría de negaciones en transacción independiente | Aceptada (implementada en la fase 1a) |
 | [0025](0025-session-time-single-clock-source.md) | Aislamiento del tiempo de las sesiones: una sola fuente de reloj | Aceptada |
 | [0026](0026-atomic-failed-attempt-counting.md) | Intentos fallidos contados de forma atómica | Aceptada |
+| [0027](0027-emergency-codes-root-reset-model.md) | Códigos de emergencia: solo los custodios restablecen a la Raíz | Aceptada |
+| [0028](0028-passkeys-optional-enforcement-later.md) | Passkeys opcionales para todos; exigirlas queda como configuración futura (resuelve la política pendiente del 0015 sin reemplazarlo) | Aceptada |
+| [0029](0029-idempotency-reservation-and-ownership.md) | Idempotencia con reserva y propiedad de la clave | Aceptada |
+| [0030](0030-session-bound-webauthn-challenges.md) | Desafíos de WebAuthn ligados a la sesión | Aceptada |
 
 ## Propuestas (huecos detectados, sin decidir)
 
