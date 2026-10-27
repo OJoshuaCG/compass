@@ -4,7 +4,7 @@ import { loadConfig } from './app/config.js';
 import { buildContainer } from './app/container.js';
 import { createApp } from './app/create-app.js';
 import { LocalKeyManagement } from './modules/crypto/index.js';
-import { LogMailer } from './modules/notification/index.js';
+import { LogMailer, SmtpMailer } from './modules/notification/index.js';
 import { createLogger } from './shared/infrastructure/logger.js';
 
 const config = loadConfig(process.env);
@@ -16,7 +16,21 @@ const container = buildContainer({
   independentPool: new Pool({ connectionString: config.DATABASE_URL, max: 2 }),
   // Solo desarrollo: en producción se usa el adaptador del KMS del proveedor (ADR 0020).
   kms: new LocalKeyManagement({ keyFilePath: config.LOCAL_KMS_KEY_FILE, nodeEnv: config.NODE_ENV }),
-  mailer: new LogMailer(logger, config.APP_ORIGIN, config.NODE_ENV),
+  mailer:
+    config.MAIL_TRANSPORT === 'smtp'
+      ? new SmtpMailer(
+          {
+            host: config.SMTP_HOST ?? '',
+            port: config.SMTP_PORT,
+            security: config.SMTP_SECURITY,
+            user: config.SMTP_USER,
+            password: config.SMTP_PASSWORD,
+            from: config.MAIL_FROM ?? '',
+            baseUrl: config.APP_ORIGIN,
+          },
+          config.NODE_ENV,
+        )
+      : new LogMailer(logger, config.APP_ORIGIN, config.NODE_ENV),
   logger,
 });
 const app = await createApp({

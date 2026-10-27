@@ -28,4 +28,45 @@ describe('loadConfig', () => {
   it('rejects an out-of-range port', () => {
     expect(() => loadConfig({ PORT: '70000' })).toThrow(/PORT/);
   });
+
+  describe('mail', () => {
+    it('defaults to the development log transport', () => {
+      expect(loadConfig({}).MAIL_TRANSPORT).toBe('log');
+    });
+
+    it('needs a host and a sender to use SMTP, and user with password together', () => {
+      expect(() => loadConfig({ MAIL_TRANSPORT: 'smtp' })).toThrow(/SMTP_HOST/);
+      expect(() => loadConfig({ MAIL_TRANSPORT: 'smtp', SMTP_HOST: 'mail.example.com' })).toThrow(
+        /MAIL_FROM/,
+      );
+      expect(() =>
+        loadConfig({
+          MAIL_TRANSPORT: 'smtp',
+          SMTP_HOST: 'mail.example.com',
+          MAIL_FROM: 'IAM <no-reply@example.com>',
+          SMTP_USER: 'no-reply@example.com',
+        }),
+      ).toThrow(/SMTP_USER/);
+    });
+
+    it('accepts a complete SMTP configuration with STARTTLS by default', () => {
+      const config = loadConfig({
+        MAIL_TRANSPORT: 'smtp',
+        SMTP_HOST: 'mail.example.com',
+        MAIL_FROM: 'IAM <no-reply@example.com>',
+        SMTP_USER: 'no-reply@example.com',
+        SMTP_PASSWORD: 'secret-value',
+      });
+      expect(config).toMatchObject({ SMTP_PORT: 587, SMTP_SECURITY: 'starttls' });
+    });
+
+    it('does not start in production with the log transport, and never echoes the password', () => {
+      expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(/MAIL_TRANSPORT/);
+      try {
+        loadConfig({ MAIL_TRANSPORT: 'smtp', SMTP_PASSWORD: 'secret-value', SMTP_PORT: '0' });
+      } catch (error) {
+        expect(String(error)).not.toContain('secret-value');
+      }
+    });
+  });
 });

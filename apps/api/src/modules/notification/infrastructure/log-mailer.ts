@@ -1,6 +1,10 @@
 import type { Logger } from 'pino';
 
-import type { InvitationMessage, Mailer } from '../application/ports/mailer.js';
+import type {
+  EmergencyAlertMessage,
+  InvitationMessage,
+  Mailer,
+} from '../application/ports/mailer.js';
 
 /**
  * Adaptador de desarrollo: escribe el enlace de la invitación en el log. En producción se sustituye
@@ -23,6 +27,11 @@ export class LogMailer implements Mailer {
       { to: message.to, expiresAt: message.expiresAt, link },
       'invitation email (dev)',
     );
+    return Promise.resolve();
+  }
+
+  sendEmergencyAlert(message: EmergencyAlertMessage): Promise<void> {
+    this.logger.warn({ to: message.to, usedAt: message.usedAt }, 'emergency code used (dev)');
     return Promise.resolve();
   }
 }
