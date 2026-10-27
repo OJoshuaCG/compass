@@ -5,6 +5,8 @@ import { generateSync } from 'otplib';
 const MAILBOX = 'http://127.0.0.1:3101';
 const ROOT_EMAIL = 'root@e2e.test';
 const PASSWORD = 'Correct-Horse-Battery-Staple-9';
+/** La contraseña inicial de la Raíz es de un solo uso: se cambia en su primer ingreso. */
+const ROOT_PASSWORD = 'Another-Strong-Passphrase-77';
 const RECOVERY_CODE = /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/;
 
 /** Último paso TOTP usado por cada secreto: el servidor exige un paso estrictamente mayor. */
@@ -48,6 +50,14 @@ async function signInWithPassword(page: Page, email: string, password: string): 
   await page.getByLabel('Email address').fill(email);
   await page.getByRole('textbox', { name: 'Password', exact: true }).fill(password);
   await page.getByRole('button', { name: 'Continue' }).click();
+}
+
+/** Pantalla de cambio obligatorio: sustituye la contraseña inicial por una propia. */
+async function changeInitialPassword(page: Page, current: string, next: string): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Change your password' })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Current password', exact: true }).fill(current);
+  await page.getByRole('textbox', { name: 'New password', exact: true }).fill(next);
+  await page.getByRole('button', { name: 'Change password' }).click();
 }
 
 /** Registra el segundo factor en la pantalla de alta y devuelve la clave y los códigos de recuperación. */
@@ -123,6 +133,7 @@ test.describe
   }) => {
     const violations = watchSecurityViolations(page);
     await signInWithPassword(page, ROOT_EMAIL, PASSWORD);
+    await changeInitialPassword(page, PASSWORD, ROOT_PASSWORD);
 
     const enrolled = await completeEnrollment(page);
     rootSecret = enrolled.secret;
@@ -148,7 +159,7 @@ test.describe
     context,
   }) => {
     // Cada prueba tiene un contexto limpio: se vuelve a entrar con contraseña y código.
-    await signInWithPassword(page, ROOT_EMAIL, PASSWORD);
+    await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await expect(page.getByRole('heading', { name: 'Two-step verification' })).toBeVisible();
 
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
@@ -165,7 +176,7 @@ test.describe
   });
 
   test('a recovery code works once and the wrong code is refused', async ({ page }) => {
-    await signInWithPassword(page, ROOT_EMAIL, PASSWORD);
+    await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill('000000');
     await page.getByRole('button', { name: 'Verify' }).click();
     await expect(page.getByText('The code is invalid or has expired.')).toBeVisible();
@@ -178,7 +189,7 @@ test.describe
     browser,
   }) => {
     const violations = watchSecurityViolations(page);
-    await signInWithPassword(page, ROOT_EMAIL, PASSWORD);
+    await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
     await page.getByRole('link', { name: 'Users' }).click();
@@ -226,7 +237,7 @@ test.describe
   test('the directory lists the new person and can be searched and sorted from the keyboard', async ({
     page,
   }) => {
-    await signInWithPassword(page, ROOT_EMAIL, PASSWORD);
+    await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
     await page.getByRole('link', { name: 'Users' }).click();
