@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
+# Clave local de KMS de desarrollo (nunca versionar)
+.local-kms/
+# Archivos temporales de agentes
+.claude/
+*.log

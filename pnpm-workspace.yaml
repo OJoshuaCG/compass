@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+  - db
+
+# Espera de 7 días tras cada publicación (plan: cadena de suministro). Minutos.
+minimumReleaseAge: 10080
+
+# Scripts de instalación deshabilitados por defecto; lista blanca explícita.
+onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild
