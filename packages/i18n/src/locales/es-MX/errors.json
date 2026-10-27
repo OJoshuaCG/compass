@@ -28,5 +28,11 @@
   "PASSWORD.WEAK": "La contraseña es demasiado débil o muy común. Usa al menos 12 caracteres.",
   "INVITATION.INVALID": "La invitación no es válida o ya expiró.",
   "INVITATION.CONFLICT": "Ya existe una invitación pendiente o un usuario con ese correo.",
-  "retryIn": "Reintenta en {{seconds}} s."
+  "retryIn": "Reintenta en {{seconds}} s.",
+  "AUTH.PASSWORD_CHANGE_REQUIRED": "Debes cambiar tu contraseña inicial antes de continuar.",
+  "PASSWORD.REUSED": "La contraseña nueva debe ser distinta de la actual.",
+  "USER.ROOT_PROTECTED": "La persona Raíz no se puede suspender, dar de baja ni cambiar de rango.",
+  "USER.INVALID_STATE": "Esa acción no es posible en el estado actual de la persona.",
+  "USER.HAS_REPORTS": "Esta persona tiene subordinados. Reasígnalos antes de bajarla de rango.",
+  "USER.MANAGER_RANK_INVALID": "El responsable debe tener un rango superior al de la persona."
 }

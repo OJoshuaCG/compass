@@ -13,6 +13,7 @@ export { emailSchema, hasControlCharacter, safeText } from './text.js';
 export { PERMISSIONS } from './permissions.js';
 export type { Permission } from './permissions.js';
 export {
+  changePasswordRequestSchema,
   loginRequestSchema,
   loginResponseSchema,
   meResponseSchema,
@@ -25,6 +26,7 @@ export {
   totpEnrollResponseSchema,
 } from './auth.js';
 export type {
+  ChangePasswordRequest,
   LoginRequest,
   LoginResponse,
   MeResponse,
@@ -50,5 +52,20 @@ export type {
   CreateInvitationResponse,
   InvitationPreviewResponse,
 } from './invitations.js';
-export { DIRECTORY_SORT_FIELDS, directoryUserSchema } from './users.js';
-export type { DirectorySortField, DirectoryUser } from './users.js';
+export {
+  DIRECTORY_SORT_FIELDS,
+  USER_STATUSES,
+  changeRankRequestSchema,
+  directoryUserSchema,
+  managedUserSchema,
+  transferManagerRequestSchema,
+  userStatusSchema,
+} from './users.js';
+export type {
+  ChangeRankRequest,
+  DirectorySortField,
+  DirectoryUser,
+  ManagedUser,
+  TransferManagerRequest,
+  UserStatus,
+} from './users.js';

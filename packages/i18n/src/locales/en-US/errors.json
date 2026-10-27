@@ -28,5 +28,11 @@
   "PASSWORD.WEAK": "The password is too weak or too common. Use at least 12 characters.",
   "INVITATION.INVALID": "The invitation is not valid or has expired.",
   "INVITATION.CONFLICT": "A pending invitation or a user with that email already exists.",
-  "retryIn": "Try again in {{seconds}} s."
+  "retryIn": "Try again in {{seconds}} s.",
+  "AUTH.PASSWORD_CHANGE_REQUIRED": "You must change your initial password before continuing.",
+  "PASSWORD.REUSED": "The new password must be different from the current one.",
+  "USER.ROOT_PROTECTED": "The Root person cannot be suspended, deactivated or have their rank changed.",
+  "USER.INVALID_STATE": "That action is not possible in the person's current state.",
+  "USER.HAS_REPORTS": "This person has direct reports. Reassign them before lowering their rank.",
+  "USER.MANAGER_RANK_INVALID": "The responsible person must have a higher rank than the person."
 }

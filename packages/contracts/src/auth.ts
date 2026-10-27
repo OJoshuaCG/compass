@@ -18,9 +18,19 @@ export type LoginRequest = z.infer<typeof loginRequestSchema>;
  * pide el código del autenticador; `enrollment_required` obliga a registrarlo antes de entrar.
  */
 export const loginResponseSchema = z.object({
-  status: z.enum(['mfa_required', 'enrollment_required']),
+  status: z.enum(['password_change_required', 'mfa_required', 'enrollment_required']),
 });
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
+
+/**
+ * Cambio de contraseña (la inicial de la Raíz es de un solo uso). Pide la actual para que una sesión
+ * robada no pueda cambiarla; la nueva cumple la misma política que al aceptar una invitación.
+ */
+export const changePasswordRequestSchema = z.object({
+  currentPassword: z.string().min(1).max(1024),
+  newPassword: z.string().min(12).max(1024),
+});
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 
 const totpCodeSchema = z.string().regex(/^\d{6,8}$/);
 
