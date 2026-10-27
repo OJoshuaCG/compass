@@ -17,6 +17,7 @@ import { PublicLayout } from '../routes/public-layout';
 import { RootLayout } from '../routes/root-layout';
 import {
   invitationSearchSchema,
+  mfaSearchSchema,
   returnToSearchSchema,
   usersSearchSchema,
 } from '../routes/search-schemas';
@@ -65,7 +66,7 @@ const passwordChangeRoute = createRoute({
 const mfaRoute = createRoute({
   getParentRoute: () => publicLayout,
   path: '/login/mfa',
-  validateSearch: returnToSearchSchema,
+  validateSearch: mfaSearchSchema,
   beforeLoad: ({ context, search }) =>
     requirePendingState(context.queryClient, 'mfa', search.returnTo),
   component: lazyRouteComponent(() => import('../routes/auth-routes'), 'MfaRoute'),
@@ -102,6 +103,12 @@ const sessionsRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/sessions-route'), 'SessionsRoute'),
 });
 
+const securityRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/security',
+  component: lazyRouteComponent(() => import('../routes/security-route'), 'SecurityRoute'),
+});
+
 const rolesRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/roles',
@@ -135,7 +142,14 @@ const routeTree = rootRoute.addChildren([
     enrollRoute,
     invitationRoute,
   ]),
-  appLayout.addChildren([homeRoute, usersRoute, sessionsRoute, rolesRoute, catalogRoute]),
+  appLayout.addChildren([
+    homeRoute,
+    usersRoute,
+    sessionsRoute,
+    securityRoute,
+    rolesRoute,
+    catalogRoute,
+  ]),
 ]);
 
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {

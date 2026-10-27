@@ -6,8 +6,18 @@ import {
   totpConfirmResponseSchema,
   totpEnrollResponseSchema,
 } from '@iam/contracts';
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser';
+import type { z } from 'zod';
 
 import { ApiError, apiClient, noContentSchema, type ApiClient } from '../../../shared/api';
+import { webauthnOptionsSchema } from '../../../shared/lib/webauthn';
+
+// Solo tipos: la biblioteca de WebAuthn no entra al JavaScript inicial (se importa al usar la passkey).
+const requestOptionsSchema =
+  webauthnOptionsSchema as unknown as z.ZodType<PublicKeyCredentialRequestOptionsJSON>;
 
 /**
  * El servidor responde esto en el registro y la verificación del segundo factor mientras la
@@ -33,6 +43,11 @@ export function createAuthApi(client: ApiClient = apiClient) {
       client.post('/auth/mfa/verify', noContentSchema, { body: { code } }),
     useRecoveryCode: (code: string) =>
       client.post('/auth/mfa/recovery', noContentSchema, { body: { code } }),
+    /** Pide el reto de la passkey (sesión a medias: contraseña ya verificada). */
+    passkeyOptions: () => client.post('/auth/passkey/options', requestOptionsSchema),
+    /** Completa la sesión con la aserción del navegador; no se conserva en ningún lado. */
+    passkeyVerify: (response: AuthenticationResponseJSON) =>
+      client.post('/auth/passkey/verify', noContentSchema, { body: { response } }),
     startEnrollment: () => client.post('/auth/mfa/totp/enroll', totpEnrollResponseSchema),
     confirmEnrollment: (code: string) =>
       client.post('/auth/mfa/totp/confirm', totpConfirmResponseSchema, { body: { code } }),

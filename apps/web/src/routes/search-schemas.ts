@@ -29,6 +29,15 @@ export const returnToSearchSchema = z.object({ returnTo: returnToSchema });
 export type ReturnToSearch = z.infer<typeof returnToSearchSchema>;
 
 /**
+ * Segundo factor: además de la ruta de retorno, el ingreso informa si la persona tiene passkeys
+ * (`passkeys` de la respuesta de `/auth/login`). Es un booleano sin secretos; vive en la URL para
+ * que recargar la pantalla no pierda la opción. Ausente = se desconoce.
+ */
+export const mfaSearchSchema = returnToSearchSchema.extend({
+  passkeys: z.boolean().optional().catch(undefined),
+});
+
+/**
  * El token de invitación puede llegar en la query (`?token=`). Es un secreto de un solo uso:
  * la ruta lo lee una vez y lo borra de la URL (ver `invitation-token.ts`).
  */

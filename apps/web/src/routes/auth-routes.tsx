@@ -33,11 +33,17 @@ export function LoginRoute() {
   const navigate = loginRoute.useNavigate();
   return (
     <LoginPage
-      onNext={(status) => {
+      onNext={(status, { passkeys }) => {
         const search = returnTo === undefined ? {} : { returnTo };
+        if (status === 'mfa_required') {
+          void navigate({
+            to: '/login/mfa',
+            search: passkeys === undefined ? search : { ...search, passkeys },
+          });
+          return;
+        }
         const to = {
           password_change_required: '/password/change',
-          mfa_required: '/login/mfa',
           enrollment_required: '/enroll',
         } as const;
         void navigate({ to: to[status], search });
@@ -59,11 +65,12 @@ function usePasswordChangeRedirect(returnTo: string | undefined) {
 
 export function MfaRoute() {
   const { t } = useTranslation('auth');
-  const { returnTo } = mfaRoute.useSearch();
+  const { returnTo, passkeys } = mfaRoute.useSearch();
   const goBack = useReturnNavigation();
   const toPasswordChange = usePasswordChangeRedirect(returnTo);
   return (
     <MfaPage
+      passkeys={passkeys}
       onVerified={() => {
         goBack(returnTo);
       }}

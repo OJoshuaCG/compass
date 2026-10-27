@@ -91,5 +91,6 @@
   "reauth.submit": "Confirmar",
   "actions.logoutFailed": "No se pudo cerrar la sesión. Intenta de nuevo.",
   "validation.recoveryCode": "El código de recuperación no tiene un formato válido.",
-  "nav.roles": "Roles"
+  "nav.roles": "Roles",
+  "nav.security": "Seguridad"
 }

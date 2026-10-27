@@ -1,4 +1,10 @@
-import { loadDirectoryCatalog, loadRolesCatalog, loadSessionsCatalog, resources } from '@iam/i18n';
+import {
+  loadDirectoryCatalog,
+  loadRolesCatalog,
+  loadSecurityCatalog,
+  loadSessionsCatalog,
+  resources,
+} from '@iam/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import { screen } from '@testing-library/react';
 import { expect } from 'vitest';
@@ -11,6 +17,7 @@ export const es = {
   directory: (await loadDirectoryCatalog())['es-MX'],
   sessions: (await loadSessionsCatalog())['es-MX'],
   roles: (await loadRolesCatalog())['es-MX'],
+  security: (await loadSecurityCatalog())['es-MX'],
 };
 
 /**

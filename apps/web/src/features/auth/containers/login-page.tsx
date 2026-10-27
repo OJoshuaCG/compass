@@ -13,7 +13,7 @@ import { AuthCard } from '../ui/auth-card';
 
 export type LoginPageProps = {
   /** La sesión quedó "a medias": el router lleva al código MFA o al enrolamiento. */
-  onNext: (status: LoginResponse['status']) => void;
+  onNext: (status: LoginResponse['status'], extra: { passkeys: boolean | undefined }) => void;
 };
 
 type Values = { email: string; password: string };
@@ -42,7 +42,7 @@ export function LoginPage({ onNext }: LoginPageProps) {
     if (result.ok) {
       // El estado de sesión cambió (ahora hay una sesión a medias): se descarta el `/me` en caché.
       resetSession(queryClient);
-      onNext(result.value.status);
+      onNext(result.value.status, { passkeys: result.value.passkeys });
       return;
     }
     if (
