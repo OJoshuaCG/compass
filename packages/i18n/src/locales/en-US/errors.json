@@ -18,5 +18,15 @@
   "CRYPTO.UNKNOWN_DEK_VERSION": "The secret uses an unknown key version.",
   "AUDIT.METADATA_FIELD_NOT_ALLOWED": "The audit event contains a disallowed field.",
   "AUDIT.CHAIN_BROKEN": "An inconsistency was detected in the audit chain.",
-  "AUDIT.REASON_CODE_REQUIRED": "A denial must be recorded with a reason code."
+  "AUDIT.REASON_CODE_REQUIRED": "A denial must be recorded with a reason code.",
+  "AUTHZ.CREATION_NOT_ALLOWED": "Your rank does not allow creating users of that rank.",
+  "AUTHZ.ROLE_ESCALATION": "You cannot grant permissions you do not have.",
+  "AUTH.INVALID_CREDENTIALS": "Incorrect email or password.",
+  "AUTH.MFA_REQUIRED": "Verify your second factor to continue.",
+  "AUTH.MFA_INVALID": "The code is invalid or has expired.",
+  "AUTH.ENROLLMENT_REQUIRED": "Register your second factor to continue.",
+  "PASSWORD.WEAK": "The password is too weak or too common. Use at least 12 characters.",
+  "INVITATION.INVALID": "The invitation is not valid or has expired.",
+  "INVITATION.CONFLICT": "A pending invitation or a user with that email already exists.",
+  "retryIn": "Try again in {{seconds}} s."
 }

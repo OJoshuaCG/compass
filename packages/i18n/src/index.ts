@@ -1,13 +1,17 @@
+import enUSAuth from './locales/en-US/auth.json' with { type: 'json' };
 import enUSCommon from './locales/en-US/common.json' with { type: 'json' };
+import enUSDirectory from './locales/en-US/directory.json' with { type: 'json' };
 import enUSErrors from './locales/en-US/errors.json' with { type: 'json' };
+import esMXAuth from './locales/es-MX/auth.json' with { type: 'json' };
 import esMXCommon from './locales/es-MX/common.json' with { type: 'json' };
+import esMXDirectory from './locales/es-MX/directory.json' with { type: 'json' };
 import esMXErrors from './locales/es-MX/errors.json' with { type: 'json' };
 
 export const LOCALES = ['es-MX', 'en-US'] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = 'es-MX';
 
-export const NAMESPACES = ['common', 'errors'] as const;
+export const NAMESPACES = ['common', 'errors', 'auth', 'directory'] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
 /**
@@ -16,8 +20,8 @@ export type Namespace = (typeof NAMESPACES)[number];
  * de la API, sin transformaciones que puedan divergir del backend.
  */
 export const resources = {
-  'es-MX': { common: esMXCommon, errors: esMXErrors },
-  'en-US': { common: enUSCommon, errors: enUSErrors },
+  'es-MX': { common: esMXCommon, errors: esMXErrors, auth: esMXAuth, directory: esMXDirectory },
+  'en-US': { common: enUSCommon, errors: enUSErrors, auth: enUSAuth, directory: enUSDirectory },
 } as const satisfies Record<Locale, Record<Namespace, Record<string, string>>>;
 
 export type CommonKey = keyof (typeof resources)['es-MX']['common'];

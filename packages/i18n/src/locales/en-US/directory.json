@@ -1,0 +1,17 @@
+{
+  "users.title": "Users",
+  "users.description": "Directory of the organization's users.",
+  "users.caption": "User directory",
+  "users.col.name": "Name",
+  "users.col.email": "Email",
+  "users.col.rank": "Rank",
+  "users.empty.title": "No users yet",
+  "users.empty.description": "Invite the first person to get started.",
+  "users.invite": "Invite user",
+  "invite.title": "Invite user",
+  "invite.description": "We will send a single-use link, valid for 72 hours, to the given email.",
+  "invite.email": "Email address",
+  "invite.rank": "Rank",
+  "invite.submit": "Send invitation",
+  "invite.sent": "Invitation sent to {{email}}."
+}

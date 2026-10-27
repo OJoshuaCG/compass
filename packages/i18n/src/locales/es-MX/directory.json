@@ -1,0 +1,17 @@
+{
+  "users.title": "Usuarios",
+  "users.description": "Directorio de usuarios de la organización.",
+  "users.caption": "Directorio de usuarios",
+  "users.col.name": "Nombre",
+  "users.col.email": "Correo",
+  "users.col.rank": "Rango",
+  "users.empty.title": "Aún no hay usuarios",
+  "users.empty.description": "Invita a la primera persona para empezar.",
+  "users.invite": "Invitar usuario",
+  "invite.title": "Invitar usuario",
+  "invite.description": "Enviaremos un enlace de un solo uso, vigente 72 horas, al correo indicado.",
+  "invite.email": "Correo electrónico",
+  "invite.rank": "Rango",
+  "invite.submit": "Enviar invitación",
+  "invite.sent": "Invitación enviada a {{email}}."
+}
