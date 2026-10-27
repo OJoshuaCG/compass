@@ -166,7 +166,7 @@ Solo lo hace quien gestiona a la persona, y exige reautenticación (ver [`permis
 
 ## 7. Bajas con reasignación
 
-**Estado hoy.** Funcionan la suspensión, la reactivación y la desactivación. Solo suspende quien gestiona a una persona activa, y solo reactiva quien gestiona a una persona suspendida; en otro estado la acción se rechaza. Suspender o desactivar cierra todas las sesiones de la persona en la misma operación. Desactivar además pasa a sus subordinados activos a su propio responsable y revoca las invitaciones pendientes que dejó; la auditoría registra cuántos subordinados se reasignaron. La Raíz nunca se suspende ni se desactiva. Siguen pendientes el retiro de comparticiones y la rotación de secretos, que llegan con la bóveda y la gobernanza.
+**Estado hoy.** Funcionan la suspensión, la reactivación y la desactivación. Solo suspende quien gestiona a una persona activa, y solo reactiva quien gestiona a una persona suspendida; en otro estado la acción se rechaza. Suspender o desactivar cierra todas las sesiones de la persona en la misma operación. Desactivar además pasa a sus subordinados activos a su propio responsable y revoca las invitaciones pendientes que dejó; la auditoría registra cuántos subordinados se reasignaron. La Raíz nunca se suspende ni se desactiva. Quien gestiona a una persona también puede cerrar todas sus sesiones sin suspenderla ni desactivarla, con el permiso de desactivar y respetando la jerarquía; la Raíz queda protegida y la acción se audita. Siguen pendientes el retiro de comparticiones y la rotación de secretos, que llegan con la bóveda y la gobernanza.
 
 Desactivar a una persona **no la borra**. En el mismo momento:
 
@@ -206,6 +206,8 @@ Al crear la organización se generan **códigos de emergencia** de la Raíz. Se 
 Es la última salida para que la organización no quede sin dueña. Si no existiera, el riesgo es que nadie pueda gestionar a los Administradores. Los procedimientos operativos están en [`runbooks/transfer-root.md`](../runbooks/transfer-root.md).
 
 **Estado hoy: pendiente.** Ni la transferencia de la Raíz ni los códigos de emergencia están implementados. Mientras no existan, si la Raíz pierde todos sus factores y sus códigos de recuperación, el sistema no ofrece un camino para recuperarla. Es un pendiente de seguridad que debe cerrarse antes de la puerta de producción.
+
+**Decisión abierta sobre los códigos de emergencia.** El plan no define qué otorga usar uno, en qué se distingue de un código de recuperación ni quién los custodia, y hoy tampoco existe una pantalla para registrar un segundo factor nuevo tras entrar con un código. Hay una propuesta, no implementada: al dar de alta la organización se generan 8 códigos de un solo uso ligados a la Raíz; usar uno completa el ingreso, deja un evento crítico en la auditoría y avisa por correo a todos los Administradores activos; después se lleva a la Raíz a registrar un segundo factor nuevo, lo que depende de la recuperación de acceso, que sigue pendiente. Falta una decisión humana sobre quiénes custodian los códigos y sobre si los Administradores también pueden activar el restablecimiento.
 
 ## 9. Directorio visible y gestión restringida
 

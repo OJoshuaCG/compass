@@ -97,6 +97,21 @@ Además de `crypto`, `audit` y `organization` (fase 0), la fase 1a añadió cinc
 | `provisioning` | Alta de una organización por operaciones, con una conexión de administración: crea la organización, las plantillas de rol, la Raíz en estado invitada y su contraseña inicial en una sola transacción. Nunca se invoca desde una petición HTTP: lo ejecuta el comando de operaciones `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`), que genera una contraseña inicial aleatoria, la imprime una sola vez y audita `organization.provisioned`. Faltan los códigos de emergencia de la Raíz | `access`, `identity` |
 | `notification` | Puerto de correo saliente. Hoy solo envía invitaciones; el adaptador de desarrollo escribe el enlace en el registro y se niega a arrancar en producción, y un adaptador en memoria sirve a las pruebas. Falta el adaptador del proveedor real | Ninguno |
 
+Endpoints y auditoría añadidos al cerrar la fase 1a (A5, A6 y A7):
+
+| Endpoint | Regla | Auditoría |
+| --- | --- | --- |
+| `GET /me/sessions` | Sesiones vivas de quien consulta: `id`, creación, última actividad, vencimiento, dispositivo, IP y marca `current`. Nunca devuelve tokens | — |
+| `POST /me/sessions/:id/revoke` | `404` si la sesión no es suya o ya está cerrada; `422` si es la actual (para eso se usa el cierre de sesión) | `auth.session_revoked` |
+| `POST /users/:id/sessions/revoke` | Cierra todas las sesiones de una persona gestionada. Permiso `user.deactivate`, reglas de jerarquía, Raíz protegida; toma el bloqueo de jerarquía | `user.sessions_revoked` |
+| `GET /roles` | Requiere `user.invite` | — |
+| `POST /roles` | Cuerpo `{name, permissions}`. Permiso `role.manage`. Los permisos deben ser subconjunto de los del creador (`403 AUTHZ.ROLE_ESCALATION`); nombre repetido sin distinguir mayúsculas, `409 ROLE.NAME_TAKEN`. Usa idempotencia | `role.created` |
+| `POST /roles/:id/archive` | Permiso `role.manage`. Las plantillas del sistema no se archivan (`403 ROLE.SYSTEM_PROTECTED`). Un rol archivado deja de otorgar permisos y no sirve en invitaciones nuevas | `role.archived` |
+| `GET /invitations` | Invitaciones pendientes propias; la Raíz ve todas; marca las vencidas | — |
+| `POST /invitations/:id/resend` | Solo quien la envió o la Raíz. Revoca el enlace anterior, genera token nuevo con 72 h y lo envía por correo. Si la inserción falla, el anterior no queda revocado (retroceso ante conflicto). Usa idempotencia | `user.invitation_resent` |
+
+Una sesión cuenta como viva si no está revocada, no ha vencido y tuvo actividad en los últimos 30 minutos.
+
 ### 3.7 Flujo de una petición autenticada
 
 1. La petición llega con la cookie de sesión. Los proveedores globales se evalúan en este orden: límite por dirección de red (solo en las rutas marcadas), protección CSRF (cabecera personalizada y verificación de `Origin` en las peticiones que modifican) y guard de sesión.
@@ -198,10 +213,20 @@ Registrados una sola vez en el módulo raíz, en este orden de responsabilidad:
 1. Middleware del identificador de petición y creación del contexto de petición.
 2. Guard de sesión (cookie `__Host-session`) y protección CSRF (cabecera personalizada más verificación del origen).
 3. Guard de permisos. *Pendiente: en la fase 1a la autorización la hace el caso de uso con el motor.*
-4. Interceptor de idempotencia (respuesta guardada 24 h) para las peticiones que crean recursos. *Pendiente: no está implementado en la fase 1a.*
+4. Idempotencia (respuesta guardada 24 h) para las peticiones que crean recursos. **Implementada** (A7), ver §7.2.1.
 
 Orden efectivo en la fase 1a: límite por dirección de red, protección CSRF, guard de sesión y un interceptor que fija el contexto de la petición (ver §3.7).
 5. Filtro global de excepciones: traduce los errores de dominio y los errores conocidos a **detalles de problema (RFC 9457)**; cualquier otra excepción responde un `500` genérico con el identificador de petición, sin detalles internos.
+
+#### 7.2.1 Idempotencia
+
+- Las peticiones `POST` que crean recursos exigen la cabecera `Idempotency-Key` (8 a 200 caracteres: letras, dígitos y `. _ : -`). Hoy se aplica a `POST /invitations`, `POST /invitations/:id/resend` y `POST /roles`. El cliente web ya la envía.
+- La respuesta se guarda 24 horas por organización, actor y clave (tabla `idempotency_keys`). Un reintento con la misma clave y la misma petición devuelve la misma respuesta con la cabecera `Idempotent-Replayed: true` y sin crear nada de nuevo.
+- Errores: misma clave con otra petición, `422 IDEMPOTENCY.KEY_REUSED`; clave ausente o inválida, `422 IDEMPOTENCY.KEY_REQUIRED`; petición original aún en curso, `409 IDEMPOTENCY.IN_PROGRESS`.
+- La reserva dura 1 minuto, para que una petición caída no bloquee la clave durante un día. La toma de una reserva vencida es atómica y una petición original lenta no puede sobrescribir a un dueño más reciente. Si guardar la respuesta falla después del *commit*, la clave no se libera.
+- Las respuestas de error no se guardan: el reintento se ejecuta de nuevo.
+- **Nunca** se usa en endpoints cuya respuesta lleve secretos, porque la respuesta se guarda tal cual.
+- Limitaciones conocidas: las filas vencidas aún no se purgan (falta un trabajo de limpieza) y el reintento no vuelve a comprobar permisos durante las 24 horas.
 
 ### 7.3 Errores
 
@@ -379,15 +404,15 @@ Resueltas en la fase 1a:
 Pendientes de la fase 1a:
 
 - [ ] **Passkeys (WebAuthn)**: no implementadas; hoy el segundo factor es solo TOTP. La dependencia `@simplewebauthn/server` está en la lista aprobada del plan.
-- [ ] **Cambio obligatorio de la contraseña inicial de la Raíz**: la marca existe en la base de datos, pero ningún flujo la aplica y no hay caso de uso de cambio de contraseña.
-- [ ] **Códigos de emergencia de la Raíz** y su recuperación, y el restablecimiento de factores por el responsable.
+- [x] **Cambio obligatorio de la contraseña inicial de la Raíz** (A4): hecho.
+- [ ] **Códigos de emergencia de la Raíz** y su recuperación, y el restablecimiento de factores por el responsable. **Decisión abierta (A3)**: el plan no define qué otorga un código de emergencia, en qué se distingue de uno de recuperación ni quién lo custodia. Propuesta sin implementar: 8 códigos de un solo uso ligados a la Raíz (columna `kind` en la tabla de códigos de recuperación, migración nueva); usar uno completa el ingreso, escribe un evento de auditoría crítico y avisa por correo a todos los Administradores activos; después la Raíz debe registrar un segundo factor nuevo, lo que depende de la recuperación pendiente.
 - [ ] **Redis para los límites de intentos y por IP**: hoy son por instancia y en memoria. Sin Redis, el sistema debe operar con una sola instancia.
 - [ ] **Proveedor de correo real**: hoy solo existe el adaptador de desarrollo que escribe el enlace en el registro; se necesita el adaptador del proveedor (SES en la referencia AWS) y los avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores).
-- [ ] **Idempotencia** de las peticiones que crean recursos (§7.2).
+- [x] **Idempotencia** de las peticiones que crean recursos (§7.2.1, A7): hecha. Limitaciones: sin purga de filas vencidas y sin nueva comprobación de permisos en el reintento.
 - [ ] **Guard de permisos** como primera barrera (§7.2).
-- [ ] **Comando de operaciones** para dar de alta una organización y registrar el alta en la auditoría.
-- [ ] **Casos de uso de gestión de personas** (cambiar rango, transferir responsable, suspender, desactivar con reasignación, transferir la Raíz) y gestión de sesiones ajenas.
-- [ ] **Asignación de roles personalizados** desde la interfaz y casos de uso de roles.
+- [x] **Comando de operaciones** para dar de alta una organización y registrar el alta en la auditoría (A3, parte hecha).
+- [x] **Gestión de personas** (A1) y **gestión de sesiones propias y ajenas** (A5): hechas. Sigue pendiente transferir la Raíz.
+- [x] **Roles personalizados e invitaciones** (A6): crear y archivar roles, elegirlos al invitar y reenviar invitaciones. Sigue pendiente editar un rol ya creado.
 - [ ] **Primera ejecución de la verificación automática (CI) en GitHub**: nunca se ha corrido.
 
 Pendientes de fases posteriores:

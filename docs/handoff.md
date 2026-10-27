@@ -7,13 +7,13 @@ Documento de continuidad. Responde a tres preguntas: **dónde estamos**, **cómo
 | Fase | Estado | Evidencia |
 | --- | --- | --- |
 | 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 |
-| 1a · Identidad | **Hecha en lo esencial; faltan piezas** (sección 4, bloque A) | Invitación → contraseña → segundo factor obligatorio (TOTP) → sesión → reautenticación; matriz de jerarquía y 27 permisos; directorio; pantallas; pruebas de punta a punta incluso en navegador real. Cerradas en el bloque A: A4 (cambio obligatorio de la contraseña inicial de la Raíz), A1 (gestión de personas) y A3 en parte (comando de alta; faltan los códigos de emergencia) |
+| 1a · Identidad | **Hecha en lo esencial; faltan piezas** (sección 4, bloque A) | Invitación → contraseña → segundo factor obligatorio (TOTP) → sesión → reautenticación; matriz de jerarquía y 27 permisos; directorio; pantallas; pruebas de punta a punta incluso en navegador real. Cerradas en el bloque A: A1 (gestión de personas), A4 (cambio obligatorio de la contraseña inicial de la Raíz), A5 (sesiones), A6 (roles e invitaciones), A7 (idempotencia), A10 (reautenticación en navegador real) y A3 en parte (comando de alta; los códigos de emergencia son una decisión abierta). Sin empezar: A2 (passkeys), A8 (Redis y correo real) y A9 (CI en GitHub) |
 | 1b · Bóveda y 2FA | No iniciada | Diseño de datos y cifrado ya listos (tablas, cifrado de secretos); falta toda la lógica de negocio y las pantallas |
 | 1c · Gobernanza | No iniciada | La auditoría en cadena ya existe; faltan bajas con rotación, salud, acceso temporal y alertas |
 | Puerta de producción | No iniciada | Exige prueba de penetración externa; **nada de esto debe cargar credenciales reales todavía** |
 | 2 a 7 | No iniciadas | Ver el plan técnico |
 
-Calidad verificada al cierre de este documento: formato, compilación, tipos y análisis estático en verde; 547 pruebas de la API (unitarias y de integración contra PostgreSQL real), 209 de la web y 58 de `ui`; 8 pruebas en Chrome real (la Raíz ahora pasa por la pantalla de cambio de contraseña); dos revisiones adversariales ciegas (backend y frontend) aprobadas, y pruebas de mutación manual sobre lo crítico.
+Calidad verificada al cierre de este documento: formato, compilación, tipos y análisis estático en verde; 577 pruebas de la API (unitarias y de integración contra PostgreSQL real), 272 de la web, 60 de `ui`, 55 de `db`, 13 de `contracts` y 16 de `i18n`; 9 pruebas en Chrome real (incluida la reautenticación); dos revisiones adversariales ciegas (backend y frontend) aprobadas, y pruebas de mutación manual sobre lo crítico. Una revisión ciega independiente (dos jueces) sobre el backend de A5, A6 y A7 halló 4 problemas confirmados, todos corregidos (toma atómica y propiedad de la clave de idempotencia, no liberar la clave si guardar la respuesta falla tras el *commit*, bloqueo de jerarquía en "cerrar todas las sesiones" y retroceso del reenvío ante conflicto).
 
 ## 2. Qué NO está en el repositorio (y cómo recuperarlo)
 
@@ -62,14 +62,14 @@ La bóveda depende de personas gestionables, de sesiones controlables y de un ac
 | --- | --- | --- | --- |
 | A1 | **Gestión de personas:** cambiar rango, transferir responsable, suspender, desactivar con reasignación de subordinados, revocar sus sesiones al instante | M | **Hecha (2026-10-27).** `GET /users/managed` y `POST /users/:id/suspend`, `reactivate`, `deactivate`, `rank` y `manager`, con pestaña de gestión de equipo en la página de Usuarios. Detalle de reglas y errores en `odd/tasks/phase-1a-closure.md` (L2) |
 | A2 | **Passkeys (WebAuthn)** como método preferido; política de exigirlas a Raíz y Administradores | M | Criterio de salida de la 1a que hoy no se cumple. Probar con el autenticador virtual del navegador |
-| A3 | **Alta de organizaciones como comando de operaciones**, con auditoría y códigos de emergencia de la Raíz | S | **Parcial (2026-10-27).** Existe `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`), con contraseña inicial aleatoria impresa una sola vez y auditoría `organization.provisioned`. **Pendiente:** los códigos de emergencia, que necesitan su propia tabla |
+| A3 | **Alta de organizaciones como comando de operaciones**, con auditoría y códigos de emergencia de la Raíz | S | **Parcial (2026-10-27).** Existe `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`), con contraseña inicial aleatoria impresa una sola vez y auditoría `organization.provisioned`. **Pendiente, con decisión abierta:** los códigos de emergencia (ver sección 5) |
 | A4 | **Cambio obligatorio de la contraseña inicial de la Raíz** | S | **Hecha (2026-10-27).** `POST /auth/password/change`, bloqueo del segundo factor con `AUTH.PASSWORD_CHANGE_REQUIRED` hasta cambiarla y pantalla `/password/change` |
-| A5 | **Sesiones:** ver y cerrar las propias, cierre por el responsable, sincronización entre pestañas | S | Cierra requisitos del plan sobre sesiones |
-| A6 | **Reenvío de invitación** (invalida la anterior) y **roles personalizados** (crear, asignar, límites de no escalamiento) desde la interfaz | M | Hoy la invitación vigente solo se puede esperar a que venza |
-| A7 | **Idempotencia** de las peticiones que crean recursos | S | El cliente ya envía la clave; el servidor aún no la respeta |
+| A5 | **Sesiones:** ver y cerrar las propias, cierre por el responsable, sincronización entre pestañas | S | **Hecha (2026-10-27).** `GET /me/sessions`, `POST /me/sessions/:id/revoke` (404 si no es suya o está cerrada; 422 si es la actual) y `POST /users/:id/sessions/revoke` (`user.deactivate`, jerarquía, Raíz protegida). Auditoría `auth.session_revoked` y `user.sessions_revoked`. Web: `/sessions`, "Cerrar sesiones" en el menú de fila del equipo y sincronización con `BroadcastChannel` (solo viaja el nombre de un evento). Una sesión está viva si no está revocada, no venció y tuvo actividad en los últimos 30 minutos |
+| A6 | **Reenvío de invitación** (invalida la anterior) y **roles personalizados** (crear, asignar, límites de no escalamiento) desde la interfaz | M | **Hecha (2026-10-27).** `GET /roles` (`user.invite`), `POST /roles` (`role.manage`; `403 AUTHZ.ROLE_ESCALATION`, `409 ROLE.NAME_TAKEN`), `POST /roles/:id/archive` (`403 ROLE.SYSTEM_PROTECTED`), `GET /invitations` y `POST /invitations/:id/resend`. Auditoría `role.created`, `role.archived` y `user.invitation_resent`. Web: pestaña "Invitaciones", elección de "Roles" al invitar y pantalla `/roles`. Falta editar roles ya creados |
+| A7 | **Idempotencia** de las peticiones que crean recursos | S | **Hecha (2026-10-27).** Cabecera `Idempotency-Key` en `POST /invitations`, `POST /invitations/:id/resend` y `POST /roles`; detalle y errores en `docs/backend.md` §7.2.1. **Limitaciones:** las filas vencidas no se purgan (falta un trabajo de limpieza) y el reintento no vuelve a comprobar permisos durante las 24 horas |
 | A8 | **Límites de intentos compartidos entre instancias** (Redis) y **correo real** (proveedor definido) | M | Hoy el bloqueo es por instancia y el correo solo se registra en desarrollo |
 | A9 | **Ejecutar el CI en GitHub** y corregir lo que falle; añadir los escáneres de seguridad que pide el plan | S | Nunca ha corrido allí |
-| A10 | **Reautenticación en navegador real** y reautenticación con código de recuperación | S | Ya se puede probar: A1 aporta una acción sensible en la interfaz (cambiar rango) |
+| A10 | **Reautenticación en navegador real** y reautenticación con código de recuperación | S | **Hecha en lo esencial (2026-10-27).** La suite de Chrome (9 pruebas) cubre cambiar rango, el diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción. **No se soporta** la reautenticación con código de recuperación (solo TOTP); sigue como decisión abierta |
 
 ### Bloque B: Fase 1b, bóveda y 2FA
 
@@ -91,13 +91,23 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 
 **Del equipo (bloquean o condicionan; ya estaban en el plan):** proveedor de nube; escala del primer año; disponibilidad requerida; subdominio para los alias de cuentas; presupuesto de la prueba de penetración; política de retención; exigir passkeys a Raíz y Administradores; elegibilidad de Meta para la fase 3; custodios de los códigos de emergencia.
 
+**Abiertas del bloque A (2026-10-27):**
+
+| Tarea | Qué falta | Decisión necesaria |
+| --- | --- | --- |
+| A3 códigos de emergencia | El plan dice: "Al crear la organización se generan códigos de emergencia, impresos y custodiados por dos personas fuera del sistema. Usarlos alerta a todos los Administradores y queda auditado." No define qué otorga usar un código, en qué se distingue de uno de recuperación ni quién los custodia, y hoy no hay forma de registrar un segundo factor nuevo tras entrar con un código (las piezas de "recuperación" también están pendientes). **Propuesta, sin implementar:** el comando de alta crea 8 códigos de emergencia de un solo uso ligados a la Raíz (columna `kind` en la tabla de códigos de recuperación, migración nueva); introducir uno en el paso de recuperación completa el ingreso, escribe un evento de auditoría crítico y avisa por correo a todos los Administradores activos; después se envía a la Raíz a una pantalla "registrar un segundo factor nuevo" (depende de la recuperación pendiente). **No marcar como hecha** | Quiénes custodian los códigos y si los Administradores también pueden activar el restablecimiento |
+| A2 passkeys | Sin empezar | Exigir passkeys a la Raíz y a los Administradores |
+| A8 Redis y correo real | Sin empezar | Proveedor de correo |
+| A9 CI en GitHub | Sin empezar | Un remoto de git donde ejecutarlo |
+
 **Surgidas al construir (requieren criterio de negocio):**
 
 | Tema | Hoy | Pregunta |
 | --- | --- | --- |
 | Permisos por defecto de Líder y Operador | El plan no los define; se asumió "todo lo que su rango puede tener" | Con eso un Operador puede revelar contraseñas y compartir por defecto. ¿Es lo deseado? |
 | Responsable de la persona invitada | Siempre quien invita | El plan sugiere que quien invita lo define |
-| Reautenticación | Solo acepta el código del autenticador | ¿Debe aceptar también un código de recuperación? |
+| Reautenticación | Solo acepta el código del autenticador (no se soporta el de recuperación) | ¿Debe aceptar también un código de recuperación? |
+| Archivar un rol personalizado | Un rol archivado deja de otorgar sus permisos y no sirve en invitaciones nuevas | ¿Es el efecto deseado sobre quien ya lo tenía asignado? |
 | Directorio visible | Muestra nombre, correo y rango; solo personas activas | ¿Rango visible o solo nombre y correo? |
 | Índice ciego derivado de la clave de datos | Cada rotación de clave obliga a recalcular los índices | ¿Derivarlo de una clave estable por organización? |
 | ADR 0023 y 0024 (bloqueo de auditoría y retención) | Propuestos, sin decidir | Decidir antes de la bóveda |
@@ -125,6 +135,7 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | Un código TOTP repetido se rechaza en las pruebas | Protección contra reutilización (intencional) | Generar códigos de pasos nuevos; esperar al siguiente paso si hace falta |
 | Violación de CSP al abrir un diálogo | Una hoja de estilos fija de la biblioteca de diálogos | Permitida por hash exacto; si se actualiza la biblioteca, la prueba de navegador dará el hash nuevo |
 | Pruebas de interfaz intermitentes bajo carga | Tiempos de espera por defecto muy ajustados | Ya ampliados; no volver a los valores por defecto |
+| Una prueba de web falla a veces al afirmar justo después del encabezado | La consulta de datos aún no había terminado | Corregida esperando la consulta; ante una prueba intermitente se arregla la espera, no se suben reintentos |
 | Terminar procesos con `pkill -f` mata la propia terminal | El patrón coincide con la línea de comandos | Usar el identificador exacto del proceso |
 | Una dependencia recién publicada no se instala | Espera de 7 días (intencional) | Elegir una versión más antigua |
 
@@ -134,7 +145,9 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 - El bloqueo de intentos y el límite por IP son por instancia hasta incorporar Redis.
 - El correo es solo de desarrollo; sin proveedor real no hay avisos a las personas.
 - La pantalla de inicio todavía muestra el texto del esqueleto de la fase 0.
-- El comando de alta de organizaciones (`pnpm --filter @iam/api provision`) aún no genera códigos de emergencia de la Raíz; sin ellos, una Raíz que pierde todos sus factores no tiene camino de recuperación.
+- El comando de alta de organizaciones (`pnpm --filter @iam/api provision`) aún no genera códigos de emergencia de la Raíz (decisión abierta, sección 5); sin ellos, una Raíz que pierde todos sus factores no tiene camino de recuperación.
+- Idempotencia: las filas vencidas de `idempotency_keys` no se purgan y el reintento no vuelve a comprobar permisos durante las 24 horas. Nunca se aplica a endpoints cuya respuesta lleve secretos.
+- No se puede reautenticar con un código de recuperación; solo con TOTP.
 - No existe `.env.example`; las variables de configuración están documentadas en la configuración de la API (`apps/api/src/app/config.ts`).
 - El CI de GitHub nunca se ha ejecutado y no incluye aún los escáneres de seguridad.
 

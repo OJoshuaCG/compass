@@ -15,7 +15,7 @@ Este documento explica cómo el sistema decide si una persona puede hacer algo: 
 | Motor de decisión (organización, sesión, permiso, jerarquía, contexto) | **Funciona.** El paso de compartición llega con la bóveda (fase 1b) |
 | Reautenticación, motivo escrito y auditoría crítica como obligaciones | **El motor las exige.** La reautenticación está disponible con la aplicación autenticadora; el motivo escrito y la auditoría crítica se aplicarán cuando existan las acciones que los usan (revelar, exportar, acceso de emergencia) |
 | Auditoría de negaciones | **Funciona.** Toda negación se registra con su código de motivo, aunque la acción se revierta (ver [ADR 0022](../adr/0022-audit-of-denials-in-independent-transaction.md)) |
-| Roles personalizados (crear, editar, asignar desde la interfaz) | **Pendiente.** La interfaz solo asigna la plantilla del rango |
+| Roles personalizados (crear, archivar, elegir al invitar) | **Funciona.** Editar un rol ya creado sigue pendiente |
 | Niveles de compartición, vencimientos, revocación, acceso de emergencia | **Pendiente** (fase 1b y 1c) |
 
 ## Contenido
@@ -131,7 +131,7 @@ Un rol es un conjunto de permisos con nombre, para asignarlos juntos.
 | Tipo | Qué es | ¿Editable? |
 | --- | --- | --- |
 | Plantilla del sistema | Raíz (todos los permisos), Administrador (todos salvo configurar la organización), Líder y Operador (con conjuntos por defecto) | No |
-| Rol personalizado | Creado por quien tenga el permiso de gestionar roles | Sí. *Pendiente: hoy no se pueden crear ni asignar desde la interfaz* |
+| Rol personalizado | Creado por quien tenga el permiso de gestionar roles | Se pueden crear y archivar desde la interfaz y elegir al invitar. *Pendiente: editar un rol ya creado* |
 
 **Conjuntos que se aplican hoy a Líder y Operador.** El plan solo dice "conjuntos por defecto" sin enumerarlos. La implementación asumió que cada plantilla incluye **todo lo que su rango puede tener**, es decir, todos los permisos cuyo techo alcanza ese rango:
 
@@ -147,6 +147,9 @@ Reglas:
 - Los permisos de un rol personalizado deben ser un **subconjunto de los del que lo crea**.
 - Los permisos efectivos de una persona son la **unión de todos sus roles**, recortada por el techo de su rango.
 - Si el rango de la persona cambia, el recorte se recalcula.
+- **Hoy** la pantalla de roles solo ofrece al crear los permisos que tiene quien lo crea; si se intenta otorgar uno que no tiene, se rechaza. Dos roles no pueden llamarse igual, sin distinguir mayúsculas.
+- Las plantillas del sistema no se pueden archivar. Un rol archivado deja de otorgar sus permisos y no se puede usar en invitaciones nuevas.
+- Crear y archivar roles queda en la auditoría.
 
 **Ejemplo.** Luis (Líder) tiene un rol que incluye "Cambiar el rango" por un error de configuración. Como el techo de ese permiso es 1 y el rango de Luis es 2, el permiso queda recortado y Luis nunca puede ejercerlo.
 
@@ -292,5 +295,5 @@ Como concede VIEW y no MANAGE, con este acceso **no** se puede exportar el secre
 | 2 | Si el vencimiento de una compartición que ya tuvo una revelación debe también generar tarea de rotación | El plan solo la prevé al revocar y en las bajas |
 | 3 | Si el acceso de emergencia puede renovarse pasada la hora | El plan fija 1 hora, sin hablar de renovación |
 | 4 | Cuál es la lista cerrada de eventos que cuentan como "uso" de un secreto en la auditoría ligera (copiar el usuario, código de segundo factor) frente a la auditoría completa | Define el volumen y la utilidad de la auditoría |
-| 5 | Cómo se retira o archiva un rol personalizado que ya está asignado a personas | El plan define cómo se crea y se asigna, no cómo se retira |
+| 5 | Cómo se retira o archiva un rol personalizado que ya está asignado a personas | El plan define cómo se crea y se asigna, no cómo se retira. **La implementación asumió** que archivar un rol le quita su efecto en los permisos de quien lo tiene y lo excluye de invitaciones nuevas. Pendiente de confirmar con el negocio |
 | 6 | Si una persona que está en estado "invitada" debe poder ejercer algún permiso antes de completar su alta | **La implementación asumió** que no: solo las personas activas ejercen permisos |

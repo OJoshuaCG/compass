@@ -456,16 +456,21 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Verificación en dos pasos (código de la aplicación o código de recuperación) | `features/auth` | Funciona |
 | Registro del segundo factor (código QR y clave) y entrega única de los 10 códigos de recuperación | `features/auth` | Funciona |
 | Aceptación de invitación (contraseña con indicador de fortaleza) | `features/auth` | Funciona |
-| Directorio de personas con búsqueda, orden y paginación por cursor, y diálogo para invitar | `features/directory` | Funciona. Solo ofrece los rangos que quien invita puede crear y no permite elegir roles personalizados |
-| Diálogo de reautenticación (abre ante el error de reautenticación requerida y reintenta la acción una vez) | `shared/auth` y `shared/api` | Funciona con el código de la aplicación |
+| Directorio de personas con búsqueda, orden y paginación por cursor, y diálogo para invitar | `features/directory` | Funciona. Solo ofrece los rangos que quien invita puede crear; el diálogo incluye la elección opcional de "Roles" (roles personalizados). Una pestaña "Invitaciones" lista las pendientes (con las vencidas señaladas) y permite reenviar |
+| Diálogo de reautenticación (abre ante el error de reautenticación requerida y reintenta la acción una vez) | `shared/auth` y `shared/api` | Funciona con el código de la aplicación; no admite código de recuperación. La suite de Chrome cubre el flujo completo (cambiar rango, diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción) |
 | Cambio de contraseña (ruta `/password/change`; es obligatorio para la Raíz tras su primer ingreso con la contraseña inicial: mientras no se cambia, el ingreso lleva a esta pantalla y el registro del segundo factor se rechaza con `AUTH.PASSWORD_CHANGE_REQUIRED`) | `features/auth` | Funciona |
 | Gestión de equipo (pestaña en la página de Usuarios, junto al directorio) con acciones por fila: suspender, reactivar, cambiar rango (con reautenticación), transferir responsable y desactivar (con diálogo de confirmación) | `features/directory` | Funciona. Lista el subárbol de quien consulta (la Raíz ve a todos) con su estado y su responsable |
 | Cierre de sesión | `shared/auth` | Funciona |
 | Registro e ingreso con passkey | Sin implementar | Pendiente |
-| Ver y cerrar sesiones, restablecer factores de otra persona | Sin implementar | Pendiente |
-| Selección de roles personalizados al invitar | Sin implementar | Pendiente |
+| Mis sesiones (ruta `/sessions`: lista con la sesión actual señalada y cierre de las demás) | `features/sessions` | Funciona |
+| "Cerrar sesiones" en el menú de fila de la gestión de equipo | `features/directory` | Funciona |
+| Sincronización entre pestañas (`BroadcastChannel`; el único mensaje es el nombre de un evento, nunca datos) | `shared/auth` | Funciona. Tras cerrar sesión o perderla, las otras pestañas del mismo navegador pasan al ingreso en cerca de un segundo |
+| Pantalla de roles (ruta `/roles`: crear solo con los permisos propios de quien crea; archivar con confirmación) | `features/roles` | Funciona |
+| Restablecer factores de otra persona | Sin implementar | Pendiente |
 
-El cliente HTTP ya genera una clave de idempotencia en las peticiones que crean recursos, pero el backend todavía no la aplica (ver [`backend.md`](backend.md) §16).
+El cliente HTTP envía una clave de idempotencia en las peticiones que crean recursos y el backend ya la aplica (ver [`backend.md`](backend.md) §7.2.1).
+
+Una prueba de web intermitente se corrigió esperando la consulta en lugar de afirmar justo después del encabezado: ante una prueba intermitente se arregla la espera, no se suben reintentos.
 
 ## 19. Decisiones pendientes
 

@@ -17,9 +17,9 @@ Este documento describe el comportamiento completo previsto. La fase 1a ya imple
 | Inicio de sesión con segundo factor o código de recuperación | **Funciona** |
 | Retraso progresivo, bloqueo temporal y mensajes idénticos | **Funciona.** Los contadores son por instancia del servidor; falta el almacén compartido |
 | Sesiones (30 minutos de inactividad, 12 horas absolutas, cierre en el servidor) | **Funciona** |
-| Ver y cerrar sesiones, cierre por el responsable | **Pendiente** |
+| Ver y cerrar sesiones, cierre por el responsable, sincronización entre pestañas | **Funciona** |
 | Cierre automático de sesiones al suspender, desactivar o cambiar el rango | **Funciona** (el cambio de roles aún no existe como acción) |
-| Reautenticación de 5 minutos | **Funciona** con la aplicación autenticadora |
+| Reautenticación de 5 minutos | **Funciona** con la aplicación autenticadora (probada también en navegador real). No admite código de recuperación |
 | Avisos por correo (dispositivo nuevo, código de recuperación, cambios de factores) | **Pendiente** |
 | Recuperación por el responsable o la Raíz; códigos de emergencia de la Raíz | **Pendiente** |
 | Cambio de contraseña, incluido el cambio obligatorio de la contraseña inicial de la Raíz | **Funciona** |
@@ -60,7 +60,7 @@ El sistema guarda las contraseñas y los segundos factores de toda la organizaci
 Reglas importantes:
 
 - **Quien invita nunca conoce la contraseña** de la persona invitada. Tampoco ve el enlace: llega solo al correo de la persona invitada.
-- **Reenviar una invitación invalida la anterior**; solo la última sirve. *Hoy no existe el reenvío:* mientras una invitación siga vigente no se puede crear otra para el mismo correo, y una invitación vencida no impide volver a invitar a ese correo.
+- **Reenviar una invitación invalida la anterior**; solo la última sirve. Solo puede reenviarla quien la envió o la Raíz. El reenvío genera un enlace nuevo con otras 72 horas y lo envía por correo; si no se puede crear la nueva, la anterior sigue vigente. Mientras una invitación siga vigente no se puede crear otra para el mismo correo, y una invitación vencida no impide volver a invitar a ese correo. Cada persona ve sus invitaciones pendientes, con las vencidas señaladas; la Raíz ve las de todos.
 - Nadie se invita como Raíz: la Raíz existe desde la creación de la organización.
 - **Al aceptar se revalida todo.** Entre invitar y aceptar pueden pasar hasta 72 horas. Al aceptar, el sistema vuelve a comprobar que los roles siguen existiendo, que quien invitó sigue activo y que todavía puede otorgar esos roles. Si algo cambió, la persona ve el mismo mensaje que ante una invitación inválida, sin saber la causa.
 - **Todas las invitaciones inválidas se ven igual.** Una invitación vencida, ya usada o inexistente produce el mismo mensaje, para no revelar qué le pasó.
@@ -95,12 +95,12 @@ Una sesión es el periodo en que una persona permanece autenticada.
 | Caducidad por inactividad | **30 minutos** sin actividad (configurable por organización) |
 | Caducidad absoluta | **12 horas** desde el ingreso (configurable por organización) |
 | Dónde viaja | En un identificador de sesión protegido que guarda el navegador; la web y la API comparten origen, y no se guarda nada sensible en el almacenamiento del navegador |
-| Ver y cerrar | Cada persona ve sus sesiones activas y las puede cerrar |
-| Cierre por el responsable | El responsable de una persona puede cerrar **todas** sus sesiones |
+| Ver y cerrar | Cada persona ve sus sesiones activas y puede cerrar las demás. La sesión que está usando se cierra saliendo del sistema |
+| Cierre por el responsable | El responsable de una persona puede cerrar **todas** sus sesiones. Requiere el permiso de desactivar, respeta la jerarquía y nunca alcanza a la Raíz |
 | Cierre automático | Desactivar o suspender a una persona, o cambiarle el rango o los roles, cierra sus sesiones **en el acto** |
-| Varias pestañas | El cierre por inactividad se sincroniza entre pestañas del mismo navegador |
+| Varias pestañas | Al salir o perder la sesión, las demás pestañas del mismo navegador pasan a la pantalla de ingreso en cerca de un segundo |
 
-**Estado hoy.** Funcionan: el identificador de sesión protegido, la caducidad por inactividad (30 minutos) y absoluta (12 horas), el cierre de sesión que la revoca en el servidor, la protección contra solicitudes enviadas desde otros sitios y el rechazo de la sesión de una persona suspendida o dada de baja. La caducidad por inactividad se calcula con el reloj del servidor de la aplicación, una sola fuente de tiempo (ver [ADR 0025](../adr/0025-session-time-single-clock-source.md)). Mientras la persona no complete el segundo factor, su sesión solo sirve para completarlo. Suspender o desactivar a una persona cierra todas sus sesiones en la misma operación, y también lo hace el cambio de contraseña con las demás sesiones de esa persona. Siguen pendientes: ver y cerrar sesiones propias, el cierre de todas las sesiones por el responsable, el cierre automático al cambiar roles (la acción aún no existe) y la sincronización entre pestañas.
+**Estado hoy.** Funcionan: el identificador de sesión protegido, la caducidad por inactividad (30 minutos) y absoluta (12 horas), el cierre de sesión que la revoca en el servidor, la protección contra solicitudes enviadas desde otros sitios y el rechazo de la sesión de una persona suspendida o dada de baja. La caducidad por inactividad se calcula con el reloj del servidor de la aplicación, una sola fuente de tiempo (ver [ADR 0025](../adr/0025-session-time-single-clock-source.md)). Mientras la persona no complete el segundo factor, su sesión solo sirve para completarlo. Suspender o desactivar a una persona cierra todas sus sesiones en la misma operación, y también lo hace el cambio de contraseña con las demás sesiones de esa persona. Cada persona dispone de una pantalla "Mis sesiones" con fecha de creación, última actividad, vencimiento, dispositivo y dirección de red de cada sesión, y con la actual señalada; nunca se muestra nada que permita usar la sesión. Cerrar una sesión ajena a la persona, o ya cerrada, se rechaza como si no existiera. El responsable cierra todas las sesiones de una persona desde el menú de la fila en la gestión de equipo. Ambas acciones quedan en la auditoría. Una sesión cuenta como viva si no está revocada, no ha vencido y tuvo actividad en los últimos 30 minutos. La sincronización entre pestañas solo comparte el aviso de que la sesión terminó, nunca datos. Sigue pendiente el cierre automático al cambiar roles (la acción aún no existe).
 
 **Por qué sesiones de servidor y no fichas autónomas.** Una sesión de servidor se puede revocar al instante: cerrar la sesión significa que el siguiente intento de usarla falla. Con fichas autónomas habría que esperar a que expiren.
 
@@ -114,7 +114,7 @@ Las acciones más sensibles piden haber verificado un factor **en los últimos 5
 - Con aplicación autenticadora, es un código.
 - Una vez verificada, durante los siguientes 5 minutos no se le vuelve a pedir.
 
-**Estado hoy.** Funciona con el código de la aplicación autenticadora. Cuando una acción exige reautenticación y la persona no la tiene vigente, el sistema la niega, registra la negación y la interfaz abre un diálogo para introducir el código; tras verificarlo, la acción se reintenta. La reautenticación con passkey o con un código de recuperación no está disponible. Las acciones sensibles de la bóveda (revelar, exportar) llegan con la fase 1b; hoy el motor ya exige la reautenticación para las acciones de su catálogo que la requieren.
+**Estado hoy.** Funciona con el código de la aplicación autenticadora. Cuando una acción exige reautenticación y la persona no la tiene vigente, el sistema la niega, registra la negación y la interfaz abre un diálogo para introducir el código; tras verificarlo, la acción se reintenta. La reautenticación con passkey o con un código de recuperación no está disponible: solo se acepta el código de la aplicación autenticadora. El flujo completo (cambiar un rango, confirmar la identidad, rechazo de un código incorrecto y éxito con el correcto) ya se prueba en un navegador real. Las acciones sensibles de la bóveda (revelar, exportar) llegan con la fase 1b; hoy el motor ya exige la reautenticación para las acciones de su catálogo que la requieren.
 
 ## 6. Protección contra ataques
 
@@ -135,7 +135,7 @@ Las acciones más sensibles piden haber verificado un factor **en los últimos 5
 | Perdió todos sus factores y no tiene códigos | Pide ayuda | Su responsable o la Raíz restablece sus factores | Reautenticación y motivo escrito de quien restablece |
 | Es la Raíz y perdió todos sus factores | Usa los códigos de emergencia custodiados | Las dos personas custodias | Alerta a todos los Administradores y evento crítico (ver [`actors-and-hierarchy.md`](actors-and-hierarchy.md)) |
 
-**Estado hoy.** Solo funciona el primer caso, parcialmente: el código de recuperación permite completar el ingreso, pero todavía no hay pantalla para registrar un nuevo factor después. El restablecimiento por el responsable o la Raíz, la nueva invitación de configuración y los códigos de emergencia de la Raíz **no están implementados**. Mientras tanto, una persona que pierde todos sus factores y sus códigos, y en particular la Raíz, no tiene un camino de recuperación en el sistema.
+**Estado hoy.** Los códigos de emergencia de la Raíz siguen en decisión abierta: el plan no define qué otorga usar uno, en qué se distingue de un código de recuperación ni quién los custodia, y hoy tampoco existe una pantalla para registrar un segundo factor nuevo tras entrar con un código. Solo funciona el primer caso, parcialmente: el código de recuperación permite completar el ingreso, pero todavía no hay pantalla para registrar un nuevo factor después. El restablecimiento por el responsable o la Raíz, la nueva invitación de configuración y los códigos de emergencia de la Raíz **no están implementados**. Mientras tanto, una persona que pierde todos sus factores y sus códigos, y en particular la Raíz, no tiene un camino de recuperación en el sistema.
 
 Cuando un responsable restablece los factores de alguien, esa persona recibe una **nueva invitación de configuración** y **conserva sus comparticiones**. No empieza de cero.
 
@@ -168,10 +168,10 @@ No se usa en la primera versión. El sistema solo deja preparado el punto de con
 
 | Estado | Reglas |
 | --- | --- |
-| Se cumplen hoy | AU-1, AU-3, AU-6, AU-8, AU-11, AU-12 |
-| Se cumplen parcialmente | AU-2 (falta el reenvío), AU-4 (solo aplicación autenticadora, sin passkeys), AU-9 (suspender, desactivar y cambiar el rango cierran las sesiones; falta el cambio de roles) |
+| Se cumplen hoy | AU-1, AU-2, AU-3, AU-6, AU-8, AU-10, AU-11, AU-12 |
+| Se cumplen parcialmente | AU-4 (solo aplicación autenticadora, sin passkeys), AU-9 (suspender, desactivar y cambiar el rango cierran las sesiones; falta el cambio de roles) |
 | Se cumple la parte que ya existe | AU-5 (no se usan mensajes de texto ni correo como segundo factor) |
-| Pendientes | AU-7 (el uso queda auditado, falta el aviso), AU-10, AU-13, AU-14 |
+| Pendientes | AU-7 (el uso queda auditado, falta el aviso), AU-13, AU-14 |
 
 ## 10. Preguntas abiertas
 

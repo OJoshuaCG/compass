@@ -72,6 +72,7 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 | Los cuatro actores, la regla de gestión, bajas con reasignación y transferencia de la Raíz | [`actors-and-hierarchy.md`](actors-and-hierarchy.md) |
 | Catálogo de permisos, roles y no escalamiento | [`permissions-and-sharing.md`](permissions-and-sharing.md) |
 | Reautenticación para acciones sensibles | [`permissions-and-sharing.md`](permissions-and-sharing.md) |
+| Sesiones propias y ajenas, roles personalizados e invitaciones reenviables | [`authentication.md`](authentication.md), [`permissions-and-sharing.md`](permissions-and-sharing.md) |
 
 **Criterio de salida (según el plan):** invitación → contraseña → segundo factor obligatorio → entrada con passkey de punta a punta; matriz de jerarquía y permisos completa en verde; reautenticación funcionando.
 
@@ -82,12 +83,15 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 | Alta de una organización | Una persona de operaciones da de alta la organización con un comando propio, y el alta queda en la auditoría. Nace con exactamente una Raíz, en estado "invitada", con una contraseña inicial aleatoria que se muestra una sola vez y nunca se guarda en claro, y con las cuatro plantillas de rol del sistema |
 | Cambio obligatorio de la contraseña inicial | En su primer ingreso, la Raíz debe cambiar la contraseña inicial antes de registrar su segundo factor. El cambio exige la contraseña actual, aplica la política de contraseñas, cuenta los intentos fallidos con el mismo límite y cierra las demás sesiones de la persona |
 | Gestión de personas | Quien gestiona a una persona puede suspenderla, reactivarla, desactivarla, cambiarle el rango o transferirla a otro responsable. Suspender y desactivar cierran sus sesiones; desactivar reasigna a sus subordinados activos y revoca las invitaciones pendientes que dejó. La Raíz queda protegida de todas estas acciones. Cada acción se audita y la pestaña de gestión de equipo de la página de Usuarios las ofrece |
-| Invitaciones | Quien tiene el permiso de invitar crea una invitación según la matriz de creación, sin poder otorgar permisos que no tiene. El enlace llega por correo, vence a las 72 horas y es de un solo uso. Quien invita no lo ve ni conoce la contraseña. Al aceptar se revalidan los roles y que quien invitó siga activo |
+| Invitaciones | Quien tiene el permiso de invitar crea una invitación según la matriz de creación, sin poder otorgar permisos que no tiene. El enlace llega por correo, vence a las 72 horas y es de un solo uso. Quien invita no lo ve ni conoce la contraseña. Al aceptar se revalidan los roles y que quien invitó siga activo. Se puede reenviar una invitación (solo quien la envió o la Raíz): el enlace anterior queda invalidado y se envía uno nuevo con otras 72 horas. Una pestaña de invitaciones muestra las pendientes y señala las vencidas |
+| Roles personalizados | Quien puede gestionar roles crea roles con permisos que no excedan los suyos y los archiva. Las plantillas del sistema no se archivan; un rol archivado deja de otorgar permisos y no sirve en invitaciones nuevas. Al invitar se puede elegir un rol personalizado de forma opcional |
+| Sesiones propias y ajenas | Cada persona ve sus sesiones, con dispositivo, dirección de red y última actividad, y cierra las demás. Quien gestiona a una persona puede cerrar todas sus sesiones, salvo las de la Raíz. Al salir o perder la sesión, las demás pestañas del navegador pasan al ingreso en cerca de un segundo. Ambas acciones se auditan |
+| Protección contra reintentos de creación | Las peticiones que crean recursos exigen una clave de reintento; repetir la misma petición dentro de 24 horas devuelve la misma respuesta sin crear nada de nuevo, y usar la clave con otra petición se rechaza. Hoy se aplica a invitaciones, reenvíos y roles |
 | Alta de la persona invitada | Contraseña (mínimo 12 caracteres, sin reglas de composición, se rechazan las comunes y las que contienen datos personales), segundo factor obligatorio con confirmación y 10 códigos de recuperación que se muestran una sola vez. Solo entonces la persona queda activa |
 | Inicio de sesión | Contraseña más segundo factor (código de la aplicación autenticadora o código de recuperación de un solo uso). Un código de la aplicación no se puede reutilizar. Mensajes y tiempos equivalentes para usuario inexistente o contraseña incorrecta |
 | Protección contra fuerza bruta | Retraso progresivo y bloqueo temporal de 15 minutos tras 10 intentos fallidos, nunca permanente, contado por correo y por usuario. Además, un límite por dirección de red en las pantallas de acceso e invitación |
 | Sesiones | Identificador de sesión protegido, caducidad por inactividad de 30 minutos y absoluta de 12 horas, cierre de sesión que la revoca en el servidor y protección contra solicitudes desde otros sitios. Una persona suspendida o dada de baja deja de poder usar su sesión |
-| Reautenticación | Un factor verificado en los últimos 5 minutos habilita las acciones sensibles. El motor de autorización exige reautenticación, motivo escrito o auditoría crítica según la acción |
+| Reautenticación | Un factor verificado en los últimos 5 minutos habilita las acciones sensibles. El motor de autorización exige reautenticación, motivo escrito o auditoría crítica según la acción. Solo se acepta el código de la aplicación autenticadora, no el de recuperación; el flujo completo se prueba en un navegador real |
 | Autorización | Los tres ejes, la matriz de jerarquía y el catálogo de 27 permisos con sus techos de rango. Toda negación se audita con su código de motivo, aunque la acción se revierta |
 | Directorio de personas | Cualquier persona activa busca nombre y correo de las demás personas activas, con orden, límite y paginación |
 | Interfaz | Pantallas de ingreso, verificación en dos pasos, registro del segundo factor (código QR y clave), aceptación de invitación, directorio con la opción de invitar y diálogo de reautenticación |
@@ -99,15 +103,15 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Pendiente | Efecto en el negocio |
 | --- | --- |
 | Passkeys | No están implementadas. Hoy el segundo factor es solo la aplicación autenticadora, por lo que el criterio "entrada con passkey" no se cumple |
-| Códigos de emergencia de la Raíz y su recuperación | No existen. Si la Raíz pierde todos sus factores, hoy no hay camino de recuperación |
+| Códigos de emergencia de la Raíz y su recuperación | No existen y su diseño espera una decisión del equipo: el plan no define qué otorga usar un código, en qué se distingue de uno de recuperación ni quién los custodia. Se propone, sin implementar, generar ocho códigos de un solo uso al dar de alta la organización, que usar uno deje un evento crítico y avise a todos los Administradores, y llevar después a la Raíz a registrar un segundo factor nuevo. Si la Raíz pierde todos sus factores, hoy no hay camino de recuperación |
 | Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores |
 | Envío real de correo | Hoy el enlace de invitación solo se escribe en el registro del servidor en desarrollo. Falta el proveedor de correo, y mientras no exista no se puede invitar en producción |
-| Idempotencia de las peticiones que crean recursos | Un reintento de la misma petición puede crear dos veces el recurso. No está implementada |
-| Asignación de roles personalizados desde la interfaz | Al invitar, la interfaz solo asigna la plantilla del rango. Los roles personalizados no se pueden elegir |
+| Limpieza de la protección contra reintentos | Las claves vencidas aún no se borran (falta una tarea de limpieza) y un reintento dentro de las 24 horas no vuelve a comprobar los permisos de quien lo hace |
+| Edición de roles personalizados | Se pueden crear y archivar, pero no editar un rol ya creado |
 | Transferencia de la Raíz | No existe. Las demás acciones de gestión de personas ya funcionan |
-| Gestión de sesiones y avisos por correo | No hay pantalla para ver o cerrar sesiones propias ni ajenas, ni cierre automático al cambiar roles, ni avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores) |
-| Reenvío de invitaciones | No existe. Mientras una invitación siga vigente, no se puede crear otra para el mismo correo; una vencida no lo impide |
-| Códigos de emergencia en el alta de la organización | El comando de alta ya existe y audita el alta, pero todavía no genera los códigos de emergencia de la Raíz |
+| Cierre automático de sesiones al cambiar roles y avisos por correo | La acción de cambiar roles aún no existe. Tampoco hay avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores) |
+| Reautenticación con código de recuperación | No está soportada; solo se acepta el código de la aplicación autenticadora |
+| Códigos de emergencia en el alta de la organización | El comando de alta ya existe y audita el alta, pero todavía no genera los códigos de emergencia de la Raíz (decisión abierta, ver arriba) |
 | Ejecución de las pruebas en la verificación automática (CI) de GitHub | Nunca se ha ejecutado. Las pruebas pasan en el entorno local |
 
 #### Criterios de salida: cuáles se cumplen
@@ -117,7 +121,7 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora |
 | Entrada con passkey | **No cumplido** | Las passkeys no están implementadas |
 | Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 27 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
-| Reautenticación funcionando | Cumplido con aplicación autenticadora | Aún no admite passkey ni código de recuperación |
+| Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub |
 
 **Conclusión.** La fase 1a no se puede dar por cerrada: falta al menos la entrada con passkey, y varios pendientes de seguridad (recuperación de la Raíz con códigos de emergencia, límites compartidos entre instancias) deben resolverse antes de la puerta de producción.
@@ -208,7 +212,7 @@ La documentación del repositorio no registra el cierre de ninguna de las decisi
 | 6 | Política de retención de la auditoría y de las versiones de secretos, validada por el área legal | Define cuánto tiempo se conserva cada dato | Abierta |
 | 7 | Exigir passkeys a la Raíz y a los Administradores desde el inicio (el plan recomienda que sí) | Eleva la seguridad de las cuentas con más poder | Abierta. Las passkeys aún no están implementadas, así que hoy no se podría exigir |
 | 8 | Elegibilidad para cuentas administradas de Meta (antes de la fase 3) | Sin ella, la fase 3 pierde su objetivo principal | Abierta |
-| 9 | Personas que custodiarán los códigos de emergencia de la Raíz (dos) | Sin custodios no hay recuperación posible de la Raíz | Abierta. Los códigos de emergencia tampoco están implementados |
+| 9 | Personas que custodiarán los códigos de emergencia de la Raíz (dos) | Sin custodios no hay recuperación posible de la Raíz | Abierta. Los códigos de emergencia tampoco están implementados; además falta decidir si los Administradores también pueden activar el restablecimiento |
 
 ### 7.1 Decisiones que la implementación de la fase 1a tuvo que asumir
 

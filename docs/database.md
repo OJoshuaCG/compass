@@ -493,7 +493,7 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`outbox_events`**: `aggregate`, `type`, `payload jsonb`, `published_at`, `attempts int +`, `next_attempt_at +` (reintentos con *backoff*). Índice parcial de pendientes `(organization_id, next_attempt_at) where published_at is null`.
 
-**`idempotency_keys`**: `key` (8 a 200), `actor_id`, `request_hash bytea(32)`, `response jsonb`, `status_code smallint +`, `expires_at`. **UK** `(organization_id, actor_id, key)`.
+**`idempotency_keys`**: `key` (8 a 200), `actor_id`, `request_hash bytea(32)`, `response jsonb`, `status_code smallint +`, `expires_at`. **UK** `(organization_id, actor_id, key)`. La respuesta se conserva 24 horas; mientras la petición original corre, la fila es una reserva de 1 minuto que otra petición puede tomar de forma atómica al vencer (ver [`backend.md`](backend.md) §7.2.1). *Limitación conocida: las filas vencidas aún no se purgan; falta un trabajo de limpieza.*
 
 ### 5.6 Vista `effective_access`
 

@@ -18,7 +18,7 @@ Está pensada para una sola organización de unas tres personas operando, aunque
 | Fase | Qué entrega | Estado |
 | --- | --- | --- |
 | 0 · Fundaciones | Base técnica, base de datos con aislamiento por organización, cifrado, registro y diseño visual | Terminada |
-| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona; faltan piezas** (llaves de acceso, códigos de emergencia de la Raíz, correo real). Ya incluye la gestión de personas y el cambio obligatorio de la contraseña inicial |
+| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona; faltan piezas** (llaves de acceso, códigos de emergencia de la Raíz, que esperan una decisión del equipo, almacén compartido de contadores, correo real y la ejecución del CI en GitHub). Ya incluye la gestión de personas, el cambio obligatorio de la contraseña inicial, la gestión de sesiones, los roles personalizados con reenvío de invitaciones y la idempotencia de las peticiones de creación |
 | 1b · Bóveda y segundo factor | Guardar y compartir cuentas, revelar contraseñas con motivo y generar códigos | Pendiente |
 | 1c · Gobernanza | Pantalla de auditoría, bajas con rotación, salud de credenciales y acceso temporal | Pendiente |
 | 2 a 7 | Inicio de sesión único, lectura de correos y SMS, extensión de navegador y broker | Pendientes |
