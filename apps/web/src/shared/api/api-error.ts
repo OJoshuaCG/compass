@@ -34,6 +34,8 @@ export class ApiError extends Error {
   readonly code: string;
   readonly requestId: string | undefined;
   readonly fieldErrors: readonly FieldError[];
+  /** Segundos de espera que pidió el servidor (`Retry-After`) en un 429. */
+  readonly retryAfterSeconds: number | undefined;
 
   constructor(init: {
     status: number;
@@ -41,6 +43,7 @@ export class ApiError extends Error {
     title: string;
     requestId?: string | undefined;
     fieldErrors?: readonly FieldError[] | undefined;
+    retryAfterSeconds?: number | undefined;
   }) {
     super(init.title);
     this.name = 'ApiError';
@@ -48,10 +51,12 @@ export class ApiError extends Error {
     this.code = init.code;
     this.requestId = init.requestId;
     this.fieldErrors = init.fieldErrors ?? [];
+    this.retryAfterSeconds = init.retryAfterSeconds;
   }
 
-  static fromProblem(problem: ProblemDetails): ApiError {
+  static fromProblem(problem: ProblemDetails, retryAfterSeconds?: number): ApiError {
     return new ApiError({
+      retryAfterSeconds,
       status: problem.status,
       code: problem.code,
       title: problem.title,
@@ -61,10 +66,15 @@ export class ApiError extends Error {
   }
 
   /** Construye el error desde el cuerpo de una respuesta no exitosa, sin confiar en su forma. */
-  static fromResponseBody(status: number, body: unknown): ApiError {
+  static fromResponseBody(status: number, body: unknown, retryAfterSeconds?: number): ApiError {
     const parsed = problemDetailsSchema.safeParse(body);
-    if (parsed.success) return ApiError.fromProblem(parsed.data);
-    return new ApiError({ status, code: fallbackCode(status), title: `HTTP ${String(status)}` });
+    if (parsed.success) return ApiError.fromProblem(parsed.data, retryAfterSeconds);
+    return new ApiError({
+      status,
+      code: fallbackCode(status),
+      title: `HTTP ${String(status)}`,
+      retryAfterSeconds,
+    });
   }
 
   static network(): ApiError {

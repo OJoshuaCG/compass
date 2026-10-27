@@ -6,7 +6,7 @@ import { catalogSearchSchema } from './catalog-search';
 
 // `getRouteApi` evita importar la definición de la ruta (que carga este archivo de forma
 // diferida) y así no hay dependencia circular.
-const route = getRouteApi('/catalog');
+const route = getRouteApi('/_app/catalog');
 
 /** Container: conecta los parámetros de búsqueda de la URL con el feature (presentacional). */
 export function CatalogRoutePage() {

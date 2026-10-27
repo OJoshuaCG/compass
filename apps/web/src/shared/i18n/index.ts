@@ -8,3 +8,5 @@ export {
 export { changeLocale, createI18n } from './setup';
 export { useDataTableLabels } from './use-data-table-labels';
 export { useErrorMessage } from './use-error-message';
+export { useValidationMessage } from './use-validation-message';
+export { ErrorAlert, type ErrorAlertProps } from './error-alert';

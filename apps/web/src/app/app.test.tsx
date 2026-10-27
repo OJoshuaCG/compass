@@ -1,26 +1,21 @@
 import { resources } from '@iam/i18n';
-import { createMemoryHistory } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { LOCALE_STORAGE_KEY, createI18n, detectInitialLocale } from '../shared/i18n';
+import { LOCALE_STORAGE_KEY, detectInitialLocale } from '../shared/i18n';
 import { axeViolations } from '../test/axe';
 
-import { App } from './app';
-import { createQueryClient } from './query-client';
-import { createAppRouter } from './router';
+import { meFixture, jsonResponse, stubApi } from '../test/fake-api';
+import { renderApp } from '../test/render-app';
 
 const es = resources['es-MX'].common;
 const en = resources['en-US'].common;
 
-function renderApp(path: string, locale: 'es-MX' | 'en-US' = 'es-MX') {
-  const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }));
-  return {
-    router,
-    ...render(<App router={router} i18n={createI18n(locale)} queryClient={createQueryClient()} />),
-  };
-}
+// Las rutas privadas piden `/me`: sesión completa de un usuario sin permisos especiales.
+beforeEach(() => {
+  stubApi({ 'GET /me': jsonResponse(meFixture()) });
+});
 
 describe('app shell and routing', () => {
   it('renders Home inside the shell with landmarks, in Spanish by default', async () => {

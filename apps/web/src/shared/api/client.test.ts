@@ -142,3 +142,114 @@ describe('api client errors', () => {
     await expect(client.get('/x', schema)).rejects.toMatchObject({ code: 'INTERNAL' });
   });
 });
+
+const problemBody = (status: number, code: string) => ({
+  type: 'https://errors.example/x',
+  title: code,
+  status,
+  code,
+  requestId: 'req-1',
+});
+
+describe('api client reauthentication and session expiry', () => {
+  function sequence(...responses: Response[]) {
+    const fetchImpl = vi.fn<typeof fetch>(() => {
+      const next = responses.shift();
+      if (next === undefined) throw new Error('No more responses');
+      return Promise.resolve(next);
+    });
+    return fetchImpl;
+  }
+
+  it('retries once after reauthentication with the same Idempotency-Key', async () => {
+    const fetchImpl = sequence(
+      jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403),
+      jsonResponse({ ok: true }),
+    );
+    const onReauthRequired = vi.fn(() => Promise.resolve(true));
+    const client = createApiClient({ fetchImpl, onReauthRequired });
+    await expect(client.post('/things', schema, { body: { a: 1 } })).resolves.toEqual({ ok: true });
+    expect(onReauthRequired).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const keys = fetchImpl.mock.calls.map(([, init]) =>
+      new Headers(init?.headers).get('Idempotency-Key'),
+    );
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  it('does not loop: a second AUTHZ.REAUTH_REQUIRED is thrown', async () => {
+    const fetchImpl = sequence(
+      jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403),
+      jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403),
+    );
+    const onReauthRequired = vi.fn(() => Promise.resolve(true));
+    const client = createApiClient({ fetchImpl, onReauthRequired });
+    await expect(client.post('/things', schema)).rejects.toMatchObject({
+      status: 403,
+      code: 'AUTHZ.REAUTH_REQUIRED',
+    });
+    expect(onReauthRequired).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws the original error without retrying when the user cancels', async () => {
+    const fetchImpl = sequence(jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403));
+    const client = createApiClient({ fetchImpl, onReauthRequired: () => Promise.resolve(false) });
+    await expect(client.post('/things', schema)).rejects.toMatchObject({
+      code: 'AUTHZ.REAUTH_REQUIRED',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reauthenticate other 403 errors or when skipReauth is set', async () => {
+    const onReauthRequired = vi.fn(() => Promise.resolve(true));
+    const first = createApiClient({
+      fetchImpl: sequence(jsonResponse(problemBody(403, 'AUTHZ.PERMISSION'), 403)),
+      onReauthRequired,
+    });
+    await expect(first.get('/things', schema)).rejects.toMatchObject({ code: 'AUTHZ.PERMISSION' });
+    const second = createApiClient({
+      fetchImpl: sequence(jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403)),
+      onReauthRequired,
+    });
+    await expect(second.post('/x', schema, { skipReauth: true })).rejects.toBeInstanceOf(ApiError);
+    expect(onReauthRequired).not.toHaveBeenCalled();
+  });
+
+  it('reports an expired session on 401 but not for credential failures or when suppressed', async () => {
+    const onSessionExpired = vi.fn();
+    const make = (response: Response) =>
+      createApiClient({ fetchImpl: sequence(response), onSessionExpired });
+
+    await expect(
+      make(jsonResponse(problemBody(401, 'AUTHZ.SESSION'), 401)).get('/x', schema),
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(onSessionExpired).toHaveBeenCalledTimes(1);
+
+    await expect(
+      make(jsonResponse(problemBody(401, 'AUTH.INVALID_CREDENTIALS'), 401)).post('/x', schema),
+    ).rejects.toBeInstanceOf(ApiError);
+    await expect(
+      make(jsonResponse(problemBody(401, 'AUTH.MFA_INVALID'), 401)).post('/x', schema),
+    ).rejects.toBeInstanceOf(ApiError);
+    await expect(
+      make(jsonResponse(problemBody(401, 'AUTHZ.SESSION'), 401)).get('/me', schema, {
+        suppressSessionExpiry: true,
+      }),
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(onSessionExpired).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes Retry-After of a 429 as retryAfterSeconds', async () => {
+    const { client } = setup(jsonResponse(problemBody(429, 'RATE_LIMITED'), 429));
+    await expect(client.get('/x', schema)).rejects.toMatchObject({ retryAfterSeconds: undefined });
+
+    const withHeader = new Response(JSON.stringify(problemBody(429, 'RATE_LIMITED')), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '12' },
+    });
+    const second = setup(withHeader);
+    await expect(second.client.get('/x', schema)).rejects.toMatchObject({ retryAfterSeconds: 12 });
+  });
+});

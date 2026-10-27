@@ -15,12 +15,14 @@ import { createI18n, detectInitialLocale } from './shared/i18n';
 const container = document.getElementById('root');
 if (container === null) throw new Error('Root container #root not found');
 
+const queryClient = createQueryClient();
+
 createRoot(container).render(
   <StrictMode>
     <App
-      router={createAppRouter()}
+      router={createAppRouter(queryClient)}
       i18n={createI18n(detectInitialLocale())}
-      queryClient={createQueryClient()}
+      queryClient={queryClient}
     />
   </StrictMode>,
 );
