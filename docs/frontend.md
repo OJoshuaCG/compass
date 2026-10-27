@@ -30,7 +30,7 @@ Esta guía describe reglas y decisiones; no incluye código. El catálogo de com
 | Variantes de componentes | `class-variance-authority`, `clsx`, `tailwind-merge` | Una utilidad común para combinar clases en `shared/lib` |
 | Fuentes | Google Fonts: Inter, Space Grotesk, JetBrains Mono, vía `@fontsource-variable/*` | Mismas fuentes de Google, servidas desde nuestro origen (CSP sin terceros) |
 
-> **Pendiente de aprobación humana** (regla de dependencias del plan): `@tanstack/react-table`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`, `@fontsource-variable/inter`, `@fontsource-variable/space-grotesk`, `@fontsource-variable/jetbrains-mono`. Cada una necesita justificación (mantenimiento, licencia, alternativas) antes de instalarse. Versiones exactas y lockfile, como el resto del monorepo.
+> **Estado de dependencias:** instaladas con versión exacta y lockfile, como el resto del monorepo. En `packages/ui`: `@tanstack/react-table`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` y cinco paquetes de Radix (diálogo, menú, selector, ranura y información emergente). En `apps/web`: las tres familias `@fontsource-variable/*`, `@simplewebauthn/browser` (passkeys), `qrcode` (dibujar el código QR del registro del segundo factor), `react-hook-form` con `@hookform/resolvers`, TanStack Query y Router, `i18next` y `react-i18next`. Sigue sin instalarse `i18next-icu` (ver §10). El registro de la aprobación humana de cada una no está en el repositorio: confirmar con el equipo.
 
 ## 3. Arquitectura
 
@@ -212,7 +212,7 @@ Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene ci
 | Moléculas | Campo de formulario (etiqueta, control, ayuda y error), búsqueda, campo de contraseña, botón de copiar, diálogo de confirmación, estado vacío, aviso emergente, paginación, encabezado ordenable, insignia de estado, visor de códigos (monoespaciado, con copiado) |
 | Organismos | Tabla de datos estándar (`DataTable`), encabezado de página, estructura de la aplicación (barra lateral y cabecera), revelador de secretos (se oculta a los 30 s), diálogo de reautenticación, contenedor de errores, línea de tiempo (auditoría) |
 
-> **Estado de la fase 0.** Implementados: botón, botón de ícono, campo de texto, selector nativo (usado en el límite de filas y el idioma), insignia, indicador de carga, esqueleto, campo de formulario, búsqueda, paginación, encabezado ordenable, estado vacío, insignia de estado, diálogo de confirmación, tabla de datos, encabezado de página y estructura de la aplicación. Pendientes del catálogo mínimo: área de texto, selector con Radix, casilla, interruptor, ícono, avatar, tecla, información emergente, campo de contraseña, botón de copiar, aviso emergente, visor de códigos, revelador de secretos, diálogo de reautenticación, contenedor de errores y línea de tiempo. Los íconos se importan desde un único archivo de `@iam/ui` que centraliza `lucide-react`.
+> **Estado tras la fase 1a.** Implementados en `packages/ui`: botón, botón de ícono, campo de texto, selector nativo (usado en el límite de filas y el idioma), casilla, insignia, indicador de carga, esqueleto, campo de formulario, búsqueda, paginación, encabezado ordenable, estado vacío, insignia de estado, diálogo, diálogo de confirmación, campo de contraseña con indicador de fortaleza, campo de código, botón de copiar, aviso, aviso emergente, grupo de opciones, pestañas, menú de acciones de fila, tabla de datos, encabezado de página, estructura de la aplicación y diálogo de reautenticación. Pendientes del catálogo mínimo: área de texto, selector con Radix, interruptor, avatar, tecla, información emergente, visor de códigos, revelador de secretos, contenedor de errores y línea de tiempo. Los íconos se importan desde un único archivo de `@iam/ui` que centraliza `lucide-react`.
 
 Los botones tienen estados normal, hover, foco visible, activo, deshabilitado y en carga. En carga el botón queda deshabilitado, conserva su ancho y anuncia el estado a los lectores de pantalla.
 
@@ -479,7 +479,7 @@ Una prueba de web intermitente se corrigió esperando la consulta en lugar de af
 
 ## 19. Decisiones pendientes
 
-- [ ] **Aprobar las dependencias** de la sección 2 (cada una con su justificación).
+- [ ] **Registrar la aprobación de las dependencias** de la sección 2: ya están instaladas, pero su justificación (mantenimiento, licencia, alternativas) no consta en el repositorio.
 - [ ] **Paginación**: confirmar el pie con Anterior/Siguiente por cursor. Si el equipo necesita números de página o salto a la página N, la API tendría que ofrecer paginación numérica en esos listados (contradice la regla actual del plan).
-- [ ] **Presupuesto de JavaScript** inicial (sección 12) a validar al arrancar la fase 0.
+- [ ] **Presupuesto de JavaScript** inicial (sección 12): medido en cerca de 200,04 KB comprimido frente a la propuesta de 200 KB y todavía no se hace cumplir en CI; el equipo decide si lo fija y en qué valor.
 - [ ] **Catálogo visual** (Storybook u otro): no incluido; se evalúa cuando existan ~15 componentes. Requiere aprobación como dependencia.

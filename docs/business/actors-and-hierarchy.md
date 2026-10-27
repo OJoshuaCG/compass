@@ -204,7 +204,7 @@ Al crear la organización se generan **códigos de emergencia** de la Raíz. Se 
 - Avisa a todos los Administradores.
 - Queda registrado en la auditoría como evento crítico.
 
-Es la última salida para que la organización no quede sin dueña. Si no existiera, el riesgo es que nadie pueda gestionar a los Administradores. Los procedimientos operativos están en [`runbooks/transfer-root.md`](../runbooks/transfer-root.md).
+Es la última salida para que la organización no quede sin dueña. Si no existiera, el riesgo es que nadie pueda gestionar a los Administradores. Los procedimientos operativos están en [`runbooks/transfer-root.md`](../runbooks/transfer-root.md) y, para usar un código, en [`runbooks/use-emergency-code.md`](../runbooks/use-emergency-code.md).
 
 **Estado hoy.** Los códigos de emergencia **funcionan**; la transferencia planeada de la Raíz (sección 8.1) sigue **pendiente**. Al crear la organización se generan ocho códigos de un solo uso, que se imprimen una sola vez junto a la contraseña inicial, con la instrucción de imprimirlos y entregarlos a las dos personas custodias. Usar uno exige antes la contraseña de la Raíz; no la sustituye. Al usarlo, el segundo factor de la Raíz se restablece y ella debe registrar uno nuevo; se cierran sus demás sesiones, queda un evento crítico en la auditoría y se avisa por correo a todos los Administradores activos. Si el aviso falla o no hay Administradores a quienes avisar, eso también queda registrado. Los códigos que no se usaron siguen vigentes. Si la Raíz olvida su contraseña y además pierde sus factores, el sistema no ofrece recuperación; hace falta un procedimiento de operaciones.
 

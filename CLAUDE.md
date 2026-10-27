@@ -1,6 +1,6 @@
 # Plataforma interna de identidad, accesos y bóveda
 
-Guarda secretos reales de una empresa: ante la duda, la seguridad gana a la velocidad. El diseño completo está en `plan.md`; si algo lo contradice en seguridad, manda el plan.
+Guarda secretos reales de una empresa: ante la duda, la seguridad gana a la velocidad. El diseño completo está en `plan.md`; si algo lo contradice en seguridad, manda el plan. La fase 1b (bóveda) no está iniciada: no se carga ninguna credencial real hasta cerrar la fase 1 y pasar una prueba de penetración externa.
 
 ## Comandos (desde la raíz)
 
@@ -50,6 +50,9 @@ Identidad, acceso, criptografía, auditoría, migraciones con aislamiento, CSP y
 
 - No uses `pkill -f`: coincide con tu propia línea de comandos y cierra la terminal.
 - Si una prueba es intermitente bajo carga, arregla la espera; no subas reintentos a ciegas.
+- WebAuthn necesita un dominio, no una IP: el identificador de la parte confiable y el origen salen de `APP_ORIGIN`, por eso `pnpm stack` y el e2e corren en `localhost`.
+- La configuración de la API se valida al arrancar (`apps/api/src/app/config.ts`; no hay `.env.example`) y producción exige `MAIL_TRANSPORT=smtp`. No pidas ni leas valores reales.
+- Los contadores de intentos y el límite por IP viven en memoria hasta que haya Redis: asume una sola instancia de la API.
 
 ## Terminado significa
 

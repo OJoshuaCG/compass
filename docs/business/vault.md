@@ -133,7 +133,7 @@ Cada persona tiene un límite de revelaciones por hora (por defecto **30**, conf
 
 Sofía tiene VIEW sobre una cuenta y el permiso de revelar contraseñas. Necesita la contraseña para recuperar un acceso.
 
-1. Pulsa "Revelar". El sistema le pide reautenticarse: toca su passkey.
+1. Pulsa "Revelar". El sistema le pide reautenticarse: escribe el código de su aplicación autenticadora (la reautenticación con passkey todavía no está disponible).
 2. Escribe el motivo: "Recuperar acceso tras cambio de dispositivo".
 3. La contraseña se muestra 30 segundos y se vuelve a ocultar.
 4. La auditoría registra quién, qué cuenta, cuándo y el motivo.

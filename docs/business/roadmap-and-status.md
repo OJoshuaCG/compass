@@ -31,7 +31,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | --- | --- | --- |
 | 0 · Fundaciones | Una base técnica segura, sin pantallas de negocio todavía | **Hecho** (con una observación, ver sección 3) |
 | 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Implementada en lo esencial, con pendientes** (el segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia; faltan los límites de intentos compartidos y otros pendientes; ver sección 4.1) |
-| 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | Pendiente |
+| 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **No iniciada.** Planificada en siete porciones (ver sección 4.2) |
 | 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente |
 | Puerta de producción | Prueba de intrusión, simulacro de restauración y procedimientos ensayados | Pendiente |
 | 2 · Inicio de sesión único (OIDC) | Que las herramientas internas usen este sistema para iniciar sesión | Pendiente |
@@ -97,7 +97,7 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 | Reautenticación | Un factor verificado en los últimos 5 minutos habilita las acciones sensibles. El motor de autorización exige reautenticación, motivo escrito o auditoría crítica según la acción. Solo se acepta el código de la aplicación autenticadora, no el de recuperación; el flujo completo se prueba en un navegador real |
 | Autorización | Los tres ejes, la matriz de jerarquía y el catálogo de 27 permisos con sus techos de rango. Toda negación se audita con su código de motivo, aunque la acción se revierta |
 | Directorio de personas | Cualquier persona activa busca nombre y correo de las demás personas activas, con orden, límite y paginación |
-| Interfaz | Pantallas de ingreso, verificación en dos pasos, registro del segundo factor (código QR y clave), aceptación de invitación, directorio con la opción de invitar y diálogo de reautenticación |
+| Interfaz | Pantallas de ingreso (con la opción de passkey), verificación en dos pasos, registro del segundo factor (código QR y clave), cambio de contraseña, aceptación de invitación, directorio con la opción de invitar, gestión de equipo, invitaciones pendientes, roles, mis sesiones, seguridad (passkeys) y diálogo de reautenticación |
 
 Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingreso, sesión y autorización) pasan contra una base de datos real, no simulada.
 
@@ -109,27 +109,31 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Recuperación de la Raíz sin contraseña | Si la Raíz olvida su contraseña y además pierde sus factores, el sistema no tiene recuperación; hace falta un procedimiento de operaciones. Los códigos de emergencia no sustituyen a la contraseña |
 | Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores; no entró en esta entrega |
 | Dominio de envío del correo | Para que las invitaciones lleguen a la bandeja de entrada, el dominio de la organización necesita registros de autenticación del remitente (SPF, DKIM y DMARC) en su configuración de DNS. Es una tarea del equipo, fuera del sistema |
-| Limpieza de la protección contra reintentos | Las claves vencidas aún no se borran (falta una tarea de limpieza) y un reintento dentro de las 24 horas no vuelve a comprobar los permisos de quien lo hace |
+| Limpieza de datos temporales vencidos | Las claves de la protección contra reintentos y los desafíos de passkeys vencidos aún no se borran (falta una tarea de limpieza). Además, un reintento dentro de las 24 horas no vuelve a comprobar los permisos de quien lo hace |
 | Edición de roles personalizados | Se pueden crear y archivar, pero no editar un rol ya creado |
 | Transferencia de la Raíz | No existe. Las demás acciones de gestión de personas ya funcionan |
 | Cierre automático de sesiones al cambiar roles y avisos por correo | La acción de cambiar roles aún no existe. Tampoco hay avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores) |
 | Reautenticación con código de recuperación | No está soportada; solo se acepta el código de la aplicación autenticadora |
 | Ejecución de las pruebas en la verificación automática (CI) de GitHub | Nunca se ha ejecutado. Las pruebas pasan en el entorno local. El dueño la despriorizó ("no es primordial ni la requerimos"); no está bloqueada, y el repositorio ya tiene remoto |
-| Revisión independiente de las passkeys | Hecha por dos revisores ciegos; sus hallazgos están corregidos |
+| Passkeys: reautenticación y alta inicial | La reautenticación de 5 minutos solo acepta el código de la aplicación autenticadora, y las passkeys se agregan después del alta inicial, que usa la aplicación. Revisadas por dos revisores ciegos; sus hallazgos están corregidos |
 
 #### Criterios de salida: cuáles se cumplen
 
 | Criterio del plan | Estado | Detalle |
 | --- | --- | --- |
 | Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora |
-| Entrada con passkey | Cumplido, con la revisión independiente en curso | Funciona de punta a punta, probada en un navegador real con un autenticador virtual. Es opcional para todas las personas |
+| Entrada con passkey | Cumplido | Funciona de punta a punta, probada en un navegador real con un autenticador virtual. Es opcional para todas las personas |
 | Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 27 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub; despriorizada por el dueño |
 
-**Conclusión.** La fase 1a no se puede dar por cerrada todavía: la entrada con passkey y los códigos de emergencia de la Raíz ya existen, pero falta la revisión independiente de las passkeys y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias y la recuperación de una Raíz que pierde contraseña y factores, que deben resolverse antes de la puerta de producción.
+**Conclusión.** La fase 1a funciona en lo esencial, pero no se da por cerrada: la entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados, y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y la recuperación de una Raíz que pierde contraseña y factores, que deben resolverse antes de la puerta de producción. La fase 1b no ha empezado.
 
-### 4.2 Fase 1b: Bóveda y 2FA (pendiente)
+### 4.2 Fase 1b: Bóveda y 2FA (no iniciada)
+
+**Estado.** Las tablas y el cifrado existen desde la fase 0, pero todavía no hay casos de uso, pantallas ni reglas de la bóveda en funcionamiento. El trabajo está planificado en siete porciones, en este orden: cuentas y acceso efectivo; credenciales y revelación; compartición y grupos; segundo factor en el servidor; registro del segundo factor por captura, importación y celular; búsqueda avanzada; importación por CSV. Sigue vigente que **no debe cargarse ninguna credencial real** hasta cerrar la fase 1 y pasar la prueba de intrusión externa.
+
+Decisiones abiertas de esta fase: qué biblioteca se aprobará para leer códigos QR en el navegador; el límite de revelaciones por persona y hora (el plan propone 30) y cómo se avisa al superarlo; y el largo mínimo y el formato del motivo escrito al revelar.
 
 | Qué entrega | Documento donde se explica |
 | --- | --- |
@@ -203,7 +207,7 @@ Para que el broker y las fases futuras no obliguen a rehacer lo anterior, la fas
 
 ## 7. Decisiones del equipo que siguen abiertas
 
-La documentación del repositorio no registra el cierre de ninguna de las decisiones pendientes del plan. El plan indica que ninguna bloquea la fase 0, pero que las cuatro primeras debían cerrarse antes de terminarla.
+La documentación del repositorio solo registra el cierre de dos de las decisiones pendientes del plan (la 7, decidida, y la 9, parcialmente, ambas el 2026-10-27); las demás siguen abiertas. El plan indica que ninguna bloquea la fase 0, pero que las cuatro primeras debían cerrarse antes de terminarla.
 
 | N.º | Decisión | Por qué importa | Estado según la documentación |
 | --- | --- | --- | --- |

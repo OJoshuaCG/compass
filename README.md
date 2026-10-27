@@ -18,8 +18,8 @@ Está pensada para una sola organización de unas tres personas operando, aunque
 | Fase | Qué entrega | Estado |
 | --- | --- | --- |
 | 0 · Fundaciones | Base técnica, base de datos con aislamiento por organización, cifrado, registro y diseño visual | Terminada |
-| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona; faltan piezas** (almacén compartido de contadores de intentos, una recuperación para la Raíz que pierde contraseña y factores, y la ejecución del CI en GitHub, que el dueño dejó para después). Ya incluye la gestión de personas, el cambio obligatorio de la contraseña inicial, la gestión de sesiones, los roles personalizados con reenvío de invitaciones, la idempotencia de las peticiones de creación, las llaves de acceso (passkeys), los códigos de emergencia de la Raíz y el envío real de invitaciones por el correo del dominio de la organización |
-| 1b · Bóveda y segundo factor | Guardar y compartir cuentas, revelar contraseñas con motivo y generar códigos | Pendiente |
+| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona en lo esencial; faltan piezas.** Ya incluye la gestión de personas, el cambio obligatorio de la contraseña inicial, la gestión de sesiones, los roles personalizados con reenvío de invitaciones, la protección contra peticiones repetidas, las llaves de acceso (passkeys), los códigos de emergencia de la Raíz y el envío real de invitaciones por el correo del dominio de la organización. Faltan el almacén compartido de contadores de intentos (mientras tanto el sistema debe correr en una sola instancia), la limpieza de datos temporales vencidos, un procedimiento para la Raíz que pierde contraseña y factores y la primera ejecución del CI en GitHub, que el dueño dejó para después |
+| 1b · Bóveda y segundo factor | Guardar y compartir cuentas, revelar contraseñas con motivo y generar códigos | **No iniciada.** Ya está planificada en siete porciones y con tres decisiones abiertas (ver el traspaso) |
 | 1c · Gobernanza | Pantalla de auditoría, bajas con rotación, salud de credenciales y acceso temporal | Pendiente |
 | 2 a 7 | Inicio de sesión único, lectura de correos y SMS, extensión de navegador y broker | Pendientes |
 
@@ -34,6 +34,7 @@ Está pensada para una sola organización de unas tres personas operando, aunque
 | Podman o Docker | Cualquiera reciente | Levantar una base de datos de pruebas y el entorno local |
 | Google Chrome | Reciente, instalado en el sistema | Pruebas en navegador real (no se descarga ningún navegador) |
 | Aplicación autenticadora | Cualquiera compatible | Para registrar tu segundo factor al probar a mano |
+| Nombre de dominio y servidor de correo del dominio | Solo fuera de tu equipo | Las llaves de acceso (passkeys) no funcionan con una dirección IP, y las invitaciones reales salen por el correo del dominio de la organización |
 
 Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a internet la primera vez (se descargan dependencias e imágenes).
 
@@ -43,16 +44,18 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 2. **Instala las dependencias** con `pnpm install`.
 3. **Si usas Podman** (con Docker no hace falta nada), activa su servicio de usuario con `systemctl --user enable --now podman.socket` y define dos variables de entorno antes de lanzar las pruebas: `DOCKER_HOST` con la dirección del servicio de Podman de tu usuario (`unix:///run/user/<tu id>/podman/podman.sock`) y `TESTCONTAINERS_RYUK_DISABLED` con el valor `true` (desactiva un contenedor de limpieza que Podman sin privilegios no admite).
 4. **Comprueba que todo funciona** con `pnpm build` y luego `pnpm test`. Si ambos terminan sin errores, el entorno está listo.
-5. **Pruébalo a mano** con `pnpm stack`. Compila la plataforma, levanta una base de datos temporal, crea una organización de ejemplo y te muestra la dirección, el correo y la contraseña de la persona Raíz. Los datos se borran al detenerlo.
+5. **Pruébalo a mano** con `pnpm stack`. Compila la plataforma, levanta una base de datos temporal, crea una organización de ejemplo y te muestra la dirección de la aplicación (en `localhost`, no en una IP, porque las llaves de acceso lo exigen), el correo y la contraseña de la persona Raíz y la dirección del buzón de pruebas. No genera códigos de emergencia. Los datos se borran al detenerlo con Ctrl+C.
 
 ### Probarlo como usuario
 
 1. Abre la dirección que imprimió `pnpm stack` y entra con el correo y la contraseña de la Raíz.
 2. El sistema te pide cambiar la contraseña inicial: escribe la actual y elige una nueva.
 3. Registra el segundo factor: escanea el código QR con tu aplicación autenticadora y escribe el código de seis dígitos. Guarda los diez códigos de recuperación que se muestran **una sola vez**.
-4. Entra a **Usuarios** e invita a alguien. El correo no se envía de verdad: el entorno local publica el último mensaje en un buzón de pruebas cuya dirección también imprime `pnpm stack`.
-5. Abre el enlace de la invitación en otra ventana privada, elige una contraseña y registra su segundo factor.
-6. De vuelta como Raíz, abre la pestaña de gestión de equipo en **Usuarios** para suspender, reactivar, cambiar el rango, transferir o desactivar a la persona invitada.
+4. Entra a **Seguridad** y agrega una llave de acceso (passkey) con la huella, el rostro o la llave de seguridad de tu dispositivo. Es opcional; si la agregas, al volver a entrar puedes usarla en lugar del código de la aplicación.
+5. Entra a **Usuarios** e invita a alguien. El correo no se envía de verdad: el entorno local publica el último mensaje en un buzón de pruebas cuya dirección también imprime `pnpm stack`. Puedes reenviar la invitación desde la pestaña de invitaciones.
+6. Abre el enlace de la invitación en otra ventana privada, elige una contraseña y registra su segundo factor.
+7. De vuelta como Raíz, abre la pestaña de gestión de equipo en **Usuarios** para suspender, reactivar, cambiar el rango, transferir, cerrar las sesiones o desactivar a la persona invitada.
+8. Revisa **Mis sesiones** para ver tus sesiones abiertas y cerrar las demás, y **Roles** para crear un rol con tus propios permisos.
 
 ### Otras tareas habituales
 
@@ -62,7 +65,7 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | Ejecutar las pruebas del sistema | `pnpm test` |
 | Ejecutar las pruebas en navegador real | `pnpm e2e` |
 | Trabajar solo en la interfaz web con recarga en vivo | `pnpm --filter @iam/web dev` |
-| Dar de alta una organización con su Raíz (operaciones); imprime una sola vez la contraseña inicial y los códigos de emergencia | `pnpm --filter @iam/api provision` |
+| Dar de alta una organización con su Raíz (operaciones, con una conexión de administración a la base de datos); imprime una sola vez la contraseña inicial y los ocho códigos de emergencia, que hay que entregar a dos custodios. Pasos en el [runbook de alta](docs/runbooks/provision-organization.md) | `pnpm --filter @iam/api provision` |
 
 ## Cómo está organizado
 
@@ -85,13 +88,15 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | Ver el diseño completo y las decisiones | [`plan.md`](plan.md) y [`docs/adr/`](docs/adr/README.md) |
 | Entender cómo encajan las piezas | [`docs/architecture.md`](docs/architecture.md) |
 | Conocer las amenazas contempladas | [`docs/threat-model.md`](docs/threat-model.md) |
-| Saber qué hacer ante un incidente | [`docs/runbooks/`](docs/runbooks/README.md) |
+| Operar el sistema (alta de una organización, correo, una sola instancia) o saber qué hacer ante un incidente | [`docs/runbooks/`](docs/runbooks/README.md) |
+| Seguir el trabajo grande en curso y el siguiente | [`odd/tasks/`](odd/tasks/phase-1b-vault.md) |
 | Ver todo el índice | [`docs/README.md`](docs/README.md) |
 
 ## Cómo se colabora
 
 - Los cambios se hacen en pasos pequeños, con mensajes de commit en el formato convencional y revisión de una persona. Lo que toca identidad, permisos, cifrado, auditoría o el aislamiento de datos requiere dos revisores.
 - No se agregan dependencias sin aprobación humana.
+- El repositorio ya tiene remoto en GitHub, pero subir cambios es una decisión del equipo. La verificación automática (CI) está definida y todavía no se ha ejecutado allí.
 - El código y los nombres técnicos están en inglés; los comentarios y la documentación, en español.
 - Las reglas para trabajar con asistentes de inteligencia artificial están en [`CLAUDE.md`](CLAUDE.md).
 

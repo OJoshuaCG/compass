@@ -6,20 +6,20 @@ Documento de continuidad. Responde a tres preguntas: **dónde estamos**, **cómo
 
 | Fase | Estado | Evidencia |
 | --- | --- | --- |
-| 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 |
-| 1a · Identidad | **Hecha en lo esencial; faltan piezas** (sección 4, bloque A) | Invitación → contraseña → segundo factor obligatorio (TOTP o passkey) → sesión → reautenticación; matriz de jerarquía y 27 permisos; directorio; pantallas; pruebas de punta a punta incluso en navegador real. Cerradas en el bloque A: A1 (gestión de personas), A2 (passkeys), A3 (alta de organizaciones y códigos de emergencia de la Raíz), A4 (cambio obligatorio de la contraseña inicial de la Raíz), A5 (sesiones), A6 (roles e invitaciones), A7 (idempotencia) y A10 (reautenticación en navegador real). A8 en parte (correo SMTP del dominio propio hecho; Redis pendiente). A9 (CI en GitHub) despriorizada por el dueño |
-| 1b · Bóveda y 2FA | No iniciada | Diseño de datos y cifrado ya listos (tablas, cifrado de secretos); falta toda la lógica de negocio y las pantallas |
+| 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 (el 0023 y el 0024 siguen como propuesta) |
+| 1a · Identidad | **Funcionalmente completa; faltan piezas de cierre** (sección 4, pasos 2 a 6) | Invitación → contraseña → segundo factor obligatorio (TOTP en el alta; passkey opcional después) → sesión → reautenticación; matriz de jerarquía y 27 permisos; directorio; pantallas; pruebas de punta a punta incluso en navegador real. Cerradas en el bloque A: A1 (gestión de personas), A2 (passkeys), A3 (alta de organizaciones y códigos de emergencia de la Raíz), A4 (cambio obligatorio de la contraseña inicial de la Raíz), A5 (sesiones), A6 (roles e invitaciones), A7 (idempotencia) y A10 (reautenticación en navegador real). A8 en parte (correo SMTP del dominio propio hecho; Redis pendiente). A9 (CI en GitHub) despriorizada por el dueño |
+| 1b · Bóveda y 2FA | **No iniciada.** Planificada en `odd/tasks/phase-1b-vault.md` (porciones B1 a B7 y tres decisiones abiertas) | Diseño de datos y cifrado ya listos (tablas, cifrado de secretos); falta toda la lógica de negocio y las pantallas |
 | 1c · Gobernanza | No iniciada | La auditoría en cadena ya existe; faltan bajas con rotación, salud, acceso temporal y alertas |
 | Puerta de producción | No iniciada | Exige prueba de penetración externa; **nada de esto debe cargar credenciales reales todavía** |
 | 2 a 7 | No iniciadas | Ver el plan técnico |
 
-Calidad verificada al cierre de este documento: formato, compilación, tipos y análisis estático en verde; 607 pruebas de la API (unitarias y de integración contra PostgreSQL real), 295 de la web, 60 de `ui`, 55 de `db`, 13 de `contracts` y 17 de `i18n`; 10 pruebas en Chrome real (incluidas la reautenticación y una ceremonia de passkey con el autenticador virtual de Chrome); dos revisiones adversariales ciegas (backend y frontend) aprobadas, y pruebas de mutación manual sobre lo crítico. Una revisión ciega independiente (dos jueces) sobre el backend de A5, A6 y A7 halló 4 problemas confirmados, todos corregidos (toma atómica y propiedad de la clave de idempotencia, no liberar la clave si guardar la respuesta falla tras el *commit*, bloqueo de jerarquía en "cerrar todas las sesiones" y retroceso del reenvío ante conflicto). Otra revisión de dos jueces ciegos sobre A3 y A8 halló problemas ya corregidos (sesión degradada tras el restablecimiento, alertas fuera de la transacción con rastro de auditoría y pruebas más fuertes). Una revisión de dos jueces ciegos sobre A2 halló problemas confirmados, ya corregidos: el restablecimiento con código de emergencia también revoca las llaves de acceso, el tope de 10 se vuelve a comprobar al registrar, el desafío queda ligado a la sesión (uno solo vigente por sesión y finalidad), las ceremonias fallidas se auditan y los transportes guardados se limitan a una lista conocida. Quedan como limitaciones conocidas: los desafíos vencidos aún no se purgan (necesita el mismo trabajo de limpieza que la idempotencia) y las opciones de ingreso devuelven los identificadores de las credenciales de quien ya verificó la contraseña.
+Calidad verificada en la última ejecución completa: formato, compilación, tipos y análisis estático en verde; 612 pruebas de la API (unitarias y de integración contra PostgreSQL real), 295 de la web, 60 de `ui`, 55 de `db`, 13 de `contracts` y 17 de `i18n`; 10 pruebas en Chrome real (incluidas la reautenticación y una ceremonia de passkey con el autenticador virtual de Chrome). Revisión adversarial con dos jueces ciegos sobre A2, A3, A5, A6, A7 y A8, con todos los hallazgos confirmados corregidos (el detalle está en `odd/tasks/phase-1a-closure.md`), y pruebas de mutación manual sobre lo crítico. Las limitaciones conocidas están en la sección 8.
 
 ## 2. Qué NO está en el repositorio (y cómo recuperarlo)
 
 | Elemento | Situación | Qué hacer |
 | --- | --- | --- |
-| **Remoto de git** | **Ya existe** (2026-10-27). Subir cambios sigue siendo una decisión del equipo | No subir nada sin esa decisión. Además, se puede generar una copia portátil: un archivo `iam.bundle` (ver sección 3) |
+| **Remoto de git** | **Ya existe** (`origin`, en GitHub; 2026-10-27). Subir cambios sigue siendo una decisión del equipo | No subir nada sin esa decisión. Además, se puede generar una copia portátil: un archivo `iam.bundle` (ver sección 3) |
 | Documento original del plan en Word | Sin versionar, solo en la máquina original | La versión viva es `plan.md`; el Word es la fuente del usuario |
 | Reglas personales del autor (commits convencionales sin atribución de IA, respuestas breves, verificar antes de afirmar) | Viven en la configuración personal del autor, no en el repositorio | Están resumidas en `CLAUDE.md` y en la sección 6 de este documento |
 | Registro de habilidades de las herramientas de IA | Generado automáticamente y ya excluido del repositorio | Se regenera solo; no importa |
@@ -28,12 +28,12 @@ Calidad verificada al cierre de este documento: formato, compilación, tipos y a
 
 ## 3. Cómo retomar en una máquina nueva
 
-1. **Obtener el código.** Desde el remoto (cuando exista) o restaurando la copia portátil con `git clone iam.bundle iam`.
+1. **Obtener el código.** Desde el remoto `origin` (con permiso del equipo) o restaurando la copia portátil con `git clone iam.bundle iam`.
 2. **Instalar requisitos:** Node.js 24 o superior, pnpm 10, Podman o Docker (las pruebas de integración levantan PostgreSQL real) y Google Chrome (las pruebas de navegador lo usan; no descargan navegadores).
 3. **Si se usa Podman,** activar el socket de usuario y exportar las dos variables descritas en el `README.md` (apuntar a ese socket y desactivar el contenedor auxiliar de limpieza). Sin esto, las pruebas de integración no encuentran el motor de contenedores.
 4. **Instalar dependencias:** `pnpm install`. Las versiones están fijadas y hay una espera de 7 días tras cada publicación: una dependencia muy reciente no se instalará (es intencional).
 5. **Comprobar que todo está sano, en este orden:** `pnpm format:check`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test` y `pnpm e2e`. Si algo falla en una máquina limpia, es un defecto del traspaso: anótese en la sección 7.
-6. **Probar a mano:** `pnpm stack` compila la API y la web, levanta PostgreSQL efímero, crea una organización con su Raíz y sirve la aplicación en `http://127.0.0.1:3100`. Imprime el correo y la contraseña de la Raíz; la primera vez hay que cambiar esa contraseña inicial en `/password/change` y después registrar el segundo factor con una aplicación autenticadora. El correo de las invitaciones no se envía: se lee en el buzón de pruebas que el comando indica.
+6. **Probar a mano:** `pnpm stack` compila la API y la web, levanta PostgreSQL efímero, crea una organización con su Raíz y sirve la aplicación en `http://localhost:3100` (se usa `localhost` porque las passkeys exigen un dominio, no una IP). Imprime el correo y la contraseña de la Raíz y la dirección del buzón de pruebas (puerto 3101); la primera vez hay que cambiar esa contraseña inicial en `/password/change` y después registrar el segundo factor con una aplicación autenticadora. Esta pila no genera códigos de emergencia. El correo de las invitaciones no se envía: se lee en el buzón de pruebas.
 7. **Leer, en este orden:** `docs/business/README.md` (qué hace el producto y por qué), `docs/business/roadmap-and-status.md` (estado por fase), este documento, `docs/architecture.md` y las guías `docs/backend.md`, `docs/frontend.md`, `docs/database.md`. El plan completo está en `plan.md`.
 
 Para guardar una copia portátil del historial antes de mover el trabajo: `git bundle create iam.bundle --all`.
@@ -42,8 +42,8 @@ Para guardar una copia portátil del historial antes de mover el trabajo: `git b
 
 | Carpeta | Contenido |
 | --- | --- |
-| `apps/api` | Servicio de backend por módulos (identidad, acceso, directorio, auditoría, criptografía, organización, notificación, aprovisionamiento) |
-| `apps/web` | Aplicación web (pantallas de identidad y directorio) |
+| `apps/api` | Servicio de backend por módulos (identidad, acceso, directorio, auditoría, criptografía, organización, notificación, aprovisionamiento e idempotencia) |
+| `apps/web` | Aplicación web (pantallas de identidad, directorio, seguridad, sesiones y roles) |
 | `packages/ui`, `packages/i18n`, `packages/contracts`, `packages/config` | Componentes y tokens, textos en español e inglés, contratos compartidos, configuración común |
 | `db` | Migraciones numeradas, ejecutor de migraciones y pruebas del esquema |
 | `e2e` | Pruebas en navegador real y la pila local completa |
@@ -54,30 +54,49 @@ Para guardar una copia portátil del historial antes de mover el trabajo: `git b
 
 Tamaños relativos: **S** (días), **M** (una a dos semanas), **L** (varias semanas). El plan técnico no fija fechas; estimar cada bloque al empezarlo.
 
-### Bloque A: cerrar la Fase 1a (antes de abrir la bóveda)
+### Qué sigue, en orden
 
-La bóveda depende de personas gestionables, de sesiones controlables y de un acceso fuerte. Por eso va primero.
+1. **Fase 1b, porciones B1 a B7** (bloque B, abajo; especificaciones en `odd/tasks/phase-1b-vault.md`). Sus tres decisiones abiertas (sección 5) se resuelven antes de la porción que las usa: el límite de revelaciones por hora con su alerta y las reglas del motivo escrito antes de B2, y la biblioteca para leer códigos QR antes de B4 y B5. Además, el ADR 0023 (bloqueo de auditoría en transacciones largas) se decide antes de abrir la fase.
+2. **Redis para los límites de intentos** (A8, parte pendiente). Hasta entonces, una sola instancia ([runbook](runbooks/single-instance-operation.md)).
+3. **Trabajo de purga** de las filas vencidas de `idempotency_keys` y `webauthn_challenges` (necesita el camino para recorrer organizaciones, `docs/database.md` §7.5, y un ADR).
+4. **Procedimiento de operaciones para la Raíz que olvida su contraseña y pierde sus factores**, y una forma de emitir códigos de emergencia nuevos.
+5. **Exigir passkeys como configuración de la organización**, cuando exista la pantalla de configuración (opcional hoy; decisión del dueño). Incluye decidir si la reautenticación admite passkey.
+6. **Primera ejecución del CI en GitHub** (A9, despriorizada por el dueño).
+
+Ninguna de las piezas 2 a 6 bloquea abrir la bóveda, pero todas deben cerrarse antes de la puerta de producción. **No cargar credenciales reales antes de terminar la fase 1 y de pasar la prueba de penetración externa.**
+
+### Bloque A: Fase 1a (hecha en lo esencial; historial y pendientes)
+
+La bóveda depende de personas gestionables, de sesiones controlables y de un acceso fuerte. Por eso iba primero.
 
 | # | Tarea | Tamaño | Por qué ahora |
 | --- | --- | --- | --- |
 | A1 | **Gestión de personas:** cambiar rango, transferir responsable, suspender, desactivar con reasignación de subordinados, revocar sus sesiones al instante | M | **Hecha (2026-10-27).** `GET /users/managed` y `POST /users/:id/suspend`, `reactivate`, `deactivate`, `rank` y `manager`, con pestaña de gestión de equipo en la página de Usuarios. Detalle de reglas y errores en `odd/tasks/phase-1a-closure.md` (L2) |
-| A2 | **Passkeys (WebAuthn)** como alternativa completa al código del autenticador; política de exigirlas a Raíz y Administradores | M | **Hecha y revisada (2026-10-27).** WebAuthn con verificación de usuario obligatoria y sin atestación; opcionales para todos, varias por persona (máximo 10). Ingreso: `POST /auth/passkey/options` y `/verify`. Gestión: `GET /me/passkeys`, `POST /me/passkeys/registration/options` y `/verify`, `POST /me/passkeys/:id/revoke`. Auditoría `auth.passkey_registered`, `auth.passkey_revoked` y `auth.passkey_login`. Web: `/security` y botón "Use a passkey" en el ingreso. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización (ver sección 5). Detalle en `odd/tasks/phase-1a-closure.md` (L4) |
-| A3 | **Alta de organizaciones como comando de operaciones**, con auditoría y códigos de emergencia de la Raíz | S | **Hecha (2026-10-27).** `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`) imprime una sola vez la contraseña inicial y 8 códigos de emergencia de un solo uso (solo se guardan como hash; columna `kind`, migración 0010), para imprimirlos y entregarlos a los dos custodios. Usar uno, tras la contraseña, restablece el segundo factor de la Raíz, la deja con el registro pendiente, cierra sus demás sesiones, audita `auth.emergency_code_used` y avisa por correo a los Administradores activos (si falla o no hay destinatarios, `auth.emergency_alert_incomplete`). **Limitación:** olvidar la contraseña Y perder los factores no tiene recuperación en el sistema; falta un procedimiento de operaciones |
+| A2 | **Passkeys (WebAuthn)** como alternativa completa al código del autenticador; política de exigirlas a Raíz y Administradores | M | **Hecha y revisada (2026-10-27).** WebAuthn con verificación de usuario obligatoria y sin atestación; opcionales para todos, varias por persona (máximo 10). Ingreso: `POST /auth/passkey/options` y `/verify`. Gestión: `GET /me/passkeys`, `POST /me/passkeys/registration/options` y `/verify`, `POST /me/passkeys/:id/revoke`. Auditoría `auth.passkey_registered`, `auth.passkey_revoked` y `auth.passkey_login`. Web: `/security` y botón "Use a passkey" en el ingreso. Se agregan desde `/security` tras el alta inicial con TOTP (la reautenticación sigue pidiendo solo el código TOTP). Necesitan un dominio, no una IP: el identificador de la parte confiable y el origen salen de `APP_ORIGIN`. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización (ver sección 5). Detalle en `odd/tasks/phase-1a-closure.md` (L4) |
+| A3 | **Alta de organizaciones como comando de operaciones**, con auditoría y códigos de emergencia de la Raíz | S | **Hecha (2026-10-27).** `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`) imprime una sola vez la contraseña inicial y 8 códigos de emergencia de un solo uso (solo se guardan como hash; columna `kind`, migración 0010), para imprimirlos y entregarlos a los dos custodios. Usar uno, tras la contraseña, restablece el segundo factor de la Raíz, la deja con el registro pendiente, cierra sus demás sesiones, audita `auth.emergency_code_used` y avisa por correo a los Administradores activos (si falla o no hay destinatarios, `auth.emergency_alert_incomplete`). **Limitación:** olvidar la contraseña Y perder los factores no tiene recuperación en el sistema; falta un procedimiento de operaciones. Pasos operativos en los runbooks de [alta](runbooks/provision-organization.md) y de [uso de un código](runbooks/use-emergency-code.md) |
 | A4 | **Cambio obligatorio de la contraseña inicial de la Raíz** | S | **Hecha (2026-10-27).** `POST /auth/password/change`, bloqueo del segundo factor con `AUTH.PASSWORD_CHANGE_REQUIRED` hasta cambiarla y pantalla `/password/change` |
 | A5 | **Sesiones:** ver y cerrar las propias, cierre por el responsable, sincronización entre pestañas | S | **Hecha (2026-10-27).** `GET /me/sessions`, `POST /me/sessions/:id/revoke` (404 si no es suya o está cerrada; 422 si es la actual) y `POST /users/:id/sessions/revoke` (`user.deactivate`, jerarquía, Raíz protegida). Auditoría `auth.session_revoked` y `user.sessions_revoked`. Web: `/sessions`, "Cerrar sesiones" en el menú de fila del equipo y sincronización con `BroadcastChannel` (solo viaja el nombre de un evento). Una sesión está viva si no está revocada, no venció y tuvo actividad en los últimos 30 minutos |
 | A6 | **Reenvío de invitación** (invalida la anterior) y **roles personalizados** (crear, asignar, límites de no escalamiento) desde la interfaz | M | **Hecha (2026-10-27).** `GET /roles` (`user.invite`), `POST /roles` (`role.manage`; `403 AUTHZ.ROLE_ESCALATION`, `409 ROLE.NAME_TAKEN`), `POST /roles/:id/archive` (`403 ROLE.SYSTEM_PROTECTED`), `GET /invitations` y `POST /invitations/:id/resend`. Auditoría `role.created`, `role.archived` y `user.invitation_resent`. Web: pestaña "Invitaciones", elección de "Roles" al invitar y pantalla `/roles`. Falta editar roles ya creados |
 | A7 | **Idempotencia** de las peticiones que crean recursos | S | **Hecha (2026-10-27).** Cabecera `Idempotency-Key` en `POST /invitations`, `POST /invitations/:id/resend` y `POST /roles`; detalle y errores en `docs/backend.md` §7.2.1. **Limitaciones:** las filas vencidas no se purgan (falta un trabajo de limpieza) y el reintento no vuelve a comprobar permisos durante las 24 horas |
-| A8 | **Límites de intentos compartidos entre instancias** (Redis) y **correo real** (proveedor definido) | M | **Parcial (2026-10-27).** Correo hecho por SMTP del dominio propio (ver sección 5 y `docs/backend.md`). **Pendiente: Redis**; el bloqueo sigue siendo por instancia |
+| A8 | **Límites de intentos compartidos entre instancias** (Redis) y **correo real** (proveedor definido) | M | **Parcial (2026-10-27).** Correo hecho por SMTP del dominio propio (ver sección 5, `docs/backend.md` §6.3.1 y el [runbook](runbooks/configure-mail.md)). **Pendiente: Redis**; el bloqueo y el límite por IP siguen siendo por instancia |
 | A9 | **Ejecutar el CI en GitHub** y corregir lo que falle; añadir los escáneres de seguridad que pide el plan | S | **Despriorizada por el dueño (2026-10-27), no bloqueada.** El repositorio ya tiene remoto, pero el dueño la consideró "no primordial ni requerida por nosotros". El CI nunca ha corrido allí |
-| A10 | **Reautenticación en navegador real** y reautenticación con código de recuperación | S | **Hecha en lo esencial (2026-10-27).** La suite de Chrome (9 pruebas) cubre cambiar rango, el diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción. **No se soporta** la reautenticación con código de recuperación (solo TOTP); sigue como decisión abierta |
+| A10 | **Reautenticación en navegador real** y reautenticación con código de recuperación | S | **Hecha en lo esencial (2026-10-27).** La suite de Chrome (hoy 10 pruebas) cubre cambiar rango, el diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción. **No se soporta** la reautenticación con código de recuperación (solo TOTP); sigue como decisión abierta |
 
-### Bloque B: Fase 1b, bóveda y 2FA
+### Bloque B: Fase 1b, bóveda y 2FA (no iniciada)
 
-1. Catálogo de plataformas y alta de cuentas y credenciales (M).
-2. Cifrado y versionado de secretos con lo ya construido; revelación con reautenticación, motivo escrito y auditoría; ocultar a los 30 s (M).
-3. Compartición por usuario y grupo con niveles de uso, ver, editar y gestionar; vista de acceso efectivo (M).
-4. Los cinco métodos de registro del segundo factor y generación de códigos en el servidor (L; el más complejo: captura de pantalla, imagen, clave manual, celular, importación).
-5. Importación desde archivo, búsqueda y vistas guardadas (S).
+Las porciones son verticales (casos de uso, API, pantalla, pruebas y documentación) y siguen el orden de dependencia de `odd/tasks/phase-1b-vault.md`, donde están sus especificaciones:
+
+| Porción | Contenido |
+| --- | --- |
+| B1 | Acceso efectivo y cuentas: catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo y pantalla de cuentas |
+| B2 | Credenciales: crear, cambiar contraseña con versiones y huella, historial sin contenido, copiar usuario; revelar contraseña con reautenticación, motivo, límite por hora y ocultado a los 30 s |
+| B3 | Compartición y grupos: por persona y por grupo, caducidad, no compartir más de lo propio, tarea de rotación al revocar tras una revelación |
+| B4 | Segundo factor en el servidor: registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen |
+| B5 | Registro por captura de pestaña, importación de Google Authenticator y entrega por celular (requiere decidir la biblioteca para leer QR) |
+| B6 | Búsqueda avanzada, índice ciego por usuario y vistas guardadas |
+| B7 | Importación por CSV |
+
+El plan técnico estima la fase en conjunto (cuentas, secretos y compartición, M cada una; los cinco métodos del segundo factor, L; importación, búsqueda y vistas, S).
 
 ### Bloque C: Fase 1c y puerta de producción
 
@@ -95,8 +114,8 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 
 | Tema | Decisión | Razón o efecto |
 | --- | --- | --- |
-| A3 códigos de emergencia | Solo las personas que custodian los códigos pueden restablecer la Raíz; NINGÚN Administrador puede restablecerla (solo reciben la alerta) | Un Administrador capaz de restablecer la Raíz sería un camino para tomar la cuenta de mayor privilegio. Implementado (ver A3 en la sección 4) |
-| A2 passkeys | Dejado al criterio de ingeniería; elegido: opcionales para todos, como alternativa completa al código del autenticador (resistente al phishing), varias por persona. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización | Aún no hay pantalla de configuración, y un registro forzado sin alternativa arriesga dejar a las personas fuera |
+| A3 códigos de emergencia | Solo las personas que custodian los códigos pueden restablecer la Raíz; NINGÚN Administrador puede restablecerla (solo reciben la alerta) | Un Administrador capaz de restablecer la Raíz sería un camino para tomar la cuenta de mayor privilegio. Implementado (ver A3 en la sección 4 y el [ADR 0027](adr/0027-emergency-codes-root-reset-model.md)) |
+| A2 passkeys | Dejado al criterio de ingeniería; elegido: opcionales para todos, como alternativa al código del autenticador al iniciar sesión (resistente al phishing), varias por persona. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización ([ADR 0028](adr/0028-passkeys-optional-enforcement-later.md)) | Aún no hay pantalla de configuración, y un registro forzado sin alternativa arriesga dejar a las personas fuera |
 | A8 correo | El correo sale del dominio PROPIO de la organización (no Gmail ni Outlook): SMTP genérico de ese dominio. Redis para los límites de intentos NO forma parte de esta entrega (el dueño solo respondió sobre el correo) | Redis sigue como pendiente |
 | A9 CI en GitHub y escáneres | Puesta aparte: "no es primordial ni lo requerimos" | Despriorizada por el dueño, no bloqueada. El repositorio ya tiene remoto |
 
@@ -108,13 +127,21 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | --- | --- | --- |
 | Permisos por defecto de Líder y Operador | El plan no los define; se asumió "todo lo que su rango puede tener" | Con eso un Operador puede revelar contraseñas y compartir por defecto. ¿Es lo deseado? |
 | Responsable de la persona invitada | Siempre quien invita | El plan sugiere que quien invita lo define |
-| Reautenticación | Solo acepta el código del autenticador (no se soporta el de recuperación) | ¿Debe aceptar también un código de recuperación? |
+| Reautenticación | Solo acepta el código del autenticador (no se soporta el de recuperación ni la passkey) | ¿Debe aceptar también un código de recuperación y la passkey? |
 | Archivar un rol personalizado | Un rol archivado deja de otorgar sus permisos y no sirve en invitaciones nuevas | ¿Es el efecto deseado sobre quien ya lo tenía asignado? |
 | Directorio visible | Muestra nombre, correo y rango; solo personas activas | ¿Rango visible o solo nombre y correo? |
 | Índice ciego derivado de la clave de datos | Cada rotación de clave obliga a recalcular los índices | ¿Derivarlo de una clave estable por organización? |
-| ADR 0023 y 0024 (bloqueo de auditoría y retención) | Propuestos, sin decidir | Decidir antes de la bóveda |
+| ADR 0023 y 0024 (bloqueo de auditoría y retención) | Propuestos, sin decidir | Decidir el 0023 antes de la bóveda (fase 1b) y el 0024 antes de la auditoría con retención (fase 1c) |
 | Versión de PostgreSQL | Pruebas con la 17 | ¿Pasar a la 18 (identificadores ordenables nativos)? |
 | Proveedor de inicio de sesión único sobre Fastify | Sin probar | Hacer una prueba corta antes de la fase 2 |
+
+**Decisiones abiertas de la fase 1b** (de `odd/tasks/phase-1b-vault.md`; ninguna está resuelta):
+
+| Tema | Pregunta | Se necesita antes de |
+| --- | --- | --- |
+| Biblioteca para decodificar códigos QR en el navegador | No hay ninguna aprobada. Propuesta: una pequeña, mantenida y sin dependencias, con versión exacta y la espera de 7 días; decide el equipo | B4 y B5 |
+| Límite de revelaciones por usuario y hora | El plan dice 30 por defecto. ¿Qué alerta se emite al superarlo? (auditoría crítica; el canal de aviso depende del correo real) | B2 |
+| Motivo escrito al revelar | ¿Longitud mínima y texto libre o lista cerrada? El plan solo dice "motivo" | B2 |
 
 ## 6. Cómo se trabaja aquí (convenciones)
 
@@ -144,16 +171,17 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 ## 8. Deuda y riesgos conocidos
 
 - El tamaño inicial del JavaScript del frontend mide cerca de 200,04 KB comprimido, 0,04 KB por encima de la propuesta de partida de 200 KB (no se hace cumplir; se justifica por la ruta diferida nueva y los hashes del catálogo).
-- El bloqueo de intentos y el límite por IP son por instancia hasta incorporar Redis (pendiente; no entró en esta entrega).
-- El correo de invitación y el aviso de uso de un código de emergencia salen por SMTP del dominio propio en producción; siguen sin existir los demás avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores). El dominio necesita SPF, DKIM y DMARC en el DNS.
+- El bloqueo de intentos y el límite por IP son por instancia y viven en memoria hasta incorporar Redis (pendiente): el sistema debe operar con una sola instancia ([runbook](runbooks/single-instance-operation.md)).
+- Las filas vencidas de `idempotency_keys` y `webauthn_challenges` no se purgan, y el reintento idempotente no vuelve a comprobar permisos durante las 24 horas. La idempotencia nunca se aplica a endpoints cuya respuesta lleve secretos.
+- Las opciones de ingreso con passkey devuelven los identificadores de las credenciales de quien ya verificó la contraseña.
+- Recuperación de la Raíz: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema; falta un procedimiento de operaciones. Con los códigos de emergencia se recupera quien conserva la contraseña. Tampoco hay forma de emitir códigos de emergencia nuevos.
+- Las passkeys no se exigen a nadie, y la reautenticación solo acepta el código TOTP (ni passkey ni código de recuperación).
+- Correo: el de invitación y el aviso de uso de un código de emergencia salen por SMTP del dominio propio ([runbook](runbooks/configure-mail.md)); siguen sin existir los demás avisos (dispositivo nuevo, uso de un código de recuperación, cambios de factores). El dominio necesita SPF, DKIM y DMARC en el DNS.
+- Producción: no existe el adaptador de KMS del proveedor (el local se niega a arrancar con `NODE_ENV=production`, así que la API no arranca así) ni el punto de entrada del worker. Dependen de la decisión de nube.
+- Configuración: no existe `.env.example`; la fuente de verdad de las variables de entorno es `apps/api/src/app/config.ts` (resumida en `docs/backend.md` §6.3.1 y §6.3.2). Se validan al arrancar y el servicio no inicia con una configuración inválida.
+- El CI de GitHub (`.github/workflows/ci.yml`) nunca se ha ejecutado y no incluye aún los escáneres de seguridad. El dueño lo despriorizó (2026-10-27); el repositorio ya tiene remoto.
+- El tamaño inicial del JavaScript del frontend mide cerca de 200,04 KB comprimido, 0,04 KB por encima de la propuesta de partida de 200 KB (no se hace cumplir; se justifica por la ruta diferida nueva y los hashes del catálogo).
 - La pantalla de inicio todavía muestra el texto del esqueleto de la fase 0.
-- Recuperación de la Raíz: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema; falta un procedimiento de operaciones. Con los códigos de emergencia sí se recupera quien conserva la contraseña.
-- Las passkeys no se exigen a nadie: exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización.
-- Variables de configuración añadidas o relevantes en esta entrega: `MAIL_TRANSPORT`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, `APP_ORIGIN` y `WEBAUTHN_RP_NAME` (opcional, por defecto `IAM`). Detalle en `docs/backend.md`.
-- Idempotencia: las filas vencidas de `idempotency_keys` no se purgan y el reintento no vuelve a comprobar permisos durante las 24 horas. Nunca se aplica a endpoints cuya respuesta lleve secretos.
-- No se puede reautenticar con un código de recuperación; solo con TOTP.
-- No existe `.env.example`; las variables de configuración están documentadas en la configuración de la API (`apps/api/src/app/config.ts`).
-- El CI de GitHub nunca se ha ejecutado y no incluye aún los escáneres de seguridad. El dueño lo despriorizó (2026-10-27); el repositorio ya tiene remoto.
 
 ## 9. Mapa de documentación
 
@@ -161,8 +189,8 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | --- | --- |
 | ¿Qué hace el producto y qué reglas aplica? | `docs/business/` |
 | ¿Cómo está construido? | `docs/architecture.md`, `docs/backend.md`, `docs/frontend.md`, `docs/database.md` |
-| ¿Por qué se decidió así? | `docs/adr/` (0001 a 0026) |
+| ¿Por qué se decidió así? | `docs/adr/` (0001 a 0030) |
 | ¿Qué amenazas se contemplan? | `docs/threat-model.md` |
-| ¿Qué hacer ante un incidente? | `docs/runbooks/` (borradores, sin ensayar) |
+| ¿Cómo se opera el sistema y qué hacer ante un incidente? | `docs/runbooks/` (alta de organizaciones, código de emergencia, correo, una sola instancia e incidentes; borradores, sin ensayar) |
 | ¿Qué se hizo y qué se encontró en cada tarea? | `odd/tasks/` |
-| ¿Qué sigue? | Este documento, sección 4 |
+| ¿Qué sigue? | Este documento, sección 4 ("Qué sigue, en orden") |

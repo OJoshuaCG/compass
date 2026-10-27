@@ -17,7 +17,7 @@ Esta guía describe reglas y decisiones; no incluye código. Cuando una regla se
 
 La lista aprobada está en el plan (sección "Stack tecnológico y bibliotecas aprobadas"): Node.js LTS, TypeScript en modo estricto, NestJS con Fastify, PostgreSQL 16+, Drizzle, BullMQ + Redis, Zod, `jose`, `@node-rs/argon2`, `@simplewebauthn/server`, `otplib`, `pino`, OpenTelemetry.
 
-> **Estado de dependencias (fase 0):** instaladas con versión exacta y publicadas hace más de 7 días (`minimumReleaseAge` de pnpm): `uuidv7`, `unplugin-swc` + `@swc/core` (Vitest necesita emitir metadatos de decoradores para los controladores de Nest), `dependency-cruiser`, `fastify` y `@fastify/helmet`. **Sigue pendiente** un generador de OpenAPI desde Zod (por ejemplo `@asteasolutions/zod-to-openapi`). Para el tipo de resultado, el validador Zod de peticiones y la configuración de entorno se escribió código propio pequeño.
+> **Estado de dependencias:** instaladas con versión exacta y publicadas hace más de 7 días (`minimumReleaseAge` de pnpm). Fase 0: `uuidv7`, `unplugin-swc` + `@swc/core` (Vitest necesita emitir metadatos de decoradores para los controladores de Nest), `dependency-cruiser`, `fastify` y `@fastify/helmet`. Fase 1a, en `apps/api`: `@simplewebauthn/server` (passkeys), `nodemailer` (correo SMTP, con `@types/nodemailer`), `@node-rs/argon2`, `otplib`, `jose`, `rate-limiter-flexible` (hoy en memoria: no hay cliente de Redis ni BullMQ instalados), `@fastify/cookie`, `@fastify/static` y `@zxcvbn-ts/*` (fortaleza de contraseñas); su contraparte en el navegador, `@simplewebauthn/browser`, está en `apps/web`. **Sigue pendiente** un generador de OpenAPI desde Zod (por ejemplo `@asteasolutions/zod-to-openapi`). Para el tipo de resultado, el validador Zod de peticiones y la configuración de entorno se escribió código propio pequeño.
 >
 > **Versiones relevantes:** TypeScript **6.0.3** (no 7: `typescript-eslint` 8.72 solo admite versiones inferiores a 6.1.0) y NestJS 12, que es **solo ESM**; por eso todo el monorepo es ESM (módulos `NodeNext`, imports relativos con extensión `.js`).
 
@@ -87,7 +87,7 @@ Si una pieza de `shared/kernel` empieza a conocer un concepto de un módulo, per
 
 ### 3.6 Módulos de negocio implementados (fase 1a)
 
-Además de `crypto`, `audit` y `organization` (fase 0), la fase 1a añadió cinco módulos en `apps/api/src/modules/`. Los módulos con dependencias hacia otros solo las tienen a través de sus fachadas.
+Además de `crypto`, `audit` y `organization` (fase 0), la fase 1a añadió seis módulos en `apps/api/src/modules/`. Los módulos con dependencias hacia otros solo las tienen a través de sus fachadas.
 
 | Módulo | Responsabilidad en la fase 1a | Depende de |
 | --- | --- | --- |
@@ -95,6 +95,7 @@ Además de `crypto`, `audit` y `organization` (fase 0), la fase 1a añadió cinc
 | `access` (protegido) | Catálogo de 27 permisos con techo de rango, plantillas de rol del sistema, permisos efectivos, no escalamiento de roles, función pura de decisión y el motor de autorización que audita cada negación ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md)) | `directory`, `audit` |
 | `directory` | Usuarios, rangos, responsable y creador, regla de gestión, matriz de creación, alta de un usuario y listado del directorio con búsqueda, orden y paginación por cursor, y gestión de personas (`GET /users/managed` y `POST /users/:id/suspend`, `reactivate`, `deactivate`, `rank` y `manager`; audita `user.suspended`, `user.reactivated`, `user.deactivated`, `user.rank_changed` y `user.manager_changed`) | `organization` |
 | `provisioning` | Alta de una organización por operaciones, con una conexión de administración: crea la organización, las plantillas de rol, la Raíz en estado invitada y su contraseña inicial en una sola transacción. Nunca se invoca desde una petición HTTP: lo ejecuta el comando de operaciones `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`), que genera una contraseña inicial aleatoria, la imprime una sola vez y audita `organization.provisioned`. Genera además 8 códigos de emergencia de un solo uso para la Raíz (misma forma que los de recuperación), los imprime UNA vez junto a la contraseña inicial con la instrucción de imprimirlos y entregarlos a los dos custodios, y los guarda solo como hash con `kind = 'emergency'` | `access`, `identity` |
+| `idempotency` | Protección contra peticiones de creación repetidas: reserva de la clave, respuesta guardada 24 horas e interceptor que la aplica a los `POST` marcados (ver §7.2.1 y el [ADR 0029](adr/0029-idempotency-reservation-and-ownership.md)) | `crypto`, `organization` |
 | `notification` | Puerto de correo saliente. Envía las invitaciones y el aviso a los Administradores por uso de un código de emergencia. Adaptadores: SMTP del dominio de la organización (ver §6.3.1), uno de desarrollo que escribe el enlace en el registro (se niega a arrancar en producción) y uno en memoria para las pruebas | Ninguno |
 
 Endpoints y auditoría añadidos al cerrar la fase 1a (A5, A6 y A7):
@@ -228,6 +229,23 @@ El correo de invitación sale por el servidor SMTP del dominio propio de la orga
 
 Reglas del adaptador SMTP: STARTTLS obligatorio, certificado verificado, TLS 1.2 como mínimo y tiempos límite. Los errores del proveedor se sustituyen por uno genérico (pueden citar destinatario o contenido) y los errores de configuración nunca repiten valores. El correo se redacta en es-MX o en-US según la persona destinataria; el enlace lleva el token en el fragmento (`#token=`) y el vencimiento se indica en UTC. Probado contra un servidor SMTP de pruebas real en un contenedor. Para la entregabilidad, el dominio necesita registros SPF, DKIM y DMARC en el DNS (fuera del sistema).
 
+#### 6.3.2 Resto de las variables de entorno de la API
+
+Fuente de verdad: `apps/api/src/app/config.ts` (no existe `.env.example`). Las de correo, `APP_ORIGIN` y `WEBAUTHN_RP_NAME` están en §6.3.1.
+
+| Variable | Valor por defecto | Para qué |
+| --- | --- | --- |
+| `NODE_ENV` | `development` | `development`, `test` o `production`. En producción se exige `MAIL_TRANSPORT=smtp` y el adaptador de claves local se niega a arrancar |
+| `HOST` y `PORT` | `127.0.0.1` y `3000` | Dirección y puerto de escucha |
+| `LOG_LEVEL` | `info` | Nivel de `pino` |
+| `DATABASE_URL` | Ninguno | Conexión del rol de aplicación. Obligatoria para arrancar la API |
+| `DB_POOL_MAX` | `10` | Tamaño del pool de conexiones (1 a 100) |
+| `LOCAL_KMS_KEY_FILE` | `.local-kms/kek.key` | Archivo de la clave del adaptador de desarrollo; no sirve en producción |
+| `WEB_DIST_DIR` | Ninguno | Carpeta de la SPA compilada; si se omite, la API no sirve el frontend |
+| `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For` |
+
+El comando de alta de organizaciones usa sus propias variables (`PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`; ver §3.6) y las migraciones usan `DATABASE_URL` con el rol de migraciones ([`database.md`](database.md) §1).
+
 ## 7. Interfaz HTTP (NestJS)
 
 ### 7.1 Controladores
@@ -288,7 +306,7 @@ Solo la acción dedicada (revelar, código 2FA, exportar) devuelve un secreto, c
 
 ## 8. Buenas prácticas de NestJS
 
-- **Tres puntos de entrada, una imagen**: uno para la API, otro para el worker y otro para las migraciones (comandos de arranque distintos), todos en `apps/api/src`.
+- **Puntos de entrada, una imagen**: `main.http.ts` (API), `main.migrate.ts` (migraciones) y `main.provision.ts` (alta de organizaciones por operaciones), con comandos de arranque distintos, todos en `apps/api/src`. El del worker (colas y outbox) está planeado y aún no existe.
 - **Fastify** como adaptador. Los plugins de Fastify (cabeceras de seguridad, cookies) se registran en el punto de entrada de la API, no en módulos de dominio.
 - **Módulos por funcionalidad**: un módulo de Nest por módulo de dominio; solo exporta lo que la fachada declara.
 - **Inyección por constructor**, con símbolos para los puertos. Prohibida la inyección por propiedad y la obtención de dependencias "al vuelo" desde el módulo de referencia.
@@ -356,6 +374,8 @@ Reglas que aplican a todo el backend:
 - **Matriz de autorización**: la escribe o la revisa una persona como código de producción (ver sección 14).
 - Las pruebas de integración usan contenedores efímeros; ningún dato real fuera de producción.
 - Vitest se divide en dos proyectos: uno unitario, sin contenedores, y otro de integración, con un PostgreSQL 17 por ejecución y una base por archivo, migrada con el rol de migraciones y usada con el rol de aplicación. Los comandos exactos de ejecución, incluido el uso de Podman, están en el [`README.md`](../README.md) raíz.
+- Comandos de `@iam/api`: `pnpm --filter @iam/api test:unit` (sin contenedores) y `pnpm --filter @iam/api test:integration` (necesita Podman o Docker). `pnpm e2e` ejecuta las pruebas en Chrome real contra la pila completa. Los totales verificados por paquete están en [`handoff.md`](handoff.md) §1.
+- La validación de la configuración (`apps/api/src/app/config.ts`) también se prueba: una combinación inválida de variables de correo o de producción impide el arranque.
 
 ## 13. Flujo de trabajo
 
@@ -434,18 +454,19 @@ Resueltas en la fase 1a:
 
 Pendientes de la fase 1a:
 
-- [x] **Passkeys (WebAuthn)** (A2): hechas, opcionales para todos y varias por persona; tabla `webauthn_challenges` (migración 0011). Revisadas por dos jueces ciegos (hallazgos corregidos); pendiente la purga de desafíos vencidos. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización (aún no hay pantalla de configuración).
+- [x] **Passkeys (WebAuthn)** (A2): hechas, opcionales para todos y varias por persona; tabla `webauthn_challenges` (migración 0011, [ADR 0028](adr/0028-passkeys-optional-enforcement-later.md) y [ADR 0030](adr/0030-session-bound-webauthn-challenges.md)). Revisadas por dos jueces ciegos (hallazgos corregidos); pendiente la purga de desafíos vencidos. La reautenticación sigue aceptando solo el código de la aplicación autenticadora. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización (aún no hay pantalla de configuración).
 - [x] **Cambio obligatorio de la contraseña inicial de la Raíz** (A4): hecho.
-- [x] **Códigos de emergencia de la Raíz** (A3): hechos (migración 0010, columna `kind`). Decisión del dueño: solo los custodios pueden restablecer la Raíz; ningún Administrador. Limitación: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema. Sigue pendiente el restablecimiento de factores por el responsable.
-- [ ] **Redis para los límites de intentos y por IP**: hoy son por instancia y en memoria. Sin Redis, el sistema debe operar con una sola instancia. No entró en la entrega de correo; el dueño solo respondió sobre el correo.
+- [x] **Códigos de emergencia de la Raíz** (A3): hechos (migración 0010, columna `kind`; [ADR 0027](adr/0027-emergency-codes-root-reset-model.md)). Decisión del dueño: solo los custodios pueden restablecer la Raíz; ningún Administrador. Limitación: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema, y no hay forma de emitir códigos de emergencia nuevos. Sigue pendiente el restablecimiento de factores por el responsable.
+- [ ] **Redis para los límites de intentos y por IP**: hoy son por instancia y en memoria. Sin Redis, el sistema debe operar con una sola instancia (ver el [runbook](runbooks/single-instance-operation.md)). No entró en la entrega de correo; el dueño solo respondió sobre el correo.
+- [ ] **Trabajo de limpieza de datos temporales**: las filas vencidas de `idempotency_keys` y de `webauthn_challenges` no se purgan. Necesita el camino para recorrer organizaciones de `docs/database.md` §7.5.
+- [ ] **Adaptador de KMS de proveedor y worker**: solo existe el adaptador local, que se niega a arrancar con `NODE_ENV=production`, y no hay punto de entrada de worker (`apps/api/src` tiene API, migraciones y alta de organizaciones). Dependen de la decisión de proveedor de nube.
 - [x] **Correo real** (A8, parte de correo): adaptador SMTP del dominio propio (§6.3.1). Siguen pendientes los demás avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores).
-- [ ] **CI en GitHub y escáneres** (A9): despriorizada por el dueño (2026-10-27), no bloqueada; el repositorio ya tiene remoto.
+- [ ] **CI en GitHub y escáneres** (A9): despriorizada por el dueño (2026-10-27), no bloqueada; el repositorio ya tiene remoto y el flujo de `.github/workflows/ci.yml` nunca se ha ejecutado allí.
 - [x] **Idempotencia** de las peticiones que crean recursos (§7.2.1, A7): hecha. Limitaciones: sin purga de filas vencidas y sin nueva comprobación de permisos en el reintento.
 - [ ] **Guard de permisos** como primera barrera (§7.2).
 - [x] **Comando de operaciones** para dar de alta una organización y registrar el alta en la auditoría (A3), ahora también con los códigos de emergencia.
 - [x] **Gestión de personas** (A1) y **gestión de sesiones propias y ajenas** (A5): hechas. Sigue pendiente transferir la Raíz.
 - [x] **Roles personalizados e invitaciones** (A6): crear y archivar roles, elegirlos al invitar y reenviar invitaciones. Sigue pendiente editar un rol ya creado.
-- [ ] **Primera ejecución de la verificación automática (CI) en GitHub**: nunca se ha corrido.
 
 Pendientes de fases posteriores:
 

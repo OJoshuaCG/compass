@@ -55,7 +55,7 @@ El sistema guarda las contraseñas y los segundos factores de toda la organizaci
 | --- | --- |
 | 1 | Quien tiene el permiso de invitar crea la invitación: correo, rango, responsable y roles iniciales. El sistema valida la matriz de creación y el no escalamiento (ver [`actors-and-hierarchy.md`](actors-and-hierarchy.md)) |
 | 2 | El sistema envía un enlace de **un solo uso**, vigente **72 horas** |
-| 3 | La persona invitada define su contraseña y registra **obligatoriamente** un segundo factor (una passkey o una aplicación autenticadora) antes de poder entrar |
+| 3 | La persona invitada define su contraseña y registra **obligatoriamente** un segundo factor antes de poder entrar. Hoy el alta inicial se hace con una aplicación autenticadora; las passkeys se agregan después desde la pantalla de seguridad |
 | 4 | El sistema entrega **10 códigos de recuperación** de un solo uso. Se muestran una sola vez. Solo cuando la persona confirma el segundo factor con un código válido queda activa |
 
 Reglas importantes:
@@ -68,14 +68,14 @@ Reglas importantes:
 
 **La Raíz.** Cuando una persona de operaciones da de alta una organización, el sistema crea a la Raíz en estado "invitada" con una contraseña inicial aleatoria de 24 caracteres, que se muestra una sola vez a quien da de alta la organización y nunca se guarda en claro. En su primer ingreso con esa contraseña, el sistema le avisa antes que nada que debe cambiarla, y mientras no lo haga no puede registrar ni verificar su segundo factor. Para cambiarla debe escribir la contraseña actual; la nueva sigue la misma política de contraseñas y no puede ser igual a la actual. Los intentos fallidos se cuentan con el mismo límite del ingreso, y el contador se reinicia al demostrar la contraseña actual. Al cambiarla, se cierran las demás sesiones de esa persona. Tanto el cambio como los intentos fallidos quedan en la auditoría. Después registra su segundo factor, y solo entonces queda activa (ver [preguntas abiertas](#10-preguntas-abiertas)).
 
-**Ejemplo.** Luis invita a Sofía como Operadora. Sofía recibe el correo, abre el enlace dentro de las 72 horas, define su contraseña, registra una passkey en su laptop y recibe sus diez códigos de recuperación. Los imprime y los guarda. Solo entonces puede entrar. Si el enlace hubiera vencido, Luis tendría que enviar una nueva invitación.
+**Ejemplo.** Luis invita a Sofía como Operadora. Sofía recibe el correo, abre el enlace dentro de las 72 horas, define su contraseña, registra su aplicación autenticadora y recibe sus diez códigos de recuperación. Los imprime y los guarda. Solo entonces puede entrar; más tarde, desde la pantalla de seguridad, agrega una passkey en su laptop. Si el enlace hubiera vencido, Luis tendría que enviar una nueva invitación.
 
 ## 3. Los factores de acceso
 
 | Factor | Cómo es | Papel |
 | --- | --- | --- |
 | Contraseña | Mínimo 12 caracteres, sin reglas de composición (no se exige mezclar mayúsculas, números ni símbolos); se rechazan las contraseñas comunes y las demasiado débiles según un puntaje mínimo | Primer factor |
-| Passkey | Acceso con el dispositivo (huella, rostro o llave de seguridad), resistente a la suplantación. Se pueden registrar varias, cada una con un nombre, por ejemplo "Laptop oficina" | Segundo factor **preferido** y alternativa completa al código de la aplicación. Es opcional para todos. Se pueden tener hasta 10; agregar o quitar una exige haber confirmado la identidad hace poco. Tras la contraseña, quien tiene passkeys ve la opción de usarla junto al código. El sistema exige siempre que el dispositivo verifique a la persona. Funciona |
+| Passkey | Acceso con el dispositivo (huella, rostro o llave de seguridad), resistente a la suplantación. Se pueden registrar varias, cada una con un nombre, por ejemplo "Laptop oficina" | Segundo factor **preferido** y alternativa completa al código de la aplicación. Es opcional para todos. Se agrega desde la pantalla de seguridad, después del alta inicial con la aplicación autenticadora. Se pueden tener hasta 10; agregar o quitar una exige haber confirmado la identidad hace poco. Necesita que la aplicación se use con un nombre de dominio, no con una dirección IP. Tras la contraseña, quien tiene passkeys ve la opción de usarla junto al código. El sistema exige siempre que el dispositivo verifique a la persona. Funciona |
 | Aplicación autenticadora | Código de seis dígitos que cambia cada 30 segundos. Un mismo código no se puede usar dos veces | Alternativa para quien no pueda usar passkeys. Funciona |
 | Códigos de recuperación | Diez códigos de un solo uso. Sirven para completar el ingreso, pero no para reautenticarse | **Último recurso**. Funciona |
 | Códigos de emergencia de la Raíz | Ocho códigos de un solo uso, generados al crear la organización, que se imprimen una sola vez y se entregan a las dos personas que los custodian. Solo existen para la Raíz y no sustituyen a la contraseña | Recuperación de la Raíz sin segundo factor (ver sección 7). Funciona |
@@ -174,7 +174,7 @@ No se usa en la primera versión. El sistema solo deja preparado el punto de con
 
 | Estado | Reglas |
 | --- | --- |
-| Se cumplen hoy | AU-1, AU-2, AU-3, AU-4 (passkey o aplicación autenticadora), AU-6, AU-8, AU-10, AU-11, AU-12, AU-14 (con la limitación de que, si la Raíz además olvida su contraseña, no hay recuperación en el sistema) |
+| Se cumplen hoy | AU-1, AU-2, AU-3, AU-4 (el alta inicial usa la aplicación autenticadora; la passkey se agrega después y es opcional), AU-6, AU-8, AU-10, AU-11, AU-12, AU-14 (con la limitación de que, si la Raíz además olvida su contraseña, no hay recuperación en el sistema) |
 | Se cumplen parcialmente | AU-9 (suspender, desactivar y cambiar el rango cierran las sesiones; falta el cambio de roles) |
 | Se cumple la parte que ya existe | AU-5 (no se usan mensajes de texto ni correo como segundo factor) |
 | Pendientes | AU-7 (el uso queda auditado, falta el aviso), AU-13 |

@@ -151,6 +151,7 @@ erDiagram
   webauthn_challenges {
     uuid id PK
     uuid user_id FK
+    uuid session_id
     text purpose
     text challenge
     timestamptz expires_at
@@ -449,7 +450,7 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`user_recovery_codes`**: `user_id` FK(c), `code_hash bytea(32)`, `used_at`, `kind text not null default 'recovery'` (`recovery` \| `emergency`, migración 0010). **UK** `(organization_id, user_id, code_hash)`. Los códigos de emergencia (8, solo de la Raíz, emitidos al crear la organización) usan el mismo hash y el mismo uso único; al registrar un segundo factor nuevo solo se reemiten los de `recovery`, y los de `emergency` sin usar siguen vigentes.
 
-**`webauthn_challenges`** (efímera, migración 0011): `user_id` (FK compuesta con `organization_id` a `users`), `purpose` (`registration` \| `authentication`), `challenge text` (16 a 512 caracteres), `expires_at`, `used_at`. Un desafío es aleatorio, de un solo uso, de 5 minutos y ligado a la persona y al propósito, para que el emitido para una ceremonia no valide otra. Índice parcial `(organization_id, user_id, purpose) where used_at is null`. `ENABLE + FORCE RLS` con la política de aislamiento por organización en la misma migración.
+**`webauthn_challenges`** (efímera, migración 0011): `user_id` (FK compuesta con `organization_id` a `users`), `session_id`, `purpose` (`registration` \| `authentication`), `challenge text` (16 a 512 caracteres), `expires_at`, `used_at`. Un desafío es aleatorio, de un solo uso, de 5 minutos y ligado a la persona, al propósito y a la sesión que lo pidió: el emitido para una ceremonia no valida otra, otra sesión de la misma persona no puede gastarlo y solo hay uno vigente por sesión y propósito ([ADR 0030](adr/0030-session-bound-webauthn-challenges.md)). Índice parcial `(organization_id, user_id, session_id, purpose, created_at) where used_at is null`. *Limitación conocida: los desafíos vencidos aún no se purgan.* `ENABLE + FORCE RLS` con la política de aislamiento por organización en la misma migración.
 
 **`sessions`** (efímera): `user_id` FK(c), `token_hash bytea(32)` **UK**, `ip inet`, `user_agent`, `mfa_at`, `reauth_at`, `last_seen_at +` (caducidad por inactividad de 30 min), `expires_at not null`, `revoked_at`. Índices `(organization_id, user_id) where revoked_at is null`, `(organization_id, expires_at)`.
 
@@ -587,7 +588,7 @@ Cuatro funciones de lectura mínimas, que se ejecutan con los privilegios de su 
 
 ### 7.5 Pendiente propuesto: trabajos de fondo
 
-Los jobs transversales (verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del *outbox*, rotación de DEK) corren fuera de una petición y deben recorrer organizaciones. Recomendación: una función `auth.list_organization_ids()` (mismo molde: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y que el job fije `app.org_id` por organización. No se implementa en la fase 0 porque ninguna tabla lo necesita todavía; requiere ADR antes de la fase 1b.
+Los jobs transversales (verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del *outbox*, rotación de DEK y, desde la fase 1a, la purga de las filas vencidas de `idempotency_keys` y `webauthn_challenges`) corren fuera de una petición y deben recorrer organizaciones. Recomendación: una función `auth.list_organization_ids()` (mismo molde: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y que el job fije `app.org_id` por organización. No se ha implementado: la fase 0 no lo necesitaba y, desde la fase 1a, la purga de esas dos tablas efímeras está pendiente por esa razón (sus filas vencidas se acumulan). Requiere ADR antes de la fase 1b.
 
 ## 8. Auditoría
 

@@ -20,15 +20,16 @@ Tipo de documento: explicación y referencia. Decisiones relacionadas: [ADR 0001
 
 ## 1. Monolito modular y procesos
 
-Un repositorio, una imagen de contenedor y tres puntos de entrada en `apps/api` (`docs/backend.md` §8):
+Un repositorio, una imagen de contenedor y varios puntos de entrada en `apps/api` (`docs/backend.md` §8):
 
-| Proceso | Entrada | Función |
-| --- | --- | --- |
-| API | `main.http.ts` | Sirve `/api/v1` (REST y SSE) y, en producción, la SPA en el mismo origen |
-| Worker | `main.worker.ts` | Procesa colas BullMQ y publica el outbox (`outbox_events`); rotaciones, expiraciones, recifrado y correos |
-| Migraciones | `main.migrate.ts` | Aplica `db/migrations` con el rol de migraciones, como paso previo al despliegue |
+| Proceso | Entrada | Estado | Función |
+| --- | --- | --- | --- |
+| API | `main.http.ts` | Existe | Sirve `/api/v1` (REST) y, si se le indica la carpeta de la SPA compilada, el frontend en el mismo origen. SSE está planeado |
+| Migraciones | `main.migrate.ts` | Existe | Aplica `db/migrations` con el rol de migraciones, como paso previo al despliegue |
+| Alta de organizaciones | `main.provision.ts` | Existe | Comando de operaciones, con conexión de administración; nunca desde una petición HTTP (ver el [runbook](runbooks/provision-organization.md)) |
+| Worker | `main.worker.ts` | Planeado, no existe | Procesará colas BullMQ y publicará el outbox (`outbox_events`); rotaciones, expiraciones, recifrado y purga de datos temporales |
 
-El plan habla de "dos procesos (API y worker)" más las migraciones como paso previo de despliegue. La misma imagen sirve a los tres con comandos de arranque distintos. Los módulos solo se hablan por fachadas públicas o eventos, lo que permite separar uno en su propio servicio más adelante sin reescribirlo.
+El plan habla de "dos procesos (API y worker)" más las migraciones como paso previo de despliegue. La misma imagen sirve a todos con comandos de arranque distintos. Mientras no existan Redis ni el worker, el sistema debe operar con una sola instancia de la API ([runbook](runbooks/single-instance-operation.md)). Los módulos solo se hablan por fachadas públicas o eventos, lo que permite separar uno en su propio servicio más adelante sin reescribirlo.
 
 ## 2. Contexto y contenedores
 
@@ -84,20 +85,20 @@ El plan describe un diagrama de "12 módulos" y su tabla de responsabilidades en
 | # | Módulo | Estado | Responsabilidad | Expone |
 | --- | --- | --- | --- | --- |
 | 1 | `organization` (kernel) | Fase 1 | Organizaciones, contexto de petición, configuración | `RequestContext`, configuración por organización |
-| 2 | `identity` | Fase 1 (protegido). Implementado en 1a, sin passkeys | Invitaciones, contraseñas, passkeys, TOTP propio, sesiones, reautenticación | Autenticar, verificar sesión, exigir reautenticación |
-| 3 | `directory` | Fase 1. Implementado en 1a (usuarios, jerarquía y directorio; sin grupos) | Usuarios, rangos, responsable, grupos, membresías | Consultas de jerarquía y subárbol, eventos de baja |
-| 4 | `access` | Fase 1 (protegido). Implementado en 1a (sin compartición) | Catálogo de permisos, roles, compartición, motor de decisión | `Authorizer.authorize()`, vista de acceso efectivo |
+| 2 | `identity` | Fase 1 (protegido). Implementado en 1a, con passkeys y códigos de emergencia de la Raíz | Invitaciones, contraseñas, passkeys, TOTP propio, sesiones, reautenticación | Autenticar, verificar sesión, exigir reautenticación |
+| 3 | `directory` | Fase 1. Implementado en 1a (usuarios, jerarquía, directorio y gestión de personas; sin grupos) | Usuarios, rangos, responsable, grupos, membresías | Consultas de jerarquía y subárbol, eventos de baja |
+| 4 | `access` | Fase 1 (protegido). Implementado en 1a (permisos, roles personalizados y motor de decisión; sin compartición) | Catálogo de permisos, roles, compartición, motor de decisión | `Authorizer.authorize()`, vista de acceso efectivo |
 | 5 | `vault` | Fase 1 | Plataformas, cuentas, credenciales, versiones de secretos | Casos de uso de la bóveda |
 | 6 | `totp` | Fase 1 | Registro (5 métodos), handoff, generación de códigos | Código actual de una credencial |
 | 7 | `crypto` | Fase 0 y 1 (protegido) | `SecretCipher`, caché de DEK, rotación, índices ciegos | Cifrar, descifrar, HMAC por propósito |
 | 8 | `audit` | Fase 0 y 1 (protegido) | Escritura encadenada, verificación, consulta, exportación | `AuditLog.record()` dentro de la transacción |
 | 9 | `governance` | Fase 1 | Bajas con rotación, salud, acceso temporal | Tareas de rotación, paneles |
-| 10 | `notification` | Fase 1. Implementado en 1a solo para invitaciones, con adaptador de desarrollo | Correos traducidos, SSE, alertas | Enviar, publicar evento al cliente |
+| 10 | `notification` | Fase 1. Implementado en 1a solo para invitaciones y el aviso de uso de un código de emergencia, con adaptador SMTP del dominio propio (y uno de desarrollo) | Correos traducidos, SSE, alertas | Enviar, publicar evento al cliente |
 | 11 | `federation` | Futuro (fases 2 y 3) | OIDC, SAML, SCIM | Por definir en esas fases |
 | 12 | `inbound-codes` | Futuro (fases 4 y 5) | Ingesta de correos y SMS | Por definir en esas fases |
 | 13 | `broker` | Futuro (fases 6 y 7) | Intenciones de login, sesiones delegadas | Por definir en esas fases |
 
-La fase 1a añadió además `provisioning` (alta de organizaciones por operaciones, con una conexión de administración y nunca desde una petición HTTP), que el plan no lista como módulo propio. Se mantiene fuera de la tabla porque no atiende peticiones de las personas de la organización.
+La fase 1a añadió además `provisioning` (alta de organizaciones por operaciones, con una conexión de administración y nunca desde una petición HTTP) e `idempotency` (protección contra peticiones de creación repetidas, [ADR 0029](adr/0029-idempotency-reservation-and-ownership.md)), que el plan no lista como módulos propios. Se mantienen fuera de la tabla porque `provisioning` no atiende peticiones de las personas de la organización e `idempotency` es transversal.
 
 Los módulos protegidos son `identity`, `access`, `crypto` y `audit` (más migraciones con RLS, `SecretReveal` y la configuración de CSP y cabeceras); cada uno lleva su propio `CLAUDE.md` y requiere dos revisores ([`CLAUDE.md`](../CLAUDE.md), "Rutas protegidas").
 
@@ -194,6 +195,8 @@ Las rutas previas a la autenticación (login, invitación, handoff, sesión) no 
 | `plan.md` | Fuente de verdad del producto |
 | `CLAUDE.md` | Reglas no negociables para agentes |
 | `package.json`, `pnpm-workspace.yaml`, `turbo.json` | Scripts raíz, espacios de trabajo (con espera de 7 días tras cada publicación y scripts de instalación en lista blanca) y tareas de Turborepo |
+| `e2e` | Pruebas en navegador real (Playwright con el Chrome del sistema) y `pnpm stack`, que levanta la plataforma completa en local (PostgreSQL efímero, API y web en `localhost`) |
+| `.github/workflows/ci.yml` | Verificación automática definida (formato, compilación, tipos, lint, pruebas y e2e); nunca se ha ejecutado en GitHub |
 | Archivos de formato y de git en la raíz | Configuración de editor, Prettier, npm y exclusiones de git |
 
 Planeado por el plan y aún no creado: `apps/mobile-handoff` (página ligera de cámara para el 2FA por celular), `CODEOWNERS`, la plantilla de PR y los `README.md` y `CLAUDE.md` por módulo.
@@ -315,13 +318,13 @@ sequenceDiagram
   API-->>P: códigos de recuperación (se muestran una sola vez)
 ```
 
-El detalle paso a paso está en [`backend.md`](backend.md) §3.7 y §3.8. Hoy el correo lo escribe en el registro el adaptador de desarrollo; el proveedor real está pendiente (§11).
+El detalle paso a paso está en [`backend.md`](backend.md) §3.7 y §3.8. En producción el correo sale por el SMTP del dominio propio ([runbook](runbooks/configure-mail.md)); en desarrollo, el adaptador de desarrollo escribe el enlace en el registro. El alta inicial registra la aplicación autenticadora; las passkeys se agregan después desde la pantalla de seguridad.
 
 ## 10. Estado actual (fases 0 y 1a)
 
 La **fase 0** está terminada y entregó el esqueleto: monorepo, contexto de organización, `crypto` y `audit` con pruebas, RLS activo, esqueleto de UI con tokens oscuros e i18n, y los ADR 0001 a 0020. El criterio de salida completo está en `plan.md` ("Criterios de salida por fase") y el seguimiento en [`odd/tasks/phase-0-foundations.md`](../odd/tasks/phase-0-foundations.md).
 
-La **fase 1a (identidad)** está implementada en lo esencial en backend y frontend: alta de organización por operaciones, invitaciones, contraseña y segundo factor con aplicación autenticadora, inicio de sesión, sesiones, reautenticación, motor de autorización con 27 permisos y auditoría de negaciones, y directorio de personas. La web ofrece las pantallas de ingreso, verificación en dos pasos, registro del segundo factor, aceptación de invitación, directorio con invitar y el diálogo de reautenticación. Las pruebas de punta a punta pasan contra PostgreSQL real. No está cerrada: faltan, entre otros, las passkeys y la recuperación de la Raíz (§11). La lógica de negocio está en [`business/`](business/README.md) y el estado detallado en [`business/roadmap-and-status.md`](business/roadmap-and-status.md).
+La **fase 1a (identidad)** está implementada en lo esencial en backend y frontend: alta de organización por operaciones con códigos de emergencia de la Raíz, invitaciones reenviables por el correo del dominio propio, contraseña y segundo factor con aplicación autenticadora o passkey, cambio obligatorio de la contraseña inicial, inicio de sesión, sesiones propias y ajenas, reautenticación, motor de autorización con 27 permisos y auditoría de negaciones, roles personalizados, gestión de personas, idempotencia de las creaciones y directorio. La web ofrece las pantallas correspondientes (ver [`frontend.md`](frontend.md) §18). Las pruebas de punta a punta pasan contra PostgreSQL real y en Chrome real. No está cerrada: faltan, entre otros, Redis, la purga de datos temporales y la recuperación de la Raíz sin contraseña ni factores (§11). La **fase 1b (bóveda y segundo factor) no ha empezado**; su plan está en [`odd/tasks/phase-1b-vault.md`](../odd/tasks/phase-1b-vault.md). La lógica de negocio está en [`business/`](business/README.md) y el estado detallado en [`business/roadmap-and-status.md`](business/roadmap-and-status.md).
 
 ## 11. Decisiones pendientes
 
@@ -329,11 +332,13 @@ Vigentes tras la fase 1a. El detalle técnico está en [`backend.md`](backend.md
 
 | Tema | Situación |
 | --- | --- |
-| Passkeys (WebAuthn) | No implementadas; el segundo factor es solo TOTP |
-| Cambio de la contraseña inicial de la Raíz | La marca existe y no se aplica; no hay flujo de cambio de contraseña |
-| Redis para límites de intentos y por IP | Hoy en memoria de cada instancia; el sistema debe operar con una sola instancia hasta incorporarlo |
-| Proveedor de correo | Solo existe el adaptador de desarrollo; faltan el proveedor real y los avisos |
-| Idempotencia de peticiones que crean recursos | No implementada |
+| Passkeys (WebAuthn) | **Resuelta** ([ADR 0028](adr/0028-passkeys-optional-enforcement-later.md)): opcionales para todos. Sigue abierta la configuración para exigirlas a la Raíz y a los Administradores |
+| Cambio de la contraseña inicial de la Raíz | **Resuelto**: obligatorio en el primer ingreso |
+| Redis para límites de intentos y por IP | Pendiente. Hoy en memoria de cada instancia; el sistema debe operar con una sola instancia hasta incorporarlo ([runbook](runbooks/single-instance-operation.md)) |
+| Proveedor de correo | **Resuelto** para invitaciones y el aviso de códigos de emergencia: SMTP del dominio propio. Faltan los demás avisos (dispositivo nuevo, código de recuperación, cambios de factores) |
+| Idempotencia de peticiones que crean recursos | **Resuelta** ([ADR 0029](adr/0029-idempotency-reservation-and-ownership.md)); falta la purga de filas vencidas |
+| Recuperación de la Raíz que olvida su contraseña y pierde sus factores | Sin solución en el sistema; falta un procedimiento de operaciones |
+| Purga de datos temporales vencidos (idempotencia, desafíos de passkeys) | Pendiente; necesita un camino para recorrer organizaciones ([`database.md`](database.md) §7.5) |
 | Auditoría de negaciones | **Resuelta** ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md)); sigue abierta la agrupación de negaciones repetidas |
 | Advisory lock de auditoría en transacciones largas | Propuesta ([ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md)) |
 | Retención de auditoría | Propuesta ([ADR 0024](adr/0024-audit-retention-vs-revoke-delete.md)) |
