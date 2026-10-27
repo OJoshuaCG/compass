@@ -6,7 +6,7 @@ El diseño completo está en [`plan.md`](plan.md), que es la fuente de verdad. S
 
 ## Estado
 
-**Fase 0 · Fundaciones** terminada. **Fase 1a · Identidad** implementada en backend y frontend (invitaciones, segundo factor con aplicación autenticadora, sesiones, permisos y directorio; pruebas de punta a punta contra PostgreSQL real), pero sin cerrar: faltan passkeys, recuperación de la Raíz, Redis, proveedor de correo y la primera ejecución del CI. Las fases 1b y 1c siguen pendientes. Estado detallado en [`docs/business/roadmap-and-status.md`](docs/business/roadmap-and-status.md); qué hace el producto, en [`docs/business/`](docs/business/README.md); seguimiento de la fase 0 en [`odd/tasks/phase-0-foundations.md`](odd/tasks/phase-0-foundations.md).
+**Fase 0 · Fundaciones** terminada. **Fase 1a · Identidad** implementada en backend y frontend (invitaciones, segundo factor con aplicación autenticadora, sesiones, permisos y directorio; pruebas de punta a punta contra PostgreSQL real), pero sin cerrar: faltan passkeys, recuperación de la Raíz, Redis, proveedor de correo y la primera ejecución del CI. Las fases 1b y 1c siguen pendientes. Estado detallado en [`docs/business/roadmap-and-status.md`](docs/business/roadmap-and-status.md); qué hace el producto, en [`docs/business/`](docs/business/README.md); seguimiento en [`odd/tasks/`](odd/tasks). **Si vas a retomar el proyecto en otro equipo, empieza por [`docs/handoff.md`](docs/handoff.md)** (estado, plan ordenado, decisiones abiertas y trampas de entorno).
 
 ## Requisitos
 
@@ -14,7 +14,8 @@ El diseño completo está en [`plan.md`](plan.md), que es la fuente de verdad. S
 | --- | --- | --- |
 | Node.js | >= 24 (campo `engines` de `package.json`) | Runtime y herramientas |
 | pnpm | 10 (`packageManager`: `pnpm@10.33.0`) | Gestor de paquetes del monorepo |
-| Podman o Docker | Cualquiera con socket compatible | Pruebas de integración con PostgreSQL real (Testcontainers) |
+| Podman o Docker | Cualquiera con socket compatible | Pruebas de integración con PostgreSQL real (Testcontainers) y entorno local |
+| Google Chrome | Reciente, instalado en el sistema | Pruebas de navegador (`pnpm e2e`); no se descargan navegadores |
 
 Las dependencias se instalan con espera de 7 días tras cada publicación (`minimumReleaseAge`) y con scripts de instalación deshabilitados salvo lista blanca; ver `pnpm-workspace.yaml`. Agregar una dependencia requiere aprobación humana (ver [`CLAUDE.md`](CLAUDE.md)).
 
@@ -47,6 +48,7 @@ pnpm lint             # ESLint en cada workspace
 pnpm typecheck        # tsc --noEmit en cada workspace
 pnpm test             # Vitest en cada workspace
 pnpm e2e              # navegador real (Chrome) contra la plataforma completa
+pnpm stack            # levanta la plataforma completa en local para probar a mano
 pnpm format           # Prettier --write
 pnpm format:check     # Prettier --check
 ```
@@ -90,6 +92,7 @@ pnpm test
 | --- | --- |
 | [`plan.md`](plan.md) | Plan técnico: decisiones, jerarquía, autorización, cifrado, fases, riesgos |
 | [`docs/README.md`](docs/README.md) | Índice de toda la documentación |
+| [`docs/handoff.md`](docs/handoff.md) | **Traspaso:** estado, cómo retomar en otro equipo, plan ordenado y decisiones abiertas |
 | [`docs/business/`](docs/business/README.md) | Lógica de negocio: qué hace el sistema y por qué, sin código |
 | [`docs/backend.md`](docs/backend.md) | Guía de backend (arquitectura, código, pruebas) |
 | [`docs/frontend.md`](docs/frontend.md) | Guía de frontend (diseño, componentes, i18n, `DataTable`) |

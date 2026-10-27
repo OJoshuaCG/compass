@@ -6,6 +6,7 @@
 
 | Si quieres... | Lee |
 | --- | --- |
+| **Retomar el proyecto en otro equipo** (estado, plan ordenado, decisiones abiertas, trampas) | [`handoff.md`](handoff.md) |
 | Entender qué hace el sistema y por qué, sin tecnicismos | [`business/`](business/README.md) |
 | Entender el plan técnico completo | [`../plan.md`](../plan.md) |
 | Ver cómo encajan las piezas | [`architecture.md`](architecture.md) |
