@@ -1,4 +1,4 @@
-import { loadDirectoryCatalog, loadSessionsCatalog, resources } from '@iam/i18n';
+import { loadDirectoryCatalog, loadRolesCatalog, loadSessionsCatalog, resources } from '@iam/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import { screen } from '@testing-library/react';
 import { expect } from 'vitest';
@@ -10,6 +10,7 @@ export const es = {
   // Catálogos de descarga diferida: en las pruebas se cargan una vez, igual que en la app.
   directory: (await loadDirectoryCatalog())['es-MX'],
   sessions: (await loadSessionsCatalog())['es-MX'],
+  roles: (await loadRolesCatalog())['es-MX'],
 };
 
 /**

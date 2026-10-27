@@ -49,5 +49,19 @@
   "transfer.legend": "Nuevo responsable",
   "transfer.loading": "Buscando personas",
   "transfer.empty": "Ninguna persona disponible coincide con la búsqueda.",
-  "transfer.submit": "Transferir"
+  "transfer.submit": "Transferir",
+  "users.tabs.invitations": "Invitaciones",
+  "invitations.caption": "Invitaciones pendientes",
+  "invitations.col.sent": "Enviada",
+  "invitations.col.expires": "Vence",
+  "invitations.col.status": "Estado",
+  "invitations.status.pending": "Pendiente",
+  "invitations.status.expired": "Vencida",
+  "invitations.resend": "Reenviar",
+  "invitations.resendLabel": "Reenviar la invitación a {{email}}",
+  "invitations.resent": "Se reenvió la invitación a {{email}}.",
+  "invitations.empty.title": "No hay invitaciones pendientes",
+  "invitations.empty.description": "Las invitaciones que envíes y no se hayan aceptado aparecerán aquí.",
+  "invite.roles": "Roles",
+  "invite.rolesHelp": "Opcional. La persona recibirá los permisos de los roles que elijas."
 }

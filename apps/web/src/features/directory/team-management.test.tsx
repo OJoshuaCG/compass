@@ -110,7 +110,8 @@ describe('team management tab visibility', () => {
     const api = teamApi({}, { permissions: ['user.invite', 'vault.inventory.read'] });
     renderApp(TEAM_URL);
     await screen.findByRole('table', { name: es.directory['users.caption'] });
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    // Con `user.invite` sí hay pestañas (Directorio e Invitaciones), pero no la de gestión.
+    expect(screen.queryByRole('tab', { name: es.directory['users.tabs.team'] })).toBeNull();
     expect(screen.queryByRole('table', { name: es.directory['team.caption'] })).toBeNull();
     expect(managedCalls(api)).toHaveLength(0);
   });

@@ -2,7 +2,7 @@ import { AppShell, Button, LogOut } from '@iam/ui';
 import { Link, Outlet } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
-import { useLogout, useMe } from '../shared/auth';
+import { useLogout, useMe, usePermission } from '../shared/auth';
 import { LanguageSwitcher } from '../shared/i18n';
 
 const linkClass =
@@ -13,6 +13,7 @@ const activeProps = { 'aria-current': 'page', className: 'bg-raised text-text' }
 export function AppLayout() {
   const { t } = useTranslation('common');
   const me = useMe();
+  const canManageRoles = usePermission('role.manage');
   const { logout, pending } = useLogout();
   return (
     <AppShell
@@ -64,6 +65,13 @@ export function AppLayout() {
                 {t('nav.sessions')}
               </Link>
             </li>
+            {canManageRoles ? (
+              <li>
+                <Link to="/roles" className={linkClass} activeProps={activeProps}>
+                  {t('nav.roles')}
+                </Link>
+              </li>
+            ) : null}
             {import.meta.env.DEV ? (
               <li>
                 <Link to="/catalog" className={linkClass} activeProps={activeProps}>

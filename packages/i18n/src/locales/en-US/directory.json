@@ -49,5 +49,19 @@
   "transfer.legend": "New manager",
   "transfer.loading": "Searching people",
   "transfer.empty": "No available person matches the search.",
-  "transfer.submit": "Transfer"
+  "transfer.submit": "Transfer",
+  "users.tabs.invitations": "Invitations",
+  "invitations.caption": "Pending invitations",
+  "invitations.col.sent": "Sent",
+  "invitations.col.expires": "Expires",
+  "invitations.col.status": "Status",
+  "invitations.status.pending": "Pending",
+  "invitations.status.expired": "Expired",
+  "invitations.resend": "Resend",
+  "invitations.resendLabel": "Resend the invitation to {{email}}",
+  "invitations.resent": "The invitation to {{email}} was resent.",
+  "invitations.empty.title": "There are no pending invitations",
+  "invitations.empty.description": "Invitations you send that have not been accepted will appear here.",
+  "invite.roles": "Roles",
+  "invite.rolesHelp": "Optional. The person will receive the permissions of the roles you choose."
 }

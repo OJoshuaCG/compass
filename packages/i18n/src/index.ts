@@ -25,9 +25,9 @@ export const resources = {
 /**
  * Catálogos que NO viajan en el JavaScript inicial: se descargan con la pantalla que los usa
  * (docs/frontend.md §12). `directory` solo hace falta en `/users`; `sessions`, en `/sessions` y en
- * el diálogo "Cerrar sesiones" de la gestión del equipo. Cada cargador trae los dos idiomas.
+ * el diálogo "Cerrar sesiones" de la gestión del equipo; `roles`, en `/roles`. Cada cargador trae los dos idiomas.
  */
-export const LAZY_NAMESPACES = ['directory', 'sessions'] as const;
+export const LAZY_NAMESPACES = ['directory', 'sessions', 'roles'] as const;
 export type LazyNamespace = (typeof LAZY_NAMESPACES)[number];
 export type LazyCatalog = Record<Locale, Record<string, string>>;
 
@@ -47,9 +47,18 @@ export async function loadSessionsCatalog() {
   return { 'es-MX': esMX.default, 'en-US': enUS.default } as const;
 }
 
+export async function loadRolesCatalog() {
+  const [esMX, enUS] = await Promise.all([
+    import('./locales/es-MX/roles.json', { with: { type: 'json' } }),
+    import('./locales/en-US/roles.json', { with: { type: 'json' } }),
+  ]);
+  return { 'es-MX': esMX.default, 'en-US': enUS.default } as const;
+}
+
 export const lazyCatalogLoaders: Record<LazyNamespace, () => Promise<LazyCatalog>> = {
   directory: loadDirectoryCatalog,
   sessions: loadSessionsCatalog,
+  roles: loadRolesCatalog,
 };
 
 export type CommonKey = keyof (typeof resources)['es-MX']['common'];

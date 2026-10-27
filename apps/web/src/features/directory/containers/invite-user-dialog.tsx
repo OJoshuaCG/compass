@@ -6,7 +6,7 @@ import {
 } from '@iam/contracts';
 import { Button, Dialog, FormField, Input, NativeSelect } from '@iam/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -15,8 +15,9 @@ import type { z } from 'zod';
 import { ApiError, applyFieldErrors, useRateLimitCooldown } from '../../../shared/api';
 import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/toast';
-import { inviteUser } from '../api/directory-api';
+import { directoryKeys, fetchInvitableRoles, inviteUser } from '../api/directory-api';
 import { creatableRanks } from '../model/creatable-ranks';
+import { RoleChoices } from '../ui/role-choices';
 
 type FormInput = z.input<typeof createInvitationRequestSchema>;
 
@@ -25,6 +26,7 @@ type InviteFormProps = { actorRank: Rank; onDone: () => void };
 function InviteForm({ actorRank, onDone }: InviteFormProps) {
   const { t } = useTranslation(['directory', 'common', 'errors']);
   const toast = useToast();
+  const queryClient = useQueryClient();
   const validationMessage = useValidationMessage();
   // La clave se estabiliza solo ante reintentos de la MISMA petición (mismo cuerpo): si el envío
   // se repite (reautenticación, red) el servidor lo reconoce como la misma invitación. Si el
@@ -42,6 +44,16 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
   const ranks = creatableRanks(actorRank);
   const options = ranks.length > 0 ? ranks : ([1, 2, 3] as const);
 
+  // Roles personalizados que se pueden elegir. Sin ellos (o si la consulta falla) el formulario no
+  // muestra nada: es opcional y el servidor decide qué roles puede dar quien invita.
+  const rolesQuery = useQuery({
+    queryKey: directoryKeys.invitableRoles(),
+    queryFn: ({ signal }) => fetchInvitableRoles(signal),
+    // Pueden crearse o archivarse en `/roles` en cualquier momento.
+    staleTime: 0,
+  });
+  const roles = rolesQuery.data ?? [];
+
   const mutation = useMutation({
     mutationFn: (body: CreateInvitationRequest) => inviteUser(body, keyFor(body)),
   });
@@ -51,6 +63,7 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
     register,
     handleSubmit,
     setError,
+    setValue,
     control,
     formState: { errors },
   } = useForm<FormInput, unknown, CreateInvitationRequest>({
@@ -59,14 +72,26 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
     defaultValues: { email: '', rank: options.at(-1) ?? 3, roleIds: [] },
   });
   const email = useWatch({ control, name: 'email' });
+  const roleIds = useWatch({ control, name: 'roleIds' }) ?? [];
 
   function submit(values: CreateInvitationRequest) {
-    mutation.mutate(values, {
+    // Un rol archivado entre tanto (la lista se recargó) ya no se envía.
+    const body = {
+      ...values,
+      roleIds: values.roleIds.filter((id) => roles.some((r) => r.id === id)),
+    };
+    mutation.mutate(body, {
       onSuccess: (invitation) => {
         toast.show(t('invite.sent', { ns: 'directory', email: invitation.email }), 'success');
+        // La lista de pendientes (otra pestaña de la página) debe mostrar la invitación nueva.
+        void queryClient.invalidateQueries({ queryKey: directoryKeys.invitations() });
         onDone();
       },
       onError: (error) => {
+        // 422: algún rol ya no existe o se archivó; se recarga la lista para no volver a ofrecerlo.
+        if (error instanceof ApiError && error.status === 422) {
+          void queryClient.invalidateQueries({ queryKey: directoryKeys.invitableRoles() });
+        }
         if (
           error instanceof ApiError &&
           (error.code === ErrorCode.INVITATION_CONFLICT || error.status === 422)
@@ -141,6 +166,17 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
           </NativeSelect>
         )}
       </FormField>
+      {roles.length > 0 ? (
+        <RoleChoices
+          legend={t('invite.roles', { ns: 'directory' })}
+          help={t('invite.rolesHelp', { ns: 'directory' })}
+          roles={roles}
+          selected={roleIds}
+          onChange={(next) => {
+            setValue('roleIds', next);
+          }}
+        />
+      ) : null}
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onDone}>
           {t('actions.cancel', { ns: 'common' })}

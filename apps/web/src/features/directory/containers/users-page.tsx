@@ -8,11 +8,12 @@ import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { canManageTeam } from '../model/team-actions';
 
 import { DirectoryTable } from './directory-table';
+import { InvitationsPanel } from './invitations-panel';
 import { InviteUserDialog } from './invite-user-dialog';
 import { TeamManagement } from './team-management';
 
 /** Sección activa de la página: se guarda en la URL como el resto del estado de la vista. */
-export type UsersView = 'directory' | 'team';
+export type UsersView = 'directory' | 'team' | 'invitations';
 
 export type UsersSearch = TableSearch & { view?: UsersView | undefined };
 
@@ -24,7 +25,8 @@ export type UsersPageProps = {
 
 /**
  * Container de `/users`: el directorio con la `DataTable` estándar y la acción de invitar y, para
- * quien puede gestionar personas, la pestaña "Gestión del equipo".
+ * quien puede gestionar personas, la pestaña "Gestión del equipo"; con `user.invite`, también la
+ * pestaña "Invitaciones" (pendientes y reenvío).
  */
 export function UsersPage({ search, onSearchChange }: UsersPageProps) {
   const { t } = useTranslation(['directory', 'common']);
@@ -36,8 +38,13 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
   // Los textos de esta pantalla viajan en un catálogo aparte (presupuesto de JS inicial).
   const catalogReady = useLazyCatalog('directory');
 
-  // La vista `team` en la URL sin permiso cae al directorio en vez de mostrar un error.
-  const view: UsersView = showTeam && search.view === 'team' ? 'team' : 'directory';
+  // Una vista de la URL sin permiso cae al directorio en vez de mostrar un error.
+  const view: UsersView =
+    showTeam && search.view === 'team'
+      ? 'team'
+      : canInvite && search.view === 'invitations'
+        ? 'invitations'
+        : 'directory';
   const tableSearch: TableSearch = {
     limit: search.limit,
     sort: search.sort,
@@ -47,8 +54,18 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
 
   if (!catalogReady) return <Spinner label={t('state.loading', { ns: 'common' })} />;
 
+  const tabs = [
+    { id: 'directory', label: t('users.tabs.directory', { ns: 'directory' }) },
+    ...(showTeam ? [{ id: 'team', label: t('users.tabs.team', { ns: 'directory' }) }] : []),
+    ...(canInvite
+      ? [{ id: 'invitations', label: t('users.tabs.invitations', { ns: 'directory' }) }]
+      : []),
+  ];
+
   const panel =
-    view === 'team' && me !== undefined ? (
+    view === 'invitations' ? (
+      <InvitationsPanel />
+    ) : view === 'team' && me !== undefined ? (
       <TeamManagement
         search={tableSearch}
         onSearchChange={onSearchChange}
@@ -76,19 +93,16 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
           ) : undefined
         }
       />
-      {showTeam ? (
+      {tabs.length > 1 ? (
         <Tabs
           label={t('users.tabs.label', { ns: 'directory' })}
-          tabs={[
-            { id: 'directory', label: t('users.tabs.directory', { ns: 'directory' }) },
-            { id: 'team', label: t('users.tabs.team', { ns: 'directory' }) },
-          ]}
+          tabs={tabs}
           value={view}
           onValueChange={(next) => {
             // Cada sección tiene su propia búsqueda y orden: al cambiar se parte de cero
             // (el límite de filas sí se conserva).
             onSearchChange({
-              view: next === 'team' ? 'team' : undefined,
+              view: next === 'team' || next === 'invitations' ? next : undefined,
               q: undefined,
               sort: undefined,
               dir: undefined,
