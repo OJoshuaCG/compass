@@ -7,13 +7,13 @@ Diseño de la base de datos de la plataforma (PostgreSQL 17). Este documento des
 - PostgreSQL es la única fuente de verdad (ADR 003). Un solo esquema de dominio (`public`) y un esquema mínimo `auth` para el acceso previo a la autenticación.
 - Aislamiento por organización en tres capas (ADR 006): contexto de petición, **RLS** en la base y claves de cifrado por organización. Este documento cubre la segunda; la tercera está en el plan ("Diseño criptográfico").
 - Las migraciones son SQL plano versionado (`db/migrations/NNNN_nombre.sql`), aplicadas por `db/src/migrate.ts` con el rol `iam_migrator`. Nunca se edita una migración aplicada: el ejecutor guarda el SHA-256 de cada archivo en `schema_migrations` y **rechaza** ejecutar si cambia.
-- Sin extensiones: UUIDv7 se genera con `uuid_generate_v7()` (PostgreSQL 17 no lo trae nativo; llega en 18) y los hashes usan `sha256()` del núcleo. Menos extensiones, menos privilegios que pedir al proveedor gestionado.
+- Sin extensiones: los UUIDv7 los genera una función propia de la base de datos (PostgreSQL 17 no los trae nativos; llegan en la 18) y los hashes usan el SHA-256 del núcleo. Menos extensiones, menos privilegios que pedir al proveedor gestionado.
 
 ### Migraciones existentes
 
 | Archivo | Contenido |
 | --- | --- |
-| `0001_base_roles_functions.sql` | Verifica los roles, esquema `auth`, `uuid_generate_v7()`, `touch_updated_at()` |
+| `0001_base_roles_functions.sql` | Verifica los roles; crea el esquema `auth`, la función generadora de UUIDv7 y el trigger que actualiza la fecha de modificación |
 | `0002_organizations_identity.sql` | `organizations`, `users`, `user_passwords`, `webauthn_credentials`, `user_totp_factors`, `user_recovery_codes`, `sessions`, `invitations` |
 | `0003_crypto_infra.sql` | `data_keys`, `outbox_events`, `idempotency_keys` |
 | `0004_directory_access.sql` | `groups`, `group_memberships`, `roles`, `user_roles` |
@@ -24,29 +24,31 @@ Diseño de la base de datos de la plataforma (PostgreSQL 17). Este documento des
 
 ### Cómo se ejecuta
 
-```
-DATABASE_URL=postgres://<admin>@host/db  tsx db/src/cli.ts bootstrap   # una vez por clúster
-DATABASE_URL=postgres://iam_migrator@host/db  tsx db/src/cli.ts migrate # en cada despliegue, antes de arrancar la API
-```
+El CLI de `db/src/cli.ts` ofrece dos operaciones, ambas con la dirección de la base de datos en la variable de entorno `DATABASE_URL`:
 
-El ejecutor aplica cada archivo en su propia transacción junto con su fila en `schema_migrations`, serializa ejecuciones concurrentes con un advisory lock y rechaza: checksum distinto de un archivo aplicado, archivo aplicado que desapareció y archivo nuevo numerado antes del último aplicado. Patrón *expandir y contraer*: se agrega, se despliega código compatible, y se retira lo viejo en otra migración.
+| Operación | Quién la ejecuta | Cuándo |
+| --- | --- | --- |
+| Preparar roles (`bootstrap`) | Una conexión de administrador del clúster | Una sola vez por clúster |
+| Migrar (`migrate`) | El rol de migraciones | En cada despliegue, antes de arrancar la API |
 
-Los **respaldos de datos** dentro de una migración deben recordar que `FORCE ROW LEVEL SECURITY` aplica también al dueño: o se itera por organización con `set_config('app.org_id', ..., true)`, o se hace `ALTER TABLE ... NO FORCE ROW LEVEL SECURITY` y se restablece **dentro de la misma transacción** (así siembra `0005` el catálogo global).
+El ejecutor aplica cada archivo en su propia transacción junto con su registro en la tabla de control de migraciones, serializa ejecuciones concurrentes con un bloqueo consultivo y rechaza tres situaciones: huella (SHA-256) distinta de un archivo ya aplicado, archivo aplicado que desapareció y archivo nuevo numerado antes del último aplicado. Patrón *expandir y contraer*: se agrega, se despliega código compatible, y se retira lo viejo en otra migración.
+
+Los **respaldos de datos** dentro de una migración deben recordar que el aislamiento forzado por organización aplica también al dueño de las tablas. Hay dos caminos: recorrer una organización a la vez fijando su contexto solo para esa transacción, o desactivar el aislamiento forzado de la tabla y restablecerlo **dentro de la misma transacción** (así siembra la migración 0005 el catálogo global).
 
 ## 2. Convenciones
 
 | Convención | Detalle |
 | --- | --- |
-| Identificadores | `id uuid primary key default uuid_generate_v7()`: ordenable por tiempo, buena localidad en índices, no expone conteos |
+| Identificadores | `id` es la clave primaria, un UUIDv7 generado por defecto: ordenable por tiempo, buena localidad en índices, no expone conteos |
 | Tenant | `organization_id uuid not null references organizations(id)` en toda tabla de dominio (salvo `organizations` y las filas globales de `platforms`) |
-| Tiempo | `timestamptz` siempre (UTC). `created_at`, `updated_at` con trigger `touch_updated_at()` en tablas editables |
+| Tiempo | `timestamptz` siempre (UTC). `created_at` y `updated_at`; un trigger mantiene `updated_at` en las tablas editables |
 | Bajas lógicas | `status` o `archived_at` / `revoked_at`. Nada del dominio se borra físicamente (ver excepciones abajo) |
-| Concurrencia optimista | `version integer not null default 1` en agregados editables. Lo incrementa el repositorio (`update ... set version = version + 1 where version = $n`, `If-Match`), no un trigger, para no doblar incrementos |
+| Concurrencia optimista | `version integer not null default 1` en agregados editables. Lo incrementa el repositorio al guardar, solo si la versión sigue siendo la esperada (la misma que el cliente envía en la cabecera de condición de la petición), y no un trigger, para no doblar incrementos |
 | Nombres | Inglés, `snake_case` |
 | Integridad entre tenants | Claves foráneas **compuestas** `(organization_id, x_id) -> tabla(organization_id, id)`. Las comprobaciones de FK ignoran RLS, así que esta es la única defensa contra referencias entre organizaciones |
 | Índices | Todo índice compuesto empieza por `organization_id`. Una prueba de CI lo verifica para toda tabla descubierta dinámicamente |
 | Secretos | Cifrados con AES-256-GCM: `ciphertext` (incluye el tag de 16 bytes), `nonce` de 12 bytes, `dek_version`. Tokens y claves de un solo uso: solo su SHA-256 (`bytea`, 32 bytes) |
-| Estados | `text` con `CHECK (... in (...))`. Se prefiere a `enum` porque agregar un valor es una migración trivial y reversible |
+| Estados | Texto con una restricción que lista los valores permitidos. Se prefiere a `enum` porque agregar un valor es una migración trivial y reversible |
 
 **Excepciones a "nada se borra"** (el rol de la aplicación tiene `DELETE` solo ahí):
 
@@ -419,7 +421,7 @@ Las columnas del plan ("Tablas de la fase 1") están todas. Las columnas **adici
 | display_name | text | not null |
 | rank | smallint | not null, `CHECK rank between 0 and 3` |
 | status | text | `invited` \| `active` \| `suspended` \| `deactivated`, default `invited` |
-| managed_by | uuid | FK(c) a `users`; `CHECK ((rank = 0) = (managed_by is null))` (solo la Raíz no tiene responsable) y distinto de `id` |
+| managed_by | uuid | FK(c) a `users`; una restricción exige que solo la Raíz (rango 0) carezca de responsable; nunca es el propio usuario |
 | created_by | uuid | FK(c) a `users`, nullable (la Raíz del bootstrap); inmutable por regla de dominio |
 | locale / timezone | text | `es-MX`\|`en-US` / default `UTC` |
 | last_login_at | timestamptz | nullable |
@@ -444,7 +446,7 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`group_memberships`**: `group_id` FK(c), `user_id` FK(c), `role` `manager` \| `member`, `added_by` FK(c). **UK** `(organization_id, group_id, user_id)`; índice `(organization_id, user_id)`. Que un gestor tenga rango 0 a 2 es regla de dominio.
 
-**`roles`** `version`: `name`, `is_system boolean`, `permissions text[]`, `created_by` FK(c) (nulo solo en plantillas del sistema: `CHECK (is_system or created_by is not null)`), `archived_at +`. Único parcial `(organization_id, lower(name)) where archived_at is null`; `unique (organization_id, id)`. Los permisos viven en código; aquí solo sus nombres.
+**`roles`** `version`: `name`, `is_system boolean`, `permissions text[]`, `created_by` FK(c) (nulo solo en las plantillas del sistema, por restricción), `archived_at +`. Único parcial `(organization_id, lower(name)) where archived_at is null`; `unique (organization_id, id)`. Los permisos viven en código; aquí solo sus nombres.
 
 **`user_roles`**: `user_id`, `role_id`, `granted_by` (todas FK(c)). **UK** `(organization_id, user_id, role_id)`; índice `(organization_id, role_id)`.
 
@@ -501,16 +503,12 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 ### 6.1 Política
 
-Toda tabla de dominio hace `ENABLE` y `FORCE ROW LEVEL SECURITY` en la misma migración que la crea, con esta condición:
+Toda tabla de dominio activa el aislamiento por fila **y lo fuerza también para su dueño** en la misma migración que la crea. La condición es una sola: la organización de la fila debe ser igual a la organización fijada en el contexto de la transacción (la variable `app.org_id`).
 
-```sql
-organization_id = nullif(current_setting('app.org_id', true), '')::uuid
-```
-
-- `current_setting(..., true)` devuelve `NULL` si la variable nunca se fijó, y `organization_id = NULL` nunca es verdadero: **cero filas** (falla cerrada), también para `INSERT/UPDATE` (`WITH CHECK`).
-- `nullif(..., '')` es necesario: tras un `SET LOCAL` terminado, el marcador de posición sobrevive como `''` en esa conexión del pool, y `''::uuid` lanzaría un error en lugar de devolver cero filas. Una prueba lo cubre (conexión reutilizada).
-- `FORCE` hace que el dueño también esté sujeto a las políticas.
-- Cada transacción de la API ejecuta `SET LOCAL app.org_id = '<uuid>'` (`UnitOfWork`), nunca fuera de una transacción.
+- Si la variable nunca se fijó, la comparación no es verdadera para ninguna fila: **cero filas** (falla cerrada), tanto al leer como al insertar o modificar.
+- La condición trata el valor vacío igual que la ausencia de valor. Es necesario: tras cerrar una transacción, el valor del contexto sobrevive como texto vacío en esa conexión del pool, y convertir un texto vacío a identificador produciría un error en lugar de cero filas. Una prueba lo cubre (conexión reutilizada).
+- Forzar el aislamiento hace que el dueño de las tablas también esté sujeto a las políticas.
+- Cada transacción de la API fija el contexto de organización solo para esa transacción (mediante la unidad de trabajo), nunca fuera de una transacción.
 - `organizations` no tiene `organization_id`: su política compara `id` con el contexto y solo permite `SELECT` y `UPDATE` de columnas editables. Crear organizaciones es un script de operación auditado, no `iam_app`.
 - Una política por tabla (`FOR ALL`), salvo donde conviene separar comandos: `platforms`, `credential_secrets` y `audit_events`.
 
@@ -547,7 +545,7 @@ Cuatro operaciones ocurren **antes** de conocer `app.org_id` y, con falla cerrad
 
 ### 7.2 Decisión
 
-Cuatro funciones `SECURITY DEFINER` mínimas en el esquema `auth` (migración `0008`). Tras la búsqueda, el llamador fija `app.org_id` con el `organization_id` devuelto y hace todo lo demás bajo RLS normal.
+Cuatro funciones de lectura mínimas, que se ejecutan con los privilegios de su dueño y no del llamador (`SECURITY DEFINER`), en el esquema `auth` (migración `0008`). Tras la búsqueda, el llamador fija el contexto de organización con la organización devuelta y hace todo lo demás bajo RLS normal.
 
 | Función | Entrada | Devuelve |
 | --- | --- | --- |
@@ -588,18 +586,13 @@ Los jobs transversales (verificación diaria de la cadena de auditoría, vencimi
 
 Un trigger `BEFORE INSERT` (`audit_events_chain`) asigna **en la base de datos**, ignorando lo que envíe el cliente: `seq` (1, 2, 3... por organización), `prev_hash` (el `hash` del evento anterior; 32 ceros en el primero), `created_at` (`clock_timestamp()`) y `hash`. La aplicación inserta solo los datos del evento (`actor_id`, `action`, `target_*`, `outcome`, `reason_code`, `ip`, `request_id`, `metadata`).
 
-```
-hash = sha256( utf8( jsonb_build_array(
-         hex(prev_hash), organization_id, seq, id, created_at_en_microsegundos_epoch,
-         actor_id, action, target_type, target_id, outcome, reason_code,
-         host(ip), request_id, metadata )::text ) )
-```
+El hash de cada evento es el SHA-256 de una lista ordenada con estos catorce datos: el hash anterior en hexadecimal, la organización, el número de secuencia, el identificador del evento, la fecha en microsegundos, el actor, la acción, el tipo y el identificador del objetivo, el resultado, el código de motivo, la dirección IP, el identificador de petición y los metadatos.
 
-Un arreglo JSON es una codificación sin ambigüedad (sin colisiones por separadores) y el texto de `jsonb` es canónico. Calcularlo en SQL evita reimplementar la serialización en TypeScript y que una divergencia rompa la cadena. La verificación también es SQL: `audit_verify_chain()` devuelve el `seq` del primer evento roto de la organización actual (`app.org_id`), o `NULL` si está íntegra; el job diario la llama por organización y alerta. Detecta alteraciones, saltos de `seq` y empalmes; **no** detecta el borrado de los eventos más recientes: eso lo ancla la exportación externa inmutable (S3 Object Lock) con el último `seq` y `hash`.
+Una lista JSON es una codificación sin ambigüedad (sin colisiones por separadores) y el texto de `jsonb` es canónico. Calcularlo en SQL evita reimplementar la serialización en TypeScript y que una divergencia rompa la cadena. La verificación también es SQL: `audit_verify_chain()` devuelve el `seq` del primer evento roto de la organización actual (`app.org_id`), o `NULL` si está íntegra; el job diario la llama por organización y alerta. Detecta alteraciones, saltos de `seq` y empalmes; **no** detecta el borrado de los eventos más recientes: eso lo ancla la exportación externa inmutable (S3 Object Lock) con el último `seq` y `hash`.
 
 ### 8.3 Advisory lock y su costo
 
-El trigger toma `pg_advisory_xact_lock(hashtextextended('audit_events:' || organization_id, 0))` para que dos escritores concurrentes no lean el mismo "evento anterior" y bifurquen la cadena. El lock vive **hasta el `COMMIT`**, así que serializa las transacciones de una organización que auditan. Consecuencias y mitigación:
+El trigger toma un bloqueo consultivo de transacción, cuya clave se deriva de la organización, para que dos escritores concurrentes no lean el mismo "evento anterior" y bifurquen la cadena. El lock vive **hasta el `COMMIT`**, así que serializa las transacciones de una organización que auditan. Consecuencias y mitigación:
 
 - Escribir el evento de auditoría como **última sentencia** de la transacción de negocio, para retener el lock lo mínimo.
 - Evitar transacciones largas que auditen (importaciones masivas: un evento resumen al final, no uno por fila dentro de una transacción de minutos).
@@ -611,7 +604,7 @@ El trigger toma `pg_advisory_xact_lock(hashtextextended('audit_events:' || organ
 El plan exige auditar las negaciones, pero la auditoría se escribe en la misma transacción que la acción y, ante una negación, esa transacción se revierte: el evento se perdería. Recomendación:
 
 1. Al denegar, el caso de uso lanza el error y **la transacción de negocio hace `ROLLBACK`**.
-2. Un *interceptor* de la capa HTTP (o el `UnitOfWork`, con una opción `onDenied`) abre **después del rollback** una transacción nueva y breve (`SET LOCAL app.org_id`, `INSERT INTO audit_events (... outcome = 'denied', reason_code ...)`, `COMMIT`).
+2. Un *interceptor* de la capa HTTP (o la unidad de trabajo, con una opción para el caso de negación) abre **después del rollback** una transacción nueva y breve: fija el contexto de organización, inserta un evento de auditoría con resultado "negado" y su código de motivo, y confirma.
 3. **No** escribirla desde dentro de la transacción original con una segunda conexión: si la original ya auditó algo, retiene el advisory lock y la transacción independiente esperaría a la original, que a su vez espera al interceptor (interbloqueo dentro de la misma petición).
 4. Falla cerrada **solo para acciones sensibles exitosas**: si no se puede registrar una negación, la negación igual se devuelve al usuario (nunca se convierte en permiso) y se genera una alerta operativa y una métrica; la pérdida de un evento de negación no debe abrir una acción.
 5. Las negaciones son ruidosas (un patrón de ellas es señal de abuso): permitir `metadata` mínima y agrupación en reportes, y un rate limit propio para que una ráfaga de negaciones no sature la cadena.
@@ -621,7 +614,7 @@ El plan exige auditar las negaciones, pero la auditoría se escribe en la misma 
 El plan retiene 2 años en línea y más en archivo, pero `DELETE` está revocado. Propuesta:
 
 - **Particionar `audit_events` por rango de `created_at`** (mensual) en una migración *expandir y contraer* cuando el volumen lo justifique. En una tabla particionada la clave primaria y los índices únicos deben incluir la columna de partición, así que `unique (organization_id, seq)` pasará a `(organization_id, seq, created_at)`; la unicidad real de `seq` la sigue garantizando el trigger bajo el advisory lock.
-- Crear el rol **`iam_audit_archiver`** (`NOLOGIN` en reposo; lo usa un job separado con credencial propia). Permisos: `SELECT` en `audit_events` (política `to iam_audit_archiver using (true)`, igual que `iam_auth_reader`) y `EXECUTE` en una función `SECURITY DEFINER` `audit_detach_partition(partition regclass, export_manifest_hash bytea)` que **solo** hace `ALTER TABLE ... DETACH PARTITION` y `DROP` si existe un registro en una tabla `audit_exports` (con el último `seq` y `hash` por organización y la huella del objeto en S3 Object Lock, verificada) y la partición tiene más de 2 años. Nunca `DELETE` fila por fila; `iam_app` sigue sin poder borrar.
+- Crear el rol **`iam_audit_archiver`** (`NOLOGIN` en reposo; lo usa un job separado con credencial propia). Permisos: lectura de la tabla de auditoría mediante una política propia del rol (igual que `iam_auth_reader`) y ejecución de una única función privilegiada de retiro de particiones. Esa función recibe la partición y la huella del manifiesto de exportación, y **solo** separa y elimina la partición completa si existe un registro en una tabla `audit_exports` (con el último `seq` y `hash` por organización y la huella del objeto en S3 Object Lock, verificada) y la partición tiene más de 2 años. Nunca se borra fila por fila; `iam_app` sigue sin poder borrar.
 - Antes de retirar una partición, guardar un **punto de control** por organización (`audit_chain_checkpoints`: `organization_id, seq, hash`) para que `audit_verify_chain()` pueda arrancar desde él en lugar de exigir el génesis.
 - La verificación de la exportación y el rol de archivado los revisa seguridad; la política de retención final queda en la lista de decisiones pendientes (validar con el área legal).
 
@@ -727,7 +720,7 @@ erDiagram
 
 ## 10. Pruebas
 
-`db/tests` (Vitest + Testcontainers, `postgres:17-alpine` real). Se ejecutan con `pnpm --filter @iam/db test`; sin Docker, con Podman: `DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock TESTCONTAINERS_RYUK_DISABLED=true`.
+`db/tests` (Vitest + Testcontainers, `postgres:17-alpine` real). Se ejecutan con el script de pruebas del espacio de trabajo `@iam/db`. Los comandos exactos, incluida la configuración para Podman, están en el [`README.md`](../README.md) raíz.
 
 | Archivo | Cubre |
 | --- | --- |

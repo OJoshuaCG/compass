@@ -14,7 +14,9 @@ Tipo de documento: explicación y referencia. Decisiones relacionadas: [ADR 0001
 6. [Multitenancy en tres capas](#6-multitenancy-en-tres-capas)
 7. [Estructura del repositorio](#7-estructura-del-repositorio)
 8. [Flujo de un caso de uso sensible](#8-flujo-de-un-caso-de-uso-sensible)
-9. [Estado actual (fase 0)](#9-estado-actual-fase-0)
+9. [Flujos de la fase 1a: petición autenticada e invitación](#9-flujos-de-la-fase-1a-petición-autenticada-e-invitación)
+10. [Estado actual (fases 0 y 1a)](#10-estado-actual-fases-0-y-1a)
+11. [Decisiones pendientes](#11-decisiones-pendientes)
 
 ## 1. Monolito modular y procesos
 
@@ -82,18 +84,20 @@ El plan describe un diagrama de "12 módulos" y su tabla de responsabilidades en
 | # | Módulo | Estado | Responsabilidad | Expone |
 | --- | --- | --- | --- | --- |
 | 1 | `organization` (kernel) | Fase 1 | Organizaciones, contexto de petición, configuración | `RequestContext`, configuración por organización |
-| 2 | `identity` | Fase 1 (protegido) | Invitaciones, contraseñas, passkeys, TOTP propio, sesiones, reautenticación | Autenticar, verificar sesión, exigir reautenticación |
-| 3 | `directory` | Fase 1 | Usuarios, rangos, responsable, grupos, membresías | Consultas de jerarquía y subárbol, eventos de baja |
-| 4 | `access` | Fase 1 (protegido) | Catálogo de permisos, roles, compartición, motor de decisión | `Authorizer.authorize()`, vista de acceso efectivo |
+| 2 | `identity` | Fase 1 (protegido). Implementado en 1a, sin passkeys | Invitaciones, contraseñas, passkeys, TOTP propio, sesiones, reautenticación | Autenticar, verificar sesión, exigir reautenticación |
+| 3 | `directory` | Fase 1. Implementado en 1a (usuarios, jerarquía y directorio; sin grupos) | Usuarios, rangos, responsable, grupos, membresías | Consultas de jerarquía y subárbol, eventos de baja |
+| 4 | `access` | Fase 1 (protegido). Implementado en 1a (sin compartición) | Catálogo de permisos, roles, compartición, motor de decisión | `Authorizer.authorize()`, vista de acceso efectivo |
 | 5 | `vault` | Fase 1 | Plataformas, cuentas, credenciales, versiones de secretos | Casos de uso de la bóveda |
 | 6 | `totp` | Fase 1 | Registro (5 métodos), handoff, generación de códigos | Código actual de una credencial |
 | 7 | `crypto` | Fase 0 y 1 (protegido) | `SecretCipher`, caché de DEK, rotación, índices ciegos | Cifrar, descifrar, HMAC por propósito |
 | 8 | `audit` | Fase 0 y 1 (protegido) | Escritura encadenada, verificación, consulta, exportación | `AuditLog.record()` dentro de la transacción |
 | 9 | `governance` | Fase 1 | Bajas con rotación, salud, acceso temporal | Tareas de rotación, paneles |
-| 10 | `notification` | Fase 1 | Correos traducidos, SSE, alertas | Enviar, publicar evento al cliente |
+| 10 | `notification` | Fase 1. Implementado en 1a solo para invitaciones, con adaptador de desarrollo | Correos traducidos, SSE, alertas | Enviar, publicar evento al cliente |
 | 11 | `federation` | Futuro (fases 2 y 3) | OIDC, SAML, SCIM | Por definir en esas fases |
 | 12 | `inbound-codes` | Futuro (fases 4 y 5) | Ingesta de correos y SMS | Por definir en esas fases |
 | 13 | `broker` | Futuro (fases 6 y 7) | Intenciones de login, sesiones delegadas | Por definir en esas fases |
+
+La fase 1a añadió además `provisioning` (alta de organizaciones por operaciones, con una conexión de administración y nunca desde una petición HTTP), que el plan no lista como módulo propio. Se mantiene fuera de la tabla porque no atiende peticiones de las personas de la organización.
 
 Los módulos protegidos son `identity`, `access`, `crypto` y `audit` (más migraciones con RLS, `SecretReveal` y la configuración de CSP y cabeceras); cada uno lleva su propio `CLAUDE.md` y requiere dos revisores ([`CLAUDE.md`](../CLAUDE.md), "Rutas protegidas").
 
@@ -109,8 +113,12 @@ flowchart TD
   totp --> audit
   identity --> crypto
   identity --> audit
-  directory --> access
-  directory --> audit
+  identity --> access
+  identity --> directory
+  identity --> notification
+  provisioning --> identity
+  provisioning --> access
+  access --> directory
   access --> audit
   governance --> audit
   governance --> vault
@@ -121,7 +129,7 @@ flowchart TD
   broker -. "futuro" .-> vault
 ```
 
-Línea continua: llamada síncrona a una fachada. Línea punteada: evento por outbox o dependencia futura. Todos los módulos pueden leer `RequestContext` de `organization` y los tipos de `shared/kernel`; esas aristas no se dibujan para no saturar el diagrama.
+Con la fase 1a, las flechas de `identity`, `access`, `directory` y `provisioning` reflejan el código implementado: `access` usa la regla de gestión de `directory` (no al revés, a diferencia de lo que dibujaba la versión anterior de este diagrama), e `identity` usa `access`, `directory` y `notification`. Línea continua: llamada síncrona a una fachada. Línea punteada: evento por outbox o dependencia futura. Todos los módulos pueden leer `RequestContext` de `organization` y los tipos de `shared/kernel`; esas aristas no se dibujan para no saturar el diagrama.
 
 ## 4. Capas hexagonales y regla de dependencia
 
@@ -166,50 +174,35 @@ Una sola organización en producción, con aislamiento aplicado en tres capas ([
 | 2. Base de datos | Row-Level Security: `organization_id = current_setting('app.org_id')::uuid`; `UnitOfWork.run` ejecuta `SET LOCAL app.org_id`; rol de aplicación sin `BYPASSRLS` y no dueño de las tablas | Sin contexto, cero filas (falla cerrada) |
 | 3. Criptografía | KEK y DEK por organización; el AAD incluye `org_id` | Texto cifrado de otra organización no se puede abrir con la DEK propia |
 
-Pendiente de decisión: las rutas previas a la autenticación (login, invitación, handoff, sesión) no conocen `app.org_id`; ver [ADR 0021](adr/0021-pre-authentication-access-with-rls.md) (Propuesta). El diseño de tablas y políticas está en [`database.md`](database.md).
+Las rutas previas a la autenticación (login, invitación, handoff, sesión) no conocen `app.org_id`; se resuelven con funciones de lectura mínimas y controladas, según el [ADR 0021](adr/0021-pre-authentication-access-with-rls.md) (aceptada e implementada en la fase 1a). El diseño de tablas y políticas está en [`database.md`](database.md).
 
 ## 7. Estructura del repositorio
 
-Árbol observado en el repositorio al cierre de la fase 0 (los archivos de código fuente de `apps/api/src`, `apps/web/src` y los paquetes los crean otras tareas de la fase; ver [sección 9](#9-estado-actual-fase-0)):
+Árbol observado en el repositorio al cierre de la fase 0 (los archivos de código fuente de `apps/api/src`, `apps/web/src` y los paquetes los crean otras tareas de la fase; ver [sección 10](#10-estado-actual-fases-0-y-1a)):
 
-```
-/
-├─ apps/
-│  ├─ api/                 # @iam/api: NestJS (Fastify); main.http.ts, main.worker.ts, main.migrate.ts
-│  └─ web/                 # @iam/web: SPA React + Vite + Tailwind v4
-├─ packages/
-│  ├─ config/              # @iam/config: tsconfig base y react, ESLint base y reglas de límites
-│  ├─ contracts/           # @iam/contracts: esquemas Zod, tipos, códigos de error
-│  ├─ i18n/                # @iam/i18n: catálogos es-MX y en-US
-│  └─ ui/                  # @iam/ui: tokens de diseño y componentes
-├─ db/                     # @iam/db: migraciones SQL versionadas con RLS y pruebas de aislamiento
-├─ docs/                   # guías, architecture.md, threat-model.md, adr/, runbooks/
-├─ odd/
-│  └─ tasks/               # documentos de especificación y seguimiento por funcionalidad
-├─ plan.md                 # fuente de verdad del producto
-├─ CLAUDE.md               # reglas no negociables para agentes
-├─ package.json            # scripts raíz (Turborepo) y engines
-├─ pnpm-workspace.yaml     # apps/*, packages/*, db; minimumReleaseAge, scripts de instalación en lista blanca
-├─ turbo.json              # tareas build, typecheck, lint, test, dev
-└─ .npmrc, .editorconfig, .prettierrc.json, .prettierignore, .gitignore
-```
+| Ruta | Contenido |
+| --- | --- |
+| `apps/api` | Backend (NestJS con Fastify). Tres puntos de entrada: API, worker y migraciones |
+| `apps/web` | Aplicación web (React, Vite y Tailwind v4) |
+| `packages/config` | Configuración base de TypeScript y ESLint, y reglas de límites entre capas |
+| `packages/contracts` | Esquemas de validación, tipos y códigos de error compartidos |
+| `packages/i18n` | Catálogos de textos `es-MX` y `en-US` |
+| `packages/ui` | Tokens de diseño y componentes de interfaz |
+| `db` | Migraciones versionadas con aislamiento por organización, y sus pruebas |
+| `docs` | Guías, lógica de negocio, arquitectura, modelo de amenazas, ADR y runbooks |
+| `odd/tasks` | Documentos de especificación y seguimiento por funcionalidad |
+| `plan.md` | Fuente de verdad del producto |
+| `CLAUDE.md` | Reglas no negociables para agentes |
+| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | Scripts raíz, espacios de trabajo (con espera de 7 días tras cada publicación y scripts de instalación en lista blanca) y tareas de Turborepo |
+| Archivos de formato y de git en la raíz | Configuración de editor, Prettier, npm y exclusiones de git |
 
 Planeado por el plan y aún no creado: `apps/mobile-handoff` (página ligera de cámara para el 2FA por celular), `CODEOWNERS`, la plantilla de PR y los `README.md` y `CLAUDE.md` por módulo.
 
 Estructura de un módulo del backend (`apps/api/src/modules/<modulo>/`):
 
-```
-domain/            # entidades, políticas, errores (TS puro)
-application/       # casos de uso y puertos
-infrastructure/    # repositorios Drizzle, adaptadores
-interface/         # controladores, mapeo a contratos
-<modulo>.module.ts # raíz de composición
-index.ts           # fachada pública del módulo
-README.md
-CLAUDE.md          # solo en módulos protegidos
-```
+Cada módulo contiene una carpeta por capa (dominio, aplicación, infraestructura e interfaz), un archivo de composición que une puertos con adaptadores, una fachada pública que es el único punto de entrada para otros módulos, un `README.md` y, solo en módulos protegidos, un `CLAUDE.md`.
 
-El detalle de archivos de ejemplo está en `docs/backend.md` §3.3. El flujo de trabajo del equipo y los comandos están en el [`README.md`](../README.md) raíz.
+El detalle de la estructura está en `docs/backend.md` §3.3. El flujo de trabajo del equipo y los comandos están en el [`README.md`](../README.md) raíz.
 
 ## 8. Flujo de un caso de uso sensible
 
@@ -236,7 +229,7 @@ sequenceDiagram
   Z-->>UC: Decision (permitido, motivo, obligaciones)
   alt negado
     UC-->>C: Result.err (código estable)
-    Note over UC,A: la negación también se audita; ver ADR 0022 (Propuesta)
+    Note over UC,A: la negación también se audita, en transacción independiente; ver ADR 0022 (aceptada)
   else permitido
     UC->>S: descifrar con propósito REVEAL (AAD org_id, credential_id, field, version)
     S-->>UC: secreto en memoria
@@ -256,8 +249,91 @@ Reglas que el flujo hace cumplir:
 4. El secreto solo viaja en la respuesta dedicada, con `Cache-Control: no-store`, y nunca se registra en logs.
 5. Los eventos de dominio van al outbox en la misma transacción y los publica el worker.
 
-Puntos abiertos que afectan este flujo y están en estado Propuesta: negaciones en transacción independiente ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md)) y el advisory lock de auditoría con transacciones largas ([ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md)).
+Las negaciones se registran en una transacción independiente ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md), aceptada e implementada en la fase 1a). Sigue abierto, en estado Propuesta, el advisory lock de auditoría con transacciones largas ([ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md)).
 
-## 9. Estado actual (fase 0)
+## 9. Flujos de la fase 1a: petición autenticada e invitación
 
-La fase 0 entrega el esqueleto: monorepo, contexto de organización, `crypto` y `audit` con pruebas, RLS activo, esqueleto de UI con tokens oscuros e i18n, y los ADR 0001 a 0020. El criterio de salida completo está en `plan.md` ("Criterios de salida por fase") y el seguimiento en [`odd/tasks/phase-0-foundations.md`](../odd/tasks/phase-0-foundations.md). Los módulos de negocio de la fase 1 aún no existen.
+### 9.1 Petición autenticada
+
+Toda ruta exige una sesión válida salvo las marcadas como públicas. Las rutas de sesión parcial aceptan una sesión que todavía no completó el segundo factor.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as Persona (SPA)
+  participant G as Guards globales
+  participant S as Servicio de sesión
+  participant DB as PostgreSQL
+  participant C as Controlador y caso de uso
+  participant Z as Authorizer (access)
+  participant A as AuditLog (audit)
+
+  U->>G: petición con cookie de sesión
+  G->>G: límite por IP y protección CSRF
+  G->>S: autenticar el token de la cookie
+  S->>DB: buscar la sesión por hash del token (función previa a la autenticación)
+  DB-->>S: datos mínimos de la sesión
+  S->>S: revocada, vencida o inactiva se rechaza sin distinguir la causa
+  S->>DB: actualizar la última actividad si pasó más de un minuto (reloj de la aplicación)
+  S-->>G: persona, organización y estado del segundo factor
+  G->>C: contexto de petición fijado desde la sesión
+  C->>DB: abrir transacción con la organización de la sesión
+  C->>Z: autorizar la acción
+  alt negada
+    Z->>A: registrar la negación en transacción independiente
+    Z-->>C: error estable con código de motivo
+  else permitida
+    C->>DB: lógica de negocio
+    C->>A: auditar en la misma transacción
+    C-->>U: respuesta
+  end
+```
+
+### 9.2 Invitación y alta de una persona
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor I as Quien invita
+  actor P as Persona invitada
+  participant API as API
+  participant DB as PostgreSQL
+  participant M as Correo (puerto)
+
+  I->>API: crear invitación (correo, rango, roles)
+  API->>API: permiso, matriz de creación y no escalamiento (negaciones auditadas)
+  API->>DB: guardar solo el hash del token y vencimiento de 72 horas
+  API->>M: enviar el enlace a la persona invitada
+  API-->>I: confirmación sin el enlace ni el token
+  P->>API: abrir el enlace y previsualizar
+  P->>API: aceptar con nombre y contraseña
+  API->>DB: bloquear la invitación y revalidar vigencia, quien invitó y roles
+  API->>DB: crear usuario invitado, asignar roles, marcar la invitación como usada
+  API-->>P: sesión parcial (falta el segundo factor)
+  P->>API: pedir el secreto del segundo factor y confirmarlo con un código
+  API->>DB: verificar factor, guardar hash de 10 códigos de recuperación, activar a la persona
+  API-->>P: códigos de recuperación (se muestran una sola vez)
+```
+
+El detalle paso a paso está en [`backend.md`](backend.md) §3.7 y §3.8. Hoy el correo lo escribe en el registro el adaptador de desarrollo; el proveedor real está pendiente (§11).
+
+## 10. Estado actual (fases 0 y 1a)
+
+La **fase 0** está terminada y entregó el esqueleto: monorepo, contexto de organización, `crypto` y `audit` con pruebas, RLS activo, esqueleto de UI con tokens oscuros e i18n, y los ADR 0001 a 0020. El criterio de salida completo está en `plan.md` ("Criterios de salida por fase") y el seguimiento en [`odd/tasks/phase-0-foundations.md`](../odd/tasks/phase-0-foundations.md).
+
+La **fase 1a (identidad)** está implementada en lo esencial en backend y frontend: alta de organización por operaciones, invitaciones, contraseña y segundo factor con aplicación autenticadora, inicio de sesión, sesiones, reautenticación, motor de autorización con 27 permisos y auditoría de negaciones, y directorio de personas. La web ofrece las pantallas de ingreso, verificación en dos pasos, registro del segundo factor, aceptación de invitación, directorio con invitar y el diálogo de reautenticación. Las pruebas de punta a punta pasan contra PostgreSQL real. No está cerrada: faltan, entre otros, las passkeys y la recuperación de la Raíz (§11). La lógica de negocio está en [`business/`](business/README.md) y el estado detallado en [`business/roadmap-and-status.md`](business/roadmap-and-status.md).
+
+## 11. Decisiones pendientes
+
+Vigentes tras la fase 1a. El detalle técnico está en [`backend.md`](backend.md) §16.
+
+| Tema | Situación |
+| --- | --- |
+| Passkeys (WebAuthn) | No implementadas; el segundo factor es solo TOTP |
+| Cambio de la contraseña inicial de la Raíz | La marca existe y no se aplica; no hay flujo de cambio de contraseña |
+| Redis para límites de intentos y por IP | Hoy en memoria de cada instancia; el sistema debe operar con una sola instancia hasta incorporarlo |
+| Proveedor de correo | Solo existe el adaptador de desarrollo; faltan el proveedor real y los avisos |
+| Idempotencia de peticiones que crean recursos | No implementada |
+| Auditoría de negaciones | **Resuelta** ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md)); sigue abierta la agrupación de negaciones repetidas |
+| Advisory lock de auditoría en transacciones largas | Propuesta ([ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md)) |
+| Retención de auditoría | Propuesta ([ADR 0024](adr/0024-audit-retention-vs-revoke-delete.md)) |

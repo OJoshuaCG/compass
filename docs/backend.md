@@ -1,23 +1,25 @@
 # Guía de backend
 
-Reglas de arquitectura, código y operación de `apps/api` (NestJS + TypeScript). Complementa a `plan.md`: si algo aquí contradice al plan en seguridad, manda el plan. El contrato con el frontend (paginación, errores, idempotencia) está alineado con `docs/frontend.md`.
+Reglas de arquitectura, código y operación de `apps/api` (NestJS + TypeScript). Complementa a `plan.md`: si algo aquí contradice al plan en seguridad, manda el plan. El contrato con el frontend (paginación, errores, idempotencia) está alineado con [`frontend.md`](frontend.md). Las reglas de negocio que el backend implementa están explicadas en [`business/`](business/README.md).
+
+Esta guía describe reglas y decisiones; no incluye código. Cuando una regla se apoya en una pieza concreta del repositorio, se indica la ruta del archivo.
 
 ## 1. Principios
 
-1. **El dominio no conoce el framework.** NestJS, Drizzle, Redis y el KMS son detalles reemplazables.
-2. **Una sola puerta por responsabilidad.** Autorizar: `Authorizer`. Cifrar: `SecretCipher`. Auditar: `AuditLog`. Nadie reimplementa esos pasos.
+1. **El dominio no conoce el framework.** NestJS, el acceso a datos, Redis y el KMS son detalles reemplazables.
+2. **Una sola puerta por responsabilidad.** Autorizar lo hace el motor de autorización; cifrar, el servicio de cifrado; auditar, el registro de auditoría. Nadie reimplementa esos pasos.
 3. **Falla cerrada.** Sin contexto de organización, sin permiso, sin auditoría o sin KMS, la acción no ocurre.
 4. **Lo que no tiene lint o prueba, se rompe.** Cada regla de esta guía indica cómo se verifica.
-5. **Los secretos nunca salen de `crypto`.** No se registran, no se serializan, no se devuelven fuera de la acción que los revela.
+5. **Los secretos nunca salen del módulo de cifrado.** No se registran, no se serializan, no se devuelven fuera de la acción que los revela.
 6. **Entradas no confiables en los bordes.** Todo dato externo se valida con Zod antes de entrar a la aplicación.
 
 ## 2. Stack
 
-La lista aprobada está en el plan (sección "Stack tecnológico y bibliotecas aprobadas"): Node.js LTS, TypeScript `strict`, NestJS con Fastify, PostgreSQL 16+, Drizzle, BullMQ + Redis, Zod, `jose`, `@node-rs/argon2`, `@simplewebauthn/server`, `otplib`, `pino`, OpenTelemetry.
+La lista aprobada está en el plan (sección "Stack tecnológico y bibliotecas aprobadas"): Node.js LTS, TypeScript en modo estricto, NestJS con Fastify, PostgreSQL 16+, Drizzle, BullMQ + Redis, Zod, `jose`, `@node-rs/argon2`, `@simplewebauthn/server`, `otplib`, `pino`, OpenTelemetry.
 
-> **Estado de dependencias (fase 0):** instaladas con versión exacta y publicadas hace más de 7 días (`minimumReleaseAge` de pnpm): `uuidv7`, `unplugin-swc` + `@swc/core` (Vitest necesita emitir metadatos de decoradores para los controladores de Nest), `dependency-cruiser`, `fastify` y `@fastify/helmet`. **Sigue pendiente** un generador de OpenAPI desde Zod (por ejemplo `@asteasolutions/zod-to-openapi`). Para `Result`, el pipe de validación Zod y la configuración de entorno se escribió código propio pequeño.
+> **Estado de dependencias (fase 0):** instaladas con versión exacta y publicadas hace más de 7 días (`minimumReleaseAge` de pnpm): `uuidv7`, `unplugin-swc` + `@swc/core` (Vitest necesita emitir metadatos de decoradores para los controladores de Nest), `dependency-cruiser`, `fastify` y `@fastify/helmet`. **Sigue pendiente** un generador de OpenAPI desde Zod (por ejemplo `@asteasolutions/zod-to-openapi`). Para el tipo de resultado, el validador Zod de peticiones y la configuración de entorno se escribió código propio pequeño.
 >
-> **Versiones relevantes:** TypeScript **6.0.3** (no 7: `typescript-eslint` 8.72 solo admite `<6.1.0`) y NestJS 12, que es **solo ESM**; por eso todo el monorepo es ESM (`module: NodeNext`, imports relativos con extensión `.js`).
+> **Versiones relevantes:** TypeScript **6.0.3** (no 7: `typescript-eslint` 8.72 solo admite versiones inferiores a 6.1.0) y NestJS 12, que es **solo ESM**; por eso todo el monorepo es ESM (módulos `NodeNext`, imports relativos con extensión `.js`).
 
 ## 3. Arquitectura
 
@@ -25,7 +27,7 @@ La lista aprobada está en el plan (sección "Stack tecnológico y bibliotecas a
 
 El plan ya la fija (ADR 001) y conviene mantenerla en el backend por tres razones concretas de este producto:
 
-- **Hay reglas de seguridad que deben ser TS puro y 100 % probables** (matriz de jerarquía, motor de decisión, versiones de secretos). Aislarlas del framework permite pruebas unitarias exhaustivas y mutación (Stryker) sin levantar Nest ni base de datos.
+- **Hay reglas de seguridad que deben ser TypeScript puro y 100 % probables** (matriz de jerarquía, motor de decisión, versiones de secretos). Aislarlas del framework permite pruebas unitarias exhaustivas y mutación (Stryker) sin levantar Nest ni base de datos.
 - **Los adaptadores sí cambiarán**: KMS local / AWS (y quizá GCP o Azure, ADR 020), correo, SMS, Redis.
 - **El monolito se podrá partir** (ADR 001) porque los módulos solo se hablan por fachadas y eventos.
 
@@ -39,123 +41,119 @@ Matices para que no se vuelva ceremonia:
 
 | Capa | Contiene | Puede importar |
 | --- | --- | --- |
-| `domain` | Entidades, objetos de valor, políticas, eventos, errores | Solo `domain` del módulo y `shared/kernel`. **Sin** NestJS, Drizzle ni Node |
+| `domain` | Entidades, objetos de valor, políticas, eventos, errores | Solo `domain` del módulo y `shared/kernel`. **Sin** NestJS, acceso a datos ni Node |
 | `application` | Casos de uso, puertos, DTO internos | `domain` del módulo, fachadas públicas de otros módulos y `shared/kernel`. **Sin** decoradores de Nest |
-| `infrastructure` | Repositorios Drizzle, KMS, Redis, correo | `application`, `domain`, bibliotecas externas |
+| `infrastructure` | Repositorios, KMS, Redis, correo | `application`, `domain`, bibliotecas externas |
 | `interface` | Controladores, SSE, procesadores de cola, mapeo a contratos | `application` del módulo y `packages/contracts` |
-| `<modulo>.module.ts` | **Raíz de composición**: une puertos con adaptadores | Todas las capas del módulo |
+| Archivo de composición del módulo | **Raíz de composición**: une puertos con adaptadores | Todas las capas del módulo |
 
-- Verificación en `apps/api`: reglas `no-restricted-imports` por capa en `eslint.config.js` (domain/application sin Nest, Drizzle ni `node:*`; `node:crypto` solo en `modules/crypto`) y `dependency-cruiser` (`.dependency-cruiser.cjs`) para la regla entre módulos (solo por `index.ts`) y los ciclos. `eslint-plugin-boundaries` se usa en `apps/web`. Ambas comprobaciones corren con `pnpm lint`.
-- **Entre módulos**: solo por `index.ts` (fachada) o por eventos de dominio vía outbox. Ningún módulo lee tablas ni repositorios de otro.
-- **`node:crypto` solo en `modules/crypto`** (lint `no-restricted-imports`).
+- Verificación en `apps/api`: restricciones de importación por capa en la configuración de ESLint (`apps/api/eslint.config.js`: domain y application sin Nest, acceso a datos ni módulos de Node; la criptografía de Node solo en el módulo `crypto`) y `dependency-cruiser` (`apps/api/.dependency-cruiser.cjs`) para la regla entre módulos (solo por la fachada) y los ciclos. `eslint-plugin-boundaries` se usa en `apps/web`. Ambas comprobaciones corren con `pnpm lint`.
+- **Entre módulos**: solo por la fachada pública o por eventos de dominio vía outbox. Ningún módulo lee tablas ni repositorios de otro.
+- **La criptografía de Node solo se importa en `modules/crypto`** (restricción de importación verificada por lint).
 
-> **Extensión al plan:** el plan no nombra `*.module.ts`. Se añade como archivo en la raíz de cada módulo porque es el único sitio donde el cableado de DI puede conocer todas las capas sin romper la regla de dependencia.
+> **Extensión al plan:** el plan no nombra el archivo de composición de cada módulo. Se añade en la raíz de cada módulo porque es el único sitio donde el cableado de inyección de dependencias puede conocer todas las capas sin romper la regla de dependencia.
 
 ### 3.3 Estructura de un módulo
 
-```
-modules/vault/
-├─ domain/
-│  ├─ account.ts            # entidad / agregado
-│  ├─ credential.ts
-│  ├─ share-level.ts        # objeto de valor (USE < VIEW < EDIT < MANAGE)
-│  ├─ errors.ts             # DomainError con códigos estables
-│  └─ events.ts             # eventos de dominio
-├─ application/
-│  ├─ reveal-password.ts    # un caso de uso = una clase = un archivo
-│  ├─ ports/
-│  │  ├─ account-repository.ts
-│  │  └─ secret-store.ts
-│  └─ dto.ts
-├─ infrastructure/
-│  ├─ drizzle-account-repository.ts
-│  └─ schema.ts             # tablas Drizzle del módulo
-├─ interface/
-│  ├─ vault.controller.ts
-│  └─ vault.mapper.ts       # dominio → contrato
-├─ vault.module.ts          # raíz de composición
-├─ index.ts                 # fachada pública
-├─ README.md
-└─ CLAUDE.md                # solo en módulos protegidos
-```
+Cada módulo vive en `apps/api/src/modules/<modulo>/`. Tomando `vault` como ejemplo:
+
+| Elemento | Qué contiene |
+| --- | --- |
+| Carpeta de dominio | Entidades y agregados (cuenta, credencial), objetos de valor (el nivel de compartición, con su orden USE < VIEW < EDIT < MANAGE), errores con códigos estables y eventos de dominio |
+| Carpeta de aplicación | Un archivo por caso de uso, los puertos (interfaces de repositorios y de almacén de secretos) y los DTO internos |
+| Carpeta de infraestructura | Implementaciones de los repositorios y las tablas del módulo |
+| Carpeta de interfaz | El controlador y el mapeo de dominio a contrato |
+| Archivo de composición del módulo | Raíz de composición: une puertos con adaptadores |
+| Fachada pública | Único punto de entrada para otros módulos |
+| `README.md` | Responsabilidad, fachada, eventos que emite y consume |
+| `CLAUDE.md` | Solo en módulos protegidos |
 
 ### 3.4 `shared/kernel`
 
 Lo único compartido por todos los módulos. Mantenerlo mínimo y sin lógica de negocio:
 
-- `Result<T, E>`, `ok()`, `err()` (implementación propia, pequeña).
-- `DomainError` base (código estable, mensaje, metadatos seguros).
-- Tipos de marca: `UserId`, `OrganizationId`, `CredentialId`…
-- Puertos transversales: `Clock`, `IdGenerator` (UUIDv7), `RequestContext` (lectura).
+- El tipo de resultado (éxito o error) y sus dos constructores, de implementación propia y pequeña.
+- El error de dominio base (código estable, mensaje, metadatos seguros).
+- Tipos de marca para los identificadores (usuario, organización, credencial…).
+- Puertos transversales: el reloj, el generador de identificadores (UUIDv7) y la lectura del contexto de petición.
 
 Si una pieza de `shared/kernel` empieza a conocer un concepto de un módulo, pertenece a ese módulo.
 
 ### 3.5 Comunicación entre módulos
 
-- **Síncrona**: `vault` llama a `access.Authorizer` y a `crypto.SecretCipher` mediante sus fachadas. La fachada exporta **interfaces y casos de uso**, nunca entidades ni repositorios.
-- **Asíncrona**: eventos de dominio en `outbox_events`, escritos en la misma transacción y publicados por el worker. Los consumidores son idempotentes (un evento puede llegar dos veces).
+- **Síncrona**: `vault` llama al motor de autorización de `access` y al servicio de cifrado de `crypto` mediante sus fachadas. La fachada exporta **interfaces y casos de uso**, nunca entidades ni repositorios.
+- **Asíncrona**: eventos de dominio en la tabla de salida (outbox), escritos en la misma transacción y publicados por el worker. Los consumidores son idempotentes (un evento puede llegar dos veces).
 - **Prohibido**: importar repositorios, entidades o tablas de otro módulo.
+
+### 3.6 Módulos de negocio implementados (fase 1a)
+
+Además de `crypto`, `audit` y `organization` (fase 0), la fase 1a añadió cinco módulos en `apps/api/src/modules/`. Los módulos con dependencias hacia otros solo las tienen a través de sus fachadas.
+
+| Módulo | Responsabilidad en la fase 1a | Depende de |
+| --- | --- | --- |
+| `identity` (protegido) | Inicio de sesión con segundo factor, sesiones y cierre de sesión, reautenticación, alta del segundo factor (aplicación autenticadora) y códigos de recuperación, invitaciones (crear, previsualizar, aceptar), política de contraseñas y política de intentos fallidos. Sus consultas previas a la autenticación usan las funciones mínimas del [ADR 0021](adr/0021-pre-authentication-access-with-rls.md) | `access`, `audit`, `crypto`, `directory`, `notification`, `organization` |
+| `access` (protegido) | Catálogo de 27 permisos con techo de rango, plantillas de rol del sistema, permisos efectivos, no escalamiento de roles, función pura de decisión y el motor de autorización que audita cada negación ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md)) | `directory`, `audit` |
+| `directory` | Usuarios, rangos, responsable y creador, regla de gestión, matriz de creación, alta de un usuario y listado del directorio con búsqueda, orden y paginación por cursor | `organization` |
+| `provisioning` | Alta de una organización por operaciones, con una conexión de administración: crea la organización, las plantillas de rol, la Raíz en estado invitada y su contraseña inicial en una sola transacción. Nunca se invoca desde una petición HTTP y hoy se ejercita en las pruebas; falta el comando de operaciones | `access`, `identity` |
+| `notification` | Puerto de correo saliente. Hoy solo envía invitaciones; el adaptador de desarrollo escribe el enlace en el registro y se niega a arrancar en producción, y un adaptador en memoria sirve a las pruebas. Falta el adaptador del proveedor real | Ninguno |
+
+### 3.7 Flujo de una petición autenticada
+
+1. La petición llega con la cookie de sesión. Los proveedores globales se evalúan en este orden: límite por dirección de red (solo en las rutas marcadas), protección CSRF (cabecera personalizada y verificación de `Origin` en las peticiones que modifican) y guard de sesión.
+2. El guard de sesión toma el token solo de la cookie, calcula su hash y busca la sesión con la función previa a la autenticación. Rechaza sin distinguir la causa si la sesión está revocada, vencida (absoluta), inactiva (30 minutos) o es de una persona que no está activa ni invitada. Si pasaron más de 60 segundos desde la última actividad, la actualiza con el reloj de la aplicación ([ADR 0025](adr/0025-session-time-single-clock-source.md)).
+3. Si la sesión no completó el segundo factor, solo entra a las rutas marcadas como de sesión parcial (completar el segundo factor, registrarlo, cerrar sesión). En las demás, la respuesta indica si falta registrar o verificar el factor.
+4. Un interceptor fija el contexto de la petición (organización, persona, sesión, frescura de la reautenticación) con datos de la sesión, nunca del cliente.
+5. El controlador valida la entrada con Zod y llama a un caso de uso. El caso de uso abre la transacción con el contexto de organización, pide la decisión al motor de autorización, ejecuta la lógica, audita en la misma transacción y devuelve un resultado tipado.
+6. Si el motor niega, registra la negación en una transacción independiente con su código de motivo y responde con el error estable. La reautenticación vencida se responde con un código específico que la interfaz reconoce para abrir su diálogo.
+
+El guard de permisos como "primera barrera" (§7.2) **no está implementado**: hoy la autorización completa la hace el caso de uso con el motor.
+
+### 3.8 Flujo de una invitación
+
+1. **Crear.** Quien invita se autoriza con el permiso de invitar; se valida la matriz de creación y el no escalamiento de roles (cada negación se audita); se comprueba que el correo no exista; se revocan las invitaciones vencidas de ese correo; se genera un token de 256 bits y se guarda solo su hash; se envía el correo y se audita. Todo ocurre en una transacción: si el envío falla, no queda una invitación sin enviar. El token nunca vuelve a quien invita.
+2. **Previsualizar.** La persona invitada abre el enlace y consulta, con el token en el cuerpo de una petición (nunca en la URL), el correo y el rango. Una invitación inexistente, vencida, usada o revocada responde igual.
+3. **Aceptar.** Se valida la contraseña (mínimo 12 caracteres, sin reglas de composición, rechazo de comunes y de datos personales). En una transacción se bloquea la invitación, se revalida que siga vigente, que quien invitó siga activo y que todavía pueda otorgar los roles; se crea el usuario como invitado con quien invita como creador y responsable; se asigna la plantilla de su rango más los roles pedidos; se marca la invitación como usada y se emite una sesión parcial. Cualquier falla se ve igual que una invitación inválida.
+4. **Segundo factor.** Con la sesión parcial, la persona pide el secreto (se guarda cifrado y sin verificar), confirma con un código, el sistema emite 10 códigos de recuperación (solo se guarda su hash), activa a la persona y marca la sesión con el segundo factor cumplido.
 
 ## 4. Dominio
 
-- **TS puro**, sin `Date.now()` ni `Math.random()` directos: el tiempo y los ids llegan por `Clock` e `IdGenerator`, para que las pruebas sean deterministas.
+- **TypeScript puro**, sin lecturas directas de la hora ni de azar: el tiempo y los identificadores llegan por el reloj y el generador de identificadores, para que las pruebas sean deterministas.
 - **Agregados pequeños**, con invariantes en el constructor o en métodos de fábrica; no hay entidades "anémicas" que cualquiera mute desde fuera.
-- **Objetos de valor inmutables** (`ShareLevel`, `Rank`, `Email`, `TotpUri`) que validan al crearse.
-- **Tipos de marca** para todo identificador. Un `UserId` no es un `CredentialId`.
-- **Errores esperados como `Result<T, DomainError>`**; las excepciones se reservan para lo inesperado (bug, caída). Cada `DomainError` lleva un `code` estable (`AUTHZ.HIERARCHY.NOT_IN_SUBTREE`), clave de traducción en la UI y entrada de un catálogo versionado.
-- **Políticas como funciones puras**: `puedeGestionar(actor, objetivo)`, matriz de creación y no escalamiento viven en `domain` y se prueban con tablas.
+- **Objetos de valor inmutables** (nivel de compartición, rango, correo, URI de TOTP) que validan al crearse.
+- **Tipos de marca** para todo identificador. Un identificador de usuario no es un identificador de credencial.
+- **Errores esperados como resultado tipado**; las excepciones se reservan para lo inesperado (bug, caída). Cada error de dominio lleva un `code` estable (por ejemplo, el de "usuario fuera del subárbol de gestión"), que es la clave de traducción en la UI y una entrada de un catálogo versionado.
+- **Políticas como funciones puras**: la regla de gestión entre actores, la matriz de creación y el no escalamiento viven en `domain` y se prueban con tablas.
 - Los eventos de dominio son datos inmutables, sin referencias a infraestructura.
 
 ## 5. Aplicación
 
 ### 5.1 Casos de uso
 
-- Una clase, un método `execute`, un archivo, un nombre en imperativo (`RevealPassword`, `ShareAccount`, `DeactivateUser`).
-- **Sin decoradores de Nest**: es una clase TS normal con sus dependencias por constructor. El cableado lo hace `*.module.ts` con `useFactory`.
-- Devuelve `Result<T, DomainError>`; no lanza excepciones por reglas de negocio.
-- No recibe `organizationId` como argumento libre: lo lee del `RequestContext`.
+- Una clase, un método de ejecución, un archivo, un nombre en imperativo (revelar contraseña, compartir cuenta, desactivar usuario).
+- **Sin decoradores de Nest**: es una clase normal con sus dependencias por constructor. El cableado lo hace el archivo de composición del módulo con fábricas.
+- Devuelve un resultado tipado; no lanza excepciones por reglas de negocio.
+- No recibe el identificador de organización como argumento libre: lo lee del contexto de petición.
 
-```ts
-export class RevealPassword {
-  constructor(private readonly deps: {
-    authorizer: Authorizer;
-    accounts: AccountRepository;
-    secrets: SecretReader;
-    audit: AuditLog;
-    uow: UnitOfWork;
-  }) {}
-
-  async execute(cmd: RevealPasswordCommand): Promise<Result<RevealedSecret, DomainError>> {
-    return this.deps.uow.run(async () => {
-      const decision = await this.deps.authorizer.authorize(
-        'credential.reveal_password',
-        { type: 'credential', id: cmd.credentialId },
-      );
-      if (!decision.allowed) return err(decision.toError());
-      // … leer secreto con propósito REVEAL, auditar, devolver
-    });
-  }
-}
-```
+Ejemplo, el caso de uso de revelar una contraseña: recibe por constructor el motor de autorización, el repositorio de cuentas, el lector de secretos, la auditoría y la unidad de trabajo. Su único método abre la transacción, pide la decisión de autorización para el permiso de revelar sobre la credencial indicada y, si se niega, devuelve el error de la decisión. Solo si se permite lee el secreto con el propósito de revelación, audita y devuelve el resultado.
 
 ### 5.2 Flujo obligatorio de un caso de uso sensible
 
-1. Abrir la transacción (`UnitOfWork.run`), que fija `SET LOCAL app.org_id`.
-2. Llamar a `Authorizer.authorize()` (motor completo de 7 pasos del plan). El guard del controlador es una red de seguridad, **no** la autorización.
+1. Abrir la transacción mediante la unidad de trabajo, que fija el contexto de organización de la base de datos.
+2. Pedir la decisión al motor de autorización (los 7 pasos del plan). El guard del controlador es una red de seguridad, **no** la autorización.
 3. Ejecutar la lógica de dominio.
-4. Escribir la auditoría con `AuditLog.record()` **en la misma transacción**. La secuencia (`seq`), `prev_hash`, `hash` y `created_at` los asigna un trigger de la base de datos con un advisory lock por organización: la aplicación nunca calcula el hash. La verificación es `audit_verify_chain()`.
-5. Escribir eventos en `outbox_events` en la misma transacción.
+4. Escribir la auditoría **en la misma transacción**. El número de secuencia, el hash anterior, el hash y la fecha los asigna un trigger de la base de datos con un bloqueo por organización: la aplicación nunca calcula el hash. La verificación de la cadena es una función de la propia base de datos (ver [`database.md`](database.md) §8).
+5. Escribir los eventos de salida (outbox) en la misma transacción.
 6. Cerrar la transacción. Si la auditoría falla, la acción falla.
 
 ### 5.3 Puertos
 
-- Interfaces TS en `application/ports/`, nombradas por intención (`AccountRepository`, `KeyManagementPort`), con TSDoc obligatorio.
-- Tokens de inyección: `Symbol` exportado junto a la interfaz (`ACCOUNT_REPOSITORY`).
-- Los repositorios devuelven entidades de dominio, no filas ni tipos de Drizzle.
+- Interfaces TypeScript en la carpeta de puertos de la capa de aplicación, nombradas por intención (repositorio de cuentas, puerto de gestión de claves), con documentación TSDoc obligatoria.
+- Los puntos de inyección se identifican con un símbolo exportado junto a la interfaz.
+- Los repositorios devuelven entidades de dominio, no filas ni tipos del acceso a datos.
 
 ### 5.4 Consultas (lectura)
 
-- Pueden usar proyecciones SQL directas, **siempre** unidas a la vista `effective_access`. Prohibido cargar registros para filtrarlos en memoria.
+- Pueden usar proyecciones SQL directas, **siempre** unidas a la vista de acceso efectivo. Prohibido cargar registros para filtrarlos en memoria.
 - Cada consulta de listado declara su lista blanca de filtros y de campos ordenables (solo indexados).
 - Paginación por cursor (sección 7.4).
 
@@ -163,57 +161,51 @@ export class RevealPassword {
 
 ### 6.1 Base de datos (Drizzle + PostgreSQL)
 
-- Esquemas Drizzle **por módulo** (`infrastructure/schema.ts`); ningún módulo importa el esquema de otro.
+- Esquemas de acceso a datos **por módulo**; ningún módulo importa el esquema de otro.
 - Migraciones SQL versionadas en `db/migrations`, con RLS por tabla. **Nunca se edita una migración aplicada**: se crea otra.
-- **Una tabla nueva** incluye en la misma migración `organization_id`, índice compuesto que empieza por él y política RLS. Una prueba de CI lo verifica.
+- **Una tabla nueva** incluye en la misma migración la columna de organización, un índice compuesto que empieza por ella y la política RLS. Una prueba de CI lo verifica.
 - Patrón *expandir y contraer*: primero se agrega, luego se retira lo viejo en otra migración.
-- Dos roles: **aplicación** (sin `BYPASSRLS`, no dueño de tablas; en `audit_events` solo `INSERT`/`SELECT`) y **migraciones**.
+- Dos roles: **aplicación** (sin saltarse RLS, no dueño de tablas; en la tabla de auditoría solo puede insertar y leer) y **migraciones**.
 - Bajas lógicas; nada del dominio se borra físicamente salvo datos efímeros con TTL.
-- Concurrencia optimista con `version int` y `If-Match` en `PATCH`.
+- Concurrencia optimista: cada agregado editable lleva un número de versión y las modificaciones por HTTP envían la versión esperada.
 
 ### 6.2 Transacciones y RLS
 
-- `UnitOfWork.run(fn)` abre la transacción, ejecuta `SET LOCAL app.org_id = '<uuid>'` y publica la transacción actual en un `AsyncLocalStorage`; los repositorios la toman de ahí. **No hay acceso a la base de datos fuera de una transacción con contexto.**
-- El `organizationId` sale del `RequestContext` (sesión autenticada), nunca de un parámetro que envía el cliente.
+- La unidad de trabajo abre la transacción, fija el contexto de organización solo para esa transacción y publica la transacción actual en un almacenamiento local asíncrono; los repositorios la toman de ahí. **No hay acceso a la base de datos fuera de una transacción con contexto.**
+- La organización sale del contexto de petición (sesión autenticada), nunca de un parámetro que envía el cliente.
 - Una prueba de integración con **dos organizaciones** verifica, por repositorio, que A nunca lee, modifica ni cuenta filas de B. Corre en cada PR.
 
 ### 6.3 Otros adaptadores
 
-- **KMS**: `KeyManagementPort` con adaptadores AWS y `LocalKeyManagement`. Este último **se niega a arrancar** si `NODE_ENV=production`. En pruebas, un adaptador falso determinista.
+- **KMS**: puerto de gestión de claves con adaptadores AWS y local. El local **se niega a arrancar** si el entorno es producción. En pruebas, un adaptador falso determinista.
 - **Redis**: contadores, límites y colas. **Nunca** material criptográfico.
-- **Correo/SMS**: detrás de puertos; el proveedor concreto es intercambiable.
-- **Outbox**: el worker publica y marca `published_at`; reintentos con *backoff*.
+- **Correo y SMS**: detrás de puertos; el proveedor concreto es intercambiable.
+- **Outbox**: el worker publica y marca la fecha de publicación; reintentos con *backoff*.
 
 ## 7. Interfaz HTTP (NestJS)
 
 ### 7.1 Controladores
 
 - **Delgados**: validan la entrada, llaman a **un** caso de uso y mapean el resultado a un contrato. Sin lógica de negocio.
-- Validación con un `ZodValidationPipe` propio sobre los esquemas de `packages/contracts`. Prohibido `class-validator`.
+- Validación con un pipe de Zod propio sobre los esquemas de `packages/contracts`. Prohibido `class-validator`.
 - El guard de permisos aplica el paso 3 como red de seguridad, no como autorización completa.
-- Nunca se devuelven entidades de dominio: siempre un mapper al contrato.
+- Nunca se devuelven entidades de dominio: siempre un mapeo al contrato.
 
 ### 7.2 Proveedores globales
 
 Registrados una sola vez en el módulo raíz, en este orden de responsabilidad:
 
-1. Middleware de `X-Request-Id` y creación del `RequestContext` (`AsyncLocalStorage`).
-2. Guard de sesión (cookie `__Host-session`), protección CSRF (`X-Requested-With` + verificación de `Origin`).
-3. Guard de permisos.
-4. Interceptor de idempotencia (`Idempotency-Key`, respuesta guardada 24 h) para los `POST` que crean recursos.
-5. Filtro global de excepciones: traduce `DomainError` y errores conocidos a **Problem Details (RFC 9457)**; cualquier otra excepción responde un `500` genérico con `requestId`, sin detalles internos.
+1. Middleware del identificador de petición y creación del contexto de petición.
+2. Guard de sesión (cookie `__Host-session`) y protección CSRF (cabecera personalizada más verificación del origen).
+3. Guard de permisos. *Pendiente: en la fase 1a la autorización la hace el caso de uso con el motor.*
+4. Interceptor de idempotencia (respuesta guardada 24 h) para las peticiones que crean recursos. *Pendiente: no está implementado en la fase 1a.*
+
+Orden efectivo en la fase 1a: límite por dirección de red, protección CSRF, guard de sesión y un interceptor que fija el contexto de la petición (ver §3.7).
+5. Filtro global de excepciones: traduce los errores de dominio y los errores conocidos a **detalles de problema (RFC 9457)**; cualquier otra excepción responde un `500` genérico con el identificador de petición, sin detalles internos.
 
 ### 7.3 Errores
 
-```json
-{
-  "type": "https://errors.internal/authz/hierarchy",
-  "title": "Not allowed to manage this user",
-  "status": 403,
-  "code": "AUTHZ.HIERARCHY.NOT_IN_SUBTREE",
-  "requestId": "01J…"
-}
-```
+Cada error sigue el formato de detalles de problema (RFC 9457) y lleva cinco datos: un tipo (dirección de referencia del error), un título legible, el estado HTTP, el `code` estable (por ejemplo, el de "el usuario no está en el subárbol de gestión") y el identificador de la petición.
 
 - `code` estable y documentado en el catálogo; es la clave de traducción de la UI.
 - Nunca se filtra SQL, rutas ni trazas.
@@ -223,77 +215,69 @@ Registrados una sola vez en el módulo raíz, en este orden de responsabilidad:
 
 ### 7.4 Convenciones de la API
 
-- REST bajo `/api/v1`, recursos en plural y en inglés; acciones no CRUD como sub-recurso con verbo (`POST /credentials/:id/reveal`).
-- **Paginación por cursor**, alineada con `DataTable` del frontend:
-  - Petición: `?cursor=&limit=&sort=&dir=`. `limit` máximo **100** (valores del frontend: 10, 25, 50, 100); por defecto 25.
-  - Respuesta: `{ "data": [...], "page": { "nextCursor": "…" | null, "limit": 25, "total"?: number } }`.
-  - El cliente guarda la pila de cursores para retroceder; la API **no** necesita un cursor "anterior". `total` es opcional y solo si el endpoint lo calcula de forma barata.
+- REST bajo `/api/v1`, recursos en plural y en inglés; las acciones que no son CRUD son sub-recursos con verbo (por ejemplo, revelar una credencial).
+- **Paginación por cursor**, alineada con la tabla estándar del frontend:
+  - La petición lleva cursor, límite, campo de orden y dirección. El límite máximo es **100** (valores del frontend: 10, 25, 50, 100); por defecto 25.
+  - La respuesta trae la lista de datos y un bloque de página con el cursor siguiente (o nulo), el límite usado y, opcionalmente, el total.
+  - El cliente guarda la pila de cursores para retroceder; la API **no** necesita un cursor "anterior". El total es opcional y solo si el endpoint lo calcula de forma barata.
   - El cursor es opaco, firmado y de corta vida.
-- `sort` solo por campos indexados y de lista blanca; un campo no permitido responde `422`.
-- Fechas ISO 8601 UTC. `X-Request-Id` en cada respuesta.
+- El orden solo se admite por campos indexados y de lista blanca; un campo no permitido responde `422`.
+- Fechas ISO 8601 UTC. El identificador de petición va en cada respuesta.
 - Eventos en tiempo real por SSE (`/api/v1/events`).
 - Contratos Zod en `packages/contracts` y OpenAPI generado de ellos. Un cambio incompatible crea `v2` del recurso afectado.
 
 ### 7.5 Respuestas con secretos
 
-Solo la acción dedicada (revelar, código 2FA, exportar) devuelve un secreto, con `Cache-Control: no-store`. Nunca aparece en listados ni en detalles.
+Solo la acción dedicada (revelar, código 2FA, exportar) devuelve un secreto, con la cabecera de no almacenamiento en caché. Nunca aparece en listados ni en detalles.
 
 ## 8. Buenas prácticas de NestJS
 
-- **Dos puntos de entrada, una imagen**: `main.http.ts`, `main.worker.ts` y `main.migrate.ts` (comandos de arranque distintos).
-- **Fastify** como adaptador. Los plugins de Fastify (`@fastify/helmet`, cookies) se registran en `main.http.ts`, no en módulos de dominio.
-- **Módulos por funcionalidad**: un `*.module.ts` por módulo de dominio; solo exporta lo que la fachada declara.
-- **Inyección por constructor**, con tokens (`Symbol`) para puertos. Prohibida la inyección por propiedad y el uso de `ModuleRef.get` para obtener dependencias "al vuelo".
-- **Sin referencias circulares**: `forwardRef` es señal de que dos módulos están mal separados; se resuelve con un evento o moviendo la responsabilidad.
-- **Configuración**: variables de entorno validadas al arrancar con un esquema Zod propio; el servicio no arranca con configuración inválida. Los secretos de infraestructura vienen del gestor de secretos, nunca de `.env` ni del repositorio.
-- **Ciclo de vida**: `OnApplicationShutdown` y *graceful shutdown* (drenar peticiones, cerrar pool y colas). *Health checks* separados de *liveness* y *readiness*.
-- **Workers**: los procesadores de BullMQ viven en `interface/` del módulo, delegan en un caso de uso y son idempotentes, con reintentos y *backoff* acotados.
-- **Decoradores de Nest solo en `interface/` y `*.module.ts`.** Si aparecen en `domain` o `application`, el lint falla.
-- **Sin estado global mutable** en servicios; la caché de DEK es la única excepción y vive en `crypto` (con TTL y límite de usos, ver plan).
+- **Tres puntos de entrada, una imagen**: uno para la API, otro para el worker y otro para las migraciones (comandos de arranque distintos), todos en `apps/api/src`.
+- **Fastify** como adaptador. Los plugins de Fastify (cabeceras de seguridad, cookies) se registran en el punto de entrada de la API, no en módulos de dominio.
+- **Módulos por funcionalidad**: un módulo de Nest por módulo de dominio; solo exporta lo que la fachada declara.
+- **Inyección por constructor**, con símbolos para los puertos. Prohibida la inyección por propiedad y la obtención de dependencias "al vuelo" desde el módulo de referencia.
+- **Sin referencias circulares**: el uso de referencias diferidas es señal de que dos módulos están mal separados; se resuelve con un evento o moviendo la responsabilidad.
+- **Configuración**: variables de entorno validadas al arrancar con un esquema Zod propio; el servicio no arranca con configuración inválida. Los secretos de infraestructura vienen del gestor de secretos, nunca de archivos de entorno ni del repositorio.
+- **Ciclo de vida**: cierre ordenado (drenar peticiones, cerrar pool y colas). Las comprobaciones de salud distinguen vida (*liveness*) y disponibilidad (*readiness*).
+- **Workers**: los procesadores de BullMQ viven en la capa de interfaz del módulo, delegan en un caso de uso y son idempotentes, con reintentos y *backoff* acotados.
+- **Decoradores de Nest solo en la capa de interfaz y en el archivo de composición.** Si aparecen en `domain` o `application`, el lint falla.
+- **Sin estado global mutable** en servicios; la caché de claves de datos es la única excepción y vive en `crypto` (con TTL y límite de usos, ver plan).
 
 ## 9. TypeScript
 
-- `tsconfig` base en `packages/config`: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `useUnknownInCatchVariables`, `noImplicitReturns`, `noFallthroughCasesInSwitch`.
-- Prohibido `any` (lint como error). `unknown` y validación con Zod en los bordes.
-- Tipos de marca para identificadores; uniones discriminadas para estados (`status`) y resultados.
-- `satisfies` para configuraciones tipadas; `as const` para catálogos (permisos, códigos de error).
-- Sin `enum` de TypeScript para datos que viajan por la red: se usan uniones de literales o `as const` (el catálogo de permisos del plan es un `enum` versionado en código; se mantiene así por decisión del plan y se genera su unión de tipos).
-- Prohibidos los *barrel files* internos (`index.ts` de carpetas intermedias); solo la fachada del módulo exporta.
-- `import type` para tipos; ciclos de importación prohibidos (dependency-cruiser).
+- La configuración base está en `packages/config` e incluye: modo estricto, acceso indexado que admite valores ausentes, propiedades opcionales exactas, sobrescritura explícita, errores capturados como desconocidos, retorno explícito en todas las ramas y prohibición de caídas entre casos de un selector.
+- Prohibido `any` (lint como error). Se usa `unknown` y validación con Zod en los bordes.
+- Tipos de marca para identificadores; uniones discriminadas para estados y resultados.
+- Configuraciones tipadas con comprobación de forma; catálogos (permisos, códigos de error) como constantes inmutables.
+- Sin `enum` de TypeScript para datos que viajan por la red: se usan uniones de literales o constantes inmutables (el catálogo de permisos del plan es una enumeración versionada en código; se mantiene así por decisión del plan y se deriva de ella su tipo de unión).
+- Prohibidos los archivos de reexportación en carpetas intermedias; solo la fachada del módulo exporta.
+- Importaciones de solo tipos donde corresponda; ciclos de importación prohibidos (dependency-cruiser).
 - Nombres en inglés en el código; comentarios y documentación en español. Los comentarios explican **por qué**, no qué.
 
 ## 10. Seguridad (invariantes)
 
-Todo archivo de los módulos protegidos (`identity`, `access`, `crypto`, `audit`) abre con este bloque:
-
-```ts
-/**
- * Invariantes de seguridad
- * - <lo que nunca debe romperse en este archivo>
- * - …
- */
-```
+Todo archivo de los módulos protegidos (`identity`, `access`, `crypto`, `audit`) abre con un comentario titulado "Invariantes de seguridad" que lista, en viñetas, lo que nunca debe romperse en ese archivo.
 
 Reglas que aplican a todo el backend:
 
 - **Nunca** registrar secretos, tokens, cookies ni cuerpos de rutas sensibles (revelación, códigos, handoff).
-- **Todo acceso a un secreto declara su `SecretAccessPurpose`** (`REVEAL | TOTP_CODE | EXPORT | INJECT`); se autoriza y audita por propósito. `INJECT` está deshabilitado.
+- **Todo acceso a un secreto declara su propósito** (revelar, código TOTP, exportar o inyectar); se autoriza y audita por propósito. El propósito de inyección está deshabilitado hasta la fase del broker.
 - **Tokens** (sesión, invitación, handoff): 256 bits aleatorios; en base de datos solo su SHA-256.
 - **Contraseñas**: Argon2id (`@node-rs/argon2`); nunca cifradas ni registradas.
 - **Comparaciones de secretos y hashes** en tiempo constante.
-- **JWT con `jose`**: lista blanca de algoritmos; nunca se confía en el `alg` del token.
-- **Cifrado**: AES-256-GCM, nonce aleatorio de 12 bytes por operación, AAD `org_id | credential_id | field | version`. Solo `SecretCipher`.
-- **Rate limiting** por usuario, IP y acción (`rate-limiter-flexible` sobre Redis); mensajes idénticos para usuario inexistente o contraseña incorrecta.
-- **Auditoría**: append-only, encadenada por hash; sin secretos, ni parciales; `metadata` con lista blanca de campos.
+- **JWT con `jose`**: lista blanca de algoritmos; nunca se confía en el algoritmo que declara el token.
+- **Cifrado**: AES-256-GCM, nonce aleatorio de 12 bytes por operación y datos asociados que ligan el texto cifrado a su organización, credencial, campo y versión. Solo el servicio de cifrado.
+- **Rate limiting** por usuario, IP y acción (`rate-limiter-flexible` sobre Redis); mensajes idénticos para usuario inexistente o contraseña incorrecta. *Estado en la fase 1a:* el límite por IP (60 por minuto en las rutas de autenticación e invitación) y los contadores de intentos fallidos por correo y por usuario viven en la memoria de cada instancia; el adaptador de Redis está pendiente ([ADR 0026](adr/0026-atomic-failed-attempt-counting.md)).
+- **Auditoría**: append-only, encadenada por hash; sin secretos, ni parciales; los metadatos pasan por una lista blanca de campos.
 - El correo entrante (fase 4) y los datos externos son **entrada no confiable**: nunca se renderiza HTML, se ignoran adjuntos y hay límites de tamaño y tiempo.
 
 ## 11. Observabilidad y logs
 
-- `pino` en JSON con `requestId`, `organizationId`, `actorId`, módulo y caso de uso, tomados del `RequestContext`.
-- Redacción por configuración: `password`, `secret`, `token`, `totp`, `code`, `authorization`, `cookie`, `ciphertext`, `wrapped_dek` y cuerpos de las rutas sensibles.
+- `pino` en JSON con identificador de petición, organización, actor, módulo y caso de uso, tomados del contexto de petición.
+- Redacción por configuración de los campos de contraseña, secreto, token, TOTP, código, autorización, cookie, texto cifrado y clave de datos envuelta, y de los cuerpos de las rutas sensibles.
 - Una prueba envía secretos conocidos por los endpoints sensibles y verifica que no aparecen en los logs capturados.
 - Logs técnicos y auditoría son cosas distintas: los logs se muestrean; la auditoría es evidencia y nunca se pierde.
-- OpenTelemetry: trazas y métricas de negocio y seguridad (revelaciones, códigos 2FA, llamadas al KMS, aciertos de caché de DEK, negaciones por código).
+- OpenTelemetry: trazas y métricas de negocio y seguridad (revelaciones, códigos 2FA, llamadas al KMS, aciertos de caché de claves, negaciones por código).
 
 ## 12. Pruebas
 
@@ -309,13 +293,13 @@ Reglas que aplican a todo el backend:
 | Seguridad | Semgrep, gitleaks, osv-scanner, Trivy | SAST, secretos, dependencias, imágenes |
 
 - **Casos de uso**: se prueban con puertos falsos en memoria (sin Nest ni base de datos). Los repositorios se prueban con PostgreSQL real.
-- **Controladores**: pruebas de integración HTTP con Fastify `inject`, contra una base de datos real.
-- **Reloj e ids deterministas** (`Clock` e `IdGenerator` falsos).
-- **Criptografía**: vectores conocidos (AES-GCM, RFC 6238 para TOTP) y pruebas negativas (AAD alterado, nonce reutilizado, DEK incorrecta, texto truncado).
+- **Controladores**: pruebas de integración HTTP con la inyección de peticiones de Fastify, contra una base de datos real.
+- **Reloj e identificadores deterministas**: se usan versiones falsas de ambos.
+- **Criptografía**: vectores conocidos (AES-GCM, RFC 6238 para TOTP) y pruebas negativas (datos asociados alterados, nonce reutilizado, clave incorrecta, texto truncado).
 - **Auditoría**: cada caso de uso sensible verifica el evento exacto que escribe; prueba de falla cerrada; cadena de hashes verificada tras operaciones concurrentes.
 - **Matriz de autorización**: la escribe o la revisa una persona como código de producción (ver sección 14).
 - Las pruebas de integración usan contenedores efímeros; ningún dato real fuera de producción.
-- Vitest se divide en dos proyectos: `unit` (`pnpm --filter @iam/api test:unit`, sin contenedores) e `integration` (`test:integration`, un PostgreSQL 17 por ejecución y una base por archivo, migrada con `@iam/db` como `iam_migrator` y usada como `iam_app`). Con Podman: `DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock TESTCONTAINERS_RYUK_DISABLED=true`; `turbo.json` declara esas variables en `globalPassThroughEnv`.
+- Vitest se divide en dos proyectos: uno unitario, sin contenedores, y otro de integración, con un PostgreSQL 17 por ejecución y una base por archivo, migrada con el rol de migraciones y usada con el rol de aplicación. Los comandos exactos de ejecución, incluido el uso de Podman, están en el [`README.md`](../README.md) raíz.
 
 ## 13. Flujo de trabajo
 
@@ -324,7 +308,7 @@ Reglas que aplican a todo el backend:
 - `CODEOWNERS`: `modules/identity`, `modules/access`, `modules/crypto`, `modules/audit`, migraciones con RLS, configuración de CSP y cabeceras.
 - Cada módulo tiene `README.md` (responsabilidad, fachada pública, eventos que emite y consume); los módulos protegidos, además, un `CLAUDE.md`.
 - Cada decisión de arquitectura nueva se registra como ADR en `docs/adr/`.
-- Dependencias: versiones exactas, lockfile, `pnpm install --frozen-lockfile` en CI, espera de 7 días tras cada publicación, `ignore-scripts` con lista blanca.
+- Dependencias: versiones exactas, lockfile, instalación con lockfile congelado en CI, espera de 7 días tras cada publicación, scripts de instalación deshabilitados con lista blanca.
 
 ## 14. Trabajo con agentes
 
@@ -335,32 +319,32 @@ Se puede apoyar el desarrollo del backend en los agentes de Claude Code disponib
 | Agente | Úsalo para | Límites |
 | --- | --- | --- |
 | `general-purpose` | Implementar un caso de uso, repositorio o controlador con sus pruebas, cuando el alcance está acotado | Escribe código; necesita rutas permitidas explícitas |
-| `typescript-pro` | Tipos de marca, genéricos de `Result`, tipos derivados de `contracts`, utilidades tipadas | Solo tipos y utilidades; no decide arquitectura |
+| `typescript-pro` | Tipos de marca, tipos genéricos del resultado, tipos derivados de `contracts`, utilidades tipadas | Solo tipos y utilidades; no decide arquitectura |
 | `Explore` | Mapear dónde vive algo o cómo fluye una petición, sin tocar nada | Solo lectura |
 | `Plan` | Diseñar la implementación de una funcionalidad antes de escribirla | No escribe archivos |
 | `review-risk` | Revisar seguridad, permisos, exposición de datos y dependencias | Revisión; no corrige |
 | `review-resilience` | Revisar reintentos, fallas parciales, transacciones, concurrencia | Revisión; no corrige |
 | `review-reliability` | Revisar valor y determinismo de las pruebas, bordes y regresiones | Revisión; no corrige |
 | `review-readability` | Revisar nombres, complejidad y tamaño del cambio | Revisión; no corrige |
-| `git` | Commits granulares con Conventional Commits | Pide confirmar el alcance antes de `git add` |
+| `git` | Commits granulares con Conventional Commits | Pide confirmar el alcance antes de preparar archivos |
 
 No hay un agente específico de backend: la implementación la hace `general-purpose` con un encargo preciso. La revisión (`review-*`) es independiente de quien escribió el código.
 
 ### Cómo delegar
 
 1. **Apunta a la guía por referencia**: "lee `docs/backend.md` y `plan.md` (secciones X e Y) antes de escribir". No se parafrasean las reglas.
-2. **Alcance explícito de archivos**: rutas que puede crear o editar (por ejemplo, `apps/api/src/modules/vault/application/reveal-password.ts` y su prueba). Nada fuera de ellas.
-3. **Una unidad de comportamiento por encargo**: caso de uso + puertos + pruebas juntos; no se parte el mismo comportamiento entre agentes.
-4. **Reutilizar antes de crear**: nombrar los helpers existentes (`Authorizer`, `AuditLog`, `UnitOfWork`, `SecretCipher`, `Result`) y los invariantes que deben mantener.
+2. **Alcance explícito de archivos**: rutas que puede crear o editar (por ejemplo, el archivo del caso de uso y su prueba dentro del módulo). Nada fuera de ellas.
+3. **Una unidad de comportamiento por encargo**: caso de uso, puertos y pruebas juntos; no se parte el mismo comportamiento entre agentes.
+4. **Reutilizar antes de crear**: nombrar las piezas existentes (motor de autorización, auditoría, unidad de trabajo, servicio de cifrado, tipo de resultado) y los invariantes que deben mantener.
 5. **Criterios de aceptación y comando de verificación** en el encargo (sección 15).
 6. El agente informa qué archivos tocó, qué comprobó y qué no pudo comprobar.
 
 ### Lo que los agentes no hacen
 
 - **No agregan dependencias**: proponen y se detienen.
-- **No escriben en módulos protegidos** (`identity`, `access`, `crypto`, `audit`), migraciones con RLS ni configuración de CSP/cabeceras, salvo encargo humano explícito. Sí pueden **revisarlos**.
+- **No escriben en módulos protegidos** (`identity`, `access`, `crypto`, `audit`), migraciones con RLS ni configuración de CSP y cabeceras, salvo encargo humano explícito. Sí pueden **revisarlos**.
 - **No editan migraciones ya aplicadas.**
-- **No leen `.env*`** ni datos de producción; no ejecutan comandos de red ni de despliegue.
+- **No leen archivos de entorno** ni datos de producción; no ejecutan comandos de red ni de despliegue.
 - **No escriben las pruebas de la matriz de autorización** ni las de criptografía y aislamiento de tenants sin revisión humana línea por línea: si quien escribe el código escribe también la prueba, puede codificar el mismo error en ambos.
 - **No marcan como terminado** lo que no comprobaron.
 
@@ -372,26 +356,46 @@ No hay un agente específico de backend: la implementación la hace `general-pur
 ## 15. Definición de terminado (backend)
 
 - [ ] Respeta las capas y la fachada del módulo; lint de límites en verde.
-- [ ] Caso de uso sensible: pasa por `Authorizer`, audita en la misma transacción y emite eventos por outbox.
+- [ ] Caso de uso sensible: pasa por el motor de autorización, audita en la misma transacción y emite eventos por outbox.
 - [ ] Toda consulta pasa por repositorios con contexto de organización; sin SQL fuera de RLS.
-- [ ] Entradas validadas con Zod; errores como `DomainError` con `code` en el catálogo.
+- [ ] Entradas validadas con Zod; errores de dominio con `code` en el catálogo.
 - [ ] Sin secretos en logs, respuestas ni errores.
 - [ ] Pruebas: unitarias de dominio; integración con PostgreSQL real si toca repositorios; matriz si toca autorización; aislamiento de tenants si añade tablas o listados.
-- [ ] Tabla nueva: `organization_id`, índice y política RLS en la misma migración.
+- [ ] Tabla nueva: columna de organización, índice y política RLS en la misma migración.
 - [ ] Contratos y OpenAPI actualizados; claves i18n de los códigos de error nuevos en el frontend.
 - [ ] Lint, tipos, pruebas y análisis de seguridad en verde.
 - [ ] README del módulo y ADR actualizados si cambió una decisión.
 
 ## 16. Decisiones pendientes
 
-Hallazgos del análisis del plan. Los ADR 0021 a 0024 (`docs/adr/`) están en estado **Propuesta** y se deciden antes de implementar el módulo afectado:
+Hallazgos del análisis del plan y pendientes tras la fase 1a. Los ADR 0021 y 0022 se aceptaron e implementaron en la fase 1a; los ADR 0023 y 0024 (`docs/adr/`) siguen en estado **Propuesta** y se deciden antes de implementar el módulo afectado.
 
-- [x] **Acceso previo a la autenticación con RLS** (ADR 0021): la base de datos ya incluye funciones `SECURITY DEFINER` mínimas en el esquema `auth` (migración 0008). Falta aceptar el ADR y consumirlas desde el módulo `identity` (fase 1a).
-- [ ] **Auditoría de negaciones** (ADR 0022): se escribe en la misma transacción que la acción, que se revierte al negarse. Las negaciones necesitan una transacción independiente.
-- [ ] **Advisory lock de auditoría** (ADR 0023): el trigger lo mantiene hasta el *commit*. Evaluar el impacto en transacciones largas.
-- [ ] **Retención de auditoría** (ADR 0024) frente al `DELETE` revocado: definir particionado o un rol de archivado.
-- [ ] **Índice ciego derivado de la DEK**: el plan deriva el índice ciego y las huellas de contraseña de la DEK con HKDF. Al rotar la DEK cambian todos los valores, así que cada rotación obliga a recalcular los índices (y, mientras conviven versiones, a buscar con ambas). `SecretCipher.blindIndex` ya devuelve la `dekVersion` usada. Decidir si se deriva de una clave por organización estable en lugar de la DEK.
+Resueltas en la fase 1a:
+
+- [x] **Acceso previo a la autenticación con RLS** (ADR 0021): aceptada e implementada. El módulo `identity` consume las funciones mínimas del esquema `auth` (migración 0008).
+- [x] **Auditoría de negaciones** (ADR 0022): aceptada e implementada. Cada negación se registra en una transacción independiente. Queda abierta la agrupación de negaciones repetidas y qué hacer si esa escritura falla.
+- [x] **Tiempo de las sesiones** (ADR 0025) e **intentos fallidos contados de forma atómica** (ADR 0026): aceptadas e implementadas.
+
+Pendientes de la fase 1a:
+
+- [ ] **Passkeys (WebAuthn)**: no implementadas; hoy el segundo factor es solo TOTP. La dependencia `@simplewebauthn/server` está en la lista aprobada del plan.
+- [ ] **Cambio obligatorio de la contraseña inicial de la Raíz**: la marca existe en la base de datos, pero ningún flujo la aplica y no hay caso de uso de cambio de contraseña.
+- [ ] **Códigos de emergencia de la Raíz** y su recuperación, y el restablecimiento de factores por el responsable.
+- [ ] **Redis para los límites de intentos y por IP**: hoy son por instancia y en memoria. Sin Redis, el sistema debe operar con una sola instancia.
+- [ ] **Proveedor de correo real**: hoy solo existe el adaptador de desarrollo que escribe el enlace en el registro; se necesita el adaptador del proveedor (SES en la referencia AWS) y los avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores).
+- [ ] **Idempotencia** de las peticiones que crean recursos (§7.2).
+- [ ] **Guard de permisos** como primera barrera (§7.2).
+- [ ] **Comando de operaciones** para dar de alta una organización y registrar el alta en la auditoría.
+- [ ] **Casos de uso de gestión de personas** (cambiar rango, transferir responsable, suspender, desactivar con reasignación, transferir la Raíz) y gestión de sesiones ajenas.
+- [ ] **Asignación de roles personalizados** desde la interfaz y casos de uso de roles.
+- [ ] **Primera ejecución de la verificación automática (CI) en GitHub**: nunca se ha corrido.
+
+Pendientes de fases posteriores:
+
+- [ ] **Bloqueo de auditoría** (ADR 0023): el trigger mantiene el bloqueo por organización hasta el *commit*. Evaluar el impacto en transacciones largas.
+- [ ] **Retención de auditoría** (ADR 0024) frente al borrado revocado: definir particionado o un rol de archivado.
+- [ ] **Índice ciego derivado de la clave de datos**: el plan deriva el índice ciego y las huellas de contraseña de la clave de datos. Al rotarla cambian todos los valores, así que cada rotación obliga a recalcular los índices (y, mientras conviven versiones, a buscar con ambas). El servicio de cifrado ya informa la versión de clave usada. Decidir si se deriva de una clave por organización estable en lugar de la clave de datos.
 - [ ] **Generador de OpenAPI** desde Zod: aprobar la dependencia.
 - [ ] **Versión de PostgreSQL**: las pruebas usan 17; evaluar 18 si ya está disponible en el proveedor (UUIDv7 nativo).
 - [ ] **`oidc-provider` sobre Fastify** (fase 2): está basado en Koa; validar con un *spike* antes de comprometerse.
-- [ ] **Trabajos en segundo plano multi-organización**: se necesita un camino para listar organizaciones sin contexto (`auth.list_organization_ids()` propuesto en `docs/database.md` §7.5).
+- [ ] **Trabajos en segundo plano multi-organización**: se necesita un camino para listar organizaciones sin contexto (función de listado propuesta en `docs/database.md` §7.5).

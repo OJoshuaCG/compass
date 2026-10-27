@@ -24,5 +24,5 @@ Aislamiento en tres capas, de modo que si una falla las otras dos contienen el e
 ## Consecuencias
 
 - **Positivas**: costo casi nulo hoy; defensa en profundidad.
-- **Negativas o costos**: todo acceso a datos exige transacción con contexto. El acceso previo a la autenticación (login, invitación, handoff) no conoce `app.org_id`; está abierto en [ADR 0021](0021-pre-authentication-access-with-rls.md).
+- **Negativas o costos**: todo acceso a datos exige transacción con contexto. El acceso previo a la autenticación (login, invitación, handoff) no conoce `app.org_id`; se resuelve con funciones de lectura mínimas en [ADR 0021](0021-pre-authentication-access-with-rls.md) (aceptada).
 - **Verificación**: suite de aislamiento con dos organizaciones por repositorio en cada PR; prueba de CI que exige `organization_id`, índice y política RLS en cada tabla nueva.

@@ -6,7 +6,7 @@ El diseño completo está en [`plan.md`](plan.md), que es la fuente de verdad. S
 
 ## Estado
 
-**Fase 0 · Fundaciones** (en curso). Entrega: monorepo funcional, backend NestJS con `crypto`, `audit` y contexto de organización, frontend React con tokens oscuros e i18n, diseño de base de datos con migraciones y RLS, CI y documentación (ADR 0001 a 0020). Los módulos de negocio de la fase 1 (identidad, bóveda con 2FA, gobernanza) aún no existen. El seguimiento está en [`odd/tasks/phase-0-foundations.md`](odd/tasks/phase-0-foundations.md) y la hoja de ruta por fases en `plan.md` ("Alcance y hoja de ruta por fases").
+**Fase 0 · Fundaciones** terminada. **Fase 1a · Identidad** implementada en backend y frontend (invitaciones, segundo factor con aplicación autenticadora, sesiones, permisos y directorio; pruebas de punta a punta contra PostgreSQL real), pero sin cerrar: faltan passkeys, recuperación de la Raíz, Redis, proveedor de correo y la primera ejecución del CI. Las fases 1b y 1c siguen pendientes. Estado detallado en [`docs/business/roadmap-and-status.md`](docs/business/roadmap-and-status.md); qué hace el producto, en [`docs/business/`](docs/business/README.md); seguimiento de la fase 0 en [`odd/tasks/phase-0-foundations.md`](odd/tasks/phase-0-foundations.md).
 
 ## Requisitos
 
@@ -20,22 +20,19 @@ Las dependencias se instalan con espera de 7 días tras cada publicación (`mini
 
 ## Estructura del repositorio
 
-```
-/
-├─ apps/
-│  ├─ api/            # @iam/api: NestJS (Fastify)
-│  └─ web/            # @iam/web: SPA React + Vite + Tailwind v4
-├─ packages/
-│  ├─ config/         # @iam/config: tsconfig base, ESLint base y reglas de límites
-│  ├─ contracts/      # @iam/contracts: esquemas Zod, tipos, códigos de error
-│  ├─ i18n/           # @iam/i18n: catálogos es-MX y en-US
-│  └─ ui/             # @iam/ui: tokens de diseño y componentes
-├─ db/                # @iam/db: migraciones SQL versionadas con RLS
-├─ docs/              # guías, arquitectura, amenazas, ADR, runbooks
-├─ odd/tasks/         # especificaciones y seguimiento por funcionalidad
-├─ plan.md            # plan técnico (fuente de verdad)
-└─ CLAUDE.md          # reglas no negociables para agentes
-```
+| Carpeta o archivo | Contenido |
+| --- | --- |
+| `apps/api` | Backend (NestJS con Fastify) |
+| `apps/web` | Aplicación web (React, Vite y Tailwind) |
+| `packages/config` | Configuración base compartida: TypeScript, ESLint y reglas de límites entre capas |
+| `packages/contracts` | Esquemas de validación, tipos y códigos de error compartidos entre API y web |
+| `packages/i18n` | Catálogos de textos en `es-MX` y `en-US` |
+| `packages/ui` | Tokens de diseño y componentes de interfaz |
+| `db` | Migraciones versionadas con aislamiento por organización |
+| `docs` | Guías, lógica de negocio, arquitectura, amenazas, ADR y runbooks |
+| `odd/tasks` | Especificaciones y seguimiento por funcionalidad |
+| `plan.md` | Plan técnico (fuente de verdad) |
+| `CLAUDE.md` | Reglas no negociables para agentes |
 
 Detalle y diagramas en [`docs/architecture.md`](docs/architecture.md). `apps/mobile-handoff` (página de cámara para el 2FA por celular) está en el plan y aún no existe.
 
@@ -92,12 +89,13 @@ pnpm test
 | --- | --- |
 | [`plan.md`](plan.md) | Plan técnico: decisiones, jerarquía, autorización, cifrado, fases, riesgos |
 | [`docs/README.md`](docs/README.md) | Índice de toda la documentación |
+| [`docs/business/`](docs/business/README.md) | Lógica de negocio: qué hace el sistema y por qué, sin código |
 | [`docs/backend.md`](docs/backend.md) | Guía de backend (arquitectura, código, pruebas) |
 | [`docs/frontend.md`](docs/frontend.md) | Guía de frontend (diseño, componentes, i18n, `DataTable`) |
 | [`docs/database.md`](docs/database.md) | Diseño de la base de datos |
 | [`docs/architecture.md`](docs/architecture.md) | Arquitectura, módulos y flujos |
-| [`docs/adr/`](docs/adr/README.md) | Registro de decisiones (ADR 0001 a 0024) |
-| [`docs/threat-model.md`](docs/threat-model.md) | Modelo de amenazas (borrador de la fase 0) |
+| [`docs/adr/`](docs/adr/README.md) | Registro de decisiones (ADR 0001 a 0026) |
+| [`docs/threat-model.md`](docs/threat-model.md) | Modelo de amenazas (borrador de la fase 0, actualizado con la fase 1a) |
 | [`docs/runbooks/`](docs/runbooks/README.md) | Runbooks de operación (borradores) |
 | [`CLAUDE.md`](CLAUDE.md) | Reglas no negociables para el desarrollo con agentes |
 

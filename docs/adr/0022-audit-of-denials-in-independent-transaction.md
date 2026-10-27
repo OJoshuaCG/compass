@@ -1,8 +1,9 @@
 # ADR 0022: Auditoría de negaciones en transacción independiente
 
-- **Estado**: Propuesta
-- **Fecha**: 2026-10-26
+- **Estado**: Aceptada (implementada en la fase 1a)
+- **Fecha**: 2026-10-26 (propuesta); 2026-10-27 (aceptada)
 - **Referencias**: [`plan.md`](../../plan.md) secciones "Motor de decisión" y "Auditoría"; [`docs/backend.md`](../backend.md) §5.2 y §16; [ADR 0016](0016-append-only-audit-hash-chain.md).
+- **Implementación**: se adoptó la opción 1. La unidad de trabajo (`apps/api/src/modules/organization/infrastructure/pg-unit-of-work.ts`) ofrece una ejecución independiente sobre un pool propio y pequeño, distinto del de las peticiones, para evitar un bloqueo por agotamiento de conexiones. El motor de autorización (`apps/api/src/modules/access/application/authorizer.ts`) registra con ella cada negación, con su código de motivo, antes de que la transacción de la acción se revierta, y expone el mismo camino a las reglas de negocio que niegan fuera del motor (matriz de creación y no escalamiento de roles). Queda abierto lo que este ADR dejó como pendiente: la agrupación o el límite de negaciones repetidas, y el comportamiento si la escritura de la negación falla (hoy el error se propaga a la petición en lugar de degradarse a una alerta).
 
 ## Contexto
 
@@ -26,7 +27,7 @@ Opción 1: una transacción independiente y corta dedicada a negaciones, tras la
 
 Dos riesgos a vigilar: una ráfaga de negaciones puede inflar la tabla y competir por el advisory lock de la organización (ver [ADR 0023](0023-audit-advisory-lock-and-long-transactions.md)), por lo que conviene un rate limit o agrupación de negaciones repetidas.
 
-Esta es una recomendación para decidir, no una decisión.
+Esta recomendación pasó a ser la decisión al aceptarse el ADR; el texto original se conserva como contexto de la elección.
 
 ## Consecuencias (si se acepta la recomendación)
 

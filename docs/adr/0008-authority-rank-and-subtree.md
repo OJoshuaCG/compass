@@ -10,15 +10,14 @@ Había dos intuiciones de autoridad: por nivel (un Administrador gestiona a cual
 
 ## Decisión
 
-```
-puedeGestionar(A, T) =
-     A.activo ∧ A.organizacion = T.organizacion ∧ A ≠ T
-  ∧ ( A.rango = RAIZ ∨ ( A.rango < T.rango ∧ T ∈ subarbol(A) ) )
+Un actor A puede gestionar a un objetivo T solo si se cumplen todas estas condiciones:
 
-subarbol(A) = usuarios cuya cadena managed_by llega a A
-```
+1. A está activo.
+2. A y T pertenecen a la misma organización.
+3. A y T son personas distintas.
+4. A es la Raíz, o bien A tiene un rango estrictamente inferior (más autoridad) que T y T está dentro del subárbol de A.
 
-La Raíz gestiona a todos. Es una política pura en `domain`, probada con tablas.
+El subárbol de A son las personas cuya cadena de responsables llega hasta A. La Raíz gestiona a todos. Es una política pura en la capa de dominio, probada con tablas. La explicación en lenguaje de negocio está en [`docs/business/actors-and-hierarchy.md`](../business/actors-and-hierarchy.md).
 
 ## Alternativas consideradas
 

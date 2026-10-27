@@ -1,6 +1,6 @@
 # Registro de decisiones de arquitectura (ADR)
 
-Una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias (regla de [`plan.md`](../../plan.md), sección "Comentarios y documentación"). Los ADR 0001 a 0020 son las decisiones cerradas de la tabla "Decisiones cerradas (ADR)" del plan y numeran igual que allí (001 a 020). Los ADR 0021 a 0024 están en estado **Propuesta**: son huecos detectados al analizar el plan (ver [`docs/backend.md`](../backend.md) §16) y no se implementan hasta aceptarse.
+Una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias (regla de [`plan.md`](../../plan.md), sección "Comentarios y documentación"). Los ADR 0001 a 0020 son las decisiones cerradas de la tabla "Decisiones cerradas (ADR)" del plan y numeran igual que allí (001 a 020). Los ADR 0021 a 0024 nacieron como huecos detectados al analizar el plan (ver [`docs/backend.md`](../backend.md) §16). Con la fase 1a, el 0021 y el 0022 pasaron a **Aceptada (implementada en la fase 1a)**; el 0023 y el 0024 siguen en **Propuesta** y no se implementan hasta aceptarse. Los ADR 0025 y 0026 se escribieron al implementar la fase 1a y nacen **Aceptada**.
 
 Plantilla: [`template.md`](template.md).
 
@@ -29,12 +29,19 @@ Plantilla: [`template.md`](template.md).
 | [0019](0019-cerby-style-broker-ports-first.md) | Broker tipo Cerby: puertos e interfaces desde la fase 1, implementación al final | Aceptada |
 | [0020](0020-reference-cloud-aws.md) | Nube de referencia AWS, adaptadores intercambiables | Aceptada con confirmación pendiente |
 
+## Decisiones surgidas del análisis del plan y de la fase 1a
+
+| ADR | Decisión | Estado |
+| --- | --- | --- |
+| [0021](0021-pre-authentication-access-with-rls.md) | Acceso previo a la autenticación con RLS (funciones de lectura mínimas) | Aceptada (implementada en la fase 1a) |
+| [0022](0022-audit-of-denials-in-independent-transaction.md) | Auditoría de negaciones en transacción independiente | Aceptada (implementada en la fase 1a) |
+| [0025](0025-session-time-single-clock-source.md) | Aislamiento del tiempo de las sesiones: una sola fuente de reloj | Aceptada |
+| [0026](0026-atomic-failed-attempt-counting.md) | Intentos fallidos contados de forma atómica | Aceptada |
+
 ## Propuestas (huecos detectados, sin decidir)
 
 | ADR | Tema | Estado | Se necesita antes de |
 | --- | --- | --- | --- |
-| [0021](0021-pre-authentication-access-with-rls.md) | Acceso previo a la autenticación con RLS | Propuesta | Fase 1a |
-| [0022](0022-audit-of-denials-in-independent-transaction.md) | Auditoría de negaciones en transacción independiente | Propuesta | Fase 1a (motor de autorización) |
 | [0023](0023-audit-advisory-lock-and-long-transactions.md) | Advisory lock de auditoría y transacciones largas | Propuesta | Fase 1b (primeras acciones sensibles concurrentes) |
 | [0024](0024-audit-retention-vs-revoke-delete.md) | Retención de auditoría frente a `REVOKE DELETE` | Propuesta | Fase 1c (auditoría con retención) |
 

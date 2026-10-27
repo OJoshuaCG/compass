@@ -2,7 +2,7 @@
 
 - **Estado**: Aceptada
 - **Fecha**: 2026-10-26
-- **Referencias**: [`plan.md`](../../plan.md) sección "Auditoría"; [`docs/backend.md`](../backend.md) §5.2 y §10; ADR propuestos [0022](0022-audit-of-denials-in-independent-transaction.md), [0023](0023-audit-advisory-lock-and-long-transactions.md) y [0024](0024-audit-retention-vs-revoke-delete.md).
+- **Referencias**: [`plan.md`](../../plan.md) sección "Auditoría"; [`docs/backend.md`](../backend.md) §5.2 y §10; [ADR 0022](0022-audit-of-denials-in-independent-transaction.md) (aceptada) y ADR propuestos [0023](0023-audit-advisory-lock-and-long-transactions.md) y [0024](0024-audit-retention-vs-revoke-delete.md).
 
 ## Contexto
 

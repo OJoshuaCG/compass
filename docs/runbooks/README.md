@@ -26,36 +26,17 @@ El plan menciona además un runbook de **caída total** (procedimiento de contin
 
 ## Plantilla
 
-Copia esta estructura para un runbook nuevo.
+Un runbook nuevo se titula "Runbook: nombre de la operación", lleva debajo la advertencia de borrador pendiente de ensayo y contiene estas secciones, en este orden:
 
-```markdown
-# Runbook: <nombre de la operación>
+| Sección | Qué debe contener |
+| --- | --- |
+| Objetivo | Qué se logra y qué estado final se espera |
+| Cuándo usarlo | Disparadores y señales (alertas, eventos). Cuándo no usarlo |
+| Precondiciones | Accesos, autorizaciones, herramientas y estado previo del sistema |
+| Pasos | Lista numerada; cada paso es una operación del plan y, si falta el comando concreto, se marca "por definir" |
+| Verificación | Cómo se confirma que funcionó (pruebas, métricas, auditoría) |
+| Rollback | Cómo se deshace, o qué hacer si falla a la mitad |
+| Responsables | Quién ejecuta, quién aprueba y a quién se avisa |
+| Historial de ensayos | Tabla con fecha, quién, resultado y cambios al runbook |
 
-> Borrador, pendiente de ensayo antes de producción.
-
-## Objetivo
-Qué se logra y qué estado final se espera.
-
-## Cuándo usarlo
-Disparadores y señales (alertas, eventos). Cuándo NO usarlo.
-
-## Precondiciones
-Accesos, autorizaciones, herramientas, estado previo del sistema.
-
-## Pasos
-1. Paso (operación del plan). Comando: por definir.
-2. ...
-
-## Verificación
-Cómo se confirma que funcionó (pruebas, métricas, auditoría).
-
-## Rollback
-Cómo se deshace o qué hacer si falla a la mitad.
-
-## Responsables
-Quién ejecuta, quién aprueba, a quién se avisa.
-
-## Historial de ensayos
-| Fecha | Quién | Resultado | Cambios al runbook |
-| --- | --- | --- | --- |
-```
+Los runbooks existentes de esta carpeta sirven de modelo.

@@ -1,8 +1,9 @@
 # ADR 0021: Acceso previo a la autenticación con RLS
 
-- **Estado**: Propuesta
-- **Fecha**: 2026-10-26
+- **Estado**: Aceptada (implementada en la fase 1a)
+- **Fecha**: 2026-10-26 (propuesta); 2026-10-27 (aceptada)
 - **Referencias**: [`plan.md`](../../plan.md) sección "Capa 2: Row-Level Security en PostgreSQL" y "Autenticación del propio sistema"; [`docs/backend.md`](../backend.md) §16; [`docs/database.md`](../database.md); [ADR 0006](0006-multitenancy-ready-rls.md).
+- **Implementación**: se adoptó la opción 1. La migración `db/migrations/0008_auth_functions.sql` crea en un esquema propio cuatro funciones de lectura mínima (inicio de sesión por correo, sesión por hash del token, invitación por hash del token y entrega de handoff), propiedad de un rol sin inicio de sesión y sin `BYPASSRLS`, con `search_path` fijo y `EXECUTE` concedido solo al rol de la aplicación. El módulo `identity` las consume desde `apps/api/src/modules/identity/infrastructure/pg-pre-auth-lookup.ts`, sin abrir una transacción con `app.org_id` porque la organización aún no se conoce; tras resolverlas, el resto del caso de uso corre con el contexto normal. Las tres primeras ya se usan en la fase 1a; la de handoff existe pero aún no tiene consumidor (llega con el registro de 2FA por celular, fase 1b).
 
 ## Contexto
 
@@ -26,7 +27,7 @@ Con RLS y falla cerrada estas consultas devolverían cero filas. Hace falta un c
 
 Opción 1: funciones `SECURITY DEFINER` mínimas, enumeradas en `db/migrations`, cada una con prueba que verifica que (a) devuelve solo las columnas previstas, (b) no acepta parámetros que permitan enumerar (sin búsquedas parciales ni listados), (c) usa `search_path` fijo y (d) un rol sin permiso no puede alterarlas. Son rutas protegidas (migraciones con RLS) y requieren dos revisores. Los mensajes y tiempos de respuesta de login deben seguir siendo idénticos para usuario inexistente o contraseña incorrecta.
 
-Esta es una recomendación para decidir, no una decisión: el estado cambia a "Aceptada" cuando el equipo la apruebe.
+Esta recomendación pasó a ser la decisión al aceptarse el ADR; el texto original se conserva como contexto de la elección.
 
 ## Consecuencias (si se acepta la recomendación)
 

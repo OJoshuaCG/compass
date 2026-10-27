@@ -9,6 +9,7 @@ Monorepo (pnpm + Turborepo): `apps/api` (NestJS), `apps/web` (React), `apps/mobi
 | `plan.md` | Fuente de verdad: ADR, jerarquía, autorización, cripto, fases. Si algo contradice al plan en seguridad, manda el plan |
 | `docs/backend.md` | Cualquier cambio en `apps/api`, `db/` o `packages/contracts` |
 | `docs/frontend.md` | Cualquier cambio en `apps/web`, `apps/mobile-handoff` o `packages/ui`/`i18n` |
+| `docs/business/` | Lógica de negocio (sin código): actores, permisos, bóveda, 2FA, autenticación, gobernanza y estado por fase. Léelo antes de tocar reglas |
 | `docs/database.md` | Cambios en `db/`, tablas, RLS, roles o auditoría |
 | `docs/architecture.md`, `docs/threat-model.md`, `docs/adr/`, `docs/runbooks/` | Visión global, amenazas, decisiones (ADR 0001–0024) y procedimientos (borradores) |
 | `odd/tasks/` | Seguimiento de cada funcionalidad grande (especificaciones, tareas, bitácora) |
