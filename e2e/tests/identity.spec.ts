@@ -284,6 +284,57 @@ test.describe
     expect(violations).toEqual([]);
   });
 
+  test('a passkey added in Security replaces the code at the next sign-in', async ({
+    page,
+    context,
+  }) => {
+    // Autenticador virtual del propio Chrome: hace de huella o llave de seguridad, con verificación.
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', {
+      options: {
+        protocol: 'ctap2',
+        transport: 'internal',
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+    const violations = watchSecurityViolations(page);
+
+    await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
+    await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
+    await page.getByRole('button', { name: 'Verify' }).click();
+    await page.getByRole('link', { name: 'Security' }).click();
+    await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
+    await expect(page.getByText('You have no passkeys yet')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Add passkey' }).click();
+    await page.getByLabel('Passkey name').fill('Chrome virtual key');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    // Registrar una llave pide confirmar la identidad (reautenticación reciente).
+    const dialog = page.getByRole('dialog', { name: 'Confirm your identity' });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel('Verification code').fill(await freshCode(rootSecret));
+    await dialog.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page.getByText('The passkey Chrome virtual key was added.')).toBeVisible();
+    const table = page.getByRole('table', { name: 'Your passkeys' });
+    await expect(table.getByText('Chrome virtual key')).toBeVisible();
+
+    // Nuevo inicio de sesión: contraseña y, en lugar del código, la llave de acceso.
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(/\/login/);
+    await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
+    await page.getByRole('button', { name: 'Use a passkey' }).click();
+    await expect(page.getByRole('link', { name: 'Users' })).toBeVisible();
+    await expect(page).not.toHaveURL(/\/login/);
+
+    await page.getByRole('link', { name: 'Security' }).click();
+    await expect(table.getByText('Chrome virtual key')).toBeVisible();
+    expect(violations).toEqual([]);
+  });
+
   test('the language can be switched and the choice survives a reload', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
