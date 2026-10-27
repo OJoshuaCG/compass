@@ -1,0 +1,112 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens globales del tema oscuro "carbón" (docs/frontend.md §4.1).
+ * Único punto de verdad de colores, formas y movimiento: los componentes solo usan
+ * utilidades semánticas. Al añadir un color se mide su contraste y se actualiza §4.2.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Superficies (de más profundo a más elevado) */
+  --color-canvas: #0f1114;
+  --color-surface: #16191d;
+  --color-raised: #1c2025;
+  --color-overlay: #23282f;
+
+  /* Texto */
+  --color-text: #e8eaed;
+  --color-text-secondary: #a8afba;
+  --color-text-muted: #8b93a0;
+  --color-text-disabled: #69717d;
+
+  /* Bordes */
+  --color-border: #2a2f37; /* separadores decorativos */
+  --color-border-strong: #454d59; /* tarjetas, tablas */
+  --color-border-input: #656e7a; /* controles interactivos (>=3:1) */
+
+  /* Marca y estados */
+  --color-accent: #6aa6ff;
+  --color-accent-solid: #2f6fe0;
+  --color-accent-solid-hover: #2563c9;
+  --color-on-accent: #ffffff;
+  --color-success: #4cc49a;
+  --color-warning: #e8b04a;
+  --color-danger: #ff7a85;
+  --color-danger-solid: #c93843;
+  --color-focus: #6aa6ff;
+
+  /* Forma y movimiento */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.45);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+}
+
+/* Descarta la paleta por defecto de Tailwind: solo existen los colores de los tokens. */
+@theme {
+  --color-*: initial;
+}
+
+@theme inline {
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-raised: var(--color-raised);
+  --color-overlay: var(--color-overlay);
+  --color-text: var(--color-text);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-disabled: var(--color-text-disabled);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-border-input: var(--color-border-input);
+  --color-accent: var(--color-accent);
+  --color-accent-solid: var(--color-accent-solid);
+  --color-accent-solid-hover: var(--color-accent-solid-hover);
+  --color-on-accent: var(--color-on-accent);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  --color-danger-solid: var(--color-danger-solid);
+  --color-focus: var(--color-focus);
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Space Grotesk Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --shadow-overlay: var(--shadow-overlay);
+}
+
+@layer base {
+  html {
+    @apply bg-canvas font-sans text-text;
+  }
+
+  /* Los encabezados usan Space Grotesk; los componentes no repiten la clase. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading;
+    line-height: 1.25;
+  }
+
+  /* Foco visible por defecto en todo control interactivo (WCAG 2.4.7 / 2.4.11). */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-focus;
+  }
+
+  /* prefers-reduced-motion: transiciones y animaciones quedan instantáneas. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
