@@ -49,6 +49,15 @@ export class PgSessionRepository implements SessionRepository {
       ]);
   }
 
+  async clearMfa(sessionId: string): Promise<void> {
+    await this.transactions
+      .current()
+      .query(
+        'update sessions set mfa_at = null, reauth_at = null where id = $1 and revoked_at is null',
+        [sessionId],
+      );
+  }
+
   async touch(sessionId: string, at: Date): Promise<void> {
     await this.transactions
       .current()

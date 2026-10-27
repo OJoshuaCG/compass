@@ -47,6 +47,8 @@ export interface SecondFactorDeps {
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+type AdminContact = { readonly email: string; readonly locale: 'es-MX' | 'en-US' };
+
 const mfaInvalid = (): DomainError => new DomainError('AUTH.MFA_INVALID', 'Invalid code');
 
 export class SecondFactor {
@@ -144,30 +146,51 @@ export class SecondFactor {
    * evento crítico y avisa a los Administradores. No concede una sesión completa: hay que registrar
    * un factor nuevo. Sigue exigiendo la contraseña (esta ruta solo acepta una sesión a medias).
    */
-  verifyRecoveryCode(code: string): Promise<Result<void, DomainError>> {
-    const { uow, directory, credentials, sessions, primitives, audit, clock } = this.deps;
-    return uow.run(async () => {
-      const { user, sessionId, requestId } = await this.currentUser();
-      const blocked = await this.checkThrottle(user.id);
-      if (blocked !== null) return err(blocked);
-      const hash = primitives.sha256(encoder.encode(normalizeRecoveryCode(code)));
-      const kind = await credentials.consumeRecoveryCode(user.id, hash, clock.now());
-      if (kind === null) return this.failed(user.id, requestId);
+  async verifyRecoveryCode(code: string): Promise<Result<void, DomainError>> {
+    const { uow } = this.deps;
+    const outcome = await uow.run(() => this.consumeRecoveryCode(code));
+    if (!outcome.ok) return err(outcome.error);
+    // El aviso sale DESPUÉS de confirmar: no retiene la transacción ni anuncia un restablecimiento
+    // que no llegó a ocurrir.
+    if (outcome.value !== null) await this.alertAdministrators(outcome.value);
+    return ok(undefined);
+  }
 
-      const now = clock.now();
-      await this.clearFailures(user.id);
-      if (kind === 'recovery') {
-        await sessions.setMfa(sessionId, now);
-        await audit.record(this.event('auth.recovery_code_used', 'success', user.id, requestId));
-        return ok(undefined);
-      }
-      await credentials.revokeSecondFactor(user.id, now);
-      await directory.setStatus(user.id, 'invited'); // vuelve al alta del segundo factor
-      await sessions.revokeOthersOfUser(user.id, sessionId, now);
-      await audit.record(this.event('auth.emergency_code_used', 'success', user.id, requestId));
-      await this.alertAdministrators(now);
-      return ok(undefined);
+  private async consumeRecoveryCode(
+    code: string,
+  ): Promise<
+    Result<
+      { requestId: string; usedAt: Date; recipients: readonly AdminContact[] } | null,
+      DomainError
+    >
+  > {
+    const { directory, credentials, sessions, primitives, audit, clock } = this.deps;
+    const { user, sessionId, requestId } = await this.currentUser();
+    const blocked = await this.checkThrottle(user.id);
+    if (blocked !== null) return err(blocked);
+    const hash = primitives.sha256(encoder.encode(normalizeRecoveryCode(code)));
+    const now = clock.now();
+    const kind = await credentials.consumeRecoveryCode(user.id, hash, now);
+    if (kind === null) return this.failed(user.id, requestId);
+
+    await this.clearFailures(user.id);
+    if (kind === 'recovery') {
+      await sessions.setMfa(sessionId, now);
+      await audit.record(this.event('auth.recovery_code_used', 'success', user.id, requestId));
+      return ok(null);
+    }
+    // Código de emergencia: la persona queda sin factor y de vuelta en el alta del 2FA, también en la
+    // sesión que lo usó (aunque ya estuviera completa).
+    await credentials.revokeSecondFactor(user.id, now);
+    await directory.setStatus(user.id, 'invited');
+    await sessions.revokeOthersOfUser(user.id, sessionId, now);
+    await sessions.clearMfa(sessionId);
+    const recipients = await directory.listAdministratorContacts();
+    await audit.record({
+      ...this.event('auth.emergency_code_used', 'success', user.id, requestId),
+      metadata: { alertRecipients: recipients.length },
     });
+    return ok({ requestId, usedAt: now, recipients });
   }
 
   /** Reautenticación (step-up): un factor verificado en los últimos 5 minutos habilita acciones sensibles. */
@@ -194,16 +217,37 @@ export class SecondFactor {
 
   // ---------------------------------------------------------------------------------------------
 
-  /** Mejor esfuerzo: un fallo del correo no debe dejar a la Raíz sin poder recuperarse. */
-  private async alertAdministrators(usedAt: Date): Promise<void> {
-    const { directory, mailer } = this.deps;
-    for (const admin of await directory.listAdministratorContacts()) {
-      try {
-        await mailer.sendEmergencyAlert({ to: admin.email, locale: admin.locale, usedAt });
-      } catch {
-        // El evento crítico ya quedó en la auditoría; el aviso por correo es complementario.
-      }
-    }
+  /**
+   * Mejor esfuerzo, ya confirmado el restablecimiento: un fallo del correo no debe dejar a la Raíz sin
+   * poder recuperarse. Si no hay destinatarios o alguno falla, queda registrado en la auditoría.
+   */
+  private async alertAdministrators(plan: {
+    readonly requestId: string;
+    readonly usedAt: Date;
+    readonly recipients: readonly AdminContact[];
+  }): Promise<void> {
+    const { uow, mailer, audit, context } = this.deps;
+    const results = await Promise.allSettled(
+      plan.recipients.map((admin) =>
+        mailer.sendEmergencyAlert({ to: admin.email, locale: admin.locale, usedAt: plan.usedAt }),
+      ),
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (plan.recipients.length > 0 && failed === 0) return;
+    const actorId = context.current().actorId;
+    await uow.run(() =>
+      audit.record({
+        action: 'auth.emergency_alert_incomplete',
+        actorId,
+        targetType: 'user',
+        targetId: actorId,
+        outcome: 'failure',
+        reasonCode: null,
+        ip: null,
+        requestId: plan.requestId,
+        metadata: { recipients: plan.recipients.length, failed },
+      }),
+    );
   }
 
   private async currentUser() {

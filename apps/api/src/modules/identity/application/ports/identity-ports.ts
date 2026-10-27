@@ -61,6 +61,8 @@ export interface SessionRepository {
   insert(session: NewSession): Promise<void>;
   setMfa(sessionId: string, at: Date): Promise<void>;
   setReauth(sessionId: string, at: Date): Promise<void>;
+  /** Devuelve la sesión a medias: quita el segundo factor y la reautenticación (p. ej. tras un restablecimiento). */
+  clearMfa(sessionId: string): Promise<void>;
   touch(sessionId: string, at: Date): Promise<void>;
   revoke(sessionId: string, at: Date): Promise<void>;
   revokeAllOfUser(userId: UserId, at: Date): Promise<void>;

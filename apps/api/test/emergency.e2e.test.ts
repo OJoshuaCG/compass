@@ -29,6 +29,13 @@ const audit = async (action: string) =>
       [orgId, action],
     )
   ).rows;
+const auditMetadata = async (action: string) =>
+  (
+    await env.db.admin.query<{ metadata: unknown }>(
+      'select metadata from audit_events where organization_id = $1 and action = $2 order by seq',
+      [orgId, action],
+    )
+  ).rows.map((r) => r.metadata);
 const login = async (ip: string): Promise<TestClient> => {
   const client = new TestClient(env, ip);
   const response = await client.post('/auth/login', {
@@ -111,12 +118,28 @@ describe('the emergency codes of the Root', () => {
     // El código no se reutiliza, y el secreto TOTP anterior ya no sirve.
     const again = await login('203.0.113.95');
     expect((await again.post('/auth/mfa/recovery', { code: emergencyCodes[0] })).status).toBe(401);
+    // Los códigos ordinarios anteriores también quedaron invalidados, y el factor revocado.
+    const oldOrdinary = await again.post('/auth/mfa/recovery', { code: root.recoveryCodes[1] });
+    expect(oldOrdinary.status).toBe(401);
+    const factors = await env.db.admin.query<{ revoked: boolean }>(
+      'select revoked_at is not null as revoked from user_totp_factors where user_id = $1 and verified_at is not null',
+      [rootId],
+    );
+    expect(factors.rows.length).toBeGreaterThan(0);
+    expect(factors.rows.every((f) => f.revoked)).toBe(true);
+    // El evento crítico cuenta a cuántos Administradores se avisó, y el aviso salió completo.
+    expect(
+      ((await auditMetadata('auth.emergency_code_used'))[0] as { alertRecipients: number })
+        .alertRecipients,
+    ).toBe(2);
+    expect((await audit('auth.emergency_alert_incomplete')).length).toBe(0);
     const stale = await again.post<ProblemDetails>('/auth/mfa/verify', {
       code: freshTotp(oldSecret, env.clock),
     });
     expect(stale.status).toBeGreaterThanOrEqual(400);
     expect(stale.status).not.toBe(204);
 
+    env.clock.advance(10 * 60 * 1000); // pasa el bloqueo temporal de los intentos fallidos
     // Registrar uno nuevo devuelve la cuenta a la normalidad con códigos de recuperación nuevos.
     const fresh = await enroll(env, client);
     expect(fresh.secret).not.toBe(oldSecret);
@@ -136,6 +159,21 @@ describe('the emergency codes of the Root', () => {
     expect((await client.post('/auth/mfa/recovery', { code: emergencyCodes[1] })).status).toBe(204);
     expect((await row())?.status).toBe('invited');
     expect((await audit('auth.emergency_code_used')).length).toBe(2);
+    // Un aviso falló: queda registrado en la auditoría (no se pierde en silencio).
+    const incomplete = await auditMetadata('auth.emergency_alert_incomplete');
+    expect(incomplete).toEqual([{ recipients: 2, failed: 1 }]);
+  });
+
+  it('a session that was already complete goes back to enrollment too', async () => {
+    const client = await login('203.0.113.98');
+    await enroll(env, client); // sesión completa
+    expect((await client.get('/me')).status).toBe(200);
+
+    expect((await client.post('/auth/mfa/recovery', { code: emergencyCodes[3] })).status).toBe(204);
+
+    const me = await client.get<ProblemDetails>('/me');
+    expect(me.status).toBe(403);
+    expect(me.body.code).toBe('AUTH.ENROLLMENT_REQUIRED');
   });
 
   it('an Administrator cannot reset the Root: there is no such route and their actions are denied', async () => {
