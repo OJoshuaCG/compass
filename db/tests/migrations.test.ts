@@ -90,19 +90,19 @@ describe('migration runner', () => {
     const dir = await copyMigrations();
     await migrate({ connectionString: db.migratorUrl, directory: dir });
     await writeFile(
-      join(dir, '0009_broken.sql'),
+      join(dir, '9999_broken.sql'),
       'create table half_done (id int);\nselect 1/0;\n',
     );
 
     await expect(migrate({ connectionString: db.migratorUrl, directory: dir })).rejects.toThrow(
-      /0009_broken\.sql failed/,
+      /9999_broken\.sql failed/,
     );
 
     const admin = await connect(db.adminUrl);
     try {
       const table = await admin.query("select to_regclass('public.half_done') as t");
       expect((table.rows[0] as { t: string | null }).t).toBeNull();
-      const recorded = await admin.query("select 1 from schema_migrations where version = '0009'");
+      const recorded = await admin.query("select 1 from schema_migrations where version = '9999'");
       expect(recorded.rowCount).toBe(0);
     } finally {
       await admin.end();
