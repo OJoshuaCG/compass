@@ -20,6 +20,14 @@ export const RATE_LIMITED = 'iam:rate-limited';
 /** Aplica el límite por IP a todas las rutas de un controlador (autenticación, invitaciones). */
 export const RateLimited = (): MethodDecorator & ClassDecorator => SetMetadata(RATE_LIMITED, true);
 
+export const IDEMPOTENT = 'iam:idempotent';
+
+/**
+ * Ruta que crea un recurso: exige `Idempotency-Key` y guarda la respuesta 24 horas para que un
+ * reintento devuelva lo mismo sin crear otro. Nunca en rutas cuya respuesta lleve secretos.
+ */
+export const Idempotent = (): MethodDecorator => SetMetadata(IDEMPOTENT, true);
+
 /** Convierte un `Result` de un caso de uso en valor o en la excepción que el filtro traduce. */
 export function unwrap<T>(result: Result<T, DomainError>): T {
   if (!result.ok) throw result.error;

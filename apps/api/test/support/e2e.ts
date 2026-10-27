@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -132,7 +134,10 @@ export class TestClient {
       ...(payload === undefined ? {} : { payload: payload as object }),
       remoteAddress: this.ip,
       headers: {
-        ...(method === 'POST' ? { 'x-requested-with': 'test', origin: APP_ORIGIN } : {}),
+        // Como el cliente real: cada POST lleva una clave de idempotencia nueva salvo que se indique.
+        ...(method === 'POST'
+          ? { 'x-requested-with': 'test', origin: APP_ORIGIN, 'idempotency-key': randomUUID() }
+          : {}),
         ...(this.cookie === null ? {} : { cookie: `__Host-session=${this.cookie}` }),
         ...headers,
       },
