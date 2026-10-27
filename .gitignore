@@ -13,3 +13,8 @@ coverage/
 # Archivos temporales de agentes
 .claude/
 *.log
+
+# Copia congelada del build para las pruebas de navegador
+e2e/.web-dist/
+e2e/test-results/
+e2e/playwright-report/

@@ -1,0 +1,10 @@
+{
+  "extends": "@iam/config/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "..",
+    "declaration": false,
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["tests", "scripts", "playwright.config.ts"]
+}

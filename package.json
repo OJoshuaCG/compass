@@ -12,7 +12,8 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "e2e": "turbo run e2e"
   },
   "devDependencies": {
     "prettier": "3.9.10",

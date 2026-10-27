@@ -49,3 +49,8 @@ jobs:
       # Las pruebas de integración usan Testcontainers: el runner ya trae Docker.
       - name: Test (unit and integration, real PostgreSQL)
         run: pnpm test
+
+      # Navegador real (Chrome del runner) contra la plataforma completa: PostgreSQL en contenedor,
+      # la API sirviendo la SPA en el mismo origen, con la CSP estricta y la cookie de sesión.
+      - name: Browser end-to-end tests
+        run: pnpm e2e
