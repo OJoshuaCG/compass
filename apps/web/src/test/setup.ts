@@ -1,6 +1,13 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+
+import { FakeBroadcastChannel } from './fake-broadcast-channel';
+
+beforeEach(() => {
+  FakeBroadcastChannel.reset();
+  vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
+});
 
 afterEach(() => {
   cleanup();

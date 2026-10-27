@@ -208,13 +208,16 @@ describe('row actions menu', () => {
     teamApi();
     const { container } = renderApp(TEAM_URL);
     await openMenu(user, 'Luis Gómez');
-    const names = (await screen.findAllByRole('menuitem')).map((item) => item.textContent);
-    expect(names).toEqual([
-      es.directory['team.action.suspend'],
-      es.directory['team.action.changeRank'],
-      es.directory['team.action.transfer'],
-      es.directory['team.action.deactivate'],
-    ]);
+    // "Cerrar sesiones" depende del catálogo de descarga diferida: se espera a que aparezca.
+    await waitFor(() => {
+      expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+        es.directory['team.action.suspend'],
+        es.directory['team.action.changeRank'],
+        es.directory['team.action.transfer'],
+        es.sessions['team.action'],
+        es.directory['team.action.deactivate'],
+      ]);
+    });
     expect(await axeViolations(screen.getByRole('menu'))).toEqual([]);
     await user.keyboard('{Escape}');
     await waitFor(() => {
@@ -257,6 +260,90 @@ describe('row actions menu', () => {
     await waitFor(() => {
       expect(api.callsTo('POST', `/users/${LUIS_ID}/suspend`)).toHaveLength(1);
     });
+  });
+});
+
+describe('close sessions', () => {
+  const closeUrl = `POST /users/${LUIS_ID}/sessions/revoke`;
+  const choose = async (user: User, name: string) => {
+    await openMenu(user, name);
+    await user.click(await screen.findByRole('menuitem', { name: es.sessions['team.action'] }));
+  };
+
+  it('appears only with user.deactivate and never for Root or deactivated people', async () => {
+    const user = userEvent.setup();
+    teamApi({}, { permissions: ['user.deactivate'] });
+    renderApp(TEAM_URL);
+    await openMenu(user, 'Luis Gómez');
+    expect(
+      await screen.findByRole('menuitem', { name: es.sessions['team.action'] }),
+    ).toBeInTheDocument();
+    for (const name of ['Raíz Principal', 'Baja Previa']) {
+      expect(
+        screen.queryByRole('button', {
+          name: es.directory['team.rowMenu'].replace('{{name}}', name),
+        }),
+      ).toBeNull();
+    }
+  });
+
+  it('is hidden for managers without user.deactivate', async () => {
+    const user = userEvent.setup();
+    teamApi({}, { permissions: ['user.update', 'user.transfer'] });
+    renderApp(TEAM_URL);
+    await openMenu(user, 'Marta Ruiz');
+    await screen.findAllByRole('menuitem');
+    expect(screen.queryByRole('menuitem', { name: es.sessions['team.action'] })).toBeNull();
+  });
+
+  it('confirms first, posts without a body, reloads the table and shows a toast', async () => {
+    const user = userEvent.setup();
+    const api = teamApi({ [closeUrl]: noContent() });
+    renderApp(TEAM_URL);
+    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    const before = managedCalls(api).length;
+    await choose(user, 'Luis Gómez');
+    const dialog = await screen.findByRole('dialog', {
+      name: es.sessions['team.title'].replace('{{name}}', 'Luis Gómez'),
+    });
+    expect(await axeViolations(dialog)).toEqual([]);
+    // Nada se ejecuta antes de confirmar.
+    expect(api.callsTo('POST', `/users/${LUIS_ID}/sessions/revoke`)).toHaveLength(0);
+    await user.click(within(dialog).getByRole('button', { name: es.sessions['team.confirm'] }));
+    expect(
+      await screen.findByText(es.sessions['team.toast'].replace('{{name}}', 'Luis Gómez')),
+    ).toBeInTheDocument();
+    const call = api.callsTo('POST', `/users/${LUIS_ID}/sessions/revoke`)[0];
+    expect(call?.body).toBeUndefined();
+    expect(call?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
+    await waitFor(() => {
+      expect(managedCalls(api).length).toBeGreaterThan(before);
+    });
+  });
+
+  it('cancelling sends nothing', async () => {
+    const user = userEvent.setup();
+    const api = teamApi({ [closeUrl]: noContent() });
+    renderApp(TEAM_URL);
+    await choose(user, 'Luis Gómez');
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: es.common['actions.cancel'] }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(api.callsTo('POST', `/users/${LUIS_ID}/sessions/revoke`)).toHaveLength(0);
+  });
+
+  it('shows the translated server error and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    teamApi({ [closeUrl]: problem(403, 'USER.ROOT_PROTECTED') });
+    renderApp(TEAM_URL);
+    await choose(user, 'Luis Gómez');
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: es.sessions['team.confirm'] }));
+    expect(
+      await within(dialog).findByText(new RegExp(es.errors['USER.ROOT_PROTECTED'])),
+    ).toBeInTheDocument();
   });
 });
 

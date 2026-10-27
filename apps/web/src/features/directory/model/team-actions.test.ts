@@ -54,11 +54,12 @@ describe('managerCandidates', () => {
 describe('availableActions', () => {
   const actor = { rank: 1 as const, permissions: ALL };
 
-  it('offers suspend, change rank, transfer and deactivate for an active person', () => {
+  it('offers suspend, change rank, transfer, close sessions and deactivate for an active person', () => {
     expect(availableActions(person(), actor)).toEqual([
       'suspend',
       'changeRank',
       'transfer',
+      'closeSessions',
       'deactivate',
     ]);
   });
@@ -68,8 +69,18 @@ describe('availableActions', () => {
       'reactivate',
       'changeRank',
       'transfer',
+      'closeSessions',
       'deactivate',
     ]);
+  });
+
+  it('offers close sessions only with user.deactivate', () => {
+    const only = (permission: Permission) =>
+      availableActions(person(), { rank: 1, permissions: [permission] });
+    expect(only('user.deactivate')).toContain('closeSessions');
+    for (const permission of ALL.filter((p) => p !== 'user.deactivate')) {
+      expect(only(permission)).not.toContain('closeSessions');
+    }
   });
 
   it('hides each action without its permission', () => {

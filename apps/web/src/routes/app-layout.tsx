@@ -59,6 +59,11 @@ export function AppLayout() {
                 {t('nav.users')}
               </Link>
             </li>
+            <li>
+              <Link to="/sessions" className={linkClass} activeProps={activeProps}>
+                {t('nav.sessions')}
+              </Link>
+            </li>
             {import.meta.env.DEV ? (
               <li>
                 <Link to="/catalog" className={linkClass} activeProps={activeProps}>

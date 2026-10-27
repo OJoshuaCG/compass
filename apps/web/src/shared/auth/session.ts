@@ -3,6 +3,8 @@ import { queryOptions, useQuery, type QueryClient } from '@tanstack/react-query'
 
 import { ApiError, apiClient, type ApiClient } from '../api';
 
+import { announceSessionEnded } from './session-sync';
+
 /** Fábrica de claves de la sesión: nunca cadenas sueltas (docs/frontend.md §7.3). */
 export const sessionKeys = {
   all: ['session'] as const,
@@ -49,7 +51,14 @@ export async function loadSessionState(
 export function sessionQueryOptions(client: ApiClient = apiClient) {
   return queryOptions({
     queryKey: sessionKeys.me(),
-    queryFn: ({ signal }) => loadSessionState(client, signal),
+    queryFn: async ({ signal, client: queryClient }) => {
+      const previous = queryClient.getQueryData<SessionState>(sessionKeys.me());
+      const state = await loadSessionState(client, signal);
+      // Había sesión y `/me` responde 401: se perdió (la cerraron en otro lado o expiró). Las demás
+      // pestañas lo saben de inmediato en vez de esperar a su próxima petición.
+      if (state.kind === 'anonymous' && previous?.kind === 'authenticated') announceSessionEnded();
+      return state;
+    },
     // Las mutaciones de autenticación invalidan esta clave; el tiempo solo evita repetir
     // `/me` en cada navegación.
     staleTime: 60_000,

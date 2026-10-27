@@ -2,7 +2,8 @@ import type { ManagedUser, Permission, Rank } from '@iam/contracts';
 
 import { creatableRanks, type InvitableRank } from './creatable-ranks';
 
-export type TeamAction = 'suspend' | 'reactivate' | 'deactivate' | 'changeRank' | 'transfer';
+export type TeamAction =
+  'suspend' | 'reactivate' | 'deactivate' | 'changeRank' | 'transfer' | 'closeSessions';
 
 /** Permisos que abren la sección "Gestión del equipo" (basta con uno). */
 const MANAGEMENT_PERMISSIONS: readonly Permission[] = [
@@ -54,6 +55,7 @@ export function availableActions(
     actions.push('changeRank');
   }
   if (can('user.transfer')) actions.push('transfer');
-  if (can('user.deactivate')) actions.push('deactivate');
+  // Mismo permiso que la baja; no es destructiva a nivel de cuenta (la persona puede volver a entrar).
+  if (can('user.deactivate')) actions.push('closeSessions', 'deactivate');
   return actions;
 }

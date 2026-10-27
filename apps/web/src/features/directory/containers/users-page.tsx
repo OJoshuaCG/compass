@@ -1,9 +1,10 @@
-import { PageHeader, Button, Tabs, UserPlus } from '@iam/ui';
+import { PageHeader, Button, Spinner, Tabs, UserPlus } from '@iam/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { TableSearch } from '../../../shared/api';
 import { useMe, usePermission } from '../../../shared/auth';
+import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { canManageTeam } from '../model/team-actions';
 
 import { DirectoryTable } from './directory-table';
@@ -32,6 +33,8 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
   const canInvite = usePermission('user.invite');
   const showTeam = me !== undefined && canManageTeam(me.permissions);
   const [inviteOpen, setInviteOpen] = useState(false);
+  // Los textos de esta pantalla viajan en un catálogo aparte (presupuesto de JS inicial).
+  const catalogReady = useLazyCatalog('directory');
 
   // La vista `team` en la URL sin permiso cae al directorio en vez de mostrar un error.
   const view: UsersView = showTeam && search.view === 'team' ? 'team' : 'directory';
@@ -41,6 +44,8 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
     dir: search.dir,
     q: search.q,
   };
+
+  if (!catalogReady) return <Spinner label={t('state.loading', { ns: 'common' })} />;
 
   const panel =
     view === 'team' && me !== undefined ? (

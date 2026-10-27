@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAsyncAction, useTableQuery, type TableSearch } from '../../../shared/api';
 import { ErrorAlert, useDataTableLabels, useErrorMessage } from '../../../shared/i18n';
+import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useDebouncedCommit } from '../../../shared/lib';
 import { useToast } from '../../../shared/toast';
 import { directoryKeys } from '../api/directory-api';
@@ -22,6 +23,7 @@ import { fetchManagedPage, teamApi } from '../api/team-api';
 import { availableActions, type TeamAction } from '../model/team-actions';
 
 import { ChangeRankDialog } from './change-rank-dialog';
+import { CloseSessionsDialog } from './close-sessions-dialog';
 import { DeactivateDialog } from './deactivate-dialog';
 import { TransferManagerDialog } from './transfer-manager-dialog';
 
@@ -40,7 +42,10 @@ const STATUS_TONE: Record<UserStatus, Status> = {
   deactivated: 'neutral',
 };
 
-type DialogState = { kind: 'deactivate' | 'changeRank' | 'transfer'; person: ManagedUser };
+type DialogState = {
+  kind: 'deactivate' | 'changeRank' | 'transfer' | 'closeSessions';
+  person: ManagedUser;
+};
 
 /**
  * Pestaña "Gestión del equipo": la `DataTable` estándar sobre `GET /users/managed` con un menú de
@@ -53,6 +58,8 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
   const errorMessage = useErrorMessage();
   const queryClient = useQueryClient();
   const toast = useToast();
+  // Los textos de "Cerrar sesiones" viajan en un catálogo aparte (presupuesto de JS inicial).
+  const sessionsCatalogReady = useLazyCatalog('sessions');
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const direct = useAsyncAction((kind: 'suspend' | 'reactivate', person: ManagedUser) =>
     kind === 'suspend' ? teamApi.suspend(person.id) : teamApi.reactivate(person.id),
@@ -86,7 +93,10 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
   }
 
   function itemFor(action: TeamAction, person: ManagedUser): RowActionItem {
-    const label = t(`team.action.${action}`, { ns: 'directory' });
+    const label =
+      action === 'closeSessions'
+        ? t('team.action', { ns: 'sessions' })
+        : t(`team.action.${action}`, { ns: 'directory' });
     switch (action) {
       case 'suspend':
       case 'reactivate':
@@ -97,6 +107,7 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
             void runDirect(action, person);
           },
         };
+      case 'closeSessions':
       case 'deactivate':
         return {
           id: action,
@@ -104,7 +115,7 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
           tone: 'danger',
           onSelect: () => {
             direct.reset();
-            setDialog({ kind: 'deactivate', person });
+            setDialog({ kind: action, person });
           },
         };
       case 'changeRank':
@@ -182,7 +193,9 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
         rowActions={(row) => (
           <RowActionsMenu
             label={t('team.rowMenu', { ns: 'directory', name: row.displayName })}
-            items={availableActions(row, actor).map((action) => itemFor(action, row))}
+            items={availableActions(row, actor)
+              .filter((action) => action !== 'closeSessions' || sessionsCatalogReady)
+              .map((action) => itemFor(action, row))}
           />
         )}
         toolbar={
@@ -198,6 +211,15 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
       />
       {dialog?.kind === 'deactivate' ? (
         <DeactivateDialog
+          person={dialog.person}
+          onClose={() => {
+            setDialog(null);
+          }}
+          onDone={done}
+        />
+      ) : null}
+      {dialog?.kind === 'closeSessions' ? (
+        <CloseSessionsDialog
           person={dialog.person}
           onClose={() => {
             setDialog(null);

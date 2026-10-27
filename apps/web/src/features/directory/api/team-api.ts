@@ -26,6 +26,8 @@ export function createTeamApi(client: ApiClient = apiClient) {
     suspend: (id: string) => post(id, 'suspend'),
     reactivate: (id: string) => post(id, 'reactivate'),
     deactivate: (id: string) => post(id, 'deactivate'),
+    /** Cierra TODAS las sesiones de la persona (204); exige `user.deactivate`, sin reautenticación. */
+    closeSessions: (id: string) => post(id, 'sessions/revoke'),
     changeRank: (id: string, rank: Exclude<Rank, 0>) => post(id, 'rank', { rank }),
     transferManager: (id: string, managerId: string) => post(id, 'manager', { managerId }),
   };

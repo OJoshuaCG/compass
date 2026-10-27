@@ -63,6 +63,8 @@ export type DataTableProps<T extends object> = {
   refreshing?: boolean;
   /** Barra superior opcional (búsqueda, filtros, acciones). */
   toolbar?: ReactNode;
+  /** Listados acotados que el servidor devuelve completos (sin cursor): omite el pie de paginación. */
+  hidePagination?: boolean;
   className?: string;
 };
 
@@ -102,6 +104,7 @@ export function DataTable<T extends object>({
   onClearFilters,
   refreshing = false,
   toolbar,
+  hidePagination = false,
   className,
 }: DataTableProps<T>) {
   const tableColumns = useMemo(() => {
@@ -263,18 +266,20 @@ export function DataTable<T extends object>({
           </tbody>
         </table>
       </div>
-      <div className="border-t border-border-strong p-3">
-        <Pagination
-          labels={labels.pagination}
-          rangeText={range}
-          limit={limit}
-          onLimitChange={onLimitChange}
-          hasPrevious={pagination.hasPrevious && status !== 'loading'}
-          hasNext={pagination.hasNext && status !== 'loading' && !refreshing}
-          onPrevious={pagination.onPrevious}
-          onNext={pagination.onNext}
-        />
-      </div>
+      {hidePagination ? null : (
+        <div className="border-t border-border-strong p-3">
+          <Pagination
+            labels={labels.pagination}
+            rangeText={range}
+            limit={limit}
+            onLimitChange={onLimitChange}
+            hasPrevious={pagination.hasPrevious && status !== 'loading'}
+            hasNext={pagination.hasNext && status !== 'loading' && !refreshing}
+            onPrevious={pagination.onPrevious}
+            onNext={pagination.onNext}
+          />
+        </div>
+      )}
       {/* Anuncia cambios de página y de carga sin mover el foco. */}
       <div role="status" aria-live="polite" className="sr-only">
         {status === 'loading' ? labels.loading : range}

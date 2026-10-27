@@ -233,6 +233,21 @@ describe('DataTable limit and cursor pagination', () => {
   });
 });
 
+describe('DataTable without pagination', () => {
+  it('omits the pagination footer but keeps the rows and the polite live region', () => {
+    setup({ hidePagination: true });
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getByText('Ada')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Showing 1-2');
+  });
+
+  it('shows the footer by default', () => {
+    setup();
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toBeInTheDocument();
+  });
+});
+
 describe('DataTable states', () => {
   it('shows skeleton rows with the same columns while loading', () => {
     const { container } = setup({ status: 'loading', rows: [] });

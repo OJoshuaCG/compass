@@ -66,6 +66,7 @@
   "catalog.table.col.status": "Status",
   "catalog.table.col.id": "Identifier",
   "nav.users": "Users",
+  "nav.sessions": "My sessions",
   "actions.logout": "Sign out",
   "password.show": "Show password",
   "password.hide": "Hide password",

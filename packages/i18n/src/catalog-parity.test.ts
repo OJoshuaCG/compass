@@ -4,6 +4,8 @@ import {
   LOCALES,
   NAMESPACES,
   errorMessageKey,
+  LAZY_NAMESPACES,
+  lazyCatalogLoaders,
   knownErrorKey,
   resolveLocale,
   resources,
@@ -46,6 +48,29 @@ describe('i18n catalog parity', () => {
       }
     });
   }
+});
+
+describe('lazy catalogs parity', () => {
+  for (const ns of LAZY_NAMESPACES) {
+    it(`${ns}: same keys and variables in both locales, no empty values`, async () => {
+      const catalog = await lazyCatalogLoaders[ns]();
+      const [first, second] = LOCALES;
+      const a = catalog[first];
+      const b = catalog[second];
+      expect(Object.keys(b).sort()).toEqual(Object.keys(a).sort());
+      for (const [key, value] of Object.entries(a)) {
+        expect(placeholders(b[key] ?? ''), key).toEqual(placeholders(value));
+        expect(value.trim(), key).not.toBe('');
+        expect((b[key] ?? '').trim(), key).not.toBe('');
+      }
+    });
+  }
+
+  it('keeps lazy namespaces out of the eagerly bundled resources', () => {
+    for (const ns of LAZY_NAMESPACES) {
+      for (const locale of LOCALES) expect(resources[locale]).not.toHaveProperty(ns);
+    }
+  });
 });
 
 describe('i18n utilities', () => {

@@ -9,4 +9,5 @@ export {
   useSessionState,
   type SessionState,
 } from './session';
+export { announceSessionEnded, onSessionEndedElsewhere } from './session-sync';
 export { useLogout } from './use-logout';
