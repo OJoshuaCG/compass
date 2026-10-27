@@ -39,6 +39,7 @@ try {
     strength: new ZxcvbnPasswordStrength(),
     ids: new UuidV7Generator(),
     randomBytes: (length) => primitives.randomBytes(length),
+    sha256: (data) => primitives.sha256(data),
   }).execute({
     name: input.ORG_NAME,
     slug: input.ORG_SLUG,
@@ -55,6 +56,13 @@ try {
       `  Contraseña inicial (de un solo uso): ${result.initialPassword ?? ''}`,
       '',
       'Entrégala por un canal seguro. Se muestra solo esta vez y debe cambiarse en el primer ingreso.',
+      '',
+      'Códigos de emergencia de la Raíz (de un solo uso):',
+      ...result.emergencyCodes.map((code) => `  ${code}`),
+      '',
+      'Imprímelos AHORA y repártelos entre las dos personas custodias, fuera del sistema. Se muestran',
+      'solo esta vez. Usar uno restablece el segundo factor de la Raíz, queda como evento crítico y',
+      'avisa a todos los Administradores. Ningún Administrador puede restablecer a la Raíz por sí mismo.',
       '',
     ].join('\n'),
   );

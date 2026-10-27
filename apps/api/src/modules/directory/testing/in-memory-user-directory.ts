@@ -85,6 +85,16 @@ export class InMemoryUserDirectory implements UserDirectory {
     return Promise.resolve({ rows: [], nextCursor: null });
   }
 
+  listAdministratorContacts(): Promise<
+    readonly { readonly email: string; readonly locale: 'es-MX' | 'en-US' }[]
+  > {
+    return Promise.resolve(
+      [...this.users.values()]
+        .filter((u) => u.rank === 1 && u.status === 'active')
+        .map((u) => ({ email: u.email, locale: u.locale })),
+    );
+  }
+
   list(): Promise<DirectoryPage> {
     return Promise.resolve({ rows: [], nextCursor: null });
   }

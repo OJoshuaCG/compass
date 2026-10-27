@@ -153,6 +153,16 @@ export class PgUserDirectory implements UserDirectory {
     return result.rowCount ?? 0;
   }
 
+  async listAdministratorContacts(): Promise<
+    readonly { readonly email: string; readonly locale: 'es-MX' | 'en-US' }[]
+  > {
+    const result = await this.transactions.current().query<{
+      email: string;
+      locale: 'es-MX' | 'en-US';
+    }>("select email, locale from users where rank = 1 and status = 'active' order by email");
+    return result.rows;
+  }
+
   async list(query: DirectoryQuery): Promise<DirectoryPage> {
     const page = await this.page(query, { where: "status = 'active'", params: [] });
     return { rows: page.rows.map(toDirectoryRow), nextCursor: page.nextCursor };

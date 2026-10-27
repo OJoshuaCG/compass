@@ -130,7 +130,7 @@ describe('1. The Root onboards: password, mandatory second factor, then a full s
     );
     expect(factor.rows[0]?.secret_ciphertext.toString('utf8')).not.toContain(root.secret);
     const codes = await env.db.admin.query<{ code_hash: Buffer }>(
-      'select code_hash from user_recovery_codes where user_id = $1',
+      "select code_hash from user_recovery_codes where user_id = $1 and kind = 'recovery'",
       [rootId],
     );
     expect(codes.rows).toHaveLength(10);

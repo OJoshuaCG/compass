@@ -12,6 +12,7 @@ import type { Clock, RequestContextReader, Result, UserId } from '../../../share
 import type { AuditLog } from '../../audit/index.js';
 import type { CryptoPrimitives, SecretCipher, SecretContext } from '../../crypto/index.js';
 import type { UserDirectory } from '../../directory/index.js';
+import type { Mailer } from '../../notification/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
 import {
   formatRecoveryCode,
@@ -39,6 +40,8 @@ export interface SecondFactorDeps {
   readonly attempts: LoginAttemptStore;
   readonly audit: AuditLog;
   readonly clock: Clock;
+  /** Para avisar a los Administradores cuando se usa un código de emergencia. */
+  readonly mailer: Mailer;
 }
 
 const encoder = new TextEncoder();
@@ -133,20 +136,36 @@ export class SecondFactor {
     });
   }
 
-  /** Último recurso: un código de recuperación de un solo uso. */
+  /**
+   * Último recurso: un código de recuperación de un solo uso.
+   *
+   * Un código de EMERGENCIA (los de la Raíz, custodiados fuera del sistema) hace más: deja a la
+   * persona sin segundo factor y de vuelta en el alta del 2FA, cierra sus otras sesiones, queda como
+   * evento crítico y avisa a los Administradores. No concede una sesión completa: hay que registrar
+   * un factor nuevo. Sigue exigiendo la contraseña (esta ruta solo acepta una sesión a medias).
+   */
   verifyRecoveryCode(code: string): Promise<Result<void, DomainError>> {
-    const { uow, credentials, sessions, primitives, audit, clock } = this.deps;
+    const { uow, directory, credentials, sessions, primitives, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, sessionId, requestId } = await this.currentUser();
       const blocked = await this.checkThrottle(user.id);
       if (blocked !== null) return err(blocked);
       const hash = primitives.sha256(encoder.encode(normalizeRecoveryCode(code)));
-      const consumed = await credentials.consumeRecoveryCode(user.id, hash, clock.now());
-      if (!consumed) return this.failed(user.id, requestId);
+      const kind = await credentials.consumeRecoveryCode(user.id, hash, clock.now());
+      if (kind === null) return this.failed(user.id, requestId);
 
-      await sessions.setMfa(sessionId, clock.now());
+      const now = clock.now();
       await this.clearFailures(user.id);
-      await audit.record(this.event('auth.recovery_code_used', 'success', user.id, requestId));
+      if (kind === 'recovery') {
+        await sessions.setMfa(sessionId, now);
+        await audit.record(this.event('auth.recovery_code_used', 'success', user.id, requestId));
+        return ok(undefined);
+      }
+      await credentials.revokeSecondFactor(user.id, now);
+      await directory.setStatus(user.id, 'invited'); // vuelve al alta del segundo factor
+      await sessions.revokeOthersOfUser(user.id, sessionId, now);
+      await audit.record(this.event('auth.emergency_code_used', 'success', user.id, requestId));
+      await this.alertAdministrators(now);
       return ok(undefined);
     });
   }
@@ -174,6 +193,18 @@ export class SecondFactor {
   }
 
   // ---------------------------------------------------------------------------------------------
+
+  /** Mejor esfuerzo: un fallo del correo no debe dejar a la Raíz sin poder recuperarse. */
+  private async alertAdministrators(usedAt: Date): Promise<void> {
+    const { directory, mailer } = this.deps;
+    for (const admin of await directory.listAdministratorContacts()) {
+      try {
+        await mailer.sendEmergencyAlert({ to: admin.email, locale: admin.locale, usedAt });
+      } catch {
+        // El evento crítico ya quedó en la auditoría; el aviso por correo es complementario.
+      }
+    }
+  }
 
   private async currentUser() {
     const { context, directory } = this.deps;

@@ -189,6 +189,7 @@ export function buildContainer(options: ContainerOptions) {
       attempts,
       audit,
       clock,
+      mailer,
     }),
     changePassword: new ChangePassword({
       context: requestContext,

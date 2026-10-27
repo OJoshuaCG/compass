@@ -147,7 +147,17 @@ export interface CredentialRepository {
   advanceTotpStep(factorId: string, step: number): Promise<boolean>;
   replaceRecoveryCodes(userId: UserId, hashes: readonly Uint8Array[]): Promise<void>;
   /** Marca el código como usado de forma atómica; `false` si no existe o ya se usó. */
-  consumeRecoveryCode(userId: UserId, hash: Uint8Array, at: Date): Promise<boolean>;
+  /** Consume un código vigente de la persona y dice de qué clase era; `null` si no existe o ya se usó. */
+  consumeRecoveryCode(
+    userId: UserId,
+    hash: Uint8Array,
+    at: Date,
+  ): Promise<'recovery' | 'emergency' | null>;
+  /**
+   * Deja a la persona sin segundo factor registrado: revoca el TOTP y los códigos de recuperación
+   * ordinarios. Los códigos de emergencia no se tocan (siguen custodiados fuera del sistema).
+   */
+  revokeSecondFactor(userId: UserId, at: Date): Promise<void>;
 }
 
 export interface LoginRow {

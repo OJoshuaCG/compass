@@ -40,7 +40,7 @@ export interface E2eEnvironment {
     rootName: string;
     /** Deja la contraseña inicial de la Raíz como de un solo uso (por defecto ya está cambiada). */
     keepInitialPassword?: boolean;
-  }): Promise<{ organizationId: string; rootUserId: string }>;
+  }): Promise<{ organizationId: string; rootUserId: string; emergencyCodes: readonly string[] }>;
   close(): Promise<void>;
 }
 
@@ -72,6 +72,7 @@ export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvi
     strength: container.strength,
     ids: container.ids,
     randomBytes: (length) => new NodeCryptoPrimitives().randomBytes(length),
+    sha256: (data) => new NodeCryptoPrimitives().sha256(data),
   });
 
   return {
@@ -95,7 +96,11 @@ export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvi
           result.rootUserId,
         ]);
       }
-      return { organizationId: result.organizationId, rootUserId: result.rootUserId };
+      return {
+        organizationId: result.organizationId,
+        rootUserId: result.rootUserId,
+        emergencyCodes: result.emergencyCodes,
+      };
     },
     async close() {
       await app.close();

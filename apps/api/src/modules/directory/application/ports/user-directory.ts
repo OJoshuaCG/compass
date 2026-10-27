@@ -74,6 +74,10 @@ export interface UserDirectory {
     actor: { readonly id: UserId; readonly isRoot: boolean },
     query: DirectoryQuery,
   ): Promise<ManagedPage>;
+  /** Correo e idioma de los Administradores activos (rango 1): destinatarios de las alertas críticas. */
+  listAdministratorContacts(): Promise<
+    readonly { readonly email: string; readonly locale: 'es-MX' | 'en-US' }[]
+  >;
   /** Directorio visible: usuarios activos, solo nombre, correo y rango. */
   list(query: DirectoryQuery): Promise<DirectoryPage>;
 }

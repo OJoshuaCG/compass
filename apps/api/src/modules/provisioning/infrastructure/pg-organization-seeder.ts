@@ -45,6 +45,13 @@ export class PgOrganizationSeeder implements OrganizationSeeder {
          values ($1, $2, $3, $2)`,
         [input.organizationId, input.rootUserId, rootRoleId],
       );
+      for (const hash of input.emergencyCodeHashes) {
+        await client.query(
+          `insert into user_recovery_codes (organization_id, user_id, code_hash, kind)
+           values ($1, $2, $3, 'emergency')`,
+          [input.organizationId, input.rootUserId, Buffer.from(hash)],
+        );
+      }
       // El alta queda en la cadena de auditoría de la organización (sin actor: la hace operaciones).
       await client.query(
         `insert into audit_events (organization_id, action, target_type, target_id, outcome, metadata)

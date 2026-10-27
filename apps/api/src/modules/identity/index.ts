@@ -9,6 +9,12 @@ export { ChangePassword } from './application/change-password.js';
 export { Login } from './application/login.js';
 export type { LoginCommand, LoginOutcome } from './application/login.js';
 export { Logout } from './application/logout.js';
+export {
+  EMERGENCY_CODE_COUNT,
+  formatRecoveryCode,
+  normalizeRecoveryCode,
+  RECOVERY_CODE_RANDOM_BYTES,
+} from './domain/recovery-codes.js';
 export { ListInvitations, ResendInvitation } from './application/invitations.js';
 export { ListMySessions, RevokeMySession } from './application/my-sessions.js';
 export { GetProfile } from './application/profile.js';

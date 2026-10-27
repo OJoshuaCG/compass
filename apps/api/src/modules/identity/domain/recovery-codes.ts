@@ -3,6 +3,8 @@
  * una vez. Formato `XXXX-XXXX-XXXX` (60 bits) con un alfabeto sin caracteres ambiguos (0/O, 1/I).
  */
 export const RECOVERY_CODE_COUNT = 10;
+/** Códigos de emergencia de la Raíz, emitidos al crear la organización (los custodian dos personas). */
+export const EMERGENCY_CODE_COUNT = 8;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 símbolos = 5 bits por carácter
 const GROUPS = 3;
 const GROUP_LENGTH = 4;

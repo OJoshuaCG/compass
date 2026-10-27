@@ -109,7 +109,7 @@ export class PgCredentialRepository implements CredentialRepository {
     const client = this.transactions.current();
     // Los códigos anteriores se invalidan marcándolos como usados (sin DELETE para el rol de la aplicación).
     await client.query(
-      'update user_recovery_codes set used_at = now() where user_id = $1 and used_at is null',
+      "update user_recovery_codes set used_at = now() where user_id = $1 and used_at is null and kind = 'recovery'",
       [userId],
     );
     for (const hash of hashes) {
@@ -121,13 +121,28 @@ export class PgCredentialRepository implements CredentialRepository {
     }
   }
 
-  async consumeRecoveryCode(userId: UserId, hash: Uint8Array, at: Date): Promise<boolean> {
-    const result = await this.transactions
-      .current()
-      .query(
-        'update user_recovery_codes set used_at = $3 where user_id = $1 and code_hash = $2 and used_at is null',
-        [userId, Buffer.from(hash), at],
-      );
-    return result.rowCount === 1;
+  async consumeRecoveryCode(
+    userId: UserId,
+    hash: Uint8Array,
+    at: Date,
+  ): Promise<'recovery' | 'emergency' | null> {
+    const result = await this.transactions.current().query<{ kind: 'recovery' | 'emergency' }>(
+      `update user_recovery_codes set used_at = $3
+        where user_id = $1 and code_hash = $2 and used_at is null returning kind`,
+      [userId, Buffer.from(hash), at],
+    );
+    return result.rows[0]?.kind ?? null;
+  }
+
+  async revokeSecondFactor(userId: UserId, at: Date): Promise<void> {
+    const client = this.transactions.current();
+    await client.query(
+      'update user_totp_factors set revoked_at = $2 where user_id = $1 and revoked_at is null',
+      [userId, at],
+    );
+    await client.query(
+      "update user_recovery_codes set used_at = $2 where user_id = $1 and used_at is null and kind = 'recovery'",
+      [userId, at],
+    );
   }
 }

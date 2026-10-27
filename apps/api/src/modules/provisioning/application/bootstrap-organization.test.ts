@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
@@ -23,10 +23,12 @@ function setup() {
     strength: { score: () => 4 },
     ids: { next: () => `id-${String((counter += 1))}` },
     randomBytes: (length) => randomBytes(length),
+    sha256: (data) => createHash('sha256').update(data).digest(),
   });
   return { useCase, seeded };
 }
 
+const EMERGENCY = /^([A-HJ-NP-Z2-9]{4}-){2}[A-HJ-NP-Z2-9]{4}$/;
 const base = { name: 'Org', slug: 'org', rootEmail: 'root@org.test', rootDisplayName: 'Root' };
 
 describe('BootstrapOrganization', () => {
@@ -52,5 +54,22 @@ describe('BootstrapOrganization', () => {
       rootPassword: 'Correct-Horse-Battery-Staple-9',
     });
     expect(result.initialPassword).toBeNull();
+  });
+
+  it('issues eight distinct emergency codes, and stores only their hashes', async () => {
+    const { useCase, seeded } = setup();
+    const result = await useCase.execute(base);
+
+    expect(result.emergencyCodes).toHaveLength(8);
+    expect(new Set(result.emergencyCodes).size).toBe(8);
+    for (const code of result.emergencyCodes) expect(code).toMatch(EMERGENCY);
+    const stored = (seeded[0] as unknown as { emergencyCodeHashes: Uint8Array[] })
+      .emergencyCodeHashes;
+    expect(stored).toHaveLength(8);
+    const plain = result.emergencyCodes[0]?.replace(/-/g, '') ?? '';
+    expect(Buffer.from(stored[0] ?? []).toString('hex')).toBe(
+      createHash('sha256').update(plain).digest('hex'),
+    );
+    expect(JSON.stringify(seeded)).not.toContain(result.emergencyCodes[0] ?? 'x');
   });
 });

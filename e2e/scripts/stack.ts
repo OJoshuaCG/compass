@@ -88,6 +88,7 @@ await new BootstrapOrganization({
   strength: platform.strength,
   ids: platform.ids,
   randomBytes: (length) => new NodeCryptoPrimitives().randomBytes(length),
+  sha256: (data) => new NodeCryptoPrimitives().sha256(data),
 }).execute({
   name: 'E2E Organization',
   slug: 'e2e',

@@ -8,7 +8,14 @@
  * - Las plantillas de roles del sistema se siembran desde el código (versionadas), no a mano.
  */
 import { SYSTEM_ROLES, SYSTEM_ROLES_VERSION } from '../../access/index.js';
-import { evaluatePassword, personalTokens } from '../../identity/index.js';
+import {
+  EMERGENCY_CODE_COUNT,
+  evaluatePassword,
+  formatRecoveryCode,
+  normalizeRecoveryCode,
+  personalTokens,
+  RECOVERY_CODE_RANDOM_BYTES,
+} from '../../identity/index.js';
 import type { PasswordHasher, PasswordStrength } from '../../identity/index.js';
 import type { IdGenerator } from '../../../shared/kernel/index.js';
 
@@ -35,6 +42,8 @@ export interface OrganizationSeeder {
     readonly rootEmail: string;
     readonly rootDisplayName: string;
     readonly rootPasswordHash: string;
+    /** SHA-256 de los códigos de emergencia de la Raíz (nunca el código). */
+    readonly emergencyCodeHashes: readonly Uint8Array[];
     readonly roles: readonly { readonly name: string; readonly permissions: readonly string[] }[];
   }): Promise<void>;
 }
@@ -45,6 +54,8 @@ export interface BootstrapResult {
   readonly systemRolesVersion: number;
   /** Solo cuando se generó: la persona de operaciones la entrega por un canal seguro; se cambia al entrar. */
   readonly initialPassword: string | null;
+  /** Se muestran UNA vez: se imprimen y los custodian dos personas fuera del sistema. */
+  readonly emergencyCodes: readonly string[];
 }
 
 export class BootstrapOrganization {
@@ -56,6 +67,7 @@ export class BootstrapOrganization {
       readonly ids: IdGenerator;
       /** Bytes aleatorios criptográficos (el dominio no importa `node:crypto`). */
       readonly randomBytes: (length: number) => Uint8Array;
+      readonly sha256: (data: Uint8Array) => Uint8Array;
     },
   ) {}
 
@@ -72,6 +84,9 @@ export class BootstrapOrganization {
     });
     if (problem !== null) throw new Error(`The root password is not acceptable: ${problem}`);
 
+    const emergencyCodes = Array.from({ length: EMERGENCY_CODE_COUNT }, () =>
+      formatRecoveryCode(this.deps.randomBytes(RECOVERY_CODE_RANDOM_BYTES)),
+    );
     const organizationId = ids.next();
     const rootUserId = ids.next();
     await seeder.seed({
@@ -82,6 +97,9 @@ export class BootstrapOrganization {
       rootEmail: email,
       rootDisplayName: input.rootDisplayName.trim(),
       rootPasswordHash: await hasher.hash(rootPassword),
+      emergencyCodeHashes: emergencyCodes.map((code) =>
+        this.deps.sha256(new TextEncoder().encode(normalizeRecoveryCode(code))),
+      ),
       roles: SYSTEM_ROLES.map((role) => ({ name: role.name, permissions: role.permissions })),
     });
     return {
@@ -89,6 +107,7 @@ export class BootstrapOrganization {
       rootUserId,
       systemRolesVersion: SYSTEM_ROLES_VERSION,
       initialPassword: generated ? rootPassword : null,
+      emergencyCodes,
     };
   }
 

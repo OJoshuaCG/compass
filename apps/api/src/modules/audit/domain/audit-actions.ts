@@ -28,6 +28,7 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.mfa_verified': [],
   'auth.mfa_failed': [],
   'auth.recovery_code_used': [],
+  'auth.emergency_code_used': [],
   'auth.totp_enrolled': [],
   'auth.reauthenticated': [],
   'auth.logout': [],
