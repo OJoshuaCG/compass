@@ -270,7 +270,7 @@ export function DataTable<T extends object>({
           limit={limit}
           onLimitChange={onLimitChange}
           hasPrevious={pagination.hasPrevious && status !== 'loading'}
-          hasNext={pagination.hasNext && status !== 'loading'}
+          hasNext={pagination.hasNext && status !== 'loading' && !refreshing}
           onPrevious={pagination.onPrevious}
           onNext={pagination.onNext}
         />

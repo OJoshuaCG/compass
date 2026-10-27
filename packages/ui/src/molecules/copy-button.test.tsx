@@ -46,4 +46,53 @@ describe('CopyButton', () => {
     // El stub de user-event no admite leer un portapapeles vacío: se verifica la escritura.
     expect(write).toHaveBeenLastCalledWith('');
   });
+
+  it('does not overwrite the clipboard when it cannot be read', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(
+      <CopyButton
+        value="SECRET"
+        label="Copy"
+        copiedLabel="Copied"
+        failedLabel="Failed"
+        clearAfterMs={30_000}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+    vi.spyOn(navigator.clipboard, 'readText').mockRejectedValue(new Error('denied'));
+    const write = vi.spyOn(navigator.clipboard, 'writeText');
+    write.mockClear();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_001);
+    });
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('returns to idle after a few seconds and announces every copy', async () => {
+    // Margen amplio (60 s) para que una máquina lenta no pueda adelantar el reinicio entre los dos
+    // clics; el paso a "idle" se comprueba avanzando el reloj falso, no esperando tiempo real.
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(
+      <CopyButton
+        value="ABC"
+        label="Copy"
+        copiedLabel="Copied"
+        failedLabel="Failed"
+        announceResetMs={60_000}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+    const first = screen.getByRole('status').textContent;
+    expect(first).toContain('Copied');
+    // Una segunda copia inmediata debe cambiar el contenido de la región para re-anunciarse.
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(screen.getByRole('status').textContent).toContain('Copied');
+    expect(screen.getByRole('status').textContent).not.toBe(first);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_500);
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
 });

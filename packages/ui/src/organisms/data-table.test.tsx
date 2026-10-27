@@ -280,4 +280,12 @@ describe('DataTable states', () => {
     expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit Ada' })).toBeInTheDocument();
   });
+
+  it('disables Next while refreshing so a stale cursor cannot be used', () => {
+    setup({
+      refreshing: true,
+      pagination: { hasPrevious: false, hasNext: true, onPrevious: vi.fn(), onNext: vi.fn() },
+    });
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  });
 });
