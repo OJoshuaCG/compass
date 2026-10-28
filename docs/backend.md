@@ -472,7 +472,7 @@ Pendientes de fases posteriores:
 
 - [ ] **Bloqueo de auditoría** (ADR 0023): el trigger mantiene el bloqueo por organización hasta el *commit*. Evaluar el impacto en transacciones largas.
 - [ ] **Retención de auditoría** (ADR 0024) frente al borrado revocado: definir particionado o un rol de archivado.
-- [ ] **Índice ciego derivado de la clave de datos**: el plan deriva el índice ciego y las huellas de contraseña de la clave de datos. Al rotarla cambian todos los valores, así que cada rotación obliga a recalcular los índices (y, mientras conviven versiones, a buscar con ambas). El servicio de cifrado ya informa la versión de clave usada. Decidir si se deriva de una clave por organización estable en lugar de la clave de datos.
+- [x] **Índice ciego derivado de la clave de datos**: el plan deriva el índice ciego y las huellas de contraseña de la clave de datos. Al rotarla cambian todos los valores, así que cada rotación obliga a recalcular los índices (y, mientras conviven versiones, a buscar con ambas). El servicio de cifrado ya informa la versión de clave usada. Decidido ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)): se mantiene derivado de la clave de datos; la clave estable por organización queda como plan B.
 - [ ] **Generador de OpenAPI** desde Zod: aprobar la dependencia.
 - [ ] **Versión de PostgreSQL**: las pruebas usan 17; evaluar 18 si ya está disponible en el proveedor (UUIDv7 nativo).
 - [ ] **`oidc-provider` sobre Fastify** (fase 2): está basado en Koa; validar con un *spike* antes de comprometerse.

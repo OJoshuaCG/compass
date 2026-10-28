@@ -125,12 +125,12 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 
 | Tema | Hoy | Pregunta |
 | --- | --- | --- |
-| Permisos por defecto de Líder y Operador | El plan no los define; se asumió "todo lo que su rango puede tener" | Con eso un Operador puede revelar contraseñas y compartir por defecto. ¿Es lo deseado? |
+| Permisos por defecto de Líder y Operador | **Decidido 2026-10-27 (B5):** el Operador pierde `credential.reveal_password` por defecto (defensa en profundidad: revelar exige además una compartición VIEW); compartir ya exige nivel MANAGE. Los roles personalizados pueden volver a otorgarlo | Falta aplicarlo en `system-roles.ts` (ruta protegida: encargo humano) y subir `SYSTEM_ROLES_VERSION` |
 | Responsable de la persona invitada | Siempre quien invita | El plan sugiere que quien invita lo define |
-| Reautenticación | Solo acepta el código del autenticador (no se soporta el de recuperación ni la passkey) | ¿Debe aceptar también un código de recuperación y la passkey? |
+| Reautenticación | **Decidido 2026-10-27 ([ADR 0033](adr/0033-reauthentication-totp-and-passkey.md)):** TOTP o passkey; nunca el código de recuperación | Implementar en la tarea G3 |
 | Archivar un rol personalizado | Un rol archivado deja de otorgar sus permisos y no sirve en invitaciones nuevas | ¿Es el efecto deseado sobre quien ya lo tenía asignado? |
 | Directorio visible | Muestra nombre, correo y rango; solo personas activas | ¿Rango visible o solo nombre y correo? |
-| Índice ciego derivado de la clave de datos | Cada rotación de clave obliga a recalcular los índices | ¿Derivarlo de una clave estable por organización? |
+| Índice ciego derivado de la clave de datos | **Decidido 2026-10-27 ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)):** se mantiene derivado de la DEK; el recálculo va en el job de recifrado | Clave estable por organización queda como plan B |
 | ADR 0023 (bloqueo de auditoría) | Aceptado el 2026-10-27; falta implementar el `lock_timeout` | Implementarlo con encargo humano (ruta protegida) |
 | ADR 0024 (retención de auditoría) | Propuesto, sin decidir | Decidir antes de la auditoría con retención (fase 1c) |
 | Versión de PostgreSQL | Pruebas con la 17 | ¿Pasar a la 18 (identificadores ordenables nativos)? |
@@ -140,9 +140,10 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 
 | Tema | Pregunta | Se necesita antes de |
 | --- | --- | --- |
-| Biblioteca para decodificar códigos QR en el navegador | No hay ninguna aprobada. Propuesta: una pequeña, mantenida y sin dependencias, con versión exacta y la espera de 7 días; decide el equipo | B4 y B5 |
-| Límite de revelaciones por usuario y hora | El plan dice 30 por defecto. ¿Qué alerta se emite al superarlo? (auditoría crítica; el canal de aviso depende del correo real) | B2 |
-| Motivo escrito al revelar | ¿Longitud mínima y texto libre o lista cerrada? El plan solo dice "motivo" | B2 |
+| Biblioteca para decodificar códigos QR en el navegador | **Propuesta 2026-10-27 (B7):** jsQR, versión exacta y espera de 7 días, cargada con import dinámico en la ruta de registro 2FA para respetar el presupuesto de JS inicial. Sin mantenimiento desde 2021 (riesgo aceptado). Los datos de versión no se han verificado: confirmarlos antes de aprobar la dependencia | B4 y B5 |
+| Límite de revelaciones por usuario y hora | **Decidido 2026-10-27 ([ADR 0031](adr/0031-reveal-rate-limit-per-user.md)):** 30 por hora; aviso por correo a la Raíz | B2 |
+| Motivo escrito al revelar | **Decidido 2026-10-27 (B3):** categoría de lista cerrada obligatoria más texto corto (10 a 200 caracteres) con aviso "no pegues secretos". La auditoría es append-only: el texto libre no se puede purgar | B2 |
+| Recorte de la primera entrega de 2FA | **Decidido 2026-10-27 (B8):** v1 con clave manual, imagen y captura de pestaña; importación de Google Authenticator y entrega por celular pasan a v1.1. Enmienda el ADR 0017. Una futura `Permissions-Policy` debe permitir `display-capture=(self)` | N3 |
 
 ## 6. Cómo se trabaja aquí (convenciones)
 

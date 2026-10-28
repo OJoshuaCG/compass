@@ -33,14 +33,14 @@ El proyecto es viable y está bien cimentado: capas impuestas por lint, aislamie
 | | K | Bóveda: credenciales y compartición | B, I | 2 |
 | | L | Operación: KMS y runbooks | C, D, F, G | 3 |
 | **4 · Bóveda y operación en paralelo** | M | Revelar y restaurar credenciales | B, K | 2 |
-| | N | Segundo factor | B, K | 3 |
+| | N | Segundo factor | B, K | 4 |
 | | O | Búsqueda e importación | B, K | 2 |
 | | P | Gobernanza base | B, K | 3 |
 | | Q | Ensayos de operación | L | 2 |
 | **5 · Cierre de gobernanza** | R | Auditoría y alertas críticas | B, F, G, M | 2 |
 | **6 · Puerta de producción** | S | Prueba de intrusión y producción | todas | 2 |
 
-Total: **89 subtareas** en **19 épicas**.
+Total: **90 subtareas** en **19 épicas**.
 
 ## Reglas para tomar una tarea
 
@@ -104,16 +104,16 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
 | [x] B1 | Decidir el ADR 0023 (bloqueo de auditoría en transacciones largas). **Hecha 2026-10-27:** aceptada la opción 1 con `lock_timeout` de 5 s y falla cerrada. Quedan abiertos, y salen de esta subtarea: implementar el `lock_timeout` (⚠ encargo humano), medir latencia p95, revisar el orden de auditoría en `DeactivateUser` y decidir la agrupación de negaciones repetidas (ver "Pendiente" del ADR) | ADR ⚠ | Ing. | S | — | Claude |
-| [ ] B2 | Límite de revelaciones por usuario y hora (el plan dice 30), qué alerta se emite al superarlo y su canal | ADR ⚠ | Dueño | S | — | |
-| [ ] B3 | Reglas del motivo escrito al revelar: longitud mínima, texto libre o lista cerrada | Decisión ⚠ | Dueño | S | — | |
-| [ ] B4 | Índice ciego: derivarlo de la DEK (obliga a reindexar en cada rotación) o de una clave estable por organización [V: `plan.md:434`] | ADR ⚠ | Ing. | S | — | |
-| [ ] B5 | Permisos por defecto de Líder y Operador. Hoy un Operador puede revelar contraseñas y compartir, lo que anula "USE no revela" | Decisión ⚠ | Dueño | S | — | |
-| [ ] B6 | Reautenticación: ¿acepta código de recuperación y passkey, además de TOTP? Quien perdió su app queda bloqueado para revelar y exportar | ADR ⚠ | Dueño | S | — | |
-| [ ] B7 | Biblioteca para leer códigos QR en el navegador. Dependencia nueva: versión exacta y espera de 7 días | Decisión | Equipo | S | — | |
-| [ ] B8 | Recorte de la primera entrega de 2FA: ¿clave manual e imagen primero, y diferir captura de pestaña, Google Authenticator y entrega por celular? (el ADR 0017 fija cinco métodos) [S] | Decisión | Dueño | S | — | |
-| [ ] B9 | ADR sobre dónde corre el generador de TOTP (¿proceso aislado?). Un servidor comprometido produce códigos de todas las plataformas y anula el segundo factor de esas cuentas [S] | ADR ⚠ | Equipo | M | — | |
-| [ ] B10 | ADR de eventos y outbox: entrega, idempotencia y orden. El plan los usa en todo y no tiene ADR | ADR | Ing. | M | — | |
-| [ ] B11 | ADR del cálculo del acceso efectivo con grupos y vencimientos, y el costo de recálculo | ADR ⚠ | Ing. | M | — | |
+| [x] B2 | Límite de revelaciones por usuario y hora (el plan dice 30), qué alerta se emite al superarlo y su canal | ADR ⚠ | Dueño | S | — | ADR 0031: 30/h por usuario, conteo desde auditoría con lock por usuario, aviso a la Raíz |
+| [x] B3 | Reglas del motivo escrito al revelar: longitud mínima, texto libre o lista cerrada | Decisión ⚠ | Dueño | S | — | Lista cerrada de categorías obligatoria + texto corto (10–200) con aviso "no pegues secretos"; ver `docs/handoff.md` §5 |
+| [x] B4 | Índice ciego: derivarlo de la DEK (obliga a reindexar en cada rotación) o de una clave estable por organización [V: `plan.md:434`] | ADR ⚠ | Ing. | S | — | ADR 0032: se mantiene derivado de la DEK; clave estable queda como plan B |
+| [x] B5 | Permisos por defecto de Líder y Operador. Hoy un Operador puede revelar contraseñas y compartir, lo que anula "USE no revela" | Decisión ⚠ | Dueño | S | — | Operador sin `credential.reveal_password`; compartir solo a nivel MANAGE (ya vigente); ver handoff §5 |
+| [x] B6 | Reautenticación: ¿acepta código de recuperación y passkey, además de TOTP? Quien perdió su app queda bloqueado para revelar y exportar | ADR ⚠ | Dueño | S | — | ADR 0033: TOTP o passkey; nunca código de recuperación |
+| [x] B7 | Biblioteca para leer códigos QR en el navegador. Dependencia nueva: versión exacta y espera de 7 días | Decisión | Equipo | S | — | jsQR (versión exacta, espera de 7 días, import dinámico en la ruta de registro 2FA); sin aprobar aún la dependencia |
+| [x] B8 | Recorte de la primera entrega de 2FA: ¿clave manual e imagen primero, y diferir captura de pestaña, Google Authenticator y entrega por celular? (el ADR 0017 fija cinco métodos) [S] | Decisión | Dueño | S | — | v1: clave manual, imagen y captura de pestaña; Google Authenticator y celular a v1.1; enmienda al ADR 0017 |
+| [x] B9 | ADR sobre dónde corre el generador de TOTP (¿proceso aislado?). Un servidor comprometido produce códigos de todas las plataformas y anula el segundo factor de esas cuentas [S] | ADR ⚠ | Equipo | M | — | ADR 0034: en la API en 1b, detrás de un puerto; aislar en N4 |
+| [x] B10 | ADR de eventos y outbox: entrega, idempotencia y orden. El plan los usa en todo y no tiene ADR | ADR | Ing. | M | — | ADR 0035: outbox transaccional, sondeo, al menos una vez |
+| [x] B11 | ADR del cálculo del acceso efectivo con grupos y vencimientos, y el costo de recálculo | ADR ⚠ | Ing. | M | — | ADR 0036: vista al vuelo; medir antes de materializar (I1) |
 
 ## C · Decisiones de plataforma y operación
 
@@ -208,7 +208,7 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] I1 | Criterios de aceptación medibles para las subtareas de la bóveda en `odd/tasks/phase-1b-vault.md` (I2, K1, K2, M1, M2, N1 a N3, O1, O2): rendimiento del listado por acceso efectivo, qué ve quien tiene `inventory`, efecto de archivar una cuenta, duración y desbloqueo tras superar el límite de revelaciones. Añadir el ADR 0023 como prerrequisito | Doc | Equipo | S | B1, B2, B5 | |
+| [ ] I1 | Criterios de aceptación medibles para las subtareas de la bóveda en `odd/tasks/phase-1b-vault.md` (I2, K1, K2, M1, M2, N1 a N3, O1, O2): rendimiento del listado por acceso efectivo, qué ve quien tiene `inventory`, efecto de archivar una cuenta, duración y desbloqueo tras superar el límite de revelaciones, y el umbral de latencia del acceso efectivo que decide si se materializa (ADR 0036). Añadir el ADR 0023 como prerrequisito | Doc | Equipo | S | B1, B2, B5 | |
 | [ ] I2 | **B1 del plan:** acceso efectivo y cuentas. Catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo y pantalla de cuentas | Código ⚠ | — | M | I1, B1, B5, B11 | |
 
 ---
@@ -277,6 +277,7 @@ Las tres se hacen en orden: N2 depende de N1 y N3 de N2.
 | [ ] N1 | **B4 del plan, parte a:** segundo factor en el servidor. Registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual | Código ⚠ | — | L | K1, B8, B9 | |
 | [ ] N2 | **B4 del plan, parte b:** registro del segundo factor por imagen del QR | Código ⚠ | — | M | N1, B7 | |
 | [ ] N3 | **B5 del plan:** captura de pestaña, importación de Google Authenticator y entrega por celular (según el recorte de B8) | Código ⚠ | — | M | N2, B8 | |
+| [ ] N4 | Aislar el generador de TOTP en un proceso propio antes de la puerta de producción (ADR 0034) | Código ⚠ | — | M | N1, B9 | |
 
 ## O · Búsqueda e importación
 

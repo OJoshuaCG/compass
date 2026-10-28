@@ -30,3 +30,7 @@ El QR se decodifica en el cliente y al servidor solo llega la URI por TLS. La co
 - **Positivas**: cobertura de todos los orígenes de 2FA; un solo camino de validación.
 - **Negativas o costos**: más superficie de cliente (captura, cámara, decodificación) y un flujo de handoff con riesgos propios (inyección de un secreto ajeno, mitigada por la confirmación en el escritorio).
 - **Verificación**: pruebas de validación de URI y del flujo de confirmación; pruebas de expiración y un solo uso del token de handoff.
+
+## Enmienda (2026-10-27)
+
+La primera entrega (v1) cubre tres métodos: clave manual, imagen del QR y captura de pestaña. La importación de Google Authenticator y la entrega por celular pasan a v1.1. Los cinco métodos siguen siendo el objetivo; solo cambia el orden de entrega. Una futura cabecera `Permissions-Policy` debe permitir `display-capture=(self)` (y `camera` cuando llegue el celular).

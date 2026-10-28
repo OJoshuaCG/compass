@@ -40,6 +40,12 @@ Plantilla: [`template.md`](template.md).
 | [0028](0028-passkeys-optional-enforcement-later.md) | Passkeys opcionales para todos; exigirlas queda como configuración futura (resuelve la política pendiente del 0015 sin reemplazarlo) | Aceptada |
 | [0029](0029-idempotency-reservation-and-ownership.md) | Idempotencia con reserva y propiedad de la clave | Aceptada |
 | [0030](0030-session-bound-webauthn-challenges.md) | Desafíos de WebAuthn ligados a la sesión | Aceptada |
+| [0031](0031-reveal-rate-limit-per-user.md) | Límite de revelaciones por usuario | Aceptada (implementación pendiente) |
+| [0032](0032-blind-index-derived-from-dek.md) | Índice ciego derivado de la clave de datos | Aceptada |
+| [0033](0033-reauthentication-totp-and-passkey.md) | Reautenticación con TOTP o passkey (amplía el 0028) | Aceptada (implementación pendiente) |
+| [0034](0034-totp-generator-in-api-process.md) | Generador de TOTP en el proceso de la API, aislado antes de producción | Aceptada (aislamiento pendiente, N4) |
+| [0035](0035-transactional-outbox-for-events.md) | Eventos mediante bandeja de salida transaccional | Aceptada (implementación pendiente) |
+| [0036](0036-effective-access-computed-on-the-fly.md) | Acceso efectivo calculado al vuelo | Aceptada |
 
 ## Propuestas (huecos detectados, sin decidir)
 
