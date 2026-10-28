@@ -396,7 +396,7 @@ Reglas que aplican a todo el backend:
 - **Auditoría**: cada caso de uso sensible verifica el evento exacto que escribe; prueba de falla cerrada; cadena de hashes verificada tras operaciones concurrentes.
 - **Matriz de autorización**: la escribe o la revisa una persona como código de producción (ver sección 14).
 - Las pruebas de integración usan contenedores efímeros; ningún dato real fuera de producción.
-- Vitest se divide en dos proyectos: uno unitario, sin contenedores, y otro de integración, con un PostgreSQL 17 por ejecución y una base por archivo, migrada con el rol de migraciones y usada con el rol de aplicación. Los comandos exactos de ejecución, incluido el uso de Podman, están en el [`README.md`](../README.md) raíz.
+- Vitest se divide en dos proyectos: uno unitario, sin contenedores, y otro de integración, con un PostgreSQL 18 por ejecución y una base por archivo, migrada con el rol de migraciones y usada con el rol de aplicación. Los comandos exactos de ejecución, incluido el uso de Podman, están en el [`README.md`](../README.md) raíz.
 - Comandos de `@iam/api`: `pnpm --filter @iam/api test:unit` (sin contenedores) y `pnpm --filter @iam/api test:integration` (necesita Podman o Docker). `pnpm e2e` ejecuta las pruebas en Chrome real contra la pila completa. Los totales verificados por paquete están en [`handoff.md`](handoff.md) §1.
 - La validación de la configuración (`apps/api/src/app/config.ts`) también se prueba: una combinación inválida de variables de correo o de producción impide el arranque.
 

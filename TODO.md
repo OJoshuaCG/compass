@@ -138,7 +138,7 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 | [ ] C7 | Presupuesto y proveedor de la prueba de intrusión externa | Decisión | Dueño | S | — | |
 | [ ] C8 | Identidad de las dos personas que custodian los códigos de emergencia | Decisión | Dueño | S | — | Hecha en parte (2026-10-28): serán dos personas del equipo de desarrollo. Faltan los nombres: el ADR 0037 exige que sean dos personas distintas, una por grupo de custodia (A y B). |
 | [ ] C9 | Política de retención de auditoría y versiones de secretos, validada con el área legal | Decisión | Dueño | M | — | |
-| [ ] C10 | Subdominio para los alias de cuentas | Decisión | Equipo | S | — | |
+| [ ] C10 | Subdominio para los alias de cuentas | Decisión | Equipo | S | — | Diferida por el dueño (2026-10-28): no se define por ahora. Solo hace falta antes de la bóveda (fase 1b). |
 | [ ] C11 | Equipo de guardia ante incidentes: quién y cómo se le avisa | Decisión | Dueño | S | — | Hecha en parte (2026-10-28): la guardia será el equipo de desarrollo. Falta el canal y el orden de aviso. |
 | [ ] C12 | Preguntas menores abiertas (traspaso §5): responsable de la persona invitada, efecto de archivar un rol, rango visible en el directorio, PostgreSQL 17 o 18, prueba corta de proveedor SSO sobre Fastify (antes de la fase 2) | Decisión | Dueño / Equipo | S | — | Hecha en parte (2026-10-28): quien invita define el responsable (falta implementarlo); el rol archivado y el rango visible se quedan como están; PostgreSQL pasa a la 18 (falta subir la imagen de las pruebas y verificar migraciones). Queda la prueba del proveedor SSO, antes de la fase 2. |
 

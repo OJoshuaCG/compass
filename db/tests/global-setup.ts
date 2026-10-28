@@ -14,7 +14,7 @@ declare module 'vitest' {
 // One container for the whole run. Roles are cluster-wide, so they are provisioned here once
 // (parallel test files would otherwise race on `create role`); each file gets its own database.
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  const container = await new PostgreSqlContainer('postgres:17-alpine').start();
+  const container = await new PostgreSqlContainer('postgres:18-alpine').start();
   const adminUrl = container.getConnectionUri();
   await bootstrapRoles({ connectionString: adminUrl });
   const admin = new Client({ connectionString: adminUrl });

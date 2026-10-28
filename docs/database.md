@@ -1,13 +1,13 @@
 # Base de datos
 
-Diseño de la base de datos de la plataforma (PostgreSQL 17). Este documento describe lo que **ya existe** en `db/migrations` (fase 1) y cómo quedará la base al terminar las fases 2 a 7. La fuente de verdad del modelo es `plan.md` ("Modelo de dominio y de datos"); si algo contradice al plan en seguridad, manda el plan.
+Diseño de la base de datos de la plataforma (PostgreSQL 18). Este documento describe lo que **ya existe** en `db/migrations` (fase 1) y cómo quedará la base al terminar las fases 2 a 7. La fuente de verdad del modelo es `plan.md` ("Modelo de dominio y de datos"); si algo contradice al plan en seguridad, manda el plan.
 
 ## 1. Visión general
 
 - PostgreSQL es la única fuente de verdad (ADR 003). Un solo esquema de dominio (`public`) y un esquema mínimo `auth` para el acceso previo a la autenticación.
 - Aislamiento por organización en tres capas (ADR 006): contexto de petición, **RLS** en la base y claves de cifrado por organización. Este documento cubre la segunda; la tercera está en el plan ("Diseño criptográfico").
 - Las migraciones son SQL plano versionado (`db/migrations/NNNN_nombre.sql`), aplicadas por `db/src/migrate.ts` con el rol `iam_migrator`. Nunca se edita una migración aplicada: el ejecutor guarda el SHA-256 de cada archivo en `schema_migrations` y **rechaza** ejecutar si cambia.
-- Sin extensiones: los UUIDv7 los genera una función propia de la base de datos (PostgreSQL 17 no los trae nativos; llegan en la 18) y los hashes usan el SHA-256 del núcleo. Menos extensiones, menos privilegios que pedir al proveedor gestionado.
+- Sin extensiones: los UUIDv7 los genera una función propia de la base de datos (PostgreSQL 18 ya trae `uuidv7()` nativo, pero las migraciones ya aplicadas usan la función propia y no se editan) y los hashes usan el SHA-256 del núcleo. Menos extensiones, menos privilegios que pedir al proveedor gestionado.
 
 ### Migraciones existentes
 
@@ -736,7 +736,7 @@ erDiagram
 
 ## 10. Pruebas
 
-`db/tests` (Vitest + Testcontainers, `postgres:17-alpine` real). Se ejecutan con el script de pruebas del espacio de trabajo `@iam/db`. Los comandos exactos, incluida la configuración para Podman, están en el [`README.md`](../README.md) raíz.
+`db/tests` (Vitest + Testcontainers, `postgres:18-alpine` real). Se ejecutan con el script de pruebas del espacio de trabajo `@iam/db`. Los comandos exactos, incluida la configuración para Podman, están en el [`README.md`](../README.md) raíz.
 
 | Archivo | Cubre |
 | --- | --- |
