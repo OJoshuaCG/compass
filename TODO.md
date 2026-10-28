@@ -140,7 +140,7 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 | [ ] C9 | Política de retención de auditoría y versiones de secretos, validada con el área legal | Decisión | Dueño | M | — | |
 | [ ] C10 | Subdominio para los alias de cuentas | Decisión | Equipo | S | — | |
 | [ ] C11 | Equipo de guardia ante incidentes: quién y cómo se le avisa | Decisión | Dueño | S | — | Hecha en parte (2026-10-28): la guardia será el equipo de desarrollo. Falta el canal y el orden de aviso. |
-| [ ] C12 | Preguntas menores abiertas (traspaso §5): responsable de la persona invitada, efecto de archivar un rol, rango visible en el directorio, PostgreSQL 17 o 18, prueba corta de proveedor SSO sobre Fastify (antes de la fase 2) | Decisión | Dueño / Equipo | S | — | |
+| [ ] C12 | Preguntas menores abiertas (traspaso §5): responsable de la persona invitada, efecto de archivar un rol, rango visible en el directorio, PostgreSQL 17 o 18, prueba corta de proveedor SSO sobre Fastify (antes de la fase 2) | Decisión | Dueño / Equipo | S | — | Hecha en parte (2026-10-28): quien invita define el responsable (falta implementarlo); el rol archivado y el rango visible se quedan como están; PostgreSQL pasa a la 18 (falta subir la imagen de las pruebas y verificar migraciones). Queda la prueba del proveedor SSO, antes de la fase 2. |
 
 ## D · Deuda menor de código y correo del dominio
 

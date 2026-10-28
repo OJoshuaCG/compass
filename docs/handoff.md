@@ -126,14 +126,14 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | Tema | Hoy | Pregunta |
 | --- | --- | --- |
 | Permisos por defecto de Líder y Operador | **Decidido 2026-10-27 (B5):** el Operador pierde `credential.reveal_password` por defecto (defensa en profundidad: revelar exige además una compartición VIEW); compartir ya exige nivel MANAGE. Los roles personalizados pueden volver a otorgarlo | **Aplicado en código** (`system-roles.ts`, `SYSTEM_ROLES_VERSION = 2`). Falta sincronizar el rol Operador de las organizaciones ya creadas: nada compara la versión y la tabla `roles` tiene RLS forzado, así que requiere una vía de aislamiento con encargo humano |
-| Responsable de la persona invitada | Siempre quien invita | El plan sugiere que quien invita lo define |
+| Responsable de la persona invitada | Siempre quien invita | **Decidido 2026-10-28:** quien invita puede definir el responsable, como sugiere el plan. Pendiente de implementar |
 | Reautenticación | **Decidido 2026-10-27 ([ADR 0033](adr/0033-reauthentication-totp-and-passkey.md)):** TOTP o passkey; nunca el código de recuperación | **Implementado** (`POST /auth/reauth/passkey/options` y `/verify`, migración 0012; fallos auditados como `auth.reauth_failed`; el diálogo de reautenticación ofrece la passkey si la persona tiene una). Sin pruebas e2e de navegador |
-| Archivar un rol personalizado | Un rol archivado deja de otorgar sus permisos y no sirve en invitaciones nuevas | ¿Es el efecto deseado sobre quien ya lo tenía asignado? |
-| Directorio visible | Muestra nombre, correo y rango; solo personas activas | ¿Rango visible o solo nombre y correo? |
+| Archivar un rol personalizado | Un rol archivado deja de otorgar sus permisos y no sirve en invitaciones nuevas | **Decidido 2026-10-28:** sí, es el efecto deseado; no cambia nada |
+| Directorio visible | Muestra nombre, correo y rango; solo personas activas | **Decidido 2026-10-28:** el rango se muestra; no cambia nada |
 | Índice ciego derivado de la clave de datos | **Decidido 2026-10-27 ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)):** se mantiene derivado de la DEK; el recálculo va en el job de recifrado | Clave estable por organización queda como plan B |
 | ADR 0023 (bloqueo de auditoría) | Aceptado el 2026-10-27; `lock_timeout` de 5 s con falla cerrada implementado (`AUDIT.LOCK_TIMEOUT`, 503). Faltan medir la latencia p95 y decidir la agrupación de negaciones | Medir p95 con escritores concurrentes; el evento de auditoría debe seguir siendo lo último de cada caso de uso |
 | ADR 0024 (retención de auditoría) | Propuesto; plazo decidido el 2026-10-28: 6 meses en línea y archivo de al menos 2 años (legal lo valida) | Falta elegir la opción de expiración y el particionado antes de la auditoría con retención (fase 1c) |
-| Versión de PostgreSQL | Pruebas con la 17 | ¿Pasar a la 18 (identificadores ordenables nativos)? |
+| Versión de PostgreSQL | Pruebas con la 17 | **Decidido 2026-10-28:** pasar a la 18, la estable más reciente (la 19 sigue en candidata de versión, disponibilidad prevista el 19 de noviembre de 2026). Pendiente: subir la imagen de las pruebas y verificar las migraciones |
 | Proveedor de inicio de sesión único sobre Fastify | Sin probar | Hacer una prueba corta antes de la fase 2 |
 
 **Decisiones abiertas de la fase 1b** (de `odd/tasks/phase-1b-vault.md`; ninguna está resuelta):
