@@ -9,7 +9,7 @@
 import type { ErrorCode, Permission } from '@iam/contracts';
 
 import { canManage } from '../../directory/index.js';
-import type { UserDirectory } from '../../directory/index.js';
+import type { UserDirectory, UserRecord } from '../../directory/index.js';
 import { DomainError } from '../../../shared/kernel/index.js';
 import type { Clock, RequestContextReader, UserId } from '../../../shared/kernel/index.js';
 import type { AuditLog } from '../../audit/index.js';
@@ -42,6 +42,9 @@ const DENY_CODE = {
   HIERARCHY: 'AUTHZ.HIERARCHY.NOT_IN_SUBTREE',
   REAUTH: 'AUTHZ.REAUTH_REQUIRED',
 } as const satisfies Record<DenyReason, string>;
+
+/** Acción de solo lectura que no es un permiso del catálogo; solo se usa para etiquetar la auditoría. */
+const DIRECTORY_VIEW = 'directory.view';
 
 export class Authorizer {
   constructor(private readonly deps: AuthorizerDeps) {}
@@ -87,12 +90,40 @@ export class Authorizer {
   }
 
   /**
+   * Decide las consultas que no necesitan un permiso del catálogo, solo ser una persona activa de la
+   * organización del contexto (el directorio visible de la regla 11 y la vista de gestión, que
+   * después acota por jerarquía). Se niega por defecto y la negación se audita como cualquier otra.
+   */
+  async requireActiveMember(): Promise<UserRecord> {
+    const { context, directory } = this.deps;
+    const current = context.current();
+    const actor = current.actorId === null ? null : await directory.findById(current.actorId);
+    if (actor === null || actor.status !== 'active') {
+      await this.recordDenial({ code: DENY_CODE.SESSION, permission: DIRECTORY_VIEW });
+      throw new DomainError(DENY_CODE.SESSION, 'Authenticated session required');
+    }
+    if (actor.organizationId !== current.organizationId) {
+      await this.recordDenial({ code: DENY_CODE.TENANT, permission: DIRECTORY_VIEW });
+      throw new DomainError(DENY_CODE.TENANT, 'Action not allowed');
+    }
+    return actor;
+  }
+
+  /**
    * Audita una negación que decidió una regla de negocio fuera del motor (matriz de creación,
    * no escalamiento de roles). Corre en transacción independiente, igual que las del motor.
    */
   async auditDenial(input: {
     readonly code: ErrorCode;
     readonly permission: Permission;
+    readonly targetUserId?: UserId;
+  }): Promise<void> {
+    await this.recordDenial(input);
+  }
+
+  private async recordDenial(input: {
+    readonly code: ErrorCode;
+    readonly permission: Permission | typeof DIRECTORY_VIEW;
     readonly targetUserId?: UserId;
   }): Promise<void> {
     const { audit, context, independently } = this.deps;

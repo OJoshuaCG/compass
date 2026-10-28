@@ -118,8 +118,8 @@ export function buildContainer(options: ContainerOptions) {
     independently,
   });
   const createUser = new CreateUser({ directory, ids });
-  const listDirectory = new ListDirectory({ directory, uow, context: requestContext });
-  const listManaged = new ListManaged({ directory, uow, context: requestContext });
+  const listDirectory = new ListDirectory({ directory, uow, authorizer });
+  const listManaged = new ListManaged({ directory, uow, authorizer });
 
   // identity
   const lookup = new PgPreAuthLookup(pool);
