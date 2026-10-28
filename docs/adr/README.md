@@ -50,7 +50,7 @@ Plantilla: [`template.md`](template.md).
 | [0038](0038-purge-expired-ephemeral-rows.md) | Purga de filas efímeras vencidas y recorrido de organizaciones | Aceptada |
 | [0039](0039-single-instance-until-redis.md) | Instancia única de la API, con Redis solo cuando haga falta escalar | Aceptada |
 | [0040](0040-dek-rotation-and-cache-coherence.md) | Rotación de la clave de datos, recifrado e índices ciegos | Aceptada |
-| [0041](0041-global-unique-email-across-organizations.md) | El correo es único en toda la plataforma mientras una persona pertenezca a una sola organización | Propuesta |
+| [0041](0041-global-unique-email-across-organizations.md) | El correo es único en toda la plataforma mientras una persona pertenezca a una sola organización | Aceptada |
 
 ## Propuestas (huecos detectados, sin decidir)
 

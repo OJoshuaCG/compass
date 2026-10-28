@@ -1,6 +1,6 @@
 # ADR 0041: El correo es único en toda la plataforma mientras una persona pertenezca a una sola organización
 
-- **Estado**: Propuesta (2026-10-28). Redactada por Ingeniería para cerrar `TODO.md` C4; espera la decisión del equipo.
+- **Estado**: Aceptada (2026-10-28). Redactada por Ingeniería para cerrar `TODO.md` C4; el dueño la aceptó el mismo día.
 - **Fecha**: 2026-10-28
 - **Referencias**: [`plan.md`](../../plan.md) ("Identidad y organizaciones"); [ADR 0006](0006-multitenancy-ready-rls.md) (aislamiento por filas) y [ADR 0021](0021-pre-authentication-access-with-rls.md) (consultas previas al ingreso); [`docs/database.md`](../database.md); `TODO.md` C4.
 
