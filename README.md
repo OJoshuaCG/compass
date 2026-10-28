@@ -88,6 +88,7 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | Ver el diseño completo y las decisiones | [`plan.md`](plan.md) y [`docs/adr/`](docs/adr/README.md) |
 | Entender cómo encajan las piezas | [`docs/architecture.md`](docs/architecture.md) |
 | Conocer las amenazas contempladas | [`docs/threat-model.md`](docs/threat-model.md) |
+| Correrlo en tu equipo o desplegarlo con Dokploy | [`docs/deployment.md`](docs/deployment.md) |
 | Operar el sistema (alta de una organización, correo, una sola instancia) o saber qué hacer ante un incidente | [`docs/runbooks/`](docs/runbooks/README.md) |
 | Seguir el trabajo grande en curso y el siguiente | [`odd/tasks/`](odd/tasks/phase-1b-vault.md) |
 | Ver todo el índice | [`docs/README.md`](docs/README.md) |
