@@ -63,6 +63,11 @@ export interface SessionRepository {
   setReauth(sessionId: string, at: Date): Promise<void>;
   /** Devuelve la sesión a medias: quita el segundo factor y la reautenticación (p. ej. tras un restablecimiento). */
   clearMfa(sessionId: string): Promise<void>;
+  /**
+   * Cambia el hash del token de una sesión viva sin tocar el resto de la fila; `false` si la sesión ya
+   * no está viva. El token anterior deja de autenticar en ese mismo instante.
+   */
+  rotateToken(sessionId: string, newTokenHash: Uint8Array): Promise<boolean>;
   touch(sessionId: string, at: Date): Promise<void>;
   revoke(sessionId: string, at: Date): Promise<void>;
   revokeAllOfUser(userId: UserId, at: Date): Promise<void>;

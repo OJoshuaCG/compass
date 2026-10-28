@@ -6,6 +6,8 @@
  * - Un código TOTP no se puede reutilizar (se exige un paso de tiempo mayor al último aceptado).
  * - Los códigos de recuperación se guardan como SHA-256 y se consumen una sola vez.
  * - Intentos fallidos: retraso progresivo y bloqueo temporal por usuario.
+ * - Toda verificación que cambia el estado del segundo factor de la sesión rota su token en la misma
+ *   transacción y lo devuelve: quien conociera el token de antes de la elevación no lo conserva.
  */
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
 import type { Clock, RequestContextReader, Result, UserId } from '../../../shared/kernel/index.js';
@@ -48,6 +50,17 @@ export interface SecondFactorDeps {
   readonly passkeys: PasskeyRepository;
   readonly challenges: ChallengeStore;
   readonly webauthn: WebAuthnEngine;
+  /** Rota el token de la sesión al cumplir el segundo factor (fijación de sesión, TODO A2). */
+  readonly tokens: SessionTokenRotator;
+}
+
+export interface SessionTokenRotator {
+  rotateToken(sessionId: string): Promise<string>;
+}
+
+/** Valor de la cookie nueva: se muestra una sola vez, igual que al iniciar sesión. */
+export interface RotatedSession {
+  readonly sessionToken: string;
 }
 
 /** Vigencia del desafío de una ceremonia WebAuthn. */
@@ -99,8 +112,10 @@ export class SecondFactor {
    * verificado, el usuario pasa a activo, se emiten los códigos de recuperación (una sola vez) y
    * la sesión queda con el segundo factor cumplido.
    */
-  confirmTotpEnrollment(code: string): Promise<Result<{ recoveryCodes: string[] }, DomainError>> {
-    const { uow, directory, credentials, sessions, primitives, audit, clock } = this.deps;
+  confirmTotpEnrollment(
+    code: string,
+  ): Promise<Result<RotatedSession & { recoveryCodes: string[] }, DomainError>> {
+    const { uow, directory, credentials, sessions, tokens, primitives, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, organizationId, sessionId, requestId } = await this.currentUser();
       const blocked = await this.checkThrottle(user.id);
@@ -125,15 +140,16 @@ export class SecondFactor {
       );
       if (user.status === 'invited') await directory.setStatus(user.id, 'active');
       await sessions.setMfa(sessionId, now);
+      const sessionToken = await tokens.rotateToken(sessionId);
       await this.clearFailures(user.id);
       await audit.record(this.event('auth.totp_enrolled', 'success', user.id, requestId));
-      return ok({ recoveryCodes });
+      return ok({ recoveryCodes, sessionToken });
     });
   }
 
   /** Completa el inicio de sesión con el código del autenticador. */
-  verifyTotp(code: string): Promise<Result<void, DomainError>> {
-    const { uow, credentials, sessions, audit, clock } = this.deps;
+  verifyTotp(code: string): Promise<Result<RotatedSession, DomainError>> {
+    const { uow, credentials, sessions, tokens, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, organizationId, sessionId, requestId } = await this.currentUser();
       const blocked = await this.checkThrottle(user.id);
@@ -147,9 +163,10 @@ export class SecondFactor {
       if (checked.value === null) return this.failed(user.id, requestId);
 
       await sessions.setMfa(sessionId, clock.now());
+      const sessionToken = await tokens.rotateToken(sessionId);
       await this.clearFailures(user.id);
       await audit.record(this.event('auth.mfa_verified', 'success', user.id, requestId));
-      return ok(undefined);
+      return ok({ sessionToken });
     });
   }
 
@@ -161,25 +178,33 @@ export class SecondFactor {
    * evento crítico y avisa a los Administradores. No concede una sesión completa: hay que registrar
    * un factor nuevo. Sigue exigiendo la contraseña (esta ruta solo acepta una sesión a medias).
    */
-  async verifyRecoveryCode(code: string): Promise<Result<void, DomainError>> {
+  async verifyRecoveryCode(code: string): Promise<Result<RotatedSession, DomainError>> {
     const { uow } = this.deps;
     const outcome = await uow.run(() => this.consumeRecoveryCode(code));
     if (!outcome.ok) return err(outcome.error);
     // El aviso sale DESPUÉS de confirmar: no retiene la transacción ni anuncia un restablecimiento
     // que no llegó a ocurrir.
-    if (outcome.value !== null) await this.alertAdministrators(outcome.value);
-    return ok(undefined);
+    if (outcome.value.alert !== null) {
+      try {
+        await this.alertAdministrators(outcome.value.alert);
+      } catch {
+        // El token ya rotó y el restablecimiento ya se confirmó: si el aviso falla, la persona debe
+        // recibir igualmente su cookie nueva o quedaría fuera con el código ya consumido.
+      }
+    }
+    return ok({ sessionToken: outcome.value.sessionToken });
   }
 
-  private async consumeRecoveryCode(
-    code: string,
-  ): Promise<
+  private async consumeRecoveryCode(code: string): Promise<
     Result<
-      { requestId: string; usedAt: Date; recipients: readonly AdminContact[] } | null,
+      {
+        sessionToken: string;
+        alert: { requestId: string; usedAt: Date; recipients: readonly AdminContact[] } | null;
+      },
       DomainError
     >
   > {
-    const { directory, credentials, sessions, primitives, audit, clock } = this.deps;
+    const { directory, credentials, sessions, tokens, primitives, audit, clock } = this.deps;
     const { user, sessionId, requestId } = await this.currentUser();
     const blocked = await this.checkThrottle(user.id);
     if (blocked !== null) return err(blocked);
@@ -191,8 +216,9 @@ export class SecondFactor {
     await this.clearFailures(user.id);
     if (kind === 'recovery') {
       await sessions.setMfa(sessionId, now);
+      const sessionToken = await tokens.rotateToken(sessionId);
       await audit.record(this.event('auth.recovery_code_used', 'success', user.id, requestId));
-      return ok(null);
+      return ok({ sessionToken, alert: null });
     }
     // Código de emergencia: la persona queda sin factor y de vuelta en el alta del 2FA, también en la
     // sesión que lo usó (aunque ya estuviera completa).
@@ -200,12 +226,14 @@ export class SecondFactor {
     await directory.setStatus(user.id, 'invited');
     await sessions.revokeOthersOfUser(user.id, sessionId, now);
     await sessions.clearMfa(sessionId);
+    // También rota: la sesión cambia de estado de seguridad y el token anterior no debe sobrevivirlo.
+    const sessionToken = await tokens.rotateToken(sessionId);
     const recipients = await directory.listAdministratorContacts();
     await audit.record({
       ...this.event('auth.emergency_code_used', 'success', user.id, requestId),
       metadata: { alertRecipients: recipients.length },
     });
-    return ok({ requestId, usedAt: now, recipients });
+    return ok({ sessionToken, alert: { requestId, usedAt: now, recipients } });
   }
 
   /**
@@ -222,8 +250,8 @@ export class SecondFactor {
   }
 
   /** Paso 2: verifica la firma de la llave (con verificación de la persona) y cumple el segundo factor. */
-  verifyPasskey(response: unknown): Promise<Result<void, DomainError>> {
-    const { uow, sessions, audit, clock } = this.deps;
+  verifyPasskey(response: unknown): Promise<Result<RotatedSession, DomainError>> {
+    const { uow, sessions, tokens, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, sessionId, requestId } = await this.currentUser();
       const blocked = await this.checkThrottle(user.id);
@@ -233,9 +261,10 @@ export class SecondFactor {
         return this.failed(user.id, requestId);
       }
       await sessions.setMfa(sessionId, now);
+      const sessionToken = await tokens.rotateToken(sessionId);
       await this.clearFailures(user.id);
       await audit.record(this.event('auth.passkey_login', 'success', user.id, requestId));
-      return ok(undefined);
+      return ok({ sessionToken });
     });
   }
 
