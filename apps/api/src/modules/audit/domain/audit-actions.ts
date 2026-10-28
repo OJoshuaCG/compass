@@ -38,6 +38,7 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.totp_enrolled': [],
   'auth.reauthenticated': [],
   'auth.reauthenticated_passkey': [],
+  'auth.reauth_failed': [],
   'auth.logout': [],
   'auth.session_revoked': [],
   'user.sessions_revoked': [],

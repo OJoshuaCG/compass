@@ -60,6 +60,12 @@ type AdminContact = { readonly email: string; readonly locale: 'es-MX' | 'en-US'
 
 const mfaInvalid = (): DomainError => new DomainError('AUTH.MFA_INVALID', 'Invalid code');
 
+/** Un fallo al pedir o verificar la reautenticación no se confunde con uno de inicio de sesión. */
+const failureAction = (
+  purpose: 'authentication' | 'reauthentication',
+): 'auth.mfa_failed' | 'auth.reauth_failed' =>
+  purpose === 'reauthentication' ? 'auth.reauth_failed' : 'auth.mfa_failed';
+
 export class SecondFactor {
   constructor(private readonly deps: SecondFactorDeps) {}
 
@@ -245,7 +251,7 @@ export class SecondFactor {
       const blocked = await this.checkThrottle(user.id);
       if (blocked !== null) return err(blocked);
       if (!(await this.verifyPasskeyAssertion(user.id, sessionId, 'reauthentication', response))) {
-        return this.failed(user.id, requestId);
+        return this.failed(user.id, requestId, 'auth.reauth_failed');
       }
       await sessions.setReauth(sessionId, clock.now());
       await this.clearFailures(user.id);
@@ -291,7 +297,7 @@ export class SecondFactor {
       // Pedir el desafío no cuenta como intento (solo la verificación): el límite por IP ya acota
       // cuántos se piden, y quien falla al verificar queda frenado por el contador de la persona.
       const live = await passkeys.listLive(user.id);
-      if (live.length === 0) return this.failed(user.id, requestId);
+      if (live.length === 0) return this.failed(user.id, requestId, failureAction(purpose));
       const { options, challenge } = await webauthn.authenticationOptions({
         allowed: live.map((p) => ({ id: p.credentialId, transports: p.transports })),
       });
@@ -437,12 +443,17 @@ export class SecondFactor {
     return this.deps.attempts.reset(`mfa:${userId}`);
   }
 
-  /** Código incorrecto: se cuenta el fallo, se audita y se responde lo mismo siempre. */
-  private async failed(userId: UserId, requestId: string): Promise<Result<never, DomainError>> {
+  /**
+   * Código incorrecto: se cuenta el fallo, se audita y se responde lo mismo siempre. La reautenticación
+   * con llave de acceso usa su propia acción para distinguirla de un fallo de inicio de sesión.
+   */
+  private async failed(
+    userId: UserId,
+    requestId: string,
+    action: 'auth.mfa_failed' | 'auth.reauth_failed' = 'auth.mfa_failed',
+  ): Promise<Result<never, DomainError>> {
     const { audit } = this.deps;
-    await audit.record(
-      this.event('auth.mfa_failed', 'failure', userId, requestId, 'AUTH.MFA_INVALID'),
-    );
+    await audit.record(this.event(action, 'failure', userId, requestId, 'AUTH.MFA_INVALID'));
     return err(mfaInvalid());
   }
 
