@@ -33,4 +33,16 @@ Esta recomendación pasó a ser la decisión al aceptarse el ADR; el texto origi
 
 - **Positivas**: ninguna negación se pierde por el rollback; el patrón de abuso queda visible.
 - **Negativas o costos**: una segunda transacción por negación; una regla de excepción a la "falla cerrada" para este caso; posible amplificación por ataques de fuerza bruta.
-- **Pendiente**: definir la agrupación o el límite de eventos de negación y la prueba que verifique que una negación sobrevive al rollback de la acción.
+- **Pendiente**: la prueba de integración con base de datos real que verifique que una negación sobrevive al rollback de la acción (la agrupación se resolvió en la adenda de abajo).
+
+## Adenda (2026-10-28): agrupación de negaciones repetidas
+
+El dueño aprobó agrupar las negaciones repetidas ("Agrupamos de una vez"). Decisión implementada en `DenialGrouper` (`apps/api/src/modules/access/application/denial-grouper.ts`), usada por el motor al auditar:
+
+- **Clave del grupo**: organización, actor, código de motivo, permiso y usuario objetivo. La organización forma parte de la clave porque cada una tiene su propio rastro: una negación anónima en una no puede ocultar la misma en otra.
+- **Ventana de 60 s**. La primera negación de cada clave en la ventana siempre se audita. Las repetidas no escriben evento: se cuentan y el total viaja en el siguiente evento auditado de esa clave como `suppressedCount` (campo añadido a la lista blanca de `authz.denied`). La acción sigue negándose siempre; solo se agrupa el rastro.
+- **Falla cerrada**: la ventana se abre solo después de que el evento se escribió. Si la escritura falla o devuelve error, la siguiente negación idéntica vuelve a intentarlo.
+- **Reloj**: si el reloj retrocede, la ventana se considera vencida; no se silencian negaciones sin límite.
+- **Memoria acotada** a 10 000 claves (se descartan las más antiguas) y solo en la instancia única (ADR 0039).
+- **Límite conocido**: el conteo de repetidas es de mejor esfuerzo. Se pierde si la clave no vuelve a negarse, si el proceso se reinicia o si la clave se expulsa por el tope. La primera negación nunca se pierde. Vaciar el conteo con un temporizador exigiría auditar fuera de una petición y queda como mejora pendiente.
+- **Sigue abierto**: el comportamiento si la escritura de la negación falla (hoy el error se propaga a la petición en lugar de degradarse a una alerta).

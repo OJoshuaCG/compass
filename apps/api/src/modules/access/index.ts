@@ -1,5 +1,6 @@
 /** Fachada pública del módulo `access`. */
 export { Authorizer } from './application/authorizer.js';
+export { DenialGrouper } from './application/denial-grouper.js';
 export type { AuthorizationRequest, AuthorizerDeps } from './application/authorizer.js';
 export type { RoleRecord, RoleRepository } from './application/ports/role-repository.js';
 export { ManageRoles } from './application/manage-roles.js';

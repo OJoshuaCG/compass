@@ -14,6 +14,7 @@ import { DomainError } from '../../../shared/kernel/index.js';
 import type { Clock, RequestContextReader, UserId } from '../../../shared/kernel/index.js';
 import type { AuditLog } from '../../audit/index.js';
 import { decide } from '../domain/decision.js';
+import type { DenialGrouper } from './denial-grouper.js';
 import type { Decision, DenyReason } from '../domain/decision.js';
 import { effectivePermissions } from '../domain/effective-permissions.js';
 import type { Obligation } from '../domain/permission-catalog.js';
@@ -31,6 +32,8 @@ export interface AuthorizerDeps {
   readonly roles: RoleRepository;
   readonly audit: AuditLog;
   readonly clock: Clock;
+  /** Agrupa las negaciones repetidas; una sola instancia por proceso (ADR 0039). */
+  readonly denialGrouper: DenialGrouper;
   /** Ejecuta `fn` en una transacción propia que se confirma aunque la del llamador se revierta. */
   readonly independently: <T>(fn: () => Promise<T>) => Promise<T>;
 }
@@ -126,10 +129,20 @@ export class Authorizer {
     readonly permission: Permission | typeof DIRECTORY_VIEW;
     readonly targetUserId?: UserId;
   }): Promise<void> {
-    const { audit, context, independently } = this.deps;
+    const { audit, context, independently, denialGrouper } = this.deps;
     const current = context.current();
-    await independently(async () => {
-      await audit.record({
+    // Una ráfaga de negaciones idénticas escribe un solo evento por ventana (ADR 0022).
+    const groupKey = {
+      organizationId: current.organizationId,
+      actorId: current.actorId,
+      code: input.code,
+      permission: input.permission,
+      targetUserId: input.targetUserId ?? null,
+    };
+    const grouping = denialGrouper.decide(groupKey);
+    if (!grouping.record) return;
+    const recorded = await independently(async () => {
+      return audit.record({
         action: 'authz.denied',
         actorId: current.actorId,
         targetType: input.targetUserId === undefined ? null : 'user',
@@ -141,9 +154,13 @@ export class Authorizer {
         metadata: {
           permission: input.permission,
           resourceType: input.targetUserId === undefined ? 'none' : 'user',
+          // Solo cuando hubo repeticiones agrupadas desde el evento anterior de esta clave.
+          ...(grouping.suppressedCount > 0 ? { suppressedCount: grouping.suppressedCount } : {}),
         },
       });
     });
+    // La ventana se abre solo si el evento quedó escrito; si falló, la próxima negación reintenta.
+    if (recorded.ok) denialGrouper.confirmRecorded(groupKey, grouping.suppressedCount);
   }
 
   private async deny(request: AuthorizationRequest, reason: DenyReason): Promise<Decision> {

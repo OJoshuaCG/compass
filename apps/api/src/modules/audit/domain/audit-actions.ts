@@ -19,7 +19,7 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'user.reactivated': [],
   'user.rank_changed': ['fromRank', 'toRank'],
   'user.manager_changed': ['newManagerId'],
-  'authz.denied': ['permission', 'resourceType'],
+  'authz.denied': ['permission', 'resourceType', 'suppressedCount'],
   'credential.revealed': ['reason'],
   'credential.totp_code_issued': [],
   'credential.totp_exported': ['reason'],

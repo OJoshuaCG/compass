@@ -5,7 +5,12 @@
 import type { Pool } from 'pg';
 import type { Logger } from 'pino';
 
-import { Authorizer, ManageRoles, PgRoleRepository } from '../modules/access/index.js';
+import {
+  Authorizer,
+  DenialGrouper,
+  ManageRoles,
+  PgRoleRepository,
+} from '../modules/access/index.js';
 import { PgAuditEventRepository, RecordAuditEvent } from '../modules/audit/index.js';
 import {
   DataKeyResolver,
@@ -115,6 +120,7 @@ export function buildContainer(options: ContainerOptions) {
     roles,
     audit,
     clock,
+    denialGrouper: new DenialGrouper(clock),
     independently,
   });
   const createUser = new CreateUser({ directory, ids });
