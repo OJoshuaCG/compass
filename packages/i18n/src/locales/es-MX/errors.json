@@ -24,6 +24,7 @@
   "AUDIT.METADATA_FIELD_NOT_ALLOWED": "El evento de auditoría contiene un campo no permitido.",
   "AUDIT.CHAIN_BROKEN": "Se detectó una inconsistencia en la cadena de auditoría.",
   "AUDIT.REASON_CODE_REQUIRED": "Una negación debe registrarse con un código de motivo.",
+  "AUDIT.LOCK_TIMEOUT": "El registro de auditoría está ocupado y la acción no se ejecutó. Inténtalo de nuevo en unos segundos.",
   "AUTHZ.CREATION_NOT_ALLOWED": "Tu rango no permite crear usuarios de ese rango.",
   "AUTHZ.ROLE_ESCALATION": "No puedes otorgar permisos que tú no tienes.",
   "AUTH.INVALID_CREDENTIALS": "Correo o contraseña incorrectos.",
