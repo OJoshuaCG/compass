@@ -132,7 +132,7 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | Directorio visible | Muestra nombre, correo y rango; solo personas activas | ¿Rango visible o solo nombre y correo? |
 | Índice ciego derivado de la clave de datos | **Decidido 2026-10-27 ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)):** se mantiene derivado de la DEK; el recálculo va en el job de recifrado | Clave estable por organización queda como plan B |
 | ADR 0023 (bloqueo de auditoría) | Aceptado el 2026-10-27; `lock_timeout` de 5 s con falla cerrada implementado (`AUDIT.LOCK_TIMEOUT`, 503). Faltan medir la latencia p95 y decidir la agrupación de negaciones | Medir p95 con escritores concurrentes; el evento de auditoría debe seguir siendo lo último de cada caso de uso |
-| ADR 0024 (retención de auditoría) | Propuesto, sin decidir | Decidir antes de la auditoría con retención (fase 1c) |
+| ADR 0024 (retención de auditoría) | Propuesto; plazo decidido el 2026-10-28: 6 meses en línea y archivo de al menos 2 años (legal lo valida) | Falta elegir la opción de expiración y el particionado antes de la auditoría con retención (fase 1c) |
 | Versión de PostgreSQL | Pruebas con la 17 | ¿Pasar a la 18 (identificadores ordenables nativos)? |
 | Proveedor de inicio de sesión único sobre Fastify | Sin probar | Hacer una prueba corta antes de la fase 2 |
 

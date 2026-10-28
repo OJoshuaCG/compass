@@ -51,7 +51,7 @@ La interfaz ofrece una línea de tiempo por persona, por cuenta y por credencial
 
 ### 1.4 Retención
 
-**2 años en línea**, más tiempo en el archivo externo. Los plazos se deben ajustar a los requisitos legales y siguen pendientes de validar con el área legal.
+**6 meses en línea** (decidido el 2026-10-28), más al menos 2 años en el archivo externo. El plazo del archivo se debe ajustar a los requisitos legales y sigue pendiente de validar con el área legal.
 
 ### 1.5 Eventos críticos
 

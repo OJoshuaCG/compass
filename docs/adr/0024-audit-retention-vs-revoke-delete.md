@@ -20,6 +20,12 @@ Opción 1, con una verificación de la cadena que pueda iniciar desde un ancla e
 
 Esta es una recomendación para decidir, no una decisión.
 
+## Decisión parcial del dueño (2026-10-28)
+
+- **Retención en línea: 6 meses** (en lugar de los 2 años que traía el plan, que eran un valor de partida sin razón documentada). Con unas 100 personas usuarias el volumen es bajo, así que el plazo no se fija por espacio sino por lo que hace falta para investigar un incidente descubierto tarde.
+- **Archivo exportado e inmutable: al menos 2 años**, pendiente de validar con el área legal antes de producción.
+- **Sigue abierto**: la elección de la opción de expiración (la recomendada es el particionado, opción 1), la granularidad de partición, el formato del hash de cierre y dónde vive el archivo inmutable. Por eso el estado se mantiene en "Propuesta".
+
 ## Consecuencias (si se acepta la recomendación)
 
 - **Positivas**: expiración eficiente sin `DELETE` desde la aplicación; la cadena y el archivo siguen siendo verificables.

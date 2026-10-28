@@ -627,7 +627,7 @@ El plan exige auditar las negaciones, pero la auditoría se escribe en la misma 
 
 ### 8.5 Recomendación: retención y archivado
 
-El plan retiene 2 años en línea y más en archivo, pero `DELETE` está revocado. Propuesta:
+El plan retenía 2 años en línea y más en archivo; el dueño decidió el 2026-10-28 reducir lo de en línea a 6 meses (archivo de al menos 2 años, pendiente de legal), pero `DELETE` está revocado. Propuesta:
 
 - **Particionar `audit_events` por rango de `created_at`** (mensual) en una migración *expandir y contraer* cuando el volumen lo justifique. En una tabla particionada la clave primaria y los índices únicos deben incluir la columna de partición, así que `unique (organization_id, seq)` pasará a `(organization_id, seq, created_at)`; la unicidad real de `seq` la sigue garantizando el trigger bajo el advisory lock.
 - Crear el rol **`iam_audit_archiver`** (`NOLOGIN` en reposo; lo usa un job separado con credencial propia). Permisos: lectura de la tabla de auditoría mediante una política propia del rol (igual que `iam_auth_reader`) y ejecución de una única función privilegiada de retiro de particiones. Esa función recibe la partición y la huella del manifiesto de exportación, y **solo** separa y elimina la partición completa si existe un registro en una tabla `audit_exports` (con el último `seq` y `hash` por organización y la huella del objeto en S3 Object Lock, verificada) y la partición tiene más de 2 años. Nunca se borra fila por fila; `iam_app` sigue sin poder borrar.
