@@ -103,6 +103,31 @@ export type {
   UpdateAccountRequest,
 } from './accounts.js';
 export {
+  CREDENTIAL_KINDS,
+  REVEAL_LIMIT_PER_HOUR,
+  REVEAL_REASON_MAX_LENGTH,
+  REVEAL_REASON_MIN_LENGTH,
+  changeCredentialPasswordRequestSchema,
+  createCredentialRequestSchema,
+  credentialKindSchema,
+  credentialSchema,
+  credentialUsernameSchema,
+  isValidRevealReason,
+  passwordVersionSchema,
+  revealPasswordRequestSchema,
+  revealedPasswordSchema,
+} from './credentials.js';
+export type {
+  ChangeCredentialPasswordRequest,
+  CreateCredentialRequest,
+  Credential,
+  CredentialKind,
+  CredentialUsername,
+  PasswordVersion,
+  RevealPasswordRequest,
+  RevealedPassword,
+} from './credentials.js';
+export {
   dataKeyRotationReasonSchema,
   dataKeyRotationSchema,
   rotateDataKeyRequestSchema,

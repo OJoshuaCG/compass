@@ -15,6 +15,8 @@
   "ACCOUNT.PLATFORM_INVALID": "La plataforma elegida no existe o no está disponible.",
   "ACCOUNT.GROUP_INVALID": "El grupo responsable no existe o está archivado.",
   "ACCOUNT.ARCHIVED": "La cuenta está archivada y ya no admite cambios.",
+  "CREDENTIAL.REASON_INVALID": "Escribe un motivo de entre 6 y 500 caracteres para revelar la contraseña.",
+  "CREDENTIAL.REVEAL_LIMIT": "Alcanzaste el límite de revelaciones por hora. Se avisó a la persona responsable.",
   "IDEMPOTENCY.KEY_REQUIRED": "Esta operación requiere una clave de idempotencia.",
   "IDEMPOTENCY.KEY_REUSED": "Esa clave ya se usó con una petición distinta.",
   "IDEMPOTENCY.IN_PROGRESS": "La petición original sigue en curso. Inténtalo de nuevo en unos segundos.",

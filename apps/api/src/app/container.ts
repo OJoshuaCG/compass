@@ -58,7 +58,12 @@ import {
 } from '../modules/identity/index.js';
 import type { Argon2Params } from '../modules/identity/index.js';
 import type { Mailer } from '../modules/notification/index.js';
-import { ManageAccounts, PgAccountRepository } from '../modules/vault/index.js';
+import {
+  ManageAccounts,
+  ManageCredentials,
+  PgAccountRepository,
+  PgVaultCredentialRepository,
+} from '../modules/vault/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
 import type { Clock } from '../shared/kernel/index.js';
 import { AsyncLocalRequestContext } from '../shared/infrastructure/async-local-request-context.js';
@@ -106,8 +111,9 @@ export function buildContainer(options: ContainerOptions) {
   const cipher = new SecretCipher({ keys, primitives });
 
   // audit
+  const auditEvents = new PgAuditEventRepository(uow);
   const audit = new RecordAuditEvent({
-    repository: new PgAuditEventRepository(uow),
+    repository: auditEvents,
     context: requestContext,
     ids,
   });
@@ -211,6 +217,18 @@ export function buildContainer(options: ContainerOptions) {
       accounts: new PgAccountRepository(uow),
       ids,
       audit,
+      clock,
+    }),
+    manageCredentials: new ManageCredentials({
+      context: requestContext,
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
+      credentials: new PgVaultCredentialRepository(uow),
+      cipher,
+      audit,
+      auditCounter: auditEvents,
+      ids,
       clock,
     }),
     idempotency: new IdempotencyService({

@@ -26,4 +26,5 @@ Un usuario con acceso legítimo puede revelar contraseñas en masa (cuenta compr
 
 - **Positivas**: acota el daño de una cuenta comprometida; trazable porque usa la misma auditoría.
 - **Negativas**: cada revelación ejecuta una consulta de conteo; una ráfaga de negaciones presiona el lock de auditoría (relacionado con la tarea G6).
-- **Pendiente**: implementar (ruta protegida: requiere encargo humano), con prueba de concurrencia; definir el aviso a la Raíz; confirmar el valor 30 con el negocio.
+- **Implementado (2026-10-28, B2a)**: conteo desde la auditoría con bloqueo por persona antes del de auditoría, evento crítico y aviso en la bandeja de salida una vez por ventana, prueba de concurrencia (20 solicitudes con 5 de cupo). El valor 30 es una constante, aún no configurable por organización.
+- **Pendiente**: definir el aviso a la Raíz; confirmar el valor 30 con el negocio.

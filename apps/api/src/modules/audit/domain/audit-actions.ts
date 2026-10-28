@@ -24,7 +24,13 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'account.created': ['platformId', 'hasOwnerGroup'],
   'account.updated': ['changedFields'],
   'account.archived': ['revokedShares'],
+  // Credenciales: nunca el contenido. `version` es el número de versión de la contraseña.
+  'credential.created': ['kind'],
+  'credential.password_changed': ['version'],
+  'credential.username_copied': [],
   'credential.revealed': ['reason'],
+  // Evento crítico: la persona superó el tope de revelaciones por hora (ADR 0031); `limit` es el tope vigente.
+  'credential.reveal_limit_exceeded': ['limit'],
   'credential.totp_code_issued': [],
   'credential.totp_exported': ['reason'],
   'access.emergency_granted': ['reason', 'expiresInMinutes'],
@@ -65,6 +71,11 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
 
 const ACTION_PATTERN = /^[a-z][a-z_]*(\.[a-z][a-z_]*)+$/;
 const MAX_STRING_LENGTH = 256;
+/**
+ * Campos de texto libre que admiten más de 256 caracteres. El motivo escrito de una revelación llega a
+ * 500 (`REVEAL_REASON_MAX_LENGTH`): truncarlo dejaría un rastro incompleto de por qué se abrió un secreto.
+ */
+const FIELD_MAX_STRING_LENGTH: Readonly<Record<string, number>> = { reason: 500 };
 
 /**
  * Devuelve solo los campos permitidos. Un campo fuera de la lista o un valor no primitivo
@@ -89,7 +100,8 @@ export function sanitizeMetadata(action: string, metadata: AuditMetadata): Audit
         },
       );
     }
-    if (typeof value === 'string' && value.length > MAX_STRING_LENGTH) {
+    const maxLength = FIELD_MAX_STRING_LENGTH[field] ?? MAX_STRING_LENGTH;
+    if (typeof value === 'string' && value.length > maxLength) {
       throw new DomainError('AUDIT.METADATA_FIELD_NOT_ALLOWED', 'Audit metadata value too long', {
         action,
         field,

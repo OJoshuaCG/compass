@@ -142,7 +142,7 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | --- | --- | --- |
 | Biblioteca para decodificar códigos QR en el navegador | **Propuesta 2026-10-27 (B7):** jsQR, versión exacta y espera de 7 días, cargada con import dinámico en la ruta de registro 2FA para respetar el presupuesto de JS inicial. Sin mantenimiento desde 2021 (riesgo aceptado). Los datos de versión no se han verificado: confirmarlos antes de aprobar la dependencia | B4 y B5 |
 | Límite de revelaciones por usuario y hora | **Decidido 2026-10-27 ([ADR 0031](adr/0031-reveal-rate-limit-per-user.md)):** 30 por hora; aviso por correo a la Raíz | B2 |
-| Motivo escrito al revelar | **Decidido 2026-10-27 (B3):** categoría de lista cerrada obligatoria más texto corto (10 a 200 caracteres) con aviso "no pegues secretos". La auditoría es append-only: el texto libre no se puede purgar | B2 |
+| Motivo escrito al revelar | **Decidido 2026-10-28 (reemplaza la decisión B3 del 2026-10-27):** texto libre obligatorio de 6 a 500 caracteres, sin lista cerrada. La auditoría es append-only: el texto libre no se puede purgar, por eso el motivo se acota y la pantalla avisa de no pegar secretos | B2 |
 | Recorte de la primera entrega de 2FA | **Decidido 2026-10-27 (B8):** v1 con clave manual, imagen y captura de pestaña; importación de Google Authenticator y entrega por celular pasan a v1.1. Enmienda el ADR 0017. Una futura `Permissions-Policy` debe permitir `display-capture=(self)` | N3 |
 
 ## 6. Cómo se trabaja aquí (convenciones)

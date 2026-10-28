@@ -12,6 +12,10 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 
 import type { TransactionProvider } from '../../organization/index.js';
 import { DomainError, asOrganizationId, asUserId } from '../../../shared/kernel/index.js';
+import type {
+  AuditEventCountQuery,
+  AuditEventCounter,
+} from '../application/ports/audit-event-counter.js';
 import type { AuditEventRepository } from '../application/ports/audit-event-repository.js';
 import type { AuditEvent, AuditOutcome, NewAuditEvent } from '../domain/audit-event.js';
 import { auditEvents } from './schema.js';
@@ -32,7 +36,7 @@ const isLockNotAvailable = (error: unknown): boolean => {
   );
 };
 
-export class PgAuditEventRepository implements AuditEventRepository {
+export class PgAuditEventRepository implements AuditEventRepository, AuditEventCounter {
   constructor(
     private readonly transactions: TransactionProvider,
     private readonly lockTimeoutMs: number = AUDIT_LOCK_TIMEOUT_MS,
@@ -100,6 +104,19 @@ export class PgAuditEventRepository implements AuditEventRepository {
       hash: toHex(row.hash),
       createdAt: row.createdAt,
     };
+  }
+
+  async count(query: AuditEventCountQuery): Promise<number> {
+    const result = await this.transactions.current().query<{ total: string }>(
+      `select count(*) as total
+         from audit_events
+        where actor_id = $1
+          and action = $2
+          and outcome = $3
+          and created_at > $4`,
+      [query.actorId, query.action, query.outcome, query.since],
+    );
+    return Number(result.rows[0]?.total ?? 0);
   }
 
   async firstBrokenSeq(): Promise<bigint | null> {

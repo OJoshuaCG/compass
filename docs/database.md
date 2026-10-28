@@ -24,6 +24,7 @@ Diseño de la base de datos de la plataforma (PostgreSQL 18). Este documento des
 | `0009_totp_replay_protection.sql` | Columna `last_used_step` en `user_totp_factors`: un código TOTP solo se acepta si su paso es mayor al último aceptado |
 | `0010_emergency_codes.sql` | Columna `kind` (`recovery` por defecto, o `emergency`) en `user_recovery_codes`, para los códigos de emergencia de la Raíz |
 | `0011_webauthn_challenges.sql` | Tabla `webauthn_challenges` (desafíos de las ceremonias de passkey) con aislamiento por fila |
+| `0017_audit_actor_action_index.sql` | Índice `(organization_id, actor_id, action, created_at desc)` en `audit_events`, para contar los eventos de una persona en una ventana de tiempo (límite de revelaciones, ADR 0031) |
 
 ### Cómo se ejecuta
 
