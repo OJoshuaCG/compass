@@ -444,7 +444,7 @@ No hay un agente específico de backend: la implementación la hace `general-pur
 
 ## 16. Decisiones pendientes
 
-Hallazgos del análisis del plan y pendientes tras la fase 1a. Los ADR 0021 y 0022 se aceptaron e implementaron en la fase 1a; los ADR 0023 y 0024 (`docs/adr/`) siguen en estado **Propuesta** y se deciden antes de implementar el módulo afectado.
+Hallazgos del análisis del plan y pendientes tras la fase 1a. Los ADR 0021 y 0022 se aceptaron e implementaron en la fase 1a; el ADR 0023 se aceptó el 2026-10-27 y el 0024 (`docs/adr/`) sigue en estado **Propuesta**; se decide antes de implementar el módulo afectado.
 
 Resueltas en la fase 1a:
 

@@ -26,7 +26,7 @@ El proyecto es viable y está bien cimentado: capas impuestas por lint, aislamie
 | | D | Deuda menor de código y correo del dominio | nada | 7 |
 | | E | Documentación sin dependencias | nada | 4 |
 | **2 · Desbloqueo** (solo depende del nivel 1) | F | Decisiones derivadas | A, B, C | 7 |
-| | G | Cierre de identidad (parte 1) | B, C, D | 5 |
+| | G | Cierre de identidad (parte 1) | B, C, D | 6 |
 | | H | Infraestructura base | A, C | 3 |
 | | I | Bóveda: cuentas | B | 2 |
 | **3 · Cimientos** (depende de niveles 1 y 2) | J | Cierre de identidad (parte 2) y documentación | B, C, F, G | 6 |
@@ -40,7 +40,7 @@ El proyecto es viable y está bien cimentado: capas impuestas por lint, aislamie
 | **5 · Cierre de gobernanza** | R | Auditoría y alertas críticas | B, F, G, M | 2 |
 | **6 · Puerta de producción** | S | Prueba de intrusión y producción | todas | 2 |
 
-Total: **88 subtareas** en **19 épicas**.
+Total: **89 subtareas** en **19 épicas**.
 
 ## Reglas para tomar una tarea
 
@@ -103,7 +103,7 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] B1 | Decidir el ADR 0023 (bloqueo de auditoría en transacciones largas) e incluir cómo se agrupan las ráfagas de negaciones. Hoy "Propuesta"; con una sola organización el bloqueo serializa toda escritura sensible [V] | ADR ⚠ | Ing. | S | — | |
+| [x] B1 | Decidir el ADR 0023 (bloqueo de auditoría en transacciones largas). **Hecha 2026-10-27:** aceptada la opción 1 con `lock_timeout` de 5 s y falla cerrada. Quedan abiertos, y salen de esta subtarea: implementar el `lock_timeout` (⚠ encargo humano), medir latencia p95, revisar el orden de auditoría en `DeactivateUser` y decidir la agrupación de negaciones repetidas (ver "Pendiente" del ADR) | ADR ⚠ | Ing. | S | — | Claude |
 | [ ] B2 | Límite de revelaciones por usuario y hora (el plan dice 30), qué alerta se emite al superarlo y su canal | ADR ⚠ | Dueño | S | — | |
 | [ ] B3 | Reglas del motivo escrito al revelar: longitud mínima, texto libre o lista cerrada | Decisión ⚠ | Dueño | S | — | |
 | [ ] B4 | Índice ciego: derivarlo de la DEK (obliga a reindexar en cada rotación) o de una clave estable por organización [V: `plan.md:434`] | ADR ⚠ | Ing. | S | — | |
@@ -190,6 +190,7 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 | [ ] G3 | Reautenticación con código de recuperación y passkey, según la decisión B6 | Código ⚠ | Ing. | M | B6 | |
 | [ ] G4 | Editar roles personalizados ya creados (A6 del cierre de 1a lo dejó pendiente) | Código ⚠ | Ing. | M | B5 | |
 | [ ] G5 | Avisos de correo que faltan: dispositivo nuevo, uso de código de recuperación y cambios de factores | Código ⚠ | Ing. | M | D7 | |
+| [ ] G6 | Cumplir el ADR 0023: implementar el `lock_timeout` de 5 s con falla cerrada y error de dominio (con su prueba), medir la latencia p95 de las acciones sensibles con escritores concurrentes, revisar que `DeactivateUser` escriba la auditoría al final y decidir la agrupación de negaciones repetidas (ADR 0022) | Código ⚠ | Ing. | M | B1 | |
 
 ## H · Infraestructura base
 

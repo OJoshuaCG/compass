@@ -252,7 +252,7 @@ Reglas que el flujo hace cumplir:
 4. El secreto solo viaja en la respuesta dedicada, con `Cache-Control: no-store`, y nunca se registra en logs.
 5. Los eventos de dominio van al outbox en la misma transacción y los publica el worker.
 
-Las negaciones se registran en una transacción independiente ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md), aceptada e implementada en la fase 1a). Sigue abierto, en estado Propuesta, el advisory lock de auditoría con transacciones largas ([ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md)).
+Las negaciones se registran en una transacción independiente ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md), aceptada e implementada en la fase 1a). El advisory lock de auditoría con transacciones largas se aceptó el 2026-10-27 ([ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md)); su `lock_timeout` aún no está implementado.
 
 ## 9. Flujos de la fase 1a: petición autenticada e invitación
 
@@ -340,5 +340,5 @@ Vigentes tras la fase 1a. El detalle técnico está en [`backend.md`](backend.md
 | Recuperación de la Raíz que olvida su contraseña y pierde sus factores | Sin solución en el sistema; falta un procedimiento de operaciones |
 | Purga de datos temporales vencidos (idempotencia, desafíos de passkeys) | Pendiente; necesita un camino para recorrer organizaciones ([`database.md`](database.md) §7.5) |
 | Auditoría de negaciones | **Resuelta** ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md)); sigue abierta la agrupación de negaciones repetidas |
-| Advisory lock de auditoría en transacciones largas | Propuesta ([ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md)) |
+| Advisory lock de auditoría en transacciones largas | Aceptada, `lock_timeout` pendiente ([ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md)) |
 | Retención de auditoría | Propuesta ([ADR 0024](adr/0024-audit-retention-vs-revoke-delete.md)) |
