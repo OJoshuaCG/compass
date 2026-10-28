@@ -24,3 +24,13 @@ AWS es la referencia de despliegue con servicios gestionados: ECS Fargate (API y
 - **Positivas**: operación reducida; el dominio no depende del proveedor.
 - **Negativas o costos**: hasta confirmar, el runbook y las tarifas del KMS son de referencia AWS; cambiar de proveedor implica nuevos adaptadores y revisar los runbooks.
 - **Verificación**: ningún módulo de dominio importa SDK de proveedor (lint de límites); el adaptador local se niega a arrancar con `NODE_ENV=production`.
+
+## Adenda (2026-10-28): adaptador de AWS KMS (L1)
+
+El dueño aprobó solo el paquete `@aws-sdk/client-kms` (versión exacta, con la espera de 7 días) y confirmó que el despliegue usa Dokploy con Docker y PostgreSQL en un servidor dedicado, no los servicios gestionados de AWS salvo el KMS. Implementado en `apps/api/src/modules/crypto/infrastructure/aws-key-management.ts`:
+
+- **Una sola clave de plataforma** (`AWS_KMS_KEY_ID`) envuelve las DEK de todas las organizaciones; el aislamiento entre organizaciones lo da el contexto de cifrado `organization_id`, que KMS autentica. La KEK por organización que menciona la decisión queda como refinamiento posterior.
+- `keyRef` guarda el ARN que devuelve KMS al generar la DEK, de modo que abrirla apunta a esa clave aunque el alias configurado cambie de destino.
+- Las credenciales las resuelve el SDK (variables de entorno o rol IAM); la configuración solo lleva el id de la clave y la región (`AWS_KMS_KEY_ID`, `AWS_REGION`, obligatorias con `KMS_ADAPTER=aws`). Producción solo acepta `KMS_ADAPTER=aws`.
+- Cada llamada a KMS vence a los 5 s y los errores salen genéricos, sin el detalle de AWS.
+- **Límites conocidos**: no se probó contra AWS real (las pruebas usan un cliente simulado); no hay sonda de arranque que verifique permisos; el error original de KMS no se registra, solo se oculta.

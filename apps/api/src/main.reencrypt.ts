@@ -7,10 +7,10 @@
 import { Pool } from 'pg';
 
 import { loadConfig } from './app/config.js';
+import { createKeyManagement } from './app/key-management.js';
 import {
   DataKeyResolver,
   DekCache,
-  LocalKeyManagement,
   NodeCryptoPrimitives,
   PgDataKeyRepository,
   SecretCipher,
@@ -34,10 +34,7 @@ const requestContext = new AsyncLocalRequestContext();
 const uow = new PgUnitOfWork(pool, requestContext, independentPool);
 const keys = new DataKeyResolver({
   repository: new PgDataKeyRepository(uow),
-  kms: new LocalKeyManagement({
-    keyFilePath: config.LOCAL_KMS_KEY_FILE,
-    nodeEnv: config.NODE_ENV,
-  }),
+  kms: createKeyManagement(config),
   cache: new DekCache({ clock }),
   clock,
   independently: <T>(fn: () => Promise<T>): Promise<T> => uow.runIndependent(fn),

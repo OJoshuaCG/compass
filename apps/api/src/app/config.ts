@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { parseTrustProxy } from './trust-proxy.js';
 import type { TrustProxySetting } from './trust-proxy.js';
 
-/** Adaptadores de gestión de claves aptos para producción. Vacía hasta que exista el KMS gestionado (TODO L1). */
-const PRODUCTION_KMS_ADAPTERS: readonly string[] = [];
+/** Adaptadores de gestión de claves aptos para producción: solo el KMS gestionado (ADR 0020). */
+const PRODUCTION_KMS_ADAPTERS: readonly string[] = ['aws'];
 
 const envSchema = z
   .object({
@@ -16,8 +16,12 @@ const envSchema = z
       .default('info'),
     DATABASE_URL: z.string().min(1).optional(),
     LOCAL_KMS_KEY_FILE: z.string().min(1).default('.local-kms/kek.key'),
-    /** Adaptador de gestión de claves. Hoy solo existe el local (archivo en disco), que no es apto para producción. */
-    KMS_ADAPTER: z.enum(['local']).default('local'),
+    /** Adaptador de gestión de claves: `local` (archivo en disco, solo desarrollo) o `aws` (AWS KMS). */
+    KMS_ADAPTER: z.enum(['local', 'aws']).default('local'),
+    /** Id, ARN o alias de la clave de AWS KMS que envuelve las DEK. Obligatoria con `KMS_ADAPTER=aws`. */
+    AWS_KMS_KEY_ID: z.string().min(1).optional(),
+    /** Región de AWS KMS. Obligatoria con `KMS_ADAPTER=aws`. Las credenciales las resuelve el SDK, no esta configuración. */
+    AWS_REGION: z.string().min(1).optional(),
     /** Origen del navegador que usa la API (verificación de `Origin` contra CSRF y enlaces de correo). */
     APP_ORIGIN: z.url().default('http://localhost:5173'),
     /** Carpeta de la SPA compilada; si se omite, la API no sirve el frontend (útil en desarrollo con Vite). */
@@ -70,6 +74,12 @@ const envSchema = z
         path: ['MAIL_TRANSPORT'],
         message: 'smtp is required in production',
       });
+    }
+    if (env.KMS_ADAPTER === 'aws') {
+      for (const key of ['AWS_KMS_KEY_ID', 'AWS_REGION'] as const) {
+        if (env[key] === undefined)
+          ctx.addIssue({ code: 'custom', path: [key], message: 'required' });
+      }
     }
     // La KEK local vive en un archivo: en producción debe usarse el KMS gestionado (TODO L1). La
     // comprobación del adaptador es una segunda barrera; esta falla antes, con un mensaje de configuración.

@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { loadConfig } from './app/config.js';
 import { buildContainer } from './app/container.js';
 import { createApp } from './app/create-app.js';
-import { LocalKeyManagement } from './modules/crypto/index.js';
+import { createKeyManagement } from './app/key-management.js';
 import { LogMailer, SmtpMailer } from './modules/notification/index.js';
 import { createLogger } from './shared/infrastructure/logger.js';
 import {
@@ -44,8 +44,8 @@ const container = buildContainer({
   },
   pool: new Pool({ connectionString: config.DATABASE_URL, max: config.DB_POOL_MAX }),
   independentPool: new Pool({ connectionString: config.DATABASE_URL, max: 2 }),
-  // Solo desarrollo: en producción se usa el adaptador del KMS del proveedor (ADR 0020).
-  kms: new LocalKeyManagement({ keyFilePath: config.LOCAL_KMS_KEY_FILE, nodeEnv: config.NODE_ENV }),
+  // El adaptador local es solo de desarrollo; en producción la configuración exige AWS KMS (ADR 0020).
+  kms: createKeyManagement(config),
   mailer:
     config.MAIL_TRANSPORT === 'smtp'
       ? new SmtpMailer(

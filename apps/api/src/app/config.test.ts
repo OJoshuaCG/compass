@@ -70,6 +70,38 @@ describe('loadConfig', () => {
     it('does not start in production with the local adapter, even with a valid mail setup', () => {
       expect(() => loadConfig({ NODE_ENV: 'production', ...completeSmtp })).toThrow(/KMS_ADAPTER/);
     });
+
+    it('needs the key id and the region to use AWS KMS', () => {
+      expect(() => loadConfig({ KMS_ADAPTER: 'aws' })).toThrow(/AWS_KMS_KEY_ID/);
+      expect(() => loadConfig({ KMS_ADAPTER: 'aws', AWS_KMS_KEY_ID: 'alias/iam' })).toThrow(
+        /AWS_REGION/,
+      );
+    });
+
+    it('starts in production with AWS KMS and a complete setup', () => {
+      const config = loadConfig({
+        NODE_ENV: 'production',
+        KMS_ADAPTER: 'aws',
+        AWS_KMS_KEY_ID: 'alias/iam',
+        AWS_REGION: 'us-east-1',
+        ...completeSmtp,
+      });
+
+      expect(config.KMS_ADAPTER).toBe('aws');
+    });
+
+    it('does not echo the key id when the configuration is invalid', () => {
+      const message = (): string => {
+        try {
+          loadConfig({ KMS_ADAPTER: 'aws', AWS_KMS_KEY_ID: 'arn:aws:kms:secret-key-id' });
+          return '';
+        } catch (error) {
+          return (error as Error).message;
+        }
+      };
+
+      expect(message()).not.toContain('secret-key-id');
+    });
   });
 
   describe('mail', () => {
