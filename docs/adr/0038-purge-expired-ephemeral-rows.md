@@ -1,0 +1,32 @@
+# ADR 0038: Purga de filas efímeras vencidas y recorrido de organizaciones
+
+- **Estado**: Aceptada (2026-10-27)
+- **Fecha**: 2026-10-27
+- **Referencias**: `db/migrations/0014_*`; `docs/database.md` §7.5; [ADR 0035](0035-transactional-outbox-events.md) (retención del outbox, pendiente); tarea G1.
+
+## Contexto
+
+`idempotency_keys` y `webauthn_challenges` solo sirven hasta su vencimiento, pero nada las borraba: crecían sin límite. Un trabajo de fondo no tiene petición ni organización, y `iam_app` solo ve su propia organización (`organizations_self_read`), así que no puede recorrerlas.
+
+## Decisión
+
+1. **`auth.list_organization_ids()`**: función `SECURITY DEFINER` con el molde de `0008` (dueño `iam_auth_reader`, `search_path` fijo, `EXECUTE` solo para `iam_app`, `SELECT` de la sola columna `id` y una política dedicada). Devuelve solo identificadores, sin filtrar por estado: una organización suspendida también acumula filas vencidas.
+2. **El borrado corre bajo el aislamiento normal**: el trabajo fija `app.org_id` por organización (`TenantScope.runAs`, actor nulo) y borra con `iam_app`. Ninguna política se relaja; se concede `DELETE` sobre `webauthn_challenges` (ya lo tenía `idempotency_keys`).
+3. **Margen de una hora** tras el vencimiento (`EXPIRED_RETENTION_GRACE_MS`): una petición en vuelo aún puede consultar lo que acaba de vencer.
+4. **Lotes de 1000 filas, una transacción por lote**, para no sostener bloqueos largos.
+5. **Un fallo en una organización no detiene a las demás**: se cuenta y el comando sale con código 1.
+6. **Sin evento de auditoría**: son datos de mantenimiento sin significado de negocio, no una acción sensible; auditar cada purga llenaría la cadena de ruido. El resultado se imprime como conteos.
+7. **Punto de entrada**: `pnpm --filter @iam/api purge-expired` (`main.purge-expired.js`), pensado para el cron del anfitrión con `DATABASE_URL` del rol de la aplicación.
+
+## Alternativas
+
+- **Rol con `BYPASSRLS` para el trabajo**: descartada; rompe la garantía de que ningún proceso salta el aislamiento.
+- **Borrar al vencer, dentro de la petición**: _(inferida)_ añade escrituras al camino caliente y no cubre lo que nadie vuelve a consultar.
+- **`pg_cron` en la base**: _(inferida)_ obliga a una extensión y deja la política fuera del código revisado.
+
+## Consecuencias
+
+- **Positivas**: las tablas dejan de crecer; el recorrido de organizaciones queda reutilizable para los demás trabajos de fondo (§7.5).
+- **Negativas**: hay que programar el comando; una función más con `SECURITY DEFINER` que revisar (expone solo ids).
+- **Riesgo aceptado**: cualquier sesión de `iam_app` (incluida la API que atiende peticiones) puede listar los ids de todas las organizaciones. Son UUIDv7 sin nombre ni datos, y quien ya controla el rol de la aplicación puede, además, fijar `app.org_id` a cualquier valor que conozca; no se amplía el alcance real de un compromiso, solo se facilita enumerar.
+- **Pendiente**: programar el cron en el despliegue real; retención del outbox (ADR 0035).

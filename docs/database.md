@@ -586,9 +586,9 @@ Cuatro funciones de lectura mínimas, que se ejecutan con los privilegios de su 
 - El correo se normaliza a minúsculas (la función también lo hace; el índice es sobre el valor ya en minúsculas).
 - Toda función nueva en `auth` requiere ADR: es la superficie que rompe el aislamiento por diseño.
 
-### 7.5 Pendiente propuesto: trabajos de fondo
+### 7.5 Trabajos de fondo
 
-Los jobs transversales (verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del *outbox*, rotación de DEK y, desde la fase 1a, la purga de las filas vencidas de `idempotency_keys` y `webauthn_challenges`) corren fuera de una petición y deben recorrer organizaciones. Recomendación: una función `auth.list_organization_ids()` (mismo molde: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y que el job fije `app.org_id` por organización. No se ha implementado: la fase 0 no lo necesitaba y, desde la fase 1a, la purga de esas dos tablas efímeras está pendiente por esa razón (sus filas vencidas se acumulan). Requiere ADR antes de la fase 1b.
+Los jobs transversales corren fuera de una petición y deben recorrer organizaciones. Se resuelve con `auth.list_organization_ids()` (migración `0014`, mismo molde que las funciones de preautenticación: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y el job fija `app.org_id` por organización con `TenantScope.runAs`, de modo que el aislamiento por filas sigue vigente ([ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)). Ya lo usa la purga de `idempotency_keys` y `webauthn_challenges` (`purge-expired`). Pendientes sobre el mismo recorrido: verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del *outbox* y rotación de DEK.
 
 ## 8. Auditoría
 

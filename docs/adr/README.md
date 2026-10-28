@@ -47,6 +47,7 @@ Plantilla: [`template.md`](template.md).
 | [0035](0035-transactional-outbox-for-events.md) | Eventos mediante bandeja de salida transaccional | Aceptada (implementación pendiente) |
 | [0036](0036-effective-access-computed-on-the-fly.md) | Acceso efectivo calculado al vuelo | Aceptada |
 | [0037](0037-root-recovery-dual-custody.md) | Recuperación de la Raíz por operaciones con control dual de los custodios | Aceptada |
+| [0038](0038-purge-expired-ephemeral-rows.md) | Purga de filas efímeras vencidas y recorrido de organizaciones | Aceptada |
 
 ## Propuestas (huecos detectados, sin decidir)
 
