@@ -29,6 +29,22 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ PORT: '70000' })).toThrow(/PORT/);
   });
 
+  describe('key management', () => {
+    const completeSmtp = {
+      MAIL_TRANSPORT: 'smtp',
+      SMTP_HOST: 'mail.example.com',
+      MAIL_FROM: 'IAM <no-reply@example.com>',
+    };
+
+    it('uses the local adapter by default outside production', () => {
+      expect(loadConfig({}).KMS_ADAPTER).toBe('local');
+    });
+
+    it('does not start in production with the local adapter, even with a valid mail setup', () => {
+      expect(() => loadConfig({ NODE_ENV: 'production', ...completeSmtp })).toThrow(/KMS_ADAPTER/);
+    });
+  });
+
   describe('mail', () => {
     it('defaults to the development log transport', () => {
       expect(loadConfig({}).MAIL_TRANSPORT).toBe('log');

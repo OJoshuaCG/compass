@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/** Adaptadores de gestión de claves aptos para producción. Vacía hasta que exista el KMS gestionado (TODO L1). */
+const PRODUCTION_KMS_ADAPTERS: readonly string[] = [];
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -10,6 +13,8 @@ const envSchema = z
       .default('info'),
     DATABASE_URL: z.string().min(1).optional(),
     LOCAL_KMS_KEY_FILE: z.string().min(1).default('.local-kms/kek.key'),
+    /** Adaptador de gestión de claves. Hoy solo existe el local (archivo en disco), que no es apto para producción. */
+    KMS_ADAPTER: z.enum(['local']).default('local'),
     /** Origen del navegador que usa la API (verificación de `Origin` contra CSRF y enlaces de correo). */
     APP_ORIGIN: z.url().default('http://localhost:5173'),
     /** Carpeta de la SPA compilada; si se omite, la API no sirve el frontend (útil en desarrollo con Vite). */
@@ -50,6 +55,15 @@ const envSchema = z
         code: 'custom',
         path: ['MAIL_TRANSPORT'],
         message: 'smtp is required in production',
+      });
+    }
+    // La KEK local vive en un archivo: en producción debe usarse el KMS gestionado (TODO L1). La
+    // comprobación del adaptador es una segunda barrera; esta falla antes, con un mensaje de configuración.
+    if (env.NODE_ENV === 'production' && !PRODUCTION_KMS_ADAPTERS.includes(env.KMS_ADAPTER)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['KMS_ADAPTER'],
+        message: 'the local key management is not allowed in production',
       });
     }
   });
