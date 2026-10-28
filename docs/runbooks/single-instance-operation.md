@@ -16,7 +16,7 @@ Mantener efectivos el bloqueo por intentos fallidos y el límite por dirección 
 ## Precondiciones
 
 - Se entiende el motivo: los contadores de intentos fallidos (por correo en el ingreso y por usuario en el segundo factor) y el límite de 60 peticiones por minuto por IP no se comparten entre instancias y un reinicio los borra. Con N instancias, quien ataca obtiene en la práctica N veces los intentos antes del bloqueo.
-- Hoy la API no arranca con `NODE_ENV=production`, porque el adaptador de claves local se niega y todavía no existe el del proveedor de nube (decisión de proveedor pendiente, ADR 0020). Este runbook describe el despliegue objetivo.
+- En producción la API solo arranca con el adaptador de claves de AWS KMS (`KMS_ADAPTER=aws`, [ADR 0020](../adr/0020-reference-cloud-aws.md)); el local se niega con `NODE_ENV=production`. El adaptador de AWS aún no se probó contra AWS real. Este runbook describe el despliegue objetivo; la guía de despliegue es [`deployment.md`](../deployment.md).
 
 ## Pasos
 

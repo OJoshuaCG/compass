@@ -6,6 +6,8 @@
 
 > **Confirmación pendiente**: el proveedor de nube sigue en las decisiones pendientes del plan ("AWS es la referencia del plan; confirmar o elegir GCP o Azure"). Esta decisión fija la arquitectura para que **no dependa** del proveedor; no cierra la elección del proveedor. Se actualizará el estado a "Aceptada" cuando el equipo confirme.
 
+> **Alcance real del despliegue (2026-10-28)**: la lista de servicios de la sección "Decisión" es la referencia original. Lo acordado para desplegar es Dokploy con Docker, PostgreSQL en un servidor dedicado y, de AWS, solo el KMS; ver la [adenda](#adenda-2026-10-28-adaptador-de-aws-kms-l1) y [`docs/deployment.md`](../deployment.md).
+
 ## Contexto
 
 Tres personas no deben operar bases de datos ni KMS propios, por lo que conviene usar servicios gestionados. Aun así, el dominio no debe quedar atado a un proveedor.

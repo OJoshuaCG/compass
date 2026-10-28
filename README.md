@@ -18,7 +18,7 @@ Está pensada para una sola organización de unas tres personas operando, aunque
 | Fase | Qué entrega | Estado |
 | --- | --- | --- |
 | 0 · Fundaciones | Base técnica, base de datos con aislamiento por organización, cifrado, registro y diseño visual | Terminada |
-| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona en lo esencial; faltan piezas.** Ya incluye la gestión de personas, el cambio obligatorio de la contraseña inicial, la gestión de sesiones, los roles personalizados con reenvío de invitaciones, la protección contra peticiones repetidas, las llaves de acceso (passkeys), los códigos de emergencia de la Raíz y el envío real de invitaciones por el correo del dominio de la organización. Faltan el almacén compartido de contadores de intentos (mientras tanto el sistema debe correr en una sola instancia), la limpieza de datos temporales vencidos, un procedimiento para la Raíz que pierde contraseña y factores y la primera ejecución del CI en GitHub, que el dueño dejó para después |
+| 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona en lo esencial; faltan piezas.** Ya incluye la gestión de personas, el cambio obligatorio de la contraseña inicial, la gestión de sesiones, los roles personalizados con reenvío de invitaciones, la protección contra peticiones repetidas, las llaves de acceso (passkeys), los códigos de emergencia de la Raíz y el envío real de invitaciones por el correo del dominio de la organización. También incluye la limpieza de datos temporales vencidos, el procedimiento de recuperación de la Raíz que pierde contraseña y factores (con dos custodios) y el adaptador de claves de AWS KMS para producción (aún sin probar contra AWS real). Faltan el almacén compartido de contadores de intentos (mientras tanto el sistema debe correr en una sola instancia), la estrategia de respaldos de la base y la primera ejecución del CI en GitHub, que el dueño dejó para después |
 | 1b · Bóveda y segundo factor | Guardar y compartir cuentas, revelar contraseñas con motivo y generar códigos | **No iniciada.** Ya está planificada en siete porciones y con tres decisiones abiertas (ver el traspaso) |
 | 1c · Gobernanza | Pantalla de auditoría, bajas con rotación, salud de credenciales y acceso temporal | Pendiente |
 | 2 a 7 | Inicio de sesión único, lectura de correos y SMS, extensión de navegador y broker | Pendientes |
@@ -66,6 +66,9 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | Ejecutar las pruebas en navegador real | `pnpm e2e` |
 | Trabajar solo en la interfaz web con recarga en vivo | `pnpm --filter @iam/web dev` |
 | Dar de alta una organización con su Raíz (operaciones, con una conexión de administración a la base de datos); imprime una sola vez la contraseña inicial y los ocho códigos de emergencia, que hay que entregar a dos custodios. Pasos en el [runbook de alta](docs/runbooks/provision-organization.md) | `pnpm --filter @iam/api provision` |
+| Recuperar a la Raíz que perdió contraseña y factores (exige a los dos custodios). Pasos en el [runbook de recuperación](docs/runbooks/recover-root.md) | `pnpm --filter @iam/api recover-root` |
+| Purgar los datos temporales vencidos (operaciones, con una conexión de administración). Diseño en el [ADR 0038](docs/adr/0038-purge-expired-ephemeral-rows.md) | `pnpm --filter @iam/api purge-expired` |
+| Recifrar los secretos tras rotar la clave de datos de una organización. Pasos en el [runbook de rotación](docs/runbooks/rotate-dek.md) | `pnpm --filter @iam/api reencrypt` |
 
 ## Cómo está organizado
 

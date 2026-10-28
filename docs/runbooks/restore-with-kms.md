@@ -1,6 +1,6 @@
 # Runbook: Restaurar con el KMS
 
-> **Borrador, pendiente de ensayo antes de producción.** El adaptador de KMS de producción y los comandos de infraestructura de restauración **no existen todavía** (L1 y L2 del `TODO.md`). Lo que sí está en el código: el esquema `data_keys`, el comando de migraciones y las DEK atadas a su clave y a su organización.
+> **Borrador, pendiente de ensayo antes de producción.** El adaptador de AWS KMS existe (L1) pero no se probó contra AWS real, y los comandos de infraestructura de restauración **no existen todavía** (L2 del `TODO.md`). Lo que sí está en el código: el esquema `data_keys`, el comando de migraciones y las DEK atadas a su clave y a su organización.
 
 Referencias: [Restaurar respaldo](restore-backup.md); [Pérdida o borrado de la KEK](kek-loss.md); [Rotar DEK](rotate-dek.md); [ADR 0004](../adr/0004-server-side-encryption-kms-per-org-dek.md); [`plan.md`](../../plan.md) ("Respaldo y recuperación").
 
@@ -19,7 +19,7 @@ Que una base de datos restaurada pueda descifrar sus secretos: que la clave del 
 
 - Cada `data_keys.wrapped_dek` va atada a su `kms_key_ref` y a la organización mediante datos autenticados adicionales: una DEK solo se abre con la clave y el contexto con los que se envolvió.
 - Restaurar la base **más** la misma clave (o una versión que abra lo anterior) basta para descifrar.
-- Las versiones de DEK conviven. La rotación de DEK existe en el código (`DataKeyResolver.rotate()`), pero **ningún proceso la ejecuta** todavía y no hay un trabajo de recifrado (A6 del `TODO.md`).
+- Las versiones de DEK conviven. La rotación de DEK se ejecuta con `POST /organization/data-key/rotate` y el recifrado de los TOTP con el comando `reencrypt` ([ADR 0040](../adr/0040-dek-rotation-and-cache-coherence.md), [Rotar DEK](rotate-dek.md)).
 - Con el adaptador local de desarrollo solo hay una referencia (`local:v1`) y no hay versiones de clave.
 - Rewrapar las DEK de un KMS a otro **no está implementado** ni documentado en los ADR.
 
@@ -34,7 +34,7 @@ Que una base de datos restaurada pueda descifrar sus secretos: que la clave del 
 
 1. Restaura la base en un entorno aislado siguiendo [Restaurar respaldo](restore-backup.md) (comandos **por definir**).
 2. Lista las referencias de clave que usa la base restaurada (`kms_key_ref` en `data_keys`) y comprueba que **cada una existe y está habilitada** en el KMS al que apuntará la API (por definir).
-3. Apunta la API restaurada a esa misma clave: configuración del adaptador de KMS (**por definir**; hoy `KMS_ADAPTER` solo acepta `local` y la API no arranca en producción con él).
+3. Apunta la API restaurada a esa misma clave: `KMS_ADAPTER=aws` con `AWS_KMS_KEY_ID` (id, ARN o alias) y `AWS_REGION`. Con otra clave o región, las DEK no se abren (el contexto de cifrado y la referencia de clave no coinciden).
 4. Aplica migraciones pendientes con `node dist/main.migrate.js`.
 5. Para **cada organización**: abre una DEK activa y descifra un secreto de prueba o de verificación. Un error de descifrado indica clave, versión o contexto distintos: **no continúes**, detén el proceso y ve a [Pérdida o borrado de la KEK](kek-loss.md).
 6. Verifica la cadena de auditoría y el aislamiento por organización como en [Restaurar respaldo](restore-backup.md).

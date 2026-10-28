@@ -236,14 +236,16 @@ Fuente de verdad: `apps/api/src/app/config.ts` (no existe `.env.example`). Las d
 
 | Variable | Valor por defecto | Para qué |
 | --- | --- | --- |
-| `NODE_ENV` | `development` | `development`, `test` o `production`. En producción se exige `MAIL_TRANSPORT=smtp` y el adaptador de claves local se niega a arrancar |
+| `NODE_ENV` | `development` | `development`, `test` o `production`. En producción se exige `MAIL_TRANSPORT=smtp` y `KMS_ADAPTER=aws`: el adaptador de claves local se niega a arrancar |
 | `HOST` y `PORT` | `127.0.0.1` y `3000` | Dirección y puerto de escucha |
 | `LOG_LEVEL` | `info` | Nivel de `pino` |
 | `DATABASE_URL` | Ninguno | Conexión del rol de aplicación. Obligatoria para arrancar la API |
 | `DB_POOL_MAX` | `10` | Tamaño del pool de conexiones (1 a 100) |
 | `LOCAL_KMS_KEY_FILE` | `.local-kms/kek.key` | Archivo de la clave del adaptador de desarrollo; no sirve en producción |
 | `WEB_DIST_DIR` | Ninguno | Carpeta de la SPA compilada; si se omite, la API no sirve el frontend |
-| `KMS_ADAPTER` | `local` | Adaptador de gestión de claves. Hoy solo existe `local`; con `NODE_ENV=production` la configuración falla al arrancar con un error sobre esta clave |
+| `KMS_ADAPTER` | `local` | Adaptador de gestión de claves: `local` (desarrollo) o `aws` (AWS KMS, [ADR 0020](adr/0020-reference-cloud-aws.md)). Con `NODE_ENV=production` solo se acepta `aws`; otro valor hace fallar la configuración al arrancar con un error sobre esta clave |
+| `AWS_KMS_KEY_ID` | Ninguno | Id, ARN o alias de la clave simétrica de AWS KMS. Obligatoria con `KMS_ADAPTER=aws` |
+| `AWS_REGION` | Ninguno | Región de esa clave. Obligatoria con `KMS_ADAPTER=aws`. Las credenciales de AWS las lee el SDK (variables estándar o rol IAM), no la aplicación |
 | `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For`. Acepta `false`, `true`, un número de saltos o una lista de IP y rangos CIDR. Léelo completo en [§6.4](#64-trust_proxy-qué-proxies-son-de-confianza) |
 
 ### 6.4 `TRUST_PROXY`: qué proxies son de confianza
@@ -295,7 +297,7 @@ Orden efectivo en la fase 1a: límite por dirección de red, protección CSRF, g
 - La reserva dura 1 minuto, para que una petición caída no bloquee la clave durante un día. La toma de una reserva vencida es atómica y una petición original lenta no puede sobrescribir a un dueño más reciente. Si guardar la respuesta falla después del *commit*, la clave no se libera.
 - Las respuestas de error no se guardan: el reintento se ejecuta de nuevo.
 - **Nunca** se usa en endpoints cuya respuesta lleve secretos, porque la respuesta se guarda tal cual.
-- Limitaciones conocidas: las filas vencidas aún no se purgan (falta un trabajo de limpieza) y el reintento no vuelve a comprobar permisos durante las 24 horas.
+- Limitaciones conocidas: las filas vencidas se purgan con el comando `purge-expired` (falta programarlo en el despliegue) y el reintento no vuelve a comprobar permisos durante las 24 horas.
 
 ### 7.3 Errores
 
@@ -475,15 +477,16 @@ Resueltas en la fase 1a:
 
 Pendientes de la fase 1a:
 
-- [x] **Passkeys (WebAuthn)** (A2): hechas, opcionales para todos y varias por persona; tabla `webauthn_challenges` (migración 0011, [ADR 0028](adr/0028-passkeys-optional-enforcement-later.md) y [ADR 0030](adr/0030-session-bound-webauthn-challenges.md)). Revisadas por dos jueces ciegos (hallazgos corregidos); pendiente la purga de desafíos vencidos. La reautenticación sigue aceptando solo el código de la aplicación autenticadora. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización (aún no hay pantalla de configuración).
+- [x] **Passkeys (WebAuthn)** (A2): hechas, opcionales para todos y varias por persona; tabla `webauthn_challenges` (migración 0011, [ADR 0028](adr/0028-passkeys-optional-enforcement-later.md) y [ADR 0030](adr/0030-session-bound-webauthn-challenges.md)). Revisadas por dos jueces ciegos (hallazgos corregidos); la purga de desafíos vencidos la hace `purge-expired`. La reautenticación sigue aceptando solo el código de la aplicación autenticadora. Exigirlas a la Raíz y a los Administradores queda como futura configuración de la organización (aún no hay pantalla de configuración).
 - [x] **Cambio obligatorio de la contraseña inicial de la Raíz** (A4): hecho.
-- [x] **Códigos de emergencia de la Raíz** (A3): hechos (migración 0010, columna `kind`; [ADR 0027](adr/0027-emergency-codes-root-reset-model.md)). Decisión del dueño: solo los custodios pueden restablecer la Raíz; ningún Administrador. Limitación: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema, y no hay forma de emitir códigos de emergencia nuevos. Sigue pendiente el restablecimiento de factores por el responsable.
+- [x] **Códigos de emergencia de la Raíz** (A3): hechos (migración 0010, columna `kind`; [ADR 0027](adr/0027-emergency-codes-root-reset-model.md)). Decisión del dueño: solo los custodios pueden restablecer la Raíz; ningún Administrador. Quien olvida la contraseña Y pierde los factores se recupera con el comando `recover-root` (control dual de dos custodios, [ADR 0037](adr/0037-root-recovery-dual-custody.md)), que además emite códigos de emergencia nuevos.
 - [ ] **Redis para los límites de intentos y por IP**: hoy son por instancia y en memoria. Sin Redis, el sistema debe operar con una sola instancia (ver el [runbook](runbooks/single-instance-operation.md)). No entró en la entrega de correo; el dueño solo respondió sobre el correo.
-- [ ] **Trabajo de limpieza de datos temporales**: las filas vencidas de `idempotency_keys` y de `webauthn_challenges` no se purgan. Necesita el camino para recorrer organizaciones de `docs/database.md` §7.5.
-- [ ] **Adaptador de KMS de proveedor y worker**: solo existe el adaptador local, que se niega a arrancar con `NODE_ENV=production`, y no hay punto de entrada de worker (`apps/api/src` tiene API, migraciones y alta de organizaciones). Dependen de la decisión de proveedor de nube.
+- [x] **Trabajo de limpieza de datos temporales** (G1): hecho como comando `purge-expired` ([ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)), que recorre las organizaciones por el camino de `docs/database.md` §7.5. Falta programar su ejecución periódica en el despliegue.
+- [x] **Adaptador de KMS de proveedor** (L1): `AwsKeyManagement` (AWS KMS, [ADR 0020](adr/0020-reference-cloud-aws.md)). Sin probar contra AWS real y sin comprobación de permisos al arrancar.
+- [ ] **Worker**: no hay punto de entrada de worker (`apps/api/src` tiene API, migraciones, alta de organizaciones, recuperación de la Raíz, purga y recifrado).
 - [x] **Correo real** (A8, parte de correo): adaptador SMTP del dominio propio (§6.3.1). Avisos a la persona (G5, parcial): código de recuperación usado y llave de acceso agregada o quitada; salen después del *commit*, con tope de 5 s y de mejor esfuerzo, y su fallo se audita como `auth.security_notice_failed` (solo el tipo). Siguen pendientes dispositivo nuevo, baja del factor de aplicación y regeneración de códigos.
 - [ ] **CI en GitHub y escáneres** (A9): despriorizada por el dueño (2026-10-27), no bloqueada; el repositorio ya tiene remoto y el flujo de `.github/workflows/ci.yml` nunca se ha ejecutado allí.
-- [x] **Idempotencia** de las peticiones que crean recursos (§7.2.1, A7): hecha. Limitaciones: sin purga de filas vencidas y sin nueva comprobación de permisos en el reintento.
+- [x] **Idempotencia** de las peticiones que crean recursos (§7.2.1, A7): hecha. Limitaciones: la purga de filas vencidas (`purge-expired`) falta programarla y no hay nueva comprobación de permisos en el reintento.
 - [ ] **Guard de permisos** como primera barrera (§7.2).
 - [x] **Comando de operaciones** para dar de alta una organización y registrar el alta en la auditoría (A3), ahora también con los códigos de emergencia.
 - [x] **Gestión de personas** (A1) y **gestión de sesiones propias y ajenas** (A5): hechas. Sigue pendiente transferir la Raíz.

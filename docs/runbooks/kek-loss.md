@@ -1,8 +1,8 @@
 # Runbook: Pérdida o borrado de la KEK
 
-> **Borrador, pendiente de ensayo antes de producción.** El adaptador de KMS de producción **no existe todavía** (L1 del `TODO.md`): hoy solo hay un adaptador local para desarrollo, y la API no arranca en producción con él. Los pasos del KMS real están **por definir**.
+> **Borrador, pendiente de ensayo antes de producción.** El adaptador de AWS KMS existe (L1, [ADR 0020](../adr/0020-reference-cloud-aws.md)) pero **no se probó contra AWS real**; el adaptador local no sirve en producción. Los pasos concretos del KMS real (consola o línea de comandos de AWS) siguen **por definir**.
 
-Referencias: [ADR 0004](../adr/0004-server-side-encryption-kms-per-org-dek.md); [ADR 0020](../adr/0020-aws-kms-key-per-organization.md); [`plan.md`](../../plan.md) ("Cifrado", "Respaldo de claves"); [Rotar DEK](rotate-dek.md); [Restaurar con el KMS](restore-with-kms.md).
+Referencias: [ADR 0004](../adr/0004-server-side-encryption-kms-per-org-dek.md); [ADR 0020](../adr/0020-reference-cloud-aws.md); [`plan.md`](../../plan.md) ("Cifrado", "Respaldo de claves"); [Rotar DEK](rotate-dek.md); [Restaurar con el KMS](restore-with-kms.md).
 
 ## Objetivo
 
