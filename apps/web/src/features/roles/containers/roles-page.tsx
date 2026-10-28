@@ -13,13 +13,14 @@ import { RolesTable } from '../ui/roles-table';
 
 import { ArchiveRoleDialog } from './archive-role-dialog';
 import { CreateRoleDialog } from './create-role-dialog';
+import { EditRoleDialog } from './edit-role-dialog';
 import { ViewRoleDialog } from './view-role-dialog';
 
-type DialogState = { kind: 'view' | 'archive'; role: Role } | { kind: 'create' } | null;
+type DialogState = { kind: 'view' | 'edit' | 'archive'; role: Role } | { kind: 'create' } | null;
 
 /**
- * Container de `/roles`: la `DataTable` estándar de roles, "Crear rol" y "Archivar" (con
- * confirmación, solo en los personalizados). Tras cada cambio: aviso y recarga de la lista.
+ * Container de `/roles`: la `DataTable` estándar de roles, "Crear rol", "Editar" y "Archivar"
+ * (este con confirmación; ambos solo en los personalizados). Tras cada cambio: aviso y recarga.
  */
 export function RolesPage() {
   const catalogReady = useLazyCatalog('roles');
@@ -74,6 +75,9 @@ export function RolesPage() {
         onView={(role) => {
           setDialog({ kind: 'view', role });
         }}
+        onEdit={(role) => {
+          setDialog({ kind: 'edit', role });
+        }}
         onArchive={(role) => {
           setDialog({ kind: 'archive', role });
         }}
@@ -90,6 +94,16 @@ export function RolesPage() {
         }}
       />
       {dialog?.kind === 'view' ? <ViewRoleDialog role={dialog.role} onClose={close} /> : null}
+      {dialog?.kind === 'edit' ? (
+        <EditRoleDialog
+          role={dialog.role}
+          available={me?.permissions ?? []}
+          onClose={close}
+          onUpdated={(name) => {
+            done(t('edit.toast', { ns: 'roles', name }));
+          }}
+        />
+      ) : null}
       {dialog?.kind === 'archive' ? (
         <ArchiveRoleDialog
           role={dialog.role}

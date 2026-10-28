@@ -1,4 +1,4 @@
-import { roleSchema, type CreateRoleRequest } from '@iam/contracts';
+import { roleSchema, type CreateRoleRequest, type UpdateRoleRequest } from '@iam/contracts';
 import { z } from 'zod';
 
 import { apiClient, noContentSchema, type ApiClient } from '../../../shared/api';
@@ -20,6 +20,15 @@ export async function fetchRoles(signal: AbortSignal, client: ApiClient = apiCli
 /** `POST /roles` (201, exige `role.manage`): 409 nombre repetido, 403 escalamiento. */
 export function createRole(body: CreateRoleRequest, client: ApiClient = apiClient) {
   return client.post('/roles', roleSchema, { body });
+}
+
+/**
+ * `PATCH /roles/:id` (200, exige `role.manage`): reemplaza nombre y permisos. 409 nombre repetido,
+ * 403 escalamiento (el editor debe tener los permisos actuales y los nuevos) o rol de sistema.
+ * El servidor marca esta ruta como idempotente y rechaza la petición sin `Idempotency-Key`.
+ */
+export function updateRole(id: string, body: UpdateRoleRequest, client: ApiClient = apiClient) {
+  return client.patch(`/roles/${id}`, roleSchema, { body, idempotencyKey: crypto.randomUUID() });
 }
 
 /** `POST /roles/:id/archive` (204, exige `role.manage`): los roles de sistema responden 403. */

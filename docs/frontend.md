@@ -466,7 +466,7 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Mis sesiones (ruta `/sessions`: lista con la sesión actual señalada y cierre de las demás) | `features/sessions` | Funciona |
 | "Cerrar sesiones" en el menú de fila de la gestión de equipo | `features/directory` | Funciona |
 | Sincronización entre pestañas (`BroadcastChannel`; el único mensaje es el nombre de un evento, nunca datos) | `shared/auth` | Funciona. Tras cerrar sesión o perderla, las otras pestañas del mismo navegador pasan al ingreso en cerca de un segundo |
-| Pantalla de roles (ruta `/roles`: crear solo con los permisos propios de quien crea; archivar con confirmación) | `features/roles` | Funciona |
+| Pantalla de roles (ruta `/roles`: crear solo con los permisos propios de quien crea; editar nombre y permisos de un rol personalizado, con aviso y sin poder guardar si el rol incluye permisos que quien edita no tiene; archivar con confirmación) | `features/roles` | Funciona |
 | Restablecer factores de otra persona | Sin implementar | Pendiente |
 
 El cliente HTTP envía una clave de idempotencia en las peticiones que crean recursos y el backend ya la aplica (ver [`backend.md`](backend.md) §7.2.1).

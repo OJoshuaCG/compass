@@ -14,6 +14,8 @@ export type RequestOptions = {
   /**
    * Clave de idempotencia de un POST. El llamador la conserva entre reintentos de la misma
    * acción (por ejemplo en el estado del formulario); si no la da, se genera una nueva.
+   * En un PATCH solo se envía si el llamador la da: es para las rutas que el servidor marca
+   * como idempotentes y rechaza sin ella (`IDEMPOTENCY.KEY_REQUIRED`), como `PATCH /roles/:id`.
    */
   idempotencyKey?: string;
   /** Versión del recurso para `If-Match` (PATCH): detecta conflictos con 409. */
@@ -118,7 +120,9 @@ export function createApiClient(config: ApiClientConfig = {}): ApiClient {
   ): Promise<z.infer<S>> {
     const headers = new Headers({ Accept: 'application/json' });
     if (MUTATING.has(method)) headers.set('X-Requested-With', 'XMLHttpRequest');
-    if (method === 'POST') headers.set('Idempotency-Key', idempotencyKey);
+    if (method === 'POST' || (method === 'PATCH' && options.idempotencyKey !== undefined)) {
+      headers.set('Idempotency-Key', idempotencyKey);
+    }
     if (method === 'PATCH' && options.ifMatch !== undefined)
       headers.set('If-Match', options.ifMatch);
     if (options.body !== undefined) headers.set('Content-Type', 'application/json');
