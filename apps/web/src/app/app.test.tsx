@@ -1,5 +1,5 @@
 import { resources } from '@iam/i18n';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -50,6 +50,53 @@ describe('app shell and routing', () => {
     const { container } = renderApp('/');
     await screen.findByRole('heading', { level: 1 });
     expect(await axeViolations(container)).toEqual([]);
+  });
+});
+
+describe('route announcements', () => {
+  it('gives the not-found page a level-1 heading', async () => {
+    renderApp('/nope');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: resources['es-MX'].errors.NOT_FOUND }),
+    ).toBeInTheDocument();
+  });
+
+  it('sets the document title from the page heading without stealing focus on first load', async () => {
+    renderApp('/');
+    const heading = await screen.findByRole('heading', { level: 1, name: es['home.title'] });
+    await waitFor(() => {
+      expect(document.title).toBe(`${es['home.title']} · ${es['app.name']}`);
+    });
+    expect(heading).not.toHaveFocus();
+  });
+
+  it('moves focus to the new heading and updates the title when navigating', async () => {
+    const { router } = renderApp('/');
+    await screen.findByRole('heading', { level: 1, name: es['home.title'] });
+
+    await act(async () => {
+      await router.navigate({ to: '/catalog' });
+    });
+
+    const heading = await screen.findByRole('heading', { level: 1, name: es['catalog.title'] });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+    expect(document.title).toBe(`${es['catalog.title']} · ${es['app.name']}`);
+  });
+
+  it('follows a language change in the title and leaves the focus where it was', async () => {
+    const user = userEvent.setup();
+    renderApp('/');
+    await screen.findByRole('heading', { level: 1, name: es['home.title'] });
+    const languageSelect = screen.getByRole('combobox', { name: es['language.label'] });
+
+    await user.selectOptions(languageSelect, 'en-US');
+
+    await waitFor(() => {
+      expect(document.title).toBe(`${en['home.title']} · ${en['app.name']}`);
+    });
+    expect(languageSelect).toHaveFocus();
   });
 });
 
