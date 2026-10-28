@@ -4,6 +4,7 @@ import type {
   EmergencyAlertMessage,
   InvitationMessage,
   Mailer,
+  SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
 
 /**
@@ -32,6 +33,15 @@ export class LogMailer implements Mailer {
 
   sendEmergencyAlert(message: EmergencyAlertMessage): Promise<void> {
     this.logger.warn({ to: message.to, usedAt: message.usedAt }, 'emergency code used (dev)');
+    return Promise.resolve();
+  }
+
+  sendSecurityNotice(message: SecurityNoticeMessage): Promise<void> {
+    // Sin el destinatario: el correo es un dato personal y aquí solo importa qué aviso salió.
+    this.logger.info(
+      { kind: message.kind, occurredAt: message.occurredAt },
+      'security notice (dev)',
+    );
     return Promise.resolve();
   }
 }

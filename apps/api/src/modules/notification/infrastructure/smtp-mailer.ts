@@ -4,10 +4,12 @@ import {
   renderEmergencyAlertEmail,
   renderInvitationEmail,
 } from '../application/render-invitation-email.js';
+import { renderSecurityNoticeEmail } from '../application/render-security-notice-email.js';
 import type {
   EmergencyAlertMessage,
   InvitationMessage,
   Mailer,
+  SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
 
 export type SmtpSecurity = 'starttls' | 'tls' | 'none';
@@ -79,6 +81,15 @@ export class SmtpMailer implements Mailer {
 
   async sendInvitation(message: InvitationMessage): Promise<void> {
     const email = renderInvitationEmail(message, this.options.baseUrl);
+    try {
+      await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
+    } catch {
+      throw new Error('Mail delivery failed');
+    }
+  }
+
+  async sendSecurityNotice(message: SecurityNoticeMessage): Promise<void> {
+    const email = renderSecurityNoticeEmail(message);
     try {
       await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
     } catch {

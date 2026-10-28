@@ -75,7 +75,11 @@ export interface ContainerOptions {
 }
 
 export function buildContainer(options: ContainerOptions) {
-  const { pool, independentPool, mailer, kms } = options;
+  const { pool, independentPool, mailer, kms, logger } = options;
+  // Único rastro de un aviso de seguridad que ni salió ni pudo auditarse: solo el tipo, sin destinatario.
+  const reportNoticeLost = (kind: string): void => {
+    logger.error({ kind }, 'security notice lost: delivery and its audit event both failed');
+  };
   const clock = options.clock ?? new SystemClock();
   const ids = new UuidV7Generator();
   const primitives = new NodeCryptoPrimitives();
@@ -171,6 +175,8 @@ export function buildContainer(options: ContainerOptions) {
       webauthn,
       audit,
       clock,
+      mailer,
+      reportLost: reportNoticeLost,
     }),
     manageRoles: new ManageRoles({
       context: requestContext,
@@ -219,6 +225,7 @@ export function buildContainer(options: ContainerOptions) {
       audit,
       clock,
       mailer,
+      reportLost: reportNoticeLost,
       passkeys: passkeyRepository,
       challenges,
       webauthn,

@@ -91,6 +91,34 @@ describe('the emergency codes of the Root', () => {
     expect((await client.get('/me')).status).toBe(200);
     expect(env.mailer.alerts).toHaveLength(0);
     expect((await row())?.status).toBe('active');
+    // No avisa a los Administradores, pero la persona sí recibe su aviso (TODO G5).
+    expect(env.mailer.notices).toEqual([
+      expect.objectContaining({ kind: 'recovery_code_used', to: 'root@em.test' }),
+    ]);
+  });
+
+  it('a mail failure never blocks an ordinary recovery code and leaves an audit event without the address', async () => {
+    const client = await login('203.0.113.88');
+    const noticesBefore = env.mailer.notices.length;
+    const failuresBefore = (await audit('auth.security_notice_failed')).length;
+    env.mailer.failNext = true;
+
+    expect(
+      (await client.post('/auth/mfa/recovery', { code: root.recoveryCodes[2] ?? '' })).status,
+    ).toBe(204);
+
+    expect(env.mailer.notices).toHaveLength(noticesBefore);
+    expect((await audit('auth.security_notice_failed')).length).toBe(failuresBefore + 1);
+    const metadata = await auditMetadata('auth.security_notice_failed');
+    expect(metadata.at(-1)).toEqual({ kind: 'recovery_code_used' });
+    expect(JSON.stringify(metadata)).not.toContain('root@em.test');
+  });
+
+  it('a wrong recovery code announces nothing', async () => {
+    const client = await login('203.0.113.89');
+    const noticesBefore = env.mailer.notices.length;
+    expect((await client.post('/auth/mfa/recovery', { code: 'ZZZZ-ZZZZ-ZZZZ' })).status).toBe(401);
+    expect(env.mailer.notices).toHaveLength(noticesBefore);
   });
 
   it('a wrong code is refused like any other, and uses nothing up', async () => {
@@ -133,6 +161,8 @@ describe('the emergency codes of the Root', () => {
     expect((await root.client.get('/me')).status).toBe(401);
     expect((await audit('auth.emergency_code_used')).map((e) => e.outcome)).toEqual(['success']);
     expect(env.mailer.alerts.map((a) => a.to).sort()).toEqual(['a@em.test', 'b@em.test']);
+    // El código de emergencia tiene su propio aviso a los Administradores: no suma otro a la persona.
+    expect(env.mailer.notices.filter((n) => n.kind === 'recovery_code_used')).toHaveLength(1);
 
     // El código no se reutiliza, y el secreto TOTP anterior ya no sirve.
     const again = await login('203.0.113.95');

@@ -32,6 +32,8 @@ import type {
   TotpFactorRecord,
   WebAuthnEngine,
 } from './ports/identity-ports.js';
+import { sendSecurityNotice } from './security-notice.js';
+import type { SecurityNoticeDeps, SecurityNoticePlan } from './security-notice.js';
 
 export interface SecondFactorDeps {
   readonly context: RequestContextReader;
@@ -47,6 +49,7 @@ export interface SecondFactorDeps {
   readonly clock: Clock;
   /** Para avisar a los Administradores cuando se usa un código de emergencia. */
   readonly mailer: Mailer;
+  readonly reportLost?: SecurityNoticeDeps['reportLost'];
   readonly passkeys: PasskeyRepository;
   readonly challenges: ChallengeStore;
   readonly webauthn: WebAuthnEngine;
@@ -192,6 +195,11 @@ export class SecondFactor {
         // recibir igualmente su cookie nueva o quedaría fuera con el código ya consumido.
       }
     }
+    // Un código ordinario no avisa a los Administradores, pero la persona sí debe enterarse (TODO G5):
+    // si alguien más lo usó, es la única señal que tiene. `sendSecurityNotice` nunca lanza.
+    if (outcome.value.notice !== null) {
+      await sendSecurityNotice(this.deps, outcome.value.notice);
+    }
     return ok({ sessionToken: outcome.value.sessionToken });
   }
 
@@ -200,6 +208,7 @@ export class SecondFactor {
       {
         sessionToken: string;
         alert: { requestId: string; usedAt: Date; recipients: readonly AdminContact[] } | null;
+        notice: SecurityNoticePlan | null;
       },
       DomainError
     >
@@ -218,7 +227,18 @@ export class SecondFactor {
       await sessions.setMfa(sessionId, now);
       const sessionToken = await tokens.rotateToken(sessionId);
       await audit.record(this.event('auth.recovery_code_used', 'success', user.id, requestId));
-      return ok({ sessionToken, alert: null });
+      return ok({
+        sessionToken,
+        alert: null,
+        notice: {
+          kind: 'recovery_code_used',
+          userId: user.id,
+          to: user.email,
+          locale: user.locale,
+          occurredAt: now,
+          requestId,
+        },
+      });
     }
     // Código de emergencia: la persona queda sin factor y de vuelta en el alta del 2FA, también en la
     // sesión que lo usó (aunque ya estuviera completa).
@@ -233,7 +253,7 @@ export class SecondFactor {
       ...this.event('auth.emergency_code_used', 'success', user.id, requestId),
       metadata: { alertRecipients: recipients.length },
     });
-    return ok({ sessionToken, alert: { requestId, usedAt: now, recipients } });
+    return ok({ sessionToken, alert: { requestId, usedAt: now, recipients }, notice: null });
   }
 
   /**

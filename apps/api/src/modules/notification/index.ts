@@ -3,6 +3,8 @@ export type {
   EmergencyAlertMessage,
   InvitationMessage,
   Mailer,
+  SecurityNoticeKind,
+  SecurityNoticeMessage,
 } from './application/ports/mailer.js';
 export { InMemoryMailer } from './infrastructure/in-memory-mailer.js';
 export { renderInvitationEmail } from './application/render-invitation-email.js';

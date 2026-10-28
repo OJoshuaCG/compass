@@ -20,7 +20,7 @@ Este documento describe el comportamiento completo previsto. La fase 1a ya imple
 | Ver y cerrar sesiones, cierre por el responsable, sincronización entre pestañas | **Funciona** |
 | Cierre automático de sesiones al suspender, desactivar o cambiar el rango | **Funciona** (el cambio de roles aún no existe como acción) |
 | Reautenticación de 5 minutos | **Funciona** con la aplicación autenticadora (probada también en navegador real). No admite código de recuperación |
-| Avisos por correo (dispositivo nuevo, código de recuperación, cambios de factores) | **Pendiente.** Ya existe el aviso a los Administradores cuando se usa un código de emergencia de la Raíz |
+| Avisos por correo (dispositivo nuevo, código de recuperación, cambios de factores) | **Parcial.** La persona recibe un aviso cuando se usa uno de sus códigos de recuperación y cuando se agrega o se quita una llave de acceso. **Pendiente:** dispositivo nuevo, baja del segundo factor de aplicación y regeneración de códigos. Ya existe el aviso a los Administradores cuando se usa un código de emergencia de la Raíz |
 | Códigos de emergencia de la Raíz | **Funcionan.** Solo quienes los custodian pueden restablecer la Raíz; los Administradores solo reciben la alerta |
 | Recuperación por el responsable o la Raíz | **Pendiente** |
 | Cambio de contraseña, incluido el cambio obligatorio de la contraseña inicial de la Raíz | **Funciona** |
@@ -88,7 +88,7 @@ Reglas importantes:
 
 **Resistencia al phishing.** A diferencia del código de la aplicación, que una persona engañada puede escribir en un sitio falso, la passkey solo responde al sitio legítimo. Por eso es el método preferido.
 
-**Aviso de uso de un código de recuperación.** Usar uno notifica a la propia persona y a su responsable. *Hoy el uso queda registrado en la auditoría, pero todavía no se envía el aviso por correo.*
+**Aviso de uso de un código de recuperación.** Usar uno notifica a la propia persona y a su responsable. *Hoy el uso queda registrado en la auditoría y la propia persona recibe un aviso por correo, sin enlaces, con el momento en que ocurrió. Todavía no se avisa a su responsable.* Si el correo no sale, el acceso no se bloquea: el fallo queda registrado en la auditoría con el tipo de aviso y sin la dirección.
 
 ## 4. Sesiones
 
@@ -127,7 +127,7 @@ Las acciones más sensibles piden haber verificado un factor **en los últimos 5
 | Límite de intentos | Se limitan los intentos por correo en el ingreso y por usuario en el segundo factor, y por dirección de red en las pantallas de acceso e invitación (60 peticiones por minuto) |
 | Retraso y bloqueo temporal | Desde el tercer fallo hay un retraso creciente entre intentos (1, 2, 4 segundos, hasta 64) y, tras 10 intentos fallidos, un bloqueo de 15 minutos. El bloqueo **no es permanente**: así nadie puede dejar fuera a otra persona de forma maliciosa. Pasados 15 minutos sin intentos, el contador se reinicia, y un ingreso correcto también lo reinicia. Valores asumidos por la implementación (ver [preguntas abiertas](#10-preguntas-abiertas)) |
 | Mensajes idénticos | El error es el mismo si el usuario no existe o si la contraseña es incorrecta, y los tiempos de respuesta son equivalentes. Así no se puede descubrir qué correos existen |
-| Avisos por correo | Se avisa de un ingreso desde un dispositivo nuevo y de cambios de contraseña o de factores. **Pendiente**: hoy el sistema solo envía la invitación y el aviso a los Administradores cuando se usa un código de emergencia de la Raíz |
+| Avisos por correo | Se avisa de un ingreso desde un dispositivo nuevo y de cambios de contraseña o de factores. **Parcial**: hoy el sistema envía la invitación, el aviso a los Administradores cuando se usa un código de emergencia de la Raíz y el aviso a la propia persona cuando usa un código de recuperación o agrega o quita una llave de acceso. Falta el de dispositivo nuevo y el de cambios del factor de aplicación |
 
 **Estado hoy.** El retraso, el bloqueo y los mensajes idénticos funcionan, y cada intento se cuenta y se decide en una sola operación, para que una ráfaga de intentos simultáneos no pueda colarse (ver [ADR 0026](../adr/0026-atomic-failed-attempt-counting.md)). Limitación importante: los contadores y el límite por dirección viven en la memoria de cada instancia del servidor. Con varias instancias, cada una cuenta por separado y un reinicio borra los contadores. Hasta incorporar el almacén compartido de contadores, el sistema debe operar con una sola instancia.
 
@@ -177,7 +177,8 @@ No se usa en la primera versión. El sistema solo deja preparado el punto de con
 | Se cumplen hoy | AU-1, AU-2, AU-3, AU-4 (el alta inicial usa la aplicación autenticadora; la passkey se agrega después y es opcional), AU-6, AU-8, AU-10, AU-11, AU-12, AU-14 (incluida la Raíz que además olvida su contraseña, con el concurso de las dos personas custodias; no cubre la pérdida total de los códigos de emergencia) |
 | Se cumplen parcialmente | AU-9 (suspender, desactivar y cambiar el rango cierran las sesiones; falta el cambio de roles) |
 | Se cumple la parte que ya existe | AU-5 (no se usan mensajes de texto ni correo como segundo factor) |
-| Pendientes | AU-7 (el uso queda auditado, falta el aviso), AU-13 |
+| Se cumplen parcialmente (adicional) | AU-7 (la persona recibe el aviso; falta avisar a su responsable) |
+| Pendientes | AU-13 |
 
 ## 10. Preguntas abiertas
 

@@ -101,6 +101,11 @@ describe('registering a passkey', () => {
     ]);
     expect(JSON.stringify(list.body)).not.toContain(key.id);
     expect((await audit('auth.passkey_registered')).map((e) => e.outcome)).toEqual(['success']);
+    // La persona recibe un aviso con el tipo de cambio, sin que se confunda con una invitación.
+    expect(env.mailer.notices).toEqual([
+      expect.objectContaining({ kind: 'passkey_added', to: 'root@pk.test' }),
+    ]);
+    expect(env.mailer.sent).toHaveLength(0);
   });
 
   it('refuses the same credential twice, a replayed challenge and a missing user verification', async () => {
@@ -358,10 +363,18 @@ describe('a person without passkeys, and revoking them', () => {
     expect(noReauth.status).toBe(403);
 
     expect((await reauth(root)).status).toBe(204);
+    const removedBefore = env.mailer.notices.filter((n) => n.kind === 'passkey_removed').length;
     expect(
       (await root.client.post('/me/passkeys/0194f3a0-0000-7000-8000-000000000000/revoke')).status,
     ).toBe(404);
+    // Una baja que no ocurrió no se anuncia.
+    expect(env.mailer.notices.filter((n) => n.kind === 'passkey_removed')).toHaveLength(
+      removedBefore,
+    );
     expect((await root.client.post(`/me/passkeys/${laptop?.id ?? ''}/revoke`)).status).toBe(204);
+    const removed = env.mailer.notices.filter((n) => n.kind === 'passkey_removed');
+    expect(removed).toHaveLength(removedBefore + 1);
+    expect(removed.at(-1)?.to).toBe('root@pk.test');
     const revoked = await audit('auth.passkey_revoked');
     expect(revoked.length).toBeGreaterThanOrEqual(3);
     expect(revoked.every((e) => e.outcome === 'success')).toBe(true);
@@ -456,5 +469,49 @@ describe('re-authenticating with a passkey (ADR 0033)', () => {
     expect(first.status).toBe(204);
     expect(second.status).toBe(401);
     expect((await audit('auth.reauth_failed')).length).toBe(failuresBefore + 1);
+  });
+});
+
+describe('security notices when the passkeys change (TODO G5)', () => {
+  const auditMetadata = async (action: string) =>
+    (
+      await env.db.admin.query<{ metadata: unknown }>(
+        'select metadata from audit_events where organization_id = $1 and action = $2 order by seq',
+        [orgId, action],
+      )
+    ).rows.map((r) => r.metadata);
+
+  it('a mail failure never undoes adding or removing a passkey, and leaves an audit event without the address', async () => {
+    env.clock.advance(16 * 60 * 1000); // pasa el bloqueo temporal de las pruebas anteriores
+    expect((await root.client.get('/me')).status).toBe(200);
+    // Las pruebas anteriores dejan llaves vivas: se libera un lugar para no chocar con el tope de 10.
+    const live = (await root.client.get<{ data: Passkey[] }>('/me/passkeys')).body.data;
+    if (live.length >= 10) {
+      expect((await reauth(root)).status).toBe(204);
+      expect((await root.client.post(`/me/passkeys/${live[0]?.id ?? ''}/revoke`)).status).toBe(204);
+    }
+    const failuresBefore = (await audit('auth.security_notice_failed')).length;
+    const noticesBefore = env.mailer.notices.length;
+
+    env.mailer.failNext = true;
+    const added = await registerKey(new VirtualAuthenticator(APP_ORIGIN), 'Notice key');
+    expect(added.status).toBe(201);
+
+    expect((await audit('auth.security_notice_failed')).length).toBe(failuresBefore + 1);
+    expect(env.mailer.notices).toHaveLength(noticesBefore);
+
+    expect((await reauth(root)).status).toBe(204);
+    env.mailer.failNext = true;
+    expect((await root.client.post(`/me/passkeys/${added.body.id}/revoke`)).status).toBe(204);
+
+    const failures = await audit('auth.security_notice_failed');
+    expect(failures.length).toBe(failuresBefore + 2);
+    expect(failures.every((e) => e.outcome === 'failure')).toBe(true);
+    const metadata = await auditMetadata('auth.security_notice_failed');
+    expect(metadata.slice(-2)).toEqual([{ kind: 'passkey_added' }, { kind: 'passkey_removed' }]);
+    expect(JSON.stringify(metadata)).not.toContain('root@pk.test');
+    expect(
+      (await root.client.get<{ data: Passkey[] }>('/me/passkeys')).body.data.map((p) => p.name),
+    ).not.toContain('Notice key');
   });
 });

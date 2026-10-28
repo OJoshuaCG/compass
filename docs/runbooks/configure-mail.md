@@ -48,6 +48,7 @@ Que la API envíe las invitaciones y el aviso de uso de un código de emergencia
 
 - Si el envío falla, crear una invitación falla completa y no queda una invitación sin enviar. Los errores del proveedor se sustituyen por un error genérico (podrían citar destinatario o contenido): el detalle está en los registros del servidor SMTP.
 - Si el aviso de un código de emergencia no sale, se audita `auth.emergency_alert_incomplete`; corrige el correo y avisa a los Administradores por otro canal.
+- Si no sale el aviso a una persona (código de recuperación usado, llave de acceso agregada o quitada), se audita `auth.security_notice_failed` con el tipo de aviso; la acción sí se completó. Si además falla la auditoría, el log de la API registra `security notice lost` con el tipo y sin destinatario. Avisa a la persona por otro canal si el cambio no lo hizo ella.
 - Si no llegan, revisa primero SPF, DKIM y DMARC y la reputación del dominio, antes que la API.
 - Para volver a la configuración anterior, restaura las variables previas y reinicia la API.
 
