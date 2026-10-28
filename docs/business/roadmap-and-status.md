@@ -51,7 +51,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | Auditoría encadenada | La evidencia nace a prueba de manipulación |
 | Aislamiento entre organizaciones en la base de datos | Aunque hoy hay una sola organización, no habrá que migrar datos al añadir otra |
 | Interfaz base con tema oscuro y dos idiomas (español de México e inglés) | Todas las pantallas nacen bilingües y accesibles |
-| Documentación de decisiones, arquitectura, amenazas y procedimientos | Las decisiones quedan registradas (ADR 0001 a 0020) |
+| Documentación de decisiones, arquitectura, amenazas y procedimientos | Las decisiones quedan registradas (ADR 0001 a 0038) |
 | Verificación automática (CI) | Cada cambio se comprueba solo antes de aceptarse |
 
 **Criterio de salida:** CI completo en verde; cifrado, auditoría y contexto de organización con pruebas; aislamiento por organización activo; esqueleto de interfaz con tokens oscuros e idiomas; ADR 001 a 020 escritos.
@@ -164,7 +164,7 @@ Antes de cargar credenciales reales, y después de completar 1a, 1b y 1c, se deb
 | --- | --- |
 | Prueba de intrusión externa independiente | Sin hallazgos altos ni críticos abiertos. Cubre autorización, aislamiento, cifrado, sesiones y flujos de segundo factor |
 | Simulacro de restauración exitoso | Restauración completa en un entorno aislado, incluido abrir los secretos con las claves de cifrado |
-| Procedimientos de incidentes ensayados | Los cinco procedimientos de [`../runbooks/`](../runbooks/README.md) más el de caída total, que aún no está redactado |
+| Procedimientos de incidentes ensayados | Los procedimientos de incidentes y recuperación de [`../runbooks/`](../runbooks/README.md), incluido el de caída total. Los catorce están redactados como borrador y ninguno se ha ensayado |
 
 **Regla:** no se cargan credenciales reales hasta cerrar los hallazgos altos y críticos. La prueba de intrusión se repite antes de cada fase de inicio de sesión único.
 
@@ -240,6 +240,6 @@ Además de las decisiones anteriores, estos puntos no están definidos por el pl
 | 1 | Cuándo se ejecutará la verificación automática en GitHub y si el criterio "CI completo en verde" se considera cumplido antes de esa ejecución | Las fases 0 y 1a se consideran avanzadas, pero esa ejecución nunca ha ocurrido. El dueño la despriorizó el 2026-10-27; el repositorio ya tiene remoto |
 | 2 | Quién es el equipo de guardia para incidentes | Los procedimientos sugieren responsables, pero el plan no fija un equipo de guardia |
 | 3 | Cuándo se resuelven las dos decisiones técnicas que siguen en estado de propuesta: los bloqueos de auditoría en transacciones largas y la retención de auditoría | La auditoría de las negaciones ya quedó resuelta y aceptada en la fase 1a. Las dos restantes afectan a la auditoría de acciones largas y a cuánto tiempo se conserva. Ver [`docs/adr/`](../adr/README.md) |
-| 4 | Qué documento fija el procedimiento de caída total | El plan lo menciona y el repositorio todavía no lo tiene redactado |
+| 4 | Qué documento fija el procedimiento de caída total | Ya hay un borrador en [`../runbooks/total-outage.md`](../runbooks/total-outage.md), sin ensayar. Falta definir la administración directa de la base de datos cuando no quedan códigos de emergencia y la política de los sobres sellados |
 | 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin el procedimiento de caída total de los códigos de emergencia | Las passkeys, los códigos de emergencia y la recuperación de la Raíz ya existen; esos dos pendientes siguen abiertos |
 | 6 | Cuál es el dominio de envío del correo y quién configura sus registros de autenticación del remitente | Se decidió que el correo sale del dominio propio de la organización; el dominio concreto y su configuración de DNS dependen del equipo |

@@ -6,7 +6,7 @@ Documento de continuidad. Responde a tres preguntas: **dónde estamos**, **cómo
 
 | Fase | Estado | Evidencia |
 | --- | --- | --- |
-| 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 (el 0023 se aceptó el 2026-10-27 y el 0024 sigue como propuesta) |
+| 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 al cierre de la fase 0 (hoy el índice llega al 0038; el 0023 se aceptó el 2026-10-27 y el 0024 sigue como propuesta) |
 | 1a · Identidad | **Funcionalmente completa; faltan piezas de cierre** (sección 4, pasos 2 a 6) | Invitación → contraseña → segundo factor obligatorio (TOTP en el alta; passkey opcional después) → sesión → reautenticación; matriz de jerarquía y 27 permisos; directorio; pantallas; pruebas de punta a punta incluso en navegador real. Cerradas en el bloque A: A1 (gestión de personas), A2 (passkeys), A3 (alta de organizaciones y códigos de emergencia de la Raíz), A4 (cambio obligatorio de la contraseña inicial de la Raíz), A5 (sesiones), A6 (roles e invitaciones), A7 (idempotencia) y A10 (reautenticación en navegador real). A8 en parte (correo SMTP del dominio propio hecho; Redis pendiente). A9 (CI en GitHub) despriorizada por el dueño |
 | 1b · Bóveda y 2FA | **No iniciada.** Planificada en `odd/tasks/phase-1b-vault.md` (porciones B1 a B7 y tres decisiones abiertas) | Diseño de datos y cifrado ya listos (tablas, cifrado de secretos); falta toda la lógica de negocio y las pantallas |
 | 1c · Gobernanza | No iniciada | La auditoría en cadena ya existe; faltan bajas con rotación, salud, acceso temporal y alertas |
@@ -182,7 +182,6 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 - Producción: no existe el adaptador de KMS del proveedor (el local se niega a arrancar con `NODE_ENV=production`, así que la API no arranca así) ni el punto de entrada del worker. Dependen de la decisión de nube.
 - Configuración: no existe `.env.example`; la fuente de verdad de las variables de entorno es `apps/api/src/app/config.ts` (resumida en `docs/backend.md` §6.3.1 y §6.3.2). Se validan al arrancar y el servicio no inicia con una configuración inválida.
 - El CI de GitHub (`.github/workflows/ci.yml`) nunca se ha ejecutado y no incluye aún los escáneres de seguridad. El dueño lo despriorizó (2026-10-27); el repositorio ya tiene remoto.
-- El tamaño inicial del JavaScript del frontend mide cerca de 200,04 KB comprimido, 0,04 KB por encima de la propuesta de partida de 200 KB (no se hace cumplir; se justifica por la ruta diferida nueva y los hashes del catálogo).
 - La pantalla de inicio todavía muestra el texto del esqueleto de la fase 0.
 
 ## 9. Mapa de documentación
@@ -191,7 +190,7 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | --- | --- |
 | ¿Qué hace el producto y qué reglas aplica? | `docs/business/` |
 | ¿Cómo está construido? | `docs/architecture.md`, `docs/backend.md`, `docs/frontend.md`, `docs/database.md` |
-| ¿Por qué se decidió así? | `docs/adr/` (0001 a 0030) |
+| ¿Por qué se decidió así? | `docs/adr/` (0001 a 0038) |
 | ¿Qué amenazas se contemplan? | `docs/threat-model.md` |
 | ¿Cómo se opera el sistema y qué hacer ante un incidente? | `docs/runbooks/` (alta de organizaciones, código de emergencia, correo, una sola instancia e incidentes; borradores, sin ensayar) |
 | ¿Qué se hizo y qué se encontró en cada tarea? | `odd/tasks/` |

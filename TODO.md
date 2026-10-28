@@ -158,10 +158,10 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] E1 | `docs/threat-model.md` marca como "Planeada" el cifrador, la caché de DEK y la cadena de auditoría, que ya existen [V] | Doc | Ing. | S | — | |
-| [ ] E2 | `docs/handoff.md` dice "ADR 0001 a 0024" y repite el párrafo del tamaño de JavaScript (200,04 KB) dos veces; `docs/business/roadmap-and-status.md` dice "0001 a 0020". El índice real es 0001 a 0030 | Doc | Ing. | S | — | |
-| [ ] E3 | `odd/tasks/phase-1a-closure.md`: las notas L2 y L3 ("A3 parcial", "siguen abiertas A2, A8, A9") solo se corrigen con una nota final | Doc | Ing. | S | — | |
-| [ ] E4 | `docs/runbooks/README.md` lista 9 borradores y `roadmap-and-status.md` §5 pide "los cinco procedimientos más el de caída total": unificar el criterio | Doc | Ing. | S | — | |
+| [x] E1 | `docs/threat-model.md` marca como "Planeada" el cifrador, la caché de DEK y la cadena de auditoría, que ya existen [V] | Doc | Ing. | S | — | Hecha (2026-10-28): filas de cifrado, caché de DEK y auditoría verificadas contra el código y marcadas Implementada. Siguen Planeada las que no tienen evidencia (AAD por credencial, rol solo `INSERT`/`SELECT`, exportación inmutable) |
+| [x] E2 | `docs/handoff.md` dice "ADR 0001 a 0024" y repite el párrafo del tamaño de JavaScript (200,04 KB) dos veces; `docs/business/roadmap-and-status.md` dice "0001 a 0020". El índice real es 0001 a 0030 | Doc | Ing. | S | — | Hecha (2026-10-28): rangos corregidos a 0001 a 0038 y párrafo duplicado eliminado |
+| [x] E3 | `odd/tasks/phase-1a-closure.md`: las notas L2 y L3 ("A3 parcial", "siguen abiertas A2, A8, A9") solo se corrigen con una nota final | Doc | Ing. | S | — | Hecha (2026-10-28): nota L6 al final del log |
+| [x] E4 | `docs/runbooks/README.md` lista 9 borradores y `roadmap-and-status.md` §5 pide "los cinco procedimientos más el de caída total": unificar el criterio | Doc | Ing. | S | — | Hecha (2026-10-28): el índice lista los 14 borradores y `roadmap-and-status.md` los cuenta igual, incluido el de caída total |
 
 ---
 

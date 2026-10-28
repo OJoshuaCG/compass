@@ -126,9 +126,9 @@ Activos: KEK (en el KMS), DEK (cifrada en `data_keys` y en memoria), índices ci
 | STRIDE | Amenaza | Mitigación (plan) | Estado |
 | --- | --- | --- | --- |
 | S | Adaptador local de claves usado en producción | `LocalKeyManagement` se niega a arrancar si `NODE_ENV=production` | Planeada (fase 0) |
-| T | Nonce reutilizado o texto cifrado alterado | Nonce aleatorio de 12 bytes por operación; GCM autentica con tag de 16 bytes; pruebas negativas (AAD alterado, truncado, DEK incorrecta) | Planeada (fase 0) |
+| T | Nonce reutilizado o texto cifrado alterado | Nonce aleatorio de 12 bytes por operación; GCM autentica con tag de 16 bytes; pruebas negativas (AAD alterado, truncado, DEK incorrecta) | **Implementada** (fase 0): `secret-cipher.ts` y `node-crypto-primitives.ts` con sus pruebas unitarias |
 | R | Uso del KMS sin rastro | Registros del proveedor del KMS y métricas de llamadas; monitoreo de uso | Planeada (fase 1c / operación) |
-| I | DEK expuesta por volcado, log o Redis | Caché solo en memoria del proceso con TTL de 10 minutos y 10 000 usos; el `Buffer` se pone a ceros al expulsar (mejor esfuerzo); nunca en Redis, disco ni logs ([ADR 0005](adr/0005-in-memory-dek-cache.md)) | Planeada (fase 0) |
+| I | DEK expuesta por volcado, log o Redis | Caché solo en memoria del proceso con TTL de 10 minutos y 10 000 usos; el `Buffer` se pone a ceros al expulsar (mejor esfuerzo); nunca en Redis, disco ni logs ([ADR 0005](adr/0005-in-memory-dek-cache.md)) | **Implementada** (fase 0): caché en memoria con TTL, límite de usos, carga única compartida y puesta a cero al expulsar (`dek-cache.ts`). La ausencia de DEK en logs no tiene prueba propia |
 | I | Otro módulo usa primitivas criptográficas directamente | Solo `SecretCipher`; `no-restricted-imports` para `node:crypto` fuera de `crypto` | Planeada (fase 0) |
 | D | KMS caído o saturado | DEK en caché sirven hasta su TTL; single-flight; después, falla cerrada solo para descifrar; alerta por errores del KMS | Planeada (fase 0 y operación) |
 | D | Pérdida o borrado de la KEK | Protección contra borrado (ventana de 30 días), alertas ante solicitud de borrado o deshabilitación, simulacro trimestral de restauración | Planeada (operación) |
@@ -142,9 +142,9 @@ Activos: `audit_events`, cadena de hashes, archivo inmutable.
 | --- | --- | --- | --- |
 | S | Evento con actor falso | El actor sale del `RequestContext` autenticado, nunca del cliente | Planeada (fase 0) |
 | T | Reescritura de la historia por administrador de base de datos | Rol de aplicación con solo `INSERT` y `SELECT`; encadenamiento de hashes; verificación diaria; exportación a almacenamiento inmutable (Object Lock) | Planeada (fase 0 y 1c) |
-| T | Bifurcación de la cadena por escrituras concurrentes | Advisory lock por organización; prueba de cadena tras operaciones concurrentes (impacto en transacciones largas: [ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md), Aceptada) | Planeada (fase 0) |
-| R | Acciones sensibles sin evidencia | Auditoría en la misma transacción; si falla, la acción falla (falla cerrada) | Planeada (fase 0) |
-| I | Secretos en eventos de auditoría | Nunca secretos, ni parciales; `metadata` con lista blanca de campos | Planeada (fase 0) |
+| T | Bifurcación de la cadena por escrituras concurrentes | Advisory lock por organización; prueba de cadena tras operaciones concurrentes (impacto en transacciones largas: [ADR 0023](adr/0023-audit-advisory-lock-and-long-transactions.md), Aceptada) | **Implementada** (fase 0): advisory lock por organización en el disparador de la migración 0006 y prueba de cadena en `audit.integration.test.ts`. La medición de latencia con escritores concurrentes sigue abierta (G6) |
+| R | Acciones sensibles sin evidencia | Auditoría en la misma transacción; si falla, la acción falla (falla cerrada) | **Implementada** (fase 0): `lock_timeout` de 5 s con error de dominio si no se obtiene el bloqueo (`pg-audit-event-repository.ts`, ADR 0023) |
+| I | Secretos en eventos de auditoría | Nunca secretos, ni parciales; `metadata` con lista blanca de campos | **Implementada** (fase 0): lista blanca por acción en `audit-actions.ts`. Falta la prueba de que ningún registro de logs contiene secretos (A9b) |
 | D | Ráfaga de negaciones o de eventos satura la tabla o el lock | Rate limiting; agrupación pendiente de decisión ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md), aceptada sin resolver la agrupación) | Pendiente de decisión |
 | D | Imposibilidad de expirar eventos con `DELETE` revocado | Hueco abierto: [ADR 0024](adr/0024-audit-retention-vs-revoke-delete.md) (Propuesta) | Pendiente de decisión |
 | E | Rol de aplicación con permisos de más sobre `audit_events` | Pruebas que verifican que `UPDATE` y `DELETE` están revocados | Planeada (fase 0) |
