@@ -60,6 +60,7 @@ const NONE: ActionPolicy = { reauth: false, writtenReason: false, criticalAudit:
  */
 export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> = {
   'org.settings': { reauth: true, writtenReason: false, criticalAudit: true },
+  'platform.manage': { reauth: true, writtenReason: false, criticalAudit: true },
   'sso.clients.manage': { reauth: true, writtenReason: false, criticalAudit: false },
   'user.change_rank': { reauth: true, writtenReason: false, criticalAudit: false },
   'role.assign': { reauth: true, writtenReason: false, criticalAudit: false },

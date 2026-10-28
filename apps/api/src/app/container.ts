@@ -16,6 +16,7 @@ import {
 } from '../modules/crypto/index.js';
 import type { KeyManagementPort } from '../modules/crypto/index.js';
 import { IdempotencyService, PgIdempotencyStore } from '../modules/idempotency/index.js';
+import { RotateDataKey } from '../modules/maintenance/index.js';
 import {
   CreateUser,
   ListDirectory,
@@ -177,6 +178,14 @@ export function buildContainer(options: ContainerOptions) {
       clock,
       mailer,
       reportLost: reportNoticeLost,
+    }),
+    rotateDataKey: new RotateDataKey({
+      context: requestContext,
+      uow,
+      authorizer,
+      audit,
+      keys,
+      cipher,
     }),
     manageRoles: new ManageRoles({
       context: requestContext,

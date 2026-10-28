@@ -3,6 +3,8 @@ import type { DynamicModule, Provider } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { ManageRoles } from '../modules/access/index.js';
+import { RotateDataKey } from '../modules/maintenance/index.js';
+import { DataKeyController } from '../modules/maintenance/interface/data-key.controller.js';
 import { RolesController } from '../modules/access/interface/roles.controller.js';
 import { IdempotencyInterceptor, IdempotencyService } from '../modules/idempotency/index.js';
 import { ListDirectory, ListManaged, ManageUsers } from '../modules/directory/index.js';
@@ -68,6 +70,7 @@ export class AppModule {
       { provide: ListInvitations, useValue: container.listInvitations },
       { provide: ResendInvitation, useValue: container.resendInvitation },
       { provide: ManageRoles, useValue: container.manageRoles },
+      { provide: RotateDataKey, useValue: container.rotateDataKey },
       { provide: IdempotencyService, useValue: container.idempotency },
       { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
@@ -80,6 +83,7 @@ export class AppModule {
         MeController,
         InvitationsController,
         RolesController,
+        DataKeyController,
         UsersController,
       ],
       providers,

@@ -86,6 +86,66 @@ export class PgCredentialRepository implements CredentialRepository {
     );
   }
 
+  async lockTotpFactorsBelowVersion(
+    activeVersion: number,
+    limit: number,
+    afterId: string | null,
+  ): Promise<readonly TotpFactorRecord[]> {
+    // El cursor `id > afterId` hace que el pase avance aunque haya filas ilegibles o bloqueadas al
+    // frente: sin él, siempre se volvería a elegir la misma ventana y las sanas nunca se alcanzarían.
+    const result = await this.transactions.current().query<FactorRow>(
+      `select id, user_id, secret_ciphertext, nonce, dek_version, verified_at, last_used_step
+         from user_totp_factors
+        where dek_version < $1
+          and ($3::uuid is null or id > $3::uuid)
+        order by id
+        limit $2
+          for update skip locked`,
+      [activeVersion, limit, afterId],
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id as UserId,
+      ciphertext: new Uint8Array(row.secret_ciphertext),
+      nonce: new Uint8Array(row.nonce),
+      dekVersion: row.dek_version,
+      verifiedAt: row.verified_at,
+      lastUsedStep: row.last_used_step === null ? null : Number(row.last_used_step),
+    }));
+  }
+
+  async replaceTotpSecret(input: {
+    readonly factorId: string;
+    readonly expectedDekVersion: number;
+    readonly ciphertext: Uint8Array;
+    readonly nonce: Uint8Array;
+    readonly dekVersion: number;
+  }): Promise<boolean> {
+    const result = await this.transactions.current().query(
+      `update user_totp_factors
+          set secret_ciphertext = $3, nonce = $4, dek_version = $5
+        where id = $1 and dek_version = $2`,
+      [
+        input.factorId,
+        input.expectedDekVersion,
+        Buffer.from(input.ciphertext),
+        Buffer.from(input.nonce),
+        input.dekVersion,
+      ],
+    );
+    return result.rowCount === 1;
+  }
+
+  async countTotpFactorsBelowVersion(activeVersion: number): Promise<number> {
+    const result = await this.transactions
+      .current()
+      .query<{ pending: string }>(
+        'select count(*) as pending from user_totp_factors where dek_version < $1',
+        [activeVersion],
+      );
+    return Number(result.rows[0]?.pending ?? '0');
+  }
+
   async markTotpVerified(factorId: string, at: Date, step: number): Promise<void> {
     await this.transactions
       .current()

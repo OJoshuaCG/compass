@@ -87,3 +87,9 @@ export {
   registerPasskeyRequestSchema,
 } from './passkeys.js';
 export type { Passkey, PasskeyLoginRequest, RegisterPasskeyRequest } from './passkeys.js';
+export {
+  dataKeyRotationReasonSchema,
+  dataKeyRotationSchema,
+  rotateDataKeyRequestSchema,
+} from './data-key.js';
+export type { DataKeyRotation, RotateDataKeyRequest } from './data-key.js';

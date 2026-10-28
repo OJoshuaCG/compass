@@ -7,6 +7,8 @@ import type { AuditMetadata, AuditMetadataValue } from './audit-event.js';
  * Para auditar un campo nuevo hay que registrarlo aquí, y eso se revisa como código protegido.
  */
 export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]>> = {
+  // Solo números de versión y el motivo (`scheduled` | `incident`); nunca material de clave.
+  'crypto.dek_rotated': ['fromVersion', 'toVersion', 'reason'],
   'user.invited': ['rank', 'roleCount'],
   'user.invitation_resent': ['rank', 'roleCount'],
   'role.created': ['permissionCount'],

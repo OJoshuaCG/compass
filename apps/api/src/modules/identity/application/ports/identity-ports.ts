@@ -166,6 +166,27 @@ export interface CredentialRepository {
     readonly nonce: Uint8Array;
     readonly dekVersion: number;
   }): Promise<void>;
+  /**
+   * Factores (también los revocados: su texto cifrado sigue ocupando la versión vieja de la DEK)
+   * cifrados con una versión menor a la dada. Bloquea las filas hasta cerrar la transacción del
+   * lote (ADR 0040) y omite las que otra transacción ya tiene bloqueadas. `afterId` es el cursor:
+   * solo devuelve filas con id mayor, para que el pase avance sobre las ilegibles o bloqueadas.
+   */
+  lockTotpFactorsBelowVersion(
+    activeVersion: number,
+    limit: number,
+    afterId: string | null,
+  ): Promise<readonly TotpFactorRecord[]>;
+  /** Sustituye el texto cifrado solo si la fila sigue en `expectedVersion`; `false` si otra escritura la tocó. */
+  replaceTotpSecret(input: {
+    readonly factorId: string;
+    readonly expectedDekVersion: number;
+    readonly ciphertext: Uint8Array;
+    readonly nonce: Uint8Array;
+    readonly dekVersion: number;
+  }): Promise<boolean>;
+  /** Cuántos factores siguen cifrados con una versión menor a la dada (verificación de fin de recifrado). */
+  countTotpFactorsBelowVersion(activeVersion: number): Promise<number>;
   markTotpVerified(factorId: string, at: Date, step: number): Promise<void>;
   /** Registra el paso solo si es mayor al último aceptado; `false` indica un código reutilizado. */
   advanceTotpStep(factorId: string, step: number): Promise<boolean>;

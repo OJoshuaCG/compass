@@ -89,6 +89,38 @@ export class SecretCipher {
     }
   }
 
+  /** Versión de DEK con la que se cifra hoy en la organización (la que fija `rotate()`). */
+  async activeVersion(organizationId: OrganizationId): Promise<Result<number, DomainError>> {
+    try {
+      return ok(await this.deps.keys.withActiveKey(organizationId, (_key, version) => version));
+    } catch (error) {
+      return domainFailure(error);
+    }
+  }
+
+  /**
+   * Vuelve a cifrar un secreto con la DEK activa (ADR 0040). Lo abre con la versión con la que se
+   * guardó y lo sella con la activa, con un nonce nuevo y el mismo contexto: el AAD no incluye la
+   * versión de la DEK, así que el contexto no cambia. Devuelve `null` si ya está en la versión
+   * activa. El texto en claro vive solo dentro de esta llamada y se borra de memoria al terminar.
+   */
+  async reseal(
+    context: SecretContext,
+    secret: EncryptedSecret,
+  ): Promise<Result<EncryptedSecret | null, DomainError>> {
+    const active = await this.activeVersion(context.organizationId);
+    if (!active.ok) return err(active.error);
+    if (secret.dekVersion === active.value) return ok(null);
+
+    const opened = await this.decrypt(context, secret);
+    if (!opened.ok) return err(opened.error);
+    try {
+      return await this.encrypt(context, opened.value);
+    } finally {
+      opened.value.fill(0);
+    }
+  }
+
   /**
    * Índice ciego (HMAC) para buscar por valor exacto sin guardar el texto, y huellas para
    * detectar reutilización de contraseñas. La clave se deriva de la DEK con HKDF y una

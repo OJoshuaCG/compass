@@ -217,3 +217,50 @@ describe('blind index', () => {
     expect(result.ok && result.value.index.includes('supersecret')).toBe(false);
   });
 });
+
+describe('reseal (DEK rotation, ADR 0040)', () => {
+  it('returns null when the secret already uses the active version', async () => {
+    const { cipher } = setup();
+    const sealed = await seal(cipher, context(), 'hunter2');
+
+    const result = await cipher.reseal(context(), sealed);
+
+    expect(result.ok && result.value).toBeNull();
+  });
+
+  it('moves a secret to the active version with a new nonce, keeping the same plaintext', async () => {
+    const { cipher, keys } = setup();
+    const old = await seal(cipher, context(), 'hunter2');
+    await keys.rotate(ORG_A);
+
+    const resealed = await cipher.reseal(context(), old);
+
+    expect(resealed.ok).toBe(true);
+    if (!resealed.ok || resealed.value === null) throw new Error('expected a resealed secret');
+    expect(resealed.value.dekVersion).toBe(2);
+    expect(resealed.value.nonce).not.toEqual(old.nonce);
+    const opened = await cipher.decrypt(context(), resealed.value);
+    expect(opened.ok && read(opened.value)).toBe('hunter2');
+  });
+
+  it('fails without producing a secret when the stored one cannot be opened', async () => {
+    const { cipher, keys } = setup();
+    const old = await seal(cipher, context(), 'hunter2');
+    await keys.rotate(ORG_A);
+    const tampered = { ...old, ciphertext: old.ciphertext.map((byte) => byte ^ 0xff) };
+
+    const result = await cipher.reseal(context(), tampered);
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('does not reseal under a different context (the AAD still binds the secret)', async () => {
+    const { cipher, keys } = setup();
+    const old = await seal(cipher, context(), 'hunter2');
+    await keys.rotate(ORG_A);
+
+    const result = await cipher.reseal(context({ resourceId: 'cred-2' }), old);
+
+    expect(result.ok).toBe(false);
+  });
+});

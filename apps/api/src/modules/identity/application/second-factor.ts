@@ -16,6 +16,7 @@ import type { CryptoPrimitives, SecretCipher, SecretContext } from '../../crypto
 import type { UserDirectory } from '../../directory/index.js';
 import type { Mailer } from '../../notification/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
+import { totpSecretContext } from '../domain/totp-secret-context.js';
 import {
   formatRecoveryCode,
   normalizeRecoveryCode,
@@ -448,7 +449,7 @@ export class SecondFactor {
     organizationId: SecretContext['organizationId'],
     userId: UserId,
   ): SecretContext {
-    return { organizationId, resourceId: userId, field: 'totp_secret', version: 1 };
+    return totpSecretContext(organizationId, userId);
   }
 
   /**
