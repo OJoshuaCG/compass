@@ -44,7 +44,7 @@ Identidad, acceso, criptografía, auditoría, migraciones con aislamiento, CSP y
 
 - En un trabajo grande, crea o actualiza su documento en `odd/tasks/` (especificaciones citando lo pedido, tareas y bitácora) y itera hasta 5 veces: implementar, probar, corregir.
 - Código sensible: revisión adversarial con dos revisores ciegos (los agentes `jd-judge-a` y `jd-judge-b`) sobre el mismo alcance congelado; corrige solo lo que ambos confirman. Después rompe la regla a propósito y comprueba que alguna prueba falla. Los agentes `review-*` no funcionan en este entorno.
-- Agentes de ejecución: `documentation-expert`, `database-architect`, `frontend-developer`. No tocan rutas protegidas ni agregan dependencias. Cada encargo nombra el documento que deben leer, las rutas que pueden editar y los criterios de aceptación.
+- Agentes de ejecución: `frontend-developer` (global) para interfaz; para base de datos y documentación se delega a `general-purpose`, citando la skill `cognitive-doc-design` cuando el lector es humano. No tocan rutas protegidas ni agregan dependencias. Cada encargo nombra el documento que deben leer, las rutas que pueden editar y los criterios de aceptación.
 
 ## Trampas del entorno
 
