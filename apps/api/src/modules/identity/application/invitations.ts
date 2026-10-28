@@ -11,6 +11,8 @@ import { DomainError, err, ok } from '../../../shared/kernel/index.js';
 import type {
   Clock,
   IdGenerator,
+  KeysetPage,
+  KeysetRequest,
   OrganizationId,
   Rank,
   RequestContextReader,
@@ -186,23 +188,28 @@ export class ListInvitations {
   ) {}
 
   /** Las invitaciones pendientes de quien consulta; la Raíz ve las de toda la organización. */
-  execute(): Promise<readonly (Omit<InvitationSummary, 'rank'> & PendingExtras)[]> {
+  execute(
+    page: KeysetRequest,
+  ): Promise<KeysetPage<Omit<InvitationSummary, 'rank'> & PendingExtras>> {
     const { context, uow, authorizer, directory, invitations, clock } = this.deps;
     return uow.run(async () => {
       await authorizer.require({ permission: 'user.invite' });
       const actorId = context.current().actorId;
       const actor = actorId === null ? null : await directory.findById(actorId);
       if (actor === null) throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
-      const pending = await invitations.listPending(actor.rank === 0 ? null : actor.id);
+      const pending = await invitations.listPending(actor.rank === 0 ? null : actor.id, page);
       const now = clock.now();
-      return pending.map((row) => ({
-        id: row.id,
-        email: row.email,
-        rank: row.rank as 1 | 2 | 3,
-        createdAt: row.createdAt,
-        expiresAt: row.expiresAt,
-        expired: row.expiresAt <= now,
-      }));
+      return {
+        rows: pending.rows.map((row) => ({
+          id: row.id,
+          email: row.email,
+          rank: row.rank as 1 | 2 | 3,
+          createdAt: row.createdAt,
+          expiresAt: row.expiresAt,
+          expired: row.expiresAt <= now,
+        })),
+        nextCursor: pending.nextCursor,
+      };
     });
   }
 }

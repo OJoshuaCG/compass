@@ -10,7 +10,14 @@
  * - Todo cambio escribe su auditoría en la misma transacción.
  */
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
-import type { Clock, RequestContextReader, Result, UserId } from '../../../shared/kernel/index.js';
+import type {
+  Clock,
+  KeysetPage,
+  KeysetRequest,
+  RequestContextReader,
+  Result,
+  UserId,
+} from '../../../shared/kernel/index.js';
 import { REAUTH_WINDOW_MS } from '../../access/index.js';
 import type { AuditLog } from '../../audit/index.js';
 import type { UserDirectory } from '../../directory/index.js';
@@ -45,9 +52,9 @@ export interface PasskeysDeps {
 export class Passkeys {
   constructor(private readonly deps: PasskeysDeps) {}
 
-  list(): Promise<readonly PasskeyRecord[]> {
+  list(page: KeysetRequest): Promise<KeysetPage<PasskeyRecord>> {
     const { uow, passkeys } = this.deps;
-    return uow.run(async () => passkeys.listLive(this.actorId()));
+    return uow.run(async () => passkeys.listLivePage(this.actorId(), page));
   }
 
   beginRegistration(): Promise<Result<{ options: unknown }, DomainError>> {

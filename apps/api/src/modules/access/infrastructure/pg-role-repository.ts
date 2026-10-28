@@ -6,7 +6,14 @@
 import { PERMISSIONS } from '@iam/contracts';
 import type { Permission } from '@iam/contracts';
 
-import type { UserId } from '../../../shared/kernel/index.js';
+import {
+  decodeKeysetCursor,
+  isBitPart,
+  isPlainTextPart,
+  isUuidPart,
+  toKeysetPage,
+} from '../../../shared/kernel/index.js';
+import type { KeysetPage, KeysetRequest, UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type { RoleRecord, RoleRepository } from '../application/ports/role-repository.js';
 
@@ -48,12 +55,35 @@ export class PgRoleRepository implements RoleRepository {
     return result.rows.map(toRecord);
   }
 
-  async listLive(): Promise<readonly RoleRecord[]> {
-    const result = await this.transactions.current().query<RoleRow>(
-      `select id, name, is_system, permissions from roles
-        where archived_at is null order by is_system desc, lower(name), id`,
-    );
-    return result.rows.map(toRecord);
+  async listLivePage(page: KeysetRequest): Promise<KeysetPage<RoleRecord>> {
+    // Las plantillas del sistema van primero: `sort_group` 0 para ellas y 1 para las personalizadas,
+    // de modo que toda la clave de orden sea ascendente y se pueda comparar como una tupla.
+    const params: unknown[] = [];
+    let afterCursor = '';
+    const after = decodeKeysetCursor(page.cursor, [isBitPart, isPlainTextPart, isUuidPart]);
+    if (after !== null) {
+      params.push(after[0], after[1], after[2]);
+      afterCursor =
+        'and (case when is_system then 0 else 1 end, lower(name), id) > ($1::int, $2::text, $3::uuid)';
+    }
+    params.push(page.limit + 1);
+    const result = await this.transactions
+      .current()
+      .query<RoleRow & { sort_group: number; sort_name: string }>(
+        `select id, name, is_system, permissions,
+              case when is_system then 0 else 1 end as sort_group, lower(name) as sort_name
+         from roles
+        where archived_at is null ${afterCursor}
+        order by case when is_system then 0 else 1 end, lower(name), id
+        limit $${String(params.length)}`,
+        params,
+      );
+    const keyset = toKeysetPage(result.rows, page.limit, (row) => [
+      String(row.sort_group),
+      row.sort_name,
+      row.id,
+    ]);
+    return { rows: keyset.rows.map(toRecord), nextCursor: keyset.nextCursor };
   }
 
   async insertCustom(input: {

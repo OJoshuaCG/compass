@@ -1,4 +1,10 @@
-import type { OrganizationId, Rank, UserId } from '../../../../shared/kernel/index.js';
+import type {
+  KeysetPage,
+  KeysetRequest,
+  OrganizationId,
+  Rank,
+  UserId,
+} from '../../../../shared/kernel/index.js';
 import type { ThrottleStatus } from '../../domain/throttle-policy.js';
 
 export interface PasswordHasher {
@@ -71,8 +77,16 @@ export interface SessionRepository {
   touch(sessionId: string, at: Date): Promise<void>;
   revoke(sessionId: string, at: Date): Promise<void>;
   revokeAllOfUser(userId: UserId, at: Date): Promise<void>;
-  /** Sesiones vivas de la persona: sin revocar, sin vencer y con actividad posterior a `idleSince`. */
-  listLiveOfUser(userId: UserId, now: Date, idleSince: Date): Promise<readonly SessionListing[]>;
+  /**
+   * Una página de las sesiones vivas de la persona (sin revocar, sin vencer y con actividad
+   * posterior a `idleSince`), de la más reciente a la más antigua.
+   */
+  listLiveOfUser(
+    userId: UserId,
+    now: Date,
+    idleSince: Date,
+    page: KeysetRequest,
+  ): Promise<KeysetPage<SessionListing>>;
   /** Cierra una sesión solo si es de esa persona; `false` si no existe, no es suya o ya estaba cerrada. */
   revokeOfUser(sessionId: string, userId: UserId, at: Date): Promise<boolean>;
   /** Cierra todas las sesiones de la persona salvo la indicada (por ejemplo, tras cambiar su contraseña). */
@@ -121,7 +135,10 @@ export interface InvitationRepository {
   findByIdForUpdate(id: string): Promise<InvitationRecord | null>;
   markAccepted(id: string, at: Date): Promise<void>;
   /** Invitaciones sin aceptar ni revocar; `invitedBy` las limita a las de una persona (la Raíz ve todas). */
-  listPending(invitedBy: UserId | null): Promise<readonly PendingInvitationRecord[]>;
+  listPending(
+    invitedBy: UserId | null,
+    page: KeysetRequest,
+  ): Promise<KeysetPage<PendingInvitationRecord>>;
   revoke(id: string, at: Date): Promise<void>;
   revokePendingOfUser(userId: UserId, at: Date): Promise<void>;
 }
@@ -236,6 +253,8 @@ export interface PasskeyRecord {
 /** Todo corre en la transacción en curso, con la organización fijada por RLS. */
 export interface PasskeyRepository {
   listLive(userId: UserId): Promise<readonly PasskeyRecord[]>;
+  /** Una página de las llaves vivas de la persona, de la más antigua a la más reciente. */
+  listLivePage(userId: UserId, page: KeysetRequest): Promise<KeysetPage<PasskeyRecord>>;
   /** `duplicate` si esa credencial ya está registrada (el identificador es único en la plataforma). */
   insert(input: {
     readonly userId: UserId;

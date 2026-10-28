@@ -5,10 +5,11 @@ export {
   DEFAULT_PAGE_LIMIT,
   MAX_PAGE_LIMIT,
   PAGE_LIMITS,
+  fixedOrderPageQuerySchema,
   pageQuerySchema,
   pageSchema,
 } from './pagination.js';
-export type { PageLimit, PageQuery } from './pagination.js';
+export type { FixedOrderPageQuery, PageLimit, PageQuery } from './pagination.js';
 export { emailSchema, hasControlCharacter, safeText } from './text.js';
 export { PERMISSIONS } from './permissions.js';
 export type { Permission } from './permissions.js';

@@ -149,6 +149,27 @@ describe('registering a passkey', () => {
     const over = await root.client.post<ProblemDetails>('/me/passkeys/registration/options');
     expect(over.status).toBe(422);
   });
+
+  it('continues after a cursor taken from a row, oldest first, with the cursor branch of the query', async () => {
+    type Page = { data: { id: string }[]; page: { nextCursor: string | null } };
+    const all = await root.client.get<Page>('/me/passkeys?limit=100');
+    expect(all.body.data.length).toBeGreaterThan(2);
+    const first = all.body.data[0]?.id ?? '';
+    const stored = await env.db.admin.query<{ created_text: string }>(
+      'select created_at::text as created_text from webauthn_credentials where id = $1',
+      [first],
+    );
+    const cursor = Buffer.from(JSON.stringify([stored.rows[0]?.created_text, first])).toString(
+      'base64url',
+    );
+    const rest = await root.client.get<Page>(
+      `/me/passkeys?limit=100&cursor=${encodeURIComponent(cursor)}`,
+    );
+    expect(rest.status).toBe(200);
+    expect(rest.body.data.map((p) => p.id)).toEqual(all.body.data.slice(1).map((p) => p.id));
+    // Con el tope de 10 llaves por persona, la lista cabe en la página mínima: no hay siguiente.
+    expect((await root.client.get<Page>('/me/passkeys?limit=10')).body.page.nextCursor).toBeNull();
+  });
 });
 
 describe('the cap is enforced when registering, not only when asking', () => {

@@ -1,7 +1,6 @@
 import { sessionSummarySchema } from '@iam/contracts';
-import { z } from 'zod';
 
-import { apiClient, noContentSchema, type ApiClient } from '../../../shared/api';
+import { apiClient, createListFetcher, noContentSchema, type ApiClient } from '../../../shared/api';
 
 /** Fábrica de claves de las sesiones propias (docs/frontend.md §7.3). */
 export const sessionsKeys = {
@@ -9,13 +8,12 @@ export const sessionsKeys = {
   mine: () => [...sessionsKeys.all, 'mine'] as const,
 };
 
-const sessionsResponseSchema = z.object({ data: z.array(sessionSummarySchema) });
-
-/** `GET /me/sessions`: las sesiones vivas de quien consulta. */
-export async function fetchMySessions(signal: AbortSignal, client: ApiClient = apiClient) {
-  const response = await client.get('/me/sessions', sessionsResponseSchema, { signal });
-  return response.data;
-}
+/** `GET /me/sessions?cursor=&limit=`: las sesiones vivas de quien consulta, de la más reciente. */
+export const fetchMySessionsPage = createListFetcher(
+  apiClient,
+  '/me/sessions',
+  sessionSummarySchema,
+);
 
 /** `POST /me/sessions/:id/revoke` (204): cierra OTRA sesión propia; la actual se cierra con logout. */
 export function revokeMySession(id: string, client: ApiClient = apiClient) {

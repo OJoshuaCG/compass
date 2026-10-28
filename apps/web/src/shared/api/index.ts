@@ -24,4 +24,9 @@ export {
   type TableSearch,
   type UseTableQueryOptions,
 } from './use-table-query';
+export {
+  useFixedOrderTable,
+  type TablePaging,
+  type UseFixedOrderTableOptions,
+} from './use-fixed-order-table';
 export { noContentSchema } from './schemas';

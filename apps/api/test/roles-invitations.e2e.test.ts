@@ -380,3 +380,136 @@ describe('pending invitations and resending', () => {
     expect((await adminA.client.post('/invitations/not-a-uuid/resend')).status).toBe(422);
   });
 });
+
+describe('paginated lists (keyset cursor)', () => {
+  type RolePage = { data: Role[]; page: { nextCursor: string | null; limit: number } };
+  type InvitationPage = {
+    data: PendingInvitation[];
+    page: { nextCursor: string | null; limit: number };
+  };
+
+  const encodeCursor = (value: unknown): string =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+
+  it('walks every role exactly once, system templates first, then custom ones by name', async () => {
+    for (let index = 0; index < 12; index += 1) {
+      const name = `Paginado ${String(index).padStart(2, '0')}`;
+      const response = await adminA.client.post<Role>('/roles', {
+        name,
+        permissions: ['credential.create'],
+      });
+      expect(response.status, name).toBe(201);
+    }
+
+    const everything = await adminA.client.get<RolePage>('/roles?limit=100');
+    expect(everything.body.page.nextCursor).toBeNull();
+
+    const walked: Role[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const suffix: string = cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`;
+      const response: { status: number; body: RolePage } = await adminA.client.get<RolePage>(
+        `/roles?limit=10${suffix}`,
+      );
+      expect(response.status).toBe(200);
+      expect(response.body.data.length).toBeLessThanOrEqual(10);
+      walked.push(...response.body.data);
+      cursor = response.body.page.nextCursor;
+      pages += 1;
+    } while (cursor !== null && pages < 20);
+
+    expect(pages).toBeGreaterThan(1);
+    expect(walked.map((role) => role.id)).toEqual(everything.body.data.map((role) => role.id));
+    expect(new Set(walked.map((role) => role.id)).size).toBe(walked.length);
+    const firstCustom = walked.findIndex((role) => !role.isSystem);
+    expect(walked.slice(0, firstCustom).every((role) => role.isSystem)).toBe(true);
+    expect(walked.slice(firstCustom).every((role) => !role.isSystem)).toBe(true);
+  });
+
+  it('a tampered role cursor falls back to the first page instead of failing', async () => {
+    const first = await adminA.client.get<RolePage>('/roles?limit=10');
+    const uuid = '0198cccc-0000-7000-8000-000000000001';
+    const tampered = [
+      encodeCursor(['2', 'x', uuid]), // grupo de orden fuera de 0/1
+      encodeCursor(['1', 'ab\u0000cd', uuid]), // NUL: PostgreSQL lo rechaza en texto
+      encodeCursor(['1', 'x', 'not-a-uuid']),
+      encodeCursor(['1', 'x']), // forma incompleta
+      encodeCursor({ not: 'a tuple' }),
+      'not-base64-at-all!!!',
+    ];
+    for (const cursor of tampered) {
+      const response = await adminA.client.get<RolePage>(
+        `/roles?limit=10&cursor=${encodeURIComponent(cursor)}`,
+      );
+      expect(response.status, cursor).toBe(200);
+      expect(
+        response.body.data.map((role) => role.id),
+        cursor,
+      ).toEqual(first.body.data.map((role) => role.id));
+    }
+  });
+
+  it('rejects a limit outside 10/25/50/100 and ignores sort parameters on fixed-order lists', async () => {
+    expect((await adminA.client.get('/roles?limit=7')).status).toBe(422);
+    expect((await adminA.client.get('/invitations?limit=7')).status).toBe(422);
+    expect((await adminA.client.get('/me/sessions?limit=7')).status).toBe(422);
+    expect((await adminA.client.get('/me/passkeys?limit=7')).status).toBe(422);
+  });
+
+  it('pages my pending invitations newest first without repeating or skipping any', async () => {
+    for (let index = 0; index < 11; index += 1) {
+      const email = `page-${String(index).padStart(2, '0')}@ri.test`;
+      const response = await adminA.client.post('/invitations', { email, rank: 3, roleIds: [] });
+      expect(response.status, email).toBe(201);
+    }
+
+    const everything = await adminA.client.get<InvitationPage>('/invitations?limit=100');
+    const walked: PendingInvitation[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const suffix: string = cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`;
+      const response: { status: number; body: InvitationPage } =
+        await adminA.client.get<InvitationPage>(`/invitations?limit=10${suffix}`);
+      expect(response.status).toBe(200);
+      walked.push(...response.body.data);
+      cursor = response.body.page.nextCursor;
+      pages += 1;
+    } while (cursor !== null && pages < 20);
+
+    expect(pages).toBeGreaterThan(1);
+    expect(walked.map((invitation) => invitation.id)).toEqual(
+      everything.body.data.map((invitation) => invitation.id),
+    );
+    const createdAt = walked.map((invitation) => Date.parse(invitation.createdAt));
+    expect(createdAt).toEqual([...createdAt].sort((left, right) => right - left));
+
+    // El cursor no da acceso a lo ajeno: otra persona de la misma jerarquía sigue sin ver estas.
+    const firstPage = await adminA.client.get<InvitationPage>('/invitations?limit=10');
+    const stolen = await adminB.client.get<InvitationPage>(
+      `/invitations?limit=10&cursor=${encodeURIComponent(firstPage.body.page.nextCursor ?? '')}`,
+    );
+    expect(stolen.body.data.map((invitation) => invitation.email)).not.toContain('page-00@ri.test');
+  });
+
+  it('a tampered invitations cursor falls back to the first page instead of failing', async () => {
+    const first = await adminA.client.get<InvitationPage>('/invitations?limit=10');
+    const uuid = '0198cccc-0000-7000-8000-000000000001';
+    for (const cursor of [
+      encodeCursor(['yesterday', uuid]), // no es una marca de tiempo
+      encodeCursor(['2030-01-01 00:00:00+00', 'not-a-uuid']),
+      encodeCursor({ not: 'a tuple' }),
+      'not-base64-at-all!!!',
+    ]) {
+      const response = await adminA.client.get<InvitationPage>(
+        `/invitations?limit=10&cursor=${encodeURIComponent(cursor)}`,
+      );
+      expect(response.status, cursor).toBe(200);
+      expect(
+        response.body.data.map((invitation) => invitation.id),
+        cursor,
+      ).toEqual(first.body.data.map((invitation) => invitation.id));
+    }
+  });
+});

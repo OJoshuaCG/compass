@@ -26,6 +26,11 @@ export const pageQuerySchema = z.object({
 
 export type PageQuery = z.infer<typeof pageQuerySchema>;
 
+/** Listados de orden fijo (sin `sort`, `dir` ni búsqueda): solo cursor y tamaño de página. */
+export const fixedOrderPageQuerySchema = pageQuerySchema.pick({ cursor: true, limit: true });
+
+export type FixedOrderPageQuery = z.infer<typeof fixedOrderPageQuerySchema>;
+
 /** Envoltorio de respuesta de listados: `{ data, page: { nextCursor, limit, total? } }`. */
 export function pageSchema<T extends z.ZodType>(item: T) {
   return z.object({

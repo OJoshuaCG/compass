@@ -3,7 +3,13 @@
  * - En base de datos solo vive el SHA-256 del token de sesión, nunca el token.
  * - Todo corre en la transacción en curso: RLS limita las sesiones a la organización.
  */
-import type { UserId } from '../../../shared/kernel/index.js';
+import {
+  decodeKeysetCursor,
+  isTimestampTextPart,
+  isUuidPart,
+  toKeysetPage,
+} from '../../../shared/kernel/index.js';
+import type { KeysetPage, KeysetRequest, UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type {
   NewSession,
@@ -99,29 +105,50 @@ export class PgSessionRepository implements SessionRepository {
     userId: UserId,
     now: Date,
     idleSince: Date,
-  ): Promise<readonly SessionListing[]> {
+    page: KeysetRequest,
+  ): Promise<KeysetPage<SessionListing>> {
+    const params: unknown[] = [userId, now, idleSince];
+    let afterCursor = '';
+    const after = decodeKeysetCursor(page.cursor, [isTimestampTextPart, isUuidPart]);
+    if (after !== null) {
+      params.push(after[0], after[1]);
+      afterCursor = 'and (created_at, id) < ($4::timestamptz, $5::uuid)';
+    }
+    params.push(page.limit + 1);
+    // Se ordena por `created_at` y no por `last_seen_at`: esta última la reescribe el servidor en
+    // cada petición autenticada, así que una sesión podría saltar de posición entre dos páginas y
+    // quedar fuera del recorrido. La marca de tiempo viaja como texto en el cursor: un `Date` de
+    // JavaScript pierde los microsegundos de PostgreSQL y la página siguiente repetiría u omitiría filas.
     const result = await this.transactions.current().query<{
       id: string;
       created_at: Date;
       last_seen_at: Date;
+      created_text: string;
       expires_at: Date;
       user_agent: string | null;
       ip: string | null;
     }>(
-      `select id, created_at, last_seen_at, expires_at, user_agent, host(ip) as ip
+      `select id, created_at, last_seen_at, created_at::text as created_text, expires_at,
+              user_agent, host(ip) as ip
          from sessions
         where user_id = $1 and revoked_at is null and expires_at > $2 and last_seen_at > $3
-        order by last_seen_at desc, id desc`,
-      [userId, now, idleSince],
+          ${afterCursor}
+        order by created_at desc, id desc
+        limit $${String(params.length)}`,
+      params,
     );
-    return result.rows.map((row) => ({
-      id: row.id,
-      createdAt: row.created_at,
-      lastSeenAt: row.last_seen_at,
-      expiresAt: row.expires_at,
-      userAgent: row.user_agent,
-      ip: row.ip,
-    }));
+    const keyset = toKeysetPage(result.rows, page.limit, (row) => [row.created_text, row.id]);
+    return {
+      rows: keyset.rows.map((row) => ({
+        id: row.id,
+        createdAt: row.created_at,
+        lastSeenAt: row.last_seen_at,
+        expiresAt: row.expires_at,
+        userAgent: row.user_agent,
+        ip: row.ip,
+      })),
+      nextCursor: keyset.nextCursor,
+    };
   }
 
   async revokeOfUser(sessionId: string, userId: UserId, at: Date): Promise<boolean> {

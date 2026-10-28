@@ -1,6 +1,6 @@
 import type { Permission } from '@iam/contracts';
 
-import type { UserId } from '../../../../shared/kernel/index.js';
+import type { KeysetPage, KeysetRequest, UserId } from '../../../../shared/kernel/index.js';
 
 export interface RoleRecord {
   readonly id: string;
@@ -15,8 +15,8 @@ export interface RoleRepository {
   rolePermissionsOf(userId: UserId): Promise<readonly (readonly Permission[])[]>;
   findByIds(ids: readonly string[]): Promise<readonly RoleRecord[]>;
   findSystemRole(name: string): Promise<RoleRecord | null>;
-  /** Roles vigentes (no archivados), plantillas del sistema primero. */
-  listLive(): Promise<readonly RoleRecord[]>;
+  /** Una página de los roles vigentes (no archivados): plantillas del sistema primero, luego por nombre. */
+  listLivePage(page: KeysetRequest): Promise<KeysetPage<RoleRecord>>;
   /** `name_taken` si ya hay un rol vigente con ese nombre (sin distinguir mayúsculas). */
   insertCustom(input: {
     readonly id: string;

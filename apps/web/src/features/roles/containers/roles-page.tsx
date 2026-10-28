@@ -1,14 +1,15 @@
 import type { Role } from '@iam/contracts';
 import { Button, PageHeader, Spinner } from '@iam/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useFixedOrderTable } from '../../../shared/api';
 import { useMe } from '../../../shared/auth';
 import { useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useToast } from '../../../shared/toast';
-import { fetchRoles, rolesKeys } from '../api/roles-api';
+import { fetchRolesPage, rolesKeys } from '../api/roles-api';
 import { RolesTable } from '../ui/roles-table';
 
 import { ArchiveRoleDialog } from './archive-role-dialog';
@@ -31,15 +32,10 @@ export function RolesPage() {
   const me = useMe();
   const [dialog, setDialog] = useState<DialogState>(null);
 
-  const query = useQuery({
-    queryKey: rolesKeys.list(),
-    queryFn: ({ signal }) => fetchRoles(signal),
-    staleTime: 0,
-  });
+  const table = useFixedOrderTable({ queryKey: rolesKeys.list(), fetchPage: fetchRolesPage });
 
   if (!catalogReady) return <Spinner label={t('state.loading', { ns: 'common' })} />;
 
-  const status = query.isPending ? 'loading' : query.isError ? 'error' : 'success';
   const close = () => {
     setDialog(null);
   };
@@ -66,12 +62,10 @@ export function RolesPage() {
         }
       />
       <RolesTable
-        roles={query.data ?? []}
-        status={status}
-        errorMessage={errorMessage(query.error)}
-        onRetry={() => {
-          void query.refetch();
-        }}
+        roles={table.rows}
+        status={table.status}
+        errorMessage={errorMessage(table.error)}
+        onRetry={table.retry}
         onView={(role) => {
           setDialog({ kind: 'view', role });
         }}
@@ -81,7 +75,8 @@ export function RolesPage() {
         onArchive={(role) => {
           setDialog({ kind: 'archive', role });
         }}
-        refreshing={query.isFetching && !query.isPending}
+        refreshing={table.refreshing}
+        paging={table}
       />
       <CreateRoleDialog
         open={dialog?.kind === 'create'}

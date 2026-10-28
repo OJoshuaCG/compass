@@ -7,7 +7,13 @@
  * - Jamás sale el token ni su hash. La sesión actual no se cierra aquí: para eso está cerrar sesión.
  */
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
-import type { Clock, RequestContextReader, Result } from '../../../shared/kernel/index.js';
+import type {
+  Clock,
+  KeysetPage,
+  KeysetRequest,
+  RequestContextReader,
+  Result,
+} from '../../../shared/kernel/index.js';
 import type { AuditLog } from '../../audit/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
 import { SESSION_IDLE_MS } from '../domain/session-policy.js';
@@ -27,7 +33,7 @@ export class ListMySessions {
     },
   ) {}
 
-  execute(): Promise<readonly MySession[]> {
+  execute(page: KeysetRequest): Promise<KeysetPage<MySession>> {
     const { context, uow, sessions, clock } = this.deps;
     return uow.run(async () => {
       const { actorId, sessionId } = context.current();
@@ -38,8 +44,12 @@ export class ListMySessions {
         actorId,
         now,
         new Date(now.getTime() - SESSION_IDLE_MS),
+        page,
       );
-      return live.map((session) => ({ ...session, current: session.id === sessionId }));
+      return {
+        rows: live.rows.map((session) => ({ ...session, current: session.id === sessionId })),
+        nextCursor: live.nextCursor,
+      };
     });
   }
 }

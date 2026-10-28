@@ -40,7 +40,7 @@ function setup(
 ) {
   return stubApi({
     'GET /me': jsonResponse(meFixture({ permissions, rank: 1 })),
-    'GET /roles': jsonResponse({ data: [SYSTEM, CUSTOM] }),
+    'GET /roles': jsonResponse({ data: [SYSTEM, CUSTOM], page: { nextCursor: null, limit: 25 } }),
     ...extra,
   });
 }
@@ -94,7 +94,10 @@ describe('roles table', () => {
     const user = userEvent.setup();
     let mode: 'empty' | 'fail' = 'fail';
     setup({
-      'GET /roles': () => (mode === 'fail' ? problem(500, 'INTERNAL') : jsonResponse({ data: [] })),
+      'GET /roles': () =>
+        mode === 'fail'
+          ? problem(500, 'INTERNAL')
+          : jsonResponse({ data: [], page: { nextCursor: null, limit: 25 } }),
     });
     renderApp('/roles');
     const alert = await screen.findByRole('alert');
@@ -136,7 +139,11 @@ describe('create role', () => {
     const user = userEvent.setup();
     let created = false;
     const api = setup({
-      'GET /roles': () => jsonResponse({ data: created ? [SYSTEM, CUSTOM] : [SYSTEM] }),
+      'GET /roles': () =>
+        jsonResponse({
+          data: created ? [SYSTEM, CUSTOM] : [SYSTEM],
+          page: { nextCursor: null, limit: 25 },
+        }),
       'POST /roles': () => {
         created = true;
         return jsonResponse({ ...CUSTOM, id: NEW_ID, name: 'Nuevo rol' }, 201);
@@ -271,7 +278,11 @@ describe('archive role', () => {
     const user = userEvent.setup();
     let archived = false;
     const api = setup({
-      'GET /roles': () => jsonResponse({ data: archived ? [SYSTEM] : [SYSTEM, CUSTOM] }),
+      'GET /roles': () =>
+        jsonResponse({
+          data: archived ? [SYSTEM] : [SYSTEM, CUSTOM],
+          page: { nextCursor: null, limit: 25 },
+        }),
       [`POST /roles/${CUSTOM_ID}/archive`]: () => {
         archived = true;
         return noContent();
@@ -371,6 +382,7 @@ describe('edit role', () => {
         'GET /roles': () =>
           jsonResponse({
             data: [SYSTEM, updated ? { ...CUSTOM, name: 'Soporte N2' } : CUSTOM],
+            page: { nextCursor: null, limit: 25 },
           }),
         [`PATCH /roles/${CUSTOM_ID}`]: () => {
           updated = true;

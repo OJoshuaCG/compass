@@ -15,6 +15,8 @@ import { DomainError, err, ok } from '../../../shared/kernel/index.js';
 import type {
   Clock,
   IdGenerator,
+  KeysetPage,
+  KeysetRequest,
   RequestContextReader,
   Result,
 } from '../../../shared/kernel/index.js';
@@ -40,11 +42,11 @@ export interface ManageRolesDeps {
 export class ManageRoles {
   constructor(private readonly deps: ManageRolesDeps) {}
 
-  list(): Promise<readonly RoleRecord[]> {
+  list(page: KeysetRequest): Promise<KeysetPage<RoleRecord>> {
     const { uow, authorizer, roles } = this.deps;
     return uow.run(async () => {
       await authorizer.require({ permission: 'user.invite' });
-      return roles.listLive();
+      return roles.listLivePage(page);
     });
   }
 

@@ -34,7 +34,8 @@ const role = (id: string, name: string, isSystem = false): Role => ({
   permissions: ['user.invite'],
 });
 
-const listOf = (...items: PendingInvitation[]) => jsonResponse({ data: items });
+const listOf = (...items: PendingInvitation[]) =>
+  jsonResponse({ data: items, page: { nextCursor: null, limit: 25 } });
 const resendLabel = (email: string) =>
   es.directory['invitations.resendLabel'].replace('{{email}}', email);
 const rowText = (text: string) => screen.findByRole('cell', { name: text });
@@ -221,6 +222,7 @@ describe('invite dialog roles', () => {
       role(ROLE_A, 'Soporte'),
       role(ROLE_B, 'Auditoría externa'),
     ],
+    page: { nextCursor: null, limit: 25 },
   });
   const created = () =>
     jsonResponse(
@@ -259,7 +261,10 @@ describe('invite dialog roles', () => {
   it('shows no roles section when there are only system roles, and sends roleIds: []', async () => {
     const user = userEvent.setup();
     const api = setup({
-      'GET /roles': jsonResponse({ data: [role(ROLE_SYSTEM, 'Plantilla', true)] }),
+      'GET /roles': jsonResponse({
+        data: [role(ROLE_SYSTEM, 'Plantilla', true)],
+        page: { nextCursor: null, limit: 25 },
+      }),
       'POST /invitations': created,
     });
     renderApp('/users');

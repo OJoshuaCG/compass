@@ -1,5 +1,6 @@
 import {
   changePasswordRequestSchema,
+  fixedOrderPageQuerySchema,
   loginRequestSchema,
   passkeyLoginRequestSchema,
   registerPasskeyRequestSchema,
@@ -25,7 +26,8 @@ import type {
   TotpConfirmResponse,
   TotpEnrollResponse,
 } from '@iam/contracts';
-import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
+import type { FixedOrderPageQuery } from '@iam/contracts';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res } from '@nestjs/common';
 import { z } from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -220,15 +222,18 @@ export class MeController {
   ) {}
 
   @Get('passkeys')
-  async listPasskeys(): Promise<{ data: Passkey[] }> {
-    const rows = await this.passkeys.list();
+  async listPasskeys(
+    @Query(new ZodValidationPipe(fixedOrderPageQuerySchema)) query: FixedOrderPageQuery,
+  ): Promise<{ data: Passkey[]; page: { nextCursor: string | null; limit: number } }> {
+    const page = await this.passkeys.list({ limit: query.limit, cursor: query.cursor ?? null });
     return {
-      data: rows.map((p) => ({
+      data: page.rows.map((p) => ({
         id: p.id,
         name: p.name,
         createdAt: p.createdAt.toISOString(),
         lastUsedAt: p.lastUsedAt?.toISOString() ?? null,
       })),
+      page: { nextCursor: page.nextCursor, limit: query.limit },
     };
   }
 
@@ -260,10 +265,15 @@ export class MeController {
   }
 
   @Get('sessions')
-  async sessions(): Promise<{ data: SessionSummary[] }> {
-    const sessions = await this.listMySessions.execute();
+  async sessions(
+    @Query(new ZodValidationPipe(fixedOrderPageQuerySchema)) query: FixedOrderPageQuery,
+  ): Promise<{ data: SessionSummary[]; page: { nextCursor: string | null; limit: number } }> {
+    const page = await this.listMySessions.execute({
+      limit: query.limit,
+      cursor: query.cursor ?? null,
+    });
     return {
-      data: sessions.map((s) => ({
+      data: page.rows.map((s) => ({
         id: s.id,
         createdAt: s.createdAt.toISOString(),
         lastSeenAt: s.lastSeenAt.toISOString(),
@@ -272,6 +282,7 @@ export class MeController {
         ip: s.ip,
         current: s.current,
       })),
+      page: { nextCursor: page.nextCursor, limit: query.limit },
     };
   }
 

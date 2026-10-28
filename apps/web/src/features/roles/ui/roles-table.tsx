@@ -3,6 +3,7 @@ import { Badge, Button, DataTable, EmptyState, type Column } from '@iam/ui';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { TablePaging } from '../../../shared/api';
 import { useDataTableLabels } from '../../../shared/i18n';
 
 export type RolesTableProps = {
@@ -16,6 +17,8 @@ export type RolesTableProps = {
   onArchive: (role: Role) => void;
   /** Hay una recarga en curso conservando las filas anteriores. */
   refreshing: boolean;
+  /** Tamaño y navegación de página que entrega el container. */
+  paging: TablePaging;
 };
 
 /**
@@ -32,6 +35,7 @@ export function RolesTable({
   onEdit,
   onArchive,
   refreshing,
+  paging,
 }: RolesTableProps) {
   const { t } = useTranslation('roles');
   const labels = useDataTableLabels();
@@ -66,15 +70,9 @@ export function RolesTable({
       getRowId={(row) => row.id}
       status={status}
       onSortChange={() => undefined}
-      limit={100}
-      onLimitChange={() => undefined}
-      pagination={{
-        hasPrevious: false,
-        hasNext: false,
-        onPrevious: () => undefined,
-        onNext: () => undefined,
-      }}
-      hidePagination
+      limit={paging.limit}
+      onLimitChange={paging.onLimitChange}
+      pagination={paging.pagination}
       refreshing={refreshing}
       labels={labels}
       emptyState={<EmptyState title={t('empty.title')} description={t('empty.description')} />}

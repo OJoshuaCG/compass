@@ -3,6 +3,7 @@ import { Button, DataTable, EmptyState, type Column } from '@iam/ui';
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { TablePaging } from '../../../shared/api';
 import { useDataTableLabels } from '../../../shared/i18n';
 import { formatDateTime } from '../../../shared/lib';
 
@@ -17,6 +18,8 @@ export type PasskeysTableProps = {
   timeZone: string | undefined;
   /** Hay una recarga en curso conservando las filas anteriores. */
   refreshing: boolean;
+  /** Tamaño y navegación de página que entrega el container. */
+  paging: TablePaging;
   /** Acción sugerida del estado vacío (agregar passkey), si el navegador la admite. */
   emptyAction?: ReactNode;
 };
@@ -33,6 +36,7 @@ export function PasskeysTable({
   onRemove,
   timeZone,
   refreshing,
+  paging,
   emptyAction,
 }: PasskeysTableProps) {
   const { t, i18n } = useTranslation('security');
@@ -66,15 +70,9 @@ export function PasskeysTable({
       getRowId={(row) => row.id}
       status={status}
       onSortChange={() => undefined}
-      limit={10}
-      onLimitChange={() => undefined}
-      pagination={{
-        hasPrevious: false,
-        hasNext: false,
-        onPrevious: () => undefined,
-        onNext: () => undefined,
-      }}
-      hidePagination
+      limit={paging.limit}
+      onLimitChange={paging.onLimitChange}
+      pagination={paging.pagination}
       refreshing={refreshing}
       labels={labels}
       emptyState={

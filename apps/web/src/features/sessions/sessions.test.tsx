@@ -35,7 +35,8 @@ const PHONE = session({
 });
 const UNKNOWN = session({ id: GHOST_ID });
 
-const listOf = (...sessions: SessionSummary[]) => jsonResponse({ data: sessions });
+const listOf = (...sessions: SessionSummary[]) =>
+  jsonResponse({ data: sessions, page: { nextCursor: null, limit: 25 } });
 const mine = (api: ReturnType<typeof stubApi>) => api.callsTo('GET', '/me/sessions');
 const closeLabel = (device: string) =>
   es.sessions['action.closeLabel'].replace('{{device}}', device);

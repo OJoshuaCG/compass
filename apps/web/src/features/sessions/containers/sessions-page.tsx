@@ -1,14 +1,15 @@
 import type { SessionSummary } from '@iam/contracts';
 import { PageHeader, Spinner } from '@iam/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useFixedOrderTable } from '../../../shared/api';
 import { useMe } from '../../../shared/auth';
 import { useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useToast } from '../../../shared/toast';
-import { fetchMySessions, sessionsKeys } from '../api/sessions-api';
+import { fetchMySessionsPage, sessionsKeys } from '../api/sessions-api';
 import { SessionsTable } from '../ui/sessions-table';
 
 import { CloseSessionDialog } from './close-session-dialog';
@@ -26,31 +27,27 @@ export function SessionsPage() {
   const timeZone = useMe()?.user.timezone;
   const [closing, setClosing] = useState<SessionSummary | null>(null);
 
-  const query = useQuery({
+  // Datos que cambian desde otros dispositivos: siempre se recargan al volver a la pantalla.
+  const table = useFixedOrderTable({
     queryKey: sessionsKeys.mine(),
-    queryFn: ({ signal }) => fetchMySessions(signal),
-    // Datos que cambian desde otros dispositivos: siempre se recargan al volver a la pantalla.
-    staleTime: 0,
+    fetchPage: fetchMySessionsPage,
   });
 
   // Hasta que llegan los textos (descarga diferida) no se pinta nada con claves a medias.
   if (!catalogReady) return <Spinner label={t('state.loading', { ns: 'common' })} />;
 
-  const status = query.isPending ? 'loading' : query.isError ? 'error' : 'success';
-
   return (
     <>
       <PageHeader title={t('title')} description={t('description')} />
       <SessionsTable
-        sessions={query.data ?? []}
-        status={status}
-        errorMessage={errorMessage(query.error)}
-        onRetry={() => {
-          void query.refetch();
-        }}
+        sessions={table.rows}
+        status={table.status}
+        errorMessage={errorMessage(table.error)}
+        onRetry={table.retry}
         onClose={setClosing}
         timeZone={timeZone}
-        refreshing={query.isFetching && !query.isPending}
+        refreshing={table.refreshing}
+        paging={table}
       />
       {closing !== null ? (
         <CloseSessionDialog

@@ -1,14 +1,15 @@
 import type { Passkey } from '@iam/contracts';
 import { Alert, Button, PageHeader, Spinner } from '@iam/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useFixedOrderTable } from '../../../shared/api';
 import { useMe } from '../../../shared/auth';
 import { useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useToast } from '../../../shared/toast';
-import { fetchMyPasskeys, passkeysKeys } from '../api/passkeys-api';
+import { fetchMyPasskeysPage, passkeysKeys } from '../api/passkeys-api';
 import { PasskeysTable } from '../ui/passkeys-table';
 
 import { AddPasskeyDialog } from './add-passkey-dialog';
@@ -31,17 +32,15 @@ export function SecurityPage() {
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Passkey | null>(null);
 
-  const query = useQuery({
+  // Pueden cambiar desde otro dispositivo: siempre se recargan al volver a la pantalla.
+  const table = useFixedOrderTable({
     queryKey: passkeysKeys.mine(),
-    queryFn: ({ signal }) => fetchMyPasskeys(signal),
-    // Pueden cambiar desde otro dispositivo: siempre se recargan al volver a la pantalla.
-    staleTime: 0,
+    fetchPage: fetchMyPasskeysPage,
   });
 
   // Hasta que llegan los textos (descarga diferida) no se pinta nada con claves a medias.
   if (!catalogReady) return <Spinner label={t('state.loading', { ns: 'common' })} />;
 
-  const status = query.isPending ? 'loading' : query.isError ? 'error' : 'success';
   const addButton =
     supported === false ? null : (
       <Button
@@ -58,15 +57,14 @@ export function SecurityPage() {
       <PageHeader title={t('title')} description={t('description')} actions={addButton} />
       {supported === false ? <Alert tone="info">{t('unsupported.message')}</Alert> : null}
       <PasskeysTable
-        passkeys={query.data ?? []}
-        status={status}
-        errorMessage={errorMessage(query.error)}
-        onRetry={() => {
-          void query.refetch();
-        }}
+        passkeys={table.rows}
+        status={table.status}
+        errorMessage={errorMessage(table.error)}
+        onRetry={table.retry}
         onRemove={setRemoving}
         timeZone={timeZone}
-        refreshing={query.isFetching && !query.isPending}
+        refreshing={table.refreshing}
+        paging={table}
       />
       <AddPasskeyDialog
         open={adding}

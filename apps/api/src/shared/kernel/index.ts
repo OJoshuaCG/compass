@@ -8,6 +8,16 @@ export type {
   RequestContextReader,
   RequestContextRunner,
 } from './request-context.js';
+export {
+  decodeKeysetCursor,
+  encodeKeysetCursor,
+  isBitPart,
+  isPlainTextPart,
+  isTimestampTextPart,
+  isUuidPart,
+  toKeysetPage,
+} from './keyset-page.js';
+export type { CursorPartValidator, KeysetPage, KeysetRequest } from './keyset-page.js';
 export { err, ok } from './result.js';
 export type { Result } from './result.js';
 export { RANK, isRank } from './rank.js';
