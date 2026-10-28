@@ -189,7 +189,7 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | --- | --- |
 | ¿Qué hace el producto y qué reglas aplica? | `docs/business/` |
 | ¿Cómo está construido? | `docs/architecture.md`, `docs/backend.md`, `docs/frontend.md`, `docs/database.md` |
-| ¿Por qué se decidió así? | `docs/adr/` (0001 a 0038) |
+| ¿Por qué se decidió así? | `docs/adr/` (0001 a 0040) |
 | ¿Qué amenazas se contemplan? | `docs/threat-model.md` |
 | ¿Cómo se opera el sistema y qué hacer ante un incidente? | `docs/runbooks/` (alta de organizaciones, código de emergencia, correo, una sola instancia e incidentes; borradores, sin ensayar) |
 | ¿Qué se hizo y qué se encontró en cada tarea? | `odd/tasks/` |
