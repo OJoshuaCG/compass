@@ -231,12 +231,19 @@ export async function signIn(
 export async function inviteAndOnboard(
   env: E2eEnvironment,
   inviter: TestClient,
-  input: { email: string; rank: 1 | 2 | 3; roleIds?: string[]; name?: string },
+  input: {
+    email: string;
+    rank: 1 | 2 | 3;
+    roleIds?: string[];
+    name?: string;
+    managerId?: string;
+  },
 ): Promise<EnrolledSession> {
   const created = await inviter.post('/invitations', {
     email: input.email,
     rank: input.rank,
     roleIds: input.roleIds ?? [],
+    ...(input.managerId === undefined ? {} : { managerId: input.managerId }),
   });
   if (created.status !== 201) throw new Error(`invite failed: ${String(created.status)}`);
   const token = env.mailer.last?.token ?? '';

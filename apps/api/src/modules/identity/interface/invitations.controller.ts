@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { Idempotent, Public, RateLimited, unwrap } from '../../../shared/http/http-decorators.js';
 import { setSessionCookie } from './session-cookie.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
+import { asUserId } from '../../../shared/kernel/index.js';
 import {
   AcceptInvitation,
   CreateInvitation,
@@ -85,6 +86,7 @@ export class InvitationsController {
         email: body.email,
         rank: body.rank,
         roleIds: body.roleIds,
+        ...(body.managerId === undefined ? {} : { managerId: asUserId(body.managerId) }),
       }),
     );
     return {

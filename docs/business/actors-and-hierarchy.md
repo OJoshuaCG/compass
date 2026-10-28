@@ -11,7 +11,7 @@ Este documento explica quién existe en la organización, quién crea a quién, 
 | Los cuatro actores y sus rangos | **Funciona.** Una organización nace con exactamente una Raíz |
 | Matriz de creación (quién crea a quién) | **Funciona.** Se aplica al invitar y se valida en el servidor |
 | Regla de gestión y subárbol | **Funciona.** Decide quién puede suspender, reactivar, desactivar, cambiar el rango o transferir a una persona |
-| Creador y responsable separados | **Funciona.** Al aceptar una invitación, quien invita queda como creador y como responsable |
+| Creador y responsable separados | **Funciona.** Al aceptar una invitación, quien invita queda como creador; el responsable es quien invita, o la persona de su subárbol que elija al invitar (con rango superior al del invitado). Si esa persona sale del subárbol antes de que se acepte, la invitación deja de ser válida |
 | Transferencia de responsable, cambio de rango, bajas con reasignación | **Funciona.** Hay además una vista de equipo con las personas del subárbol de quien consulta (la Raíz ve a todas) en cualquier estado |
 | Recuperación de la Raíz con códigos de emergencia | **Funciona.** Solo quienes custodian los códigos pueden restablecer la Raíz; ningún Administrador puede hacerlo |
 | Transferencia de la Raíz | **Pendiente** |
