@@ -1,6 +1,6 @@
 # ADR 0040: Rotación de la clave de datos, recifrado e índices ciegos
 
-- **Estado**: Propuesta (2026-10-28), pendiente de aceptación del equipo (`TODO.md` F4). Es una decisión de criptografía: no se implementa nada hasta que se acepte
+- **Estado**: Aceptada (2026-10-28) por el dueño (`TODO.md` F4)
 - **Fecha**: 2026-10-28
 - **Referencias**: [ADR 0004](0004-server-side-encryption-kms-per-org-dek.md); [ADR 0005](0005-in-memory-dek-cache.md); [ADR 0032](0032-blind-index-derived-from-dek.md); [ADR 0039](0039-single-instance-until-redis.md); [runbook de rotación](../runbooks/rotate-dek.md); `apps/api/src/modules/crypto/application/data-key-resolver.ts`; migraciones `0002`, `0005` y `0006`.
 

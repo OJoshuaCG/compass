@@ -49,7 +49,7 @@ Plantilla: [`template.md`](template.md).
 | [0037](0037-root-recovery-dual-custody.md) | Recuperación de la Raíz por operaciones con control dual de los custodios | Aceptada |
 | [0038](0038-purge-expired-ephemeral-rows.md) | Purga de filas efímeras vencidas y recorrido de organizaciones | Aceptada |
 | [0039](0039-single-instance-until-redis.md) | Instancia única de la API, con Redis solo cuando haga falta escalar | Aceptada |
-| [0040](0040-dek-rotation-and-cache-coherence.md) | Rotación de la clave de datos, recifrado e índices ciegos | Propuesta |
+| [0040](0040-dek-rotation-and-cache-coherence.md) | Rotación de la clave de datos, recifrado e índices ciegos | Aceptada |
 
 ## Propuestas (huecos detectados, sin decidir)
 
