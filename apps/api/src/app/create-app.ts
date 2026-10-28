@@ -10,6 +10,8 @@ import { ProblemDetailsFilter } from '../shared/http/problem-details.filter.js';
 import { AppModule } from './app.module.js';
 import { serveWebApp } from './serve-web.js';
 import type { Container } from './container.js';
+import { toFastifyTrustProxy } from './trust-proxy.js';
+import type { TrustProxySetting } from './trust-proxy.js';
 
 /**
  * CSP estricta (docs/frontend.md §9): sin `unsafe-inline` ni `unsafe-eval`, scripts solo del
@@ -39,7 +41,8 @@ export interface CreateAppOptions {
   readonly container?: Container;
   /** Origen del navegador permitido para las peticiones que modifican (verificación de `Origin`). */
   readonly appOrigin?: string;
-  readonly trustProxy?: boolean;
+  /** Proxies de confianza para `X-Forwarded-For`; por defecto ninguno (ver `parseTrustProxy`). */
+  readonly trustProxy?: TrustProxySetting;
   /** Carpeta con la SPA compilada (`apps/web/dist`); si se indica, la API la sirve en el mismo origen. */
   readonly webDistDir?: string;
 }
@@ -49,7 +52,7 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
     // El identificador lo genera siempre el servidor: no se confía en uno enviado por el cliente.
     genReqId: () => uuidv7(),
     requestIdHeader: false,
-    trustProxy: options.trustProxy ?? false,
+    trustProxy: toFastifyTrustProxy(options.trustProxy),
   });
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule.register(options.container ?? null, options.appOrigin ?? 'http://localhost:5173'),

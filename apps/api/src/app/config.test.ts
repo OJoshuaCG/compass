@@ -29,6 +29,33 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ PORT: '70000' })).toThrow(/PORT/);
   });
 
+  describe('TRUST_PROXY', () => {
+    it('trusts no proxy by default', () => {
+      expect(loadConfig({}).TRUST_PROXY).toBe(false);
+    });
+
+    it('accepts true, a number of hops or a list of addresses and ranges', () => {
+      expect(loadConfig({ TRUST_PROXY: 'true' }).TRUST_PROXY).toBe(true);
+      expect(loadConfig({ TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
+      expect(loadConfig({ TRUST_PROXY: '10.0.0.0/8,192.168.1.10' }).TRUST_PROXY).toEqual([
+        '10.0.0.0/8',
+        '192.168.1.10',
+      ]);
+    });
+
+    it('refuses to start with an invalid value and does not echo it', () => {
+      expect(() => loadConfig({ TRUST_PROXY: '0.0.0.0/0' })).toThrow(/TRUST_PROXY/);
+      let message = '';
+      try {
+        loadConfig({ TRUST_PROXY: '10.99.99.99/abc' });
+      } catch (error) {
+        message = String(error);
+      }
+      expect(message).toContain('TRUST_PROXY');
+      expect(message).not.toContain('10.99.99.99');
+    });
+  });
+
   describe('key management', () => {
     const completeSmtp = {
       MAIL_TRANSPORT: 'smtp',

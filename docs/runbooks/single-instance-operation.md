@@ -23,7 +23,7 @@ Mantener efectivos el bloqueo por intentos fallidos y el límite por dirección 
 1. Despliega exactamente **una** réplica de la API. Sin autoescalado y con un mínimo y un máximo de 1.
 2. Usa una estrategia de actualización que detenga la instancia vieja antes de arrancar la nueva. Una superposición de dos instancias, aunque breve, divide los contadores.
 3. Aplica las migraciones antes de arrancar la API, con el rol de migraciones (`main.migrate`).
-4. Si hay un balanceador o proxy de confianza delante, define `TRUST_PROXY=true` para que el límite por IP use la dirección real del cliente. Sin proxy déjalo en `false`. Antes de activarlo confirma que el balanceador reemplaza `X-Forwarded-For` y que la API no es alcanzable directo; si no, cualquiera falsifica su IP y evita el límite ([`backend.md`](../backend.md) §6.4).
+4. Si hay un balanceador o proxy de confianza delante, define `TRUST_PROXY` con la lista de IP o rangos CIDR del balanceador (o `1` si hay un solo salto, solo cuando la API es inalcanzable sin pasar por el balanceador: los saltos no validan al par directo) para que el límite por IP use la dirección real del cliente. Sin proxy déjalo en `false`. Evita `true`: confía en toda la cadena. Antes de activarlo confirma que el balanceador reemplaza `X-Forwarded-For` y que la API no es alcanzable directo; si no, cualquiera falsifica su IP y evita el límite ([`backend.md`](../backend.md) §6.4).
 5. Registra en el inventario del despliegue que la restricción existe, quién la levanta y que se retira al incorporar Redis.
 
 ## Verificación

@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { parseTrustProxy } from './trust-proxy.js';
+import type { TrustProxySetting } from './trust-proxy.js';
+
 /** Adaptadores de gestión de claves aptos para producción. Vacía hasta que exista el KMS gestionado (TODO L1). */
 const PRODUCTION_KMS_ADAPTERS: readonly string[] = [];
 
@@ -20,11 +23,22 @@ const envSchema = z
     /** Carpeta de la SPA compilada; si se omite, la API no sirve el frontend (útil en desarrollo con Vite). */
     WEB_DIST_DIR: z.string().min(1).optional(),
     DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
-    /** Solo detrás de un balanceador de confianza: usa `X-Forwarded-For` para la IP del cliente. */
+    /**
+     * Solo detrás de un balanceador de confianza: usa `X-Forwarded-For` para la IP del cliente.
+     * `false`, `true` (toda la cadena), un número de saltos o una lista de IP/CIDR de los proxies.
+     */
     TRUST_PROXY: z
-      .enum(['true', 'false'])
+      .string()
       .default('false')
-      .transform((value) => value === 'true'),
+      .transform((value, ctx): TrustProxySetting => {
+        const setting = parseTrustProxy(value);
+        if (setting === undefined) {
+          // No se repite el valor: es configuración de red y no hay motivo para escribirla en un error.
+          ctx.addIssue({ code: 'custom', message: 'invalid trust proxy setting' });
+          return z.NEVER;
+        }
+        return setting;
+      }),
     /** `log` escribe el enlace en el registro (solo desarrollo); `smtp` envía por el correo del dominio propio. */
     MAIL_TRANSPORT: z.enum(['log', 'smtp']).default('log'),
     SMTP_HOST: z.string().min(1).optional(),

@@ -244,16 +244,25 @@ Fuente de verdad: `apps/api/src/app/config.ts` (no existe `.env.example`). Las d
 | `LOCAL_KMS_KEY_FILE` | `.local-kms/kek.key` | Archivo de la clave del adaptador de desarrollo; no sirve en producción |
 | `WEB_DIST_DIR` | Ninguno | Carpeta de la SPA compilada; si se omite, la API no sirve el frontend |
 | `KMS_ADAPTER` | `local` | Adaptador de gestión de claves. Hoy solo existe `local`; con `NODE_ENV=production` la configuración falla al arrancar con un error sobre esta clave |
-| `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For`. Léelo completo en [§6.4](#64-trust_proxy-todo-o-nada) |
+| `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For`. Acepta `false`, `true`, un número de saltos o una lista de IP y rangos CIDR. Léelo completo en [§6.4](#64-trust_proxy-qué-proxies-son-de-confianza) |
 
-### 6.4 `TRUST_PROXY`: todo o nada
+### 6.4 `TRUST_PROXY`: qué proxies son de confianza
 
-`TRUST_PROXY` es un booleano: con `true`, Fastify confía en **toda** la cadena de `X-Forwarded-For`, no solo en el último salto. Dos efectos opuestos, y ambos son un riesgo:
+`TRUST_PROXY` acepta cuatro formas. Cualquier otro valor hace que la API **no arranque** (el error nombra la clave, nunca el valor):
+
+| Valor | Significado |
+|---|---|
+| `false` (por defecto) | No se confía en ningún proxy: la IP es la del par que se conecta |
+| Un número del 1 al 10 | Se confía en los últimos N saltos. `1` es un solo balanceador delante. **No valida al par directo**: quien llegue a la API sin pasar por el proxy puede falsear su IP |
+| Lista separada por comas de IP y rangos CIDR (`10.0.0.5,192.168.0.0/16`) | Solo se toma la cabecera si el par directo está en la lista, y se recorre la cadena hasta la primera dirección que no lo está |
+| `true` | Se confía en **toda** la cadena de `X-Forwarded-For`. Es la opción más peligrosa: úsala solo si el balanceador sobrescribe la cabecera |
+
+No se aceptan rangos demasiado amplios (prefijo menor a `/8` en IPv4 o a `/16` en IPv6, ni `::ffff:` con prefijo menor a `/104`), cero saltos ni nombres de máquina. Tampoco se aceptan `TRUE`, `yes` ni un valor vacío: la API no arranca. Ojo: `1` ya no significa «sí», sino un salto. Con `true` se mantienen los dos efectos opuestos de antes, y ambos son un riesgo:
 
 - **Sin activarlo detrás de un balanceador**: todas las peticiones llegan con la IP del balanceador. El límite de 60 peticiones por minuto por IP se comparte entre todas las personas y un solo cliente ruidoso bloquea a los demás.
 - **Activado sin que el balanceador sobrescriba la cabecera**: quien llama puede enviar su propio `X-Forwarded-For` y la API lo toma como su IP. Cada petición con una IP distinta evita el límite por IP (los contadores por correo y por usuario del segundo factor no dependen de la IP y siguen aplicando).
 
-Para activarlo con seguridad, el balanceador debe **reemplazar** la cabecera (no añadirle) y la API solo debe ser alcanzable a través de él. Si el puerto de la API se puede alcanzar directo, déjalo en `false`. Una lista de proxies de confianza (rangos CIDR o número de saltos) queda como mejora pendiente: tocaría la configuración de cabeceras, que es una ruta protegida.
+Para activarlo con seguridad, prefiere la **lista de IP o CIDR** del balanceador: una petición que llega de un origen fuera de la lista no puede falsear su dirección con la cabecera. El número de saltos solo es seguro si la API es inalcanzable sin pasar por el proxy. En ambos casos, si el puerto se puede alcanzar directo, déjalo en `false`.
 
 El comando de alta de organizaciones usa sus propias variables (`PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`; ver §3.6) y las migraciones usan `DATABASE_URL` con el rol de migraciones ([`database.md`](database.md) §1).
 
