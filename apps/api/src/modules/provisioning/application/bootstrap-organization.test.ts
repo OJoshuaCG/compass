@@ -63,13 +63,26 @@ describe('BootstrapOrganization', () => {
     expect(result.emergencyCodes).toHaveLength(8);
     expect(new Set(result.emergencyCodes).size).toBe(8);
     for (const code of result.emergencyCodes) expect(code).toMatch(EMERGENCY);
-    const stored = (seeded[0] as unknown as { emergencyCodeHashes: Uint8Array[] })
-      .emergencyCodeHashes;
+    const stored = (
+      seeded[0] as unknown as { emergencyCodes: { hash: Uint8Array; custodyGroup: string }[] }
+    ).emergencyCodes;
     expect(stored).toHaveLength(8);
     const plain = result.emergencyCodes[0]?.replace(/-/g, '') ?? '';
-    expect(Buffer.from(stored[0] ?? []).toString('hex')).toBe(
+    expect(Buffer.from(stored[0]?.hash ?? []).toString('hex')).toBe(
       createHash('sha256').update(plain).digest('hex'),
     );
     expect(JSON.stringify(seeded)).not.toContain(result.emergencyCodes[0] ?? 'x');
+  });
+
+  // ADR 0037: el control dual solo es real si cada custodio conserva exactamente la mitad de los papeles.
+  it('reparte los códigos de emergencia por igual entre los custodios A y B', async () => {
+    const { useCase, seeded } = setup();
+    const result = await useCase.execute(base);
+
+    const stored = (seeded[0] as unknown as { emergencyCodes: { custodyGroup: string }[] })
+      .emergencyCodes;
+    expect(stored.filter((entry) => entry.custodyGroup === 'A')).toHaveLength(4);
+    expect(stored.filter((entry) => entry.custodyGroup === 'B')).toHaveLength(4);
+    expect(result.emergencyCodeGroups).toEqual(stored.map((entry) => entry.custodyGroup));
   });
 });

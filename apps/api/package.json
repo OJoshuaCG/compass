@@ -11,7 +11,8 @@
     "depcruise": "depcruise src --config .dependency-cruiser.cjs",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "provision": "node dist/main.provision.js"
+    "provision": "node dist/main.provision.js",
+    "recover-root": "node dist/main.recover-root.js"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",
