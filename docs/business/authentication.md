@@ -44,7 +44,7 @@ Este documento describe el comportamiento completo previsto. La fase 1a ya imple
 El sistema guarda las contraseñas y los segundos factores de toda la organización. Quien entre al sistema como otra persona obtiene todo lo que esa persona puede ver. Por eso el acceso a la plataforma debe ser más exigente que el de cualquiera de las plataformas que protege:
 
 - El segundo factor es **obligatorio desde la primera sesión**.
-- Las **passkeys** son el método preferido.
+- Las **passkeys** son el método recomendado, pero opcional: el código de la aplicación autenticadora es igual de válido.
 - Las sesiones se pueden cerrar al instante.
 
 ## 2. Alta por invitación
@@ -86,7 +86,7 @@ Reglas importantes:
 
 **Política por organización.** Está previsto que la organización pueda exigir passkeys a la Raíz y a los Administradores. El plan lo recomienda, pero se decidió (2026-10-27) que por ahora las passkeys sean opcionales para todos, y que exigirlas sea una configuración futura de la organización: todavía no hay pantalla de configuración, y un registro forzado sin alternativa podría dejar a las personas fuera.
 
-**Resistencia al phishing.** A diferencia del código de la aplicación, que una persona engañada puede escribir en un sitio falso, la passkey solo responde al sitio legítimo. Por eso es el método preferido.
+**Resistencia al phishing.** A diferencia del código de la aplicación, que una persona engañada puede escribir en un sitio falso, la passkey solo responde al sitio legítimo. Por eso se recomienda, aunque no se exige.
 
 **Aviso de uso de un código de recuperación.** Usar uno notifica a la propia persona y a su responsable. *Hoy el uso queda registrado en la auditoría y la propia persona recibe un aviso por correo, sin enlaces, con el momento en que ocurrió. Todavía no se avisa a su responsable.* Si el correo no sale, el acceso no se bloquea: el fallo queda registrado en la auditoría con el tipo de aviso y sin la dirección.
 
@@ -136,7 +136,7 @@ Las acciones más sensibles piden haber verificado un factor **en los últimos 5
 | Situación | Qué hace la persona | Quién interviene | Exigencias |
 | --- | --- | --- | --- |
 | Perdió su passkey o su aplicación autenticadora, pero conserva sus códigos de recuperación | Usa un código de recuperación y registra un nuevo factor | Nadie más (autoservicio) | Se notifica a la persona y a su responsable |
-| Perdió todos sus factores y no tiene códigos | Pide ayuda | Su responsable o la Raíz restablece sus factores | Reautenticación y motivo escrito de quien restablece |
+| Perdió todos sus factores y no tiene códigos | Pide ayuda | Su responsable o la Raíz restablece sus factores (**pendiente**: todavía no existe) | Reautenticación y motivo escrito de quien restablece |
 | Es la Raíz y perdió todos sus factores | Usa uno de los códigos de emergencia custodiados, después de su contraseña | Las dos personas custodias; ningún Administrador puede restablecer la Raíz | Alerta a todos los Administradores y evento crítico (ver [`actors-and-hierarchy.md`](actors-and-hierarchy.md)) |
 
 **Decisión del dueño (2026-10-27).** Solo las personas que custodian los códigos pueden restablecer la Raíz; ningún Administrador puede hacerlo y solo recibe la alerta. Si un Administrador pudiera restablecer la Raíz, sería un camino para tomar la cuenta de mayor privilegio.
@@ -158,7 +158,7 @@ No se usa en la primera versión. El sistema solo deja preparado el punto de con
 | AU-1 | Todas las altas son por invitación; el enlace es de un solo uso y dura 72 horas |
 | AU-2 | Quien invita nunca conoce la contraseña; reenviar una invitación invalida la anterior |
 | AU-3 | La contraseña tiene al menos 12 caracteres, sin reglas de composición, y se rechazan las comunes y las débiles |
-| AU-4 | El segundo factor es obligatorio antes de la primera entrada: passkey (preferida) o aplicación autenticadora |
+| AU-4 | El segundo factor es obligatorio antes de la primera entrada: passkey (recomendada, opcional) o aplicación autenticadora |
 | AU-5 | No se usan mensajes de texto ni correo como segundo factor del sistema |
 | AU-6 | Al activar el segundo factor se entregan 10 códigos de recuperación de un solo uso, que se muestran una vez |
 | AU-7 | Usar un código de recuperación avisa a la persona y a su responsable |
@@ -167,7 +167,7 @@ No se usa en la primera versión. El sistema solo deja preparado el punto de con
 | AU-10 | Cada persona ve y cierra sus sesiones; su responsable puede cerrarlas todas |
 | AU-11 | Las acciones sensibles exigen haber verificado un factor en los últimos 5 minutos |
 | AU-12 | Los errores de ingreso no revelan si el usuario existe; el bloqueo por fallos es temporal |
-| AU-13 | Sin factores y sin códigos, solo el responsable (o la Raíz) restablece los factores, con reautenticación y motivo; las comparticiones se conservan |
+| AU-13 | Sin factores y sin códigos, solo el responsable (o la Raíz) restablece los factores, con reautenticación y motivo; las comparticiones se conservan. **Aún no implementado** |
 | AU-14 | La Raíz sin factores se recupera con los códigos de emergencia custodiados |
 
 **Estado de las reglas en la fase 1a.**

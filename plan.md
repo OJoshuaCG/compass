@@ -468,7 +468,7 @@ Quien invita nunca conoce la contraseña del invitado. Reenviar una invitación 
 - **TOTP**: alternativa para quien no pueda usar passkeys.
 - **Códigos de recuperación**: último recurso; usar uno notifica al usuario y a su responsable.
 - **Sin SMS ni correo como segundo factor** del propio sistema.
-- Política configurable por organización: exigir passkeys para Raíz y Administradores (recomendado activarlo desde el inicio).
+- Política configurable por organización: exigir passkeys para Raíz y Administradores. Decidido ([ADR 0028](docs/adr/0028-passkeys-optional-enforcement-later.md), confirmado por el dueño el 2026-10-28): hoy son opcionales para todos y el código de la aplicación autenticadora es válido; exigirlas llegará con la pantalla de configuración de la organización.
 
 ### Sesiones
 
@@ -481,7 +481,7 @@ Quien invita nunca conoce la contraseña del invitado. Reenviar una invitación 
 
 ### Reautenticación (step-up)
 
-Las acciones sensibles listadas en el modelo de autorización exigen haber verificado un factor en los últimos 5 minutos. Se marca `reauth_at` en la sesión. Con passkey es un toque; con TOTP, un código.
+Las acciones sensibles listadas en el modelo de autorización exigen haber verificado un factor en los últimos 5 minutos. Se marca `reauth_at` en la sesión. Con TOTP, un código; la reautenticación con passkey todavía no está disponible (ADR 0028).
 
 ### Protección contra ataques
 
@@ -831,7 +831,7 @@ Las reglas que importan se hacen cumplir con herramientas, no con buena voluntad
 - Los comentarios explican **por qué**, no qué. Si hace falta explicar qué hace el código, el código se renombra o se divide.
 - TSDoc obligatorio en puertos, casos de uso y fachadas públicas.
 - Todo archivo de los módulos protegidos abre con un bloque `Invariantes de seguridad` que lista lo que nunca debe romperse en ese archivo.
-- `docs/adr/`: una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias. Las 20 decisiones de este plan son los primeros ADR.
+- `docs/adr/`: una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias. Las 20 decisiones de este plan son los primeros ADR; el índice de `docs/adr/README.md` lleva la lista vigente.
 - `README.md` por módulo: responsabilidad, fachada pública, eventos que emite y consume.
 - `docs/runbooks/`: procedimientos de operación (rotar DEK, restaurar respaldo, responder a fuga, transferir Raíz).
 - `docs/threat-model.md`: modelo de amenazas (STRIDE por módulo), revisado en cada fase.
@@ -1039,6 +1039,6 @@ Ninguna bloquea la fase 0, pero las cuatro primeras deben cerrarse antes de term
 - [ ] **Subdominio para alias de cuentas**: nombre y configuración DNS, para crear las cuentas con su correo definitivo desde el día uno.
 - [ ] **Presupuesto de pentest externo** antes de cargar credenciales reales.
 - [ ] **Política de retención** de auditoría y versiones de secretos, validada con el área legal.
-- [ ] **Exigir passkeys** a Raíz y Administradores desde el inicio (recomendado: sí).
+- [x] **Exigir passkeys** a Raíz y Administradores: no por ahora. Decidido ([ADR 0028](docs/adr/0028-passkeys-optional-enforcement-later.md)): opcionales para todos; exigirlas queda como configuración futura de la organización.
 - [ ] **Elegibilidad para managed Meta accounts** (antes de la fase 3).
 - [ ] **Custodios** de los códigos de emergencia de la Raíz (dos personas).
