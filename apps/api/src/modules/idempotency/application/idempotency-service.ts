@@ -7,6 +7,7 @@
  * - La respuesta guardada se conserva 24 horas; mientras la original corre, la reserva dura poco
  *   (un minuto) para que una petición caída no bloquee la clave todo el día.
  * - Solo se guardan respuestas correctas: un error libera la clave y el reintento vuelve a ejecutarse.
+ * - Una respuesta con campos que parecen secretos no se guarda nunca (`secret-fields.ts`).
  * - Cada paso usa su propia transacción corta; nunca envuelve a la transacción del caso de uso.
  */
 import { DomainError } from '../../../shared/kernel/index.js';
@@ -14,6 +15,7 @@ import type { Clock, OrganizationId, UserId } from '../../../shared/kernel/index
 import type { CryptoPrimitives } from '../../crypto/index.js';
 import type { TenantScope } from '../../organization/index.js';
 import type { IdempotencyStore } from './ports/idempotency-store.js';
+import { carriesSecretField } from './secret-fields.js';
 
 export const REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const IN_FLIGHT_MS = 60 * 1000;
@@ -101,6 +103,11 @@ export class IdempotencyService {
     body: unknown,
   ): Promise<void> {
     const { scope, store, clock } = this.deps;
+    // Falla cerrada: antes que guardar un secreto en claro 24 horas, no se guarda nada. El interceptor
+    // tolera este fallo (la persona ya tiene su respuesta) y la reserva vence sola en un minuto.
+    if (carriesSecretField(body)) {
+      return Promise.reject(new Error('An idempotent response must not carry secrets'));
+    }
     return scope.runAs(this.contextOf(call), () =>
       store.complete({
         actorId: call.actorId,
