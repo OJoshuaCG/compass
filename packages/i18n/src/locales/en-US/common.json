@@ -8,7 +8,7 @@
   "language.es-MX": "Español (México)",
   "language.en-US": "English (US)",
   "home.title": "Identity and access platform",
-  "home.description": "Phase 0 interface skeleton: dark tokens, internationalization and base components.",
+  "home.description": "Manage the people, roles and access of your organization.",
   "actions.cancel": "Cancel",
   "actions.confirm": "Confirm",
   "actions.retry": "Retry",

@@ -1,5 +1,6 @@
-// TODO(contracts): cuando @iam/contracts exporte un tipo de error de cliente, reemplazar
-// esta clase; hoy solo exporta el esquema de Problem Details, que se reutiliza abajo.
+// TODO(Ing. de contratos, sin ticket): reemplazar esta clase cuando @iam/contracts exporte un
+// tipo de error de cliente. Hoy solo exporta el esquema de Problem Details, que se reutiliza
+// abajo, y duplicar el tipo en el frontend lo dejaría desalineado de la API.
 import { problemDetailsSchema, type FieldError, type ProblemDetails } from '@iam/contracts';
 
 /** Código local para fallos sin respuesta HTTP (red caída, CORS, aborto). */

@@ -148,8 +148,8 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 | [x] D2 | Prueba de matriz de autorización por ruta: que falle si un controlador nuevo carece de guarda. Hoy la "rotura intencional" es manual [V: no encontré una prueba así] | Prueba ⚠ | Ing. | M | — `authorization-matrix.e2e.test.ts`: manifiesto de las 36 rutas (pública / sesión parcial / sesión completa), cotejado con los decoradores reales y con una petición sin cookie y con cookie falsa (401). Cubre la AUTENTICACIÓN por ruta, no la autorización de cada acción. Rotura deliberada (quitar `@Public()` de `health/live`) detectada por 2 pruebas. Lo escribió el asistente: **falta la revisión humana línea por línea** que exige `CLAUDE.md` |
 | [ ] D3 | Pruebas unitarias propias para `idempotency` (363 líneas) y `organization` (159). Hoy solo se ejercen vía integración y e2e [V] | Prueba ⚠ | Ing. | S | — | |
 | [ ] D4 | Redacción de logs más robusta: hoy depende de nombres de clave y profundidad 0 a 2; `LogMailer` registra `link` con token, protegido solo por el bloqueo de producción [V] | Código ⚠ | Ing. | S | — | |
-| [ ] D5 | Poner razón y responsable al único `TODO` real (`apps/web/src/shared/api/api-error.ts:1`) [V], contra la regla de `CLAUDE.md` | Código | Ing. | S | — | |
-| [ ] D6 | Reemplazar el texto del esqueleto de la fase 0 en la pantalla de inicio (en es-MX y en-US) | Código | Ing. | S | — | |
+| [x] D5 | Poner razón y responsable al único `TODO` real (`apps/web/src/shared/api/api-error.ts:1`) [V], contra la regla de `CLAUDE.md` | Código | Ing. | S | — | Hecha (2026-10-28): lleva responsable y razón; sigue sin ticket porque no hay uno asignado |
+| [x] D6 | Reemplazar el texto del esqueleto de la fase 0 en la pantalla de inicio (en es-MX y en-US) | Código | Ing. | S | — | Hecha (2026-10-28): nueva descripción en ambos idiomas, sin mencionar la bóveda que aún no existe. Se retiró la deuda equivalente de `docs/handoff.md` §8 |
 | [ ] D7 | SPF, DKIM y DMARC del dominio de correo, para que los avisos lleguen a la bandeja | Ops | Equipo | S | — | |
 
 ## E · Documentación sin dependencias

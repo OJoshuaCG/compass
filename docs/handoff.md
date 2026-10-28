@@ -182,7 +182,6 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 - Producción: no existe el adaptador de KMS del proveedor (el local se niega a arrancar con `NODE_ENV=production`, así que la API no arranca así) ni el punto de entrada del worker. Dependen de la decisión de nube.
 - Configuración: no existe `.env.example`; la fuente de verdad de las variables de entorno es `apps/api/src/app/config.ts` (resumida en `docs/backend.md` §6.3.1 y §6.3.2). Se validan al arrancar y el servicio no inicia con una configuración inválida.
 - El CI de GitHub (`.github/workflows/ci.yml`) nunca se ha ejecutado y no incluye aún los escáneres de seguridad. El dueño lo despriorizó (2026-10-27); el repositorio ya tiene remoto.
-- La pantalla de inicio todavía muestra el texto del esqueleto de la fase 0.
 
 ## 9. Mapa de documentación
 

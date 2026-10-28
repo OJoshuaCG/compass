@@ -8,7 +8,7 @@
   "language.es-MX": "Español (México)",
   "language.en-US": "English (US)",
   "home.title": "Plataforma de identidad y accesos",
-  "home.description": "Esqueleto de la interfaz de la fase 0: tokens oscuros, internacionalización y componentes base.",
+  "home.description": "Administra las personas, los roles y los accesos de tu organización.",
   "actions.cancel": "Cancelar",
   "actions.confirm": "Confirmar",
   "actions.retry": "Reintentar",
