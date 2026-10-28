@@ -70,6 +70,11 @@ export function AppLayout() {
                 {t('nav.security')}
               </Link>
             </li>
+            <li>
+              <Link to="/accounts" className={linkClass} activeProps={activeProps}>
+                {t('nav.accounts')}
+              </Link>
+            </li>
             {canManageRoles ? (
               <li>
                 <Link to="/roles" className={linkClass} activeProps={activeProps}>

@@ -93,5 +93,6 @@
   "actions.logoutFailed": "Could not sign out. Try again.",
   "validation.recoveryCode": "The recovery code is not in a valid format.",
   "nav.roles": "Roles",
-  "nav.security": "Security"
+  "nav.security": "Security",
+  "nav.accounts": "Accounts"
 }
