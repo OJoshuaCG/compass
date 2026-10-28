@@ -1,7 +1,9 @@
+import { passkeySchema } from '@iam/contracts';
 import { ReauthDialog } from '@iam/ui';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
 
 import {
   apiClient,
@@ -12,7 +14,12 @@ import {
 } from '../api';
 import { useErrorMessage } from '../i18n';
 
+import { reauthenticateWithPasskey } from './passkey-reauth';
 import { sessionKeys } from './session';
+
+// Misma clave y forma que la lista de la pantalla de seguridad: comparten caché sin importarse.
+const MY_PASSKEYS_KEY = ['passkeys', 'mine'] as const;
+const passkeysResponseSchema = z.object({ data: z.array(passkeySchema) });
 
 /**
  * Monta el diálogo de reautenticación (step-up) una sola vez en la raíz. Se abre cuando el
@@ -28,15 +35,30 @@ export function ReauthHost() {
   const submit = useAsyncAction((code: string) =>
     apiClient.post('/auth/reauth', noContentSchema, { body: { code }, skipReauth: true }),
   );
-  const cooldown = useRateLimitCooldown(submit.error);
+  const passkeySubmit = useAsyncAction(reauthenticateWithPasskey);
+  const cooldown = useRateLimitCooldown(submit.error ?? passkeySubmit.error);
+
+  // La llave solo se ofrece a quien tiene alguna: así no se pide un desafío que fallaría y quedaría
+  // auditado como intento fallido.
+  const passkeys = useQuery({
+    queryKey: MY_PASSKEYS_KEY,
+    queryFn: async ({ signal }) =>
+      (await apiClient.get('/me/passkeys', passkeysResponseSchema, { signal })).data,
+    enabled: open,
+  });
+  const hasPasskeys = (passkeys.data?.length ?? 0) > 0;
 
   const { reset } = submit;
+  const { reset: resetPasskey } = passkeySubmit;
 
   // Si la solicitud se cierra por otra vía (sesión expirada, cancelación) se descarta cualquier
   // envío en vuelo y su error: el siguiente diálogo empieza limpio y puede volver a enviar.
   useEffect(() => {
-    if (!open) reset();
-  }, [open, reset]);
+    if (!open) {
+      reset();
+      resetPasskey();
+    }
+  }, [open, reset, resetPasskey]);
 
   // Si la app se desmonta con una petición pendiente, se cancela para no dejar promesas colgadas.
   useEffect(() => {
@@ -57,8 +79,32 @@ export function ReauthHost() {
         close: t('dialog.close'),
       }}
       loading={submit.pending}
-      disabled={cooldown.secondsLeft > 0}
-      errorMessage={submit.error === undefined ? undefined : errorMessage(submit.error)}
+      disabled={cooldown.secondsLeft > 0 || passkeySubmit.pending}
+      errorMessage={
+        submit.error !== undefined
+          ? errorMessage(submit.error)
+          : passkeySubmit.error === undefined
+            ? undefined
+            : errorMessage(passkeySubmit.error)
+      }
+      passkey={
+        hasPasskeys
+          ? {
+              label: t('reauth.passkey'),
+              loading: passkeySubmit.pending,
+              onUse: () => {
+                const requestId = reauthCoordinator.currentId();
+                if (requestId === null) return;
+                void passkeySubmit.run().then((result) => {
+                  // Cancelar la solicitud del navegador no es un error: el diálogo sigue abierto.
+                  if (!result.ok || result.value === 'cancelled') return;
+                  void queryClient.invalidateQueries({ queryKey: sessionKeys.all });
+                  reauthCoordinator.settle(true, requestId);
+                });
+              },
+            }
+          : undefined
+      }
       cooldownLabel={
         cooldown.secondsLeft > 0
           ? t('retryIn', { ns: 'errors', seconds: cooldown.secondsLeft })

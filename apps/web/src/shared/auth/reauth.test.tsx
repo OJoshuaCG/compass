@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { act } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { emitSessionExpired, reauthCoordinator } from '../api';
 
@@ -9,6 +9,31 @@ import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, noContent, problem, stubApi } from '../../test/fake-api';
 import { es, expectNoSecretsStored, field } from '../../test/helpers';
 import { renderApp } from '../../test/render-app';
+
+const lib = vi.hoisted(() => ({ startAuthentication: vi.fn() }));
+
+vi.mock('@simplewebauthn/browser', () => ({ startAuthentication: lib.startAuthentication }));
+
+const PASSKEY_OPTIONS = { challenge: 'challenge-abc', rpId: 'localhost', allowCredentials: [] };
+const PASSKEY_ASSERTION = {
+  id: 'cred-1',
+  type: 'public-key',
+  response: { signature: 'SIGNATURE-SECRET' },
+};
+const PASSKEY_LIST = {
+  data: [
+    {
+      id: '44444444-4444-4444-8444-444444444444',
+      name: 'Laptop',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      lastUsedAt: null,
+    },
+  ],
+};
+
+beforeEach(() => {
+  lib.startAuthentication.mockReset();
+});
 
 const CREATED = jsonResponse(
   {
@@ -242,5 +267,87 @@ describe('step-up reauthentication', () => {
     });
     // La solicitud pendiente se rechazó: nada queda colgado esperando al diálogo.
     expect(reauthCoordinator.isOpen()).toBe(false);
+  });
+
+  describe('with a passkey', () => {
+    it('offers the passkey, reauthenticates with it and retries the operation once', async () => {
+      const user = userEvent.setup();
+      lib.startAuthentication.mockResolvedValue(PASSKEY_ASSERTION);
+      let attempts = 0;
+      const api = stubApi({
+        ...baseRoutes(),
+        'GET /me/passkeys': jsonResponse(PASSKEY_LIST),
+        'POST /invitations': () => {
+          attempts += 1;
+          return attempts === 1 ? problem(403, 'AUTHZ.REAUTH_REQUIRED') : CREATED.clone();
+        },
+        'POST /auth/reauth/passkey/options': jsonResponse(PASSKEY_OPTIONS),
+        'POST /auth/reauth/passkey/verify': noContent(),
+      });
+      renderApp('/users');
+      await submitInvitation(user);
+
+      const dialog = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
+      await user.click(
+        await within(dialog).findByRole('button', { name: es.common['reauth.passkey'] }),
+      );
+
+      expect(
+        await screen.findByText('Invitación enviada a nuevo@example.com.'),
+      ).toBeInTheDocument();
+      expect(lib.startAuthentication).toHaveBeenCalledWith({ optionsJSON: PASSKEY_OPTIONS });
+      expect(api.callsTo('POST', '/auth/reauth/passkey/verify')[0]?.body).toEqual({
+        response: PASSKEY_ASSERTION,
+      });
+      expect(api.callsTo('POST', '/auth/reauth')).toHaveLength(0);
+      expect(api.callsTo('POST', '/invitations')).toHaveLength(2);
+    });
+
+    it('keeps the dialog open when the person dismisses the browser prompt', async () => {
+      const user = userEvent.setup();
+      lib.startAuthentication.mockRejectedValue(
+        Object.assign(new Error('dismissed'), { name: 'NotAllowedError' }),
+      );
+      const api = stubApi({
+        ...baseRoutes(),
+        'GET /me/passkeys': jsonResponse(PASSKEY_LIST),
+        'POST /invitations': problem(403, 'AUTHZ.REAUTH_REQUIRED'),
+        'POST /auth/reauth/passkey/options': jsonResponse(PASSKEY_OPTIONS),
+      });
+      renderApp('/users');
+      await submitInvitation(user);
+
+      const dialog = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
+      await user.click(
+        await within(dialog).findByRole('button', { name: es.common['reauth.passkey'] }),
+      );
+
+      await waitFor(() => {
+        expect(lib.startAuthentication).toHaveBeenCalledTimes(1);
+      });
+      expect(screen.getByRole('dialog', { name: es.common['reauth.title'] })).toBeInTheDocument();
+      expect(api.callsTo('POST', '/auth/reauth/passkey/verify')).toHaveLength(0);
+      expect(api.callsTo('POST', '/invitations')).toHaveLength(1);
+    });
+
+    it('does not offer the passkey to someone who has none', async () => {
+      const user = userEvent.setup();
+      const api = stubApi({
+        ...baseRoutes(),
+        'GET /me/passkeys': jsonResponse({ data: [] }),
+        'POST /invitations': problem(403, 'AUTHZ.REAUTH_REQUIRED'),
+      });
+      renderApp('/users');
+      await submitInvitation(user);
+
+      const dialog = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
+      await waitFor(() => {
+        expect(api.callsTo('GET', '/me/passkeys')).toHaveLength(1);
+      });
+
+      expect(
+        within(dialog).queryByRole('button', { name: es.common['reauth.passkey'] }),
+      ).not.toBeInTheDocument();
+    });
   });
 });
