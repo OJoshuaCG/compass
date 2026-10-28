@@ -6,10 +6,33 @@ import { createApp } from './app/create-app.js';
 import { LocalKeyManagement } from './modules/crypto/index.js';
 import { LogMailer, SmtpMailer } from './modules/notification/index.js';
 import { createLogger } from './shared/infrastructure/logger.js';
+import {
+  acquireSingleInstanceLock,
+  LockUnverifiableError,
+  SecondInstanceError,
+} from './shared/infrastructure/single-instance-lock.js';
 
 const config = loadConfig(process.env);
 const logger = createLogger({ level: config.LOG_LEVEL });
 if (config.DATABASE_URL === undefined) throw new Error('DATABASE_URL is required');
+
+// Instancia única (ADR 0039): se toma antes que cualquier otra cosa y falla rápido si ya hay otra.
+const singleInstanceLock = await acquireSingleInstanceLock({
+  connectionString: config.DATABASE_URL,
+  onLockLost: () => {
+    // Sin el candado otra instancia podría arrancar y los límites de intentos dejarían de valer.
+    logger.fatal('single-instance lock lost, stopping the API');
+    process.exit(1);
+  },
+}).catch((error: unknown) => {
+  if (error instanceof SecondInstanceError || error instanceof LockUnverifiableError) {
+    logger.fatal({ code: error.code }, error.message);
+  } else {
+    // No se vuelca el error de conexión: podría arrastrar datos de la configuración.
+    logger.fatal('could not acquire the single-instance lock, check DATABASE_URL and the database');
+  }
+  process.exit(1);
+});
 
 const appOrigin = new URL(config.APP_ORIGIN);
 
@@ -54,8 +77,14 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     void app
       .close()
       .then(() => container.shutdown())
+      .then(() => singleInstanceLock.release())
       .then(() => {
         process.exit(0);
+      })
+      .catch(() => {
+        // Un apagado que falla no debe dejar el proceso colgado conservando el candado.
+        logger.error('graceful shutdown failed, exiting');
+        process.exit(1);
       });
   });
 }
