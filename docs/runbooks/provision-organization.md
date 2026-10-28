@@ -42,7 +42,7 @@ Crear una organización con su persona Raíz, sus roles del sistema y los códig
 ## Rollback
 
 - Si el comando falla a la mitad, no queda una organización parcial: el alta ocurre en una sola transacción. Corrige la causa y repite.
-- Si se perdió la salida antes de copiarla, no hay manera de recuperar la contraseña ni los códigos. Hoy no existe un comando para regenerarlos: la organización recién creada, sin uso, se descarta con una intervención directa de administración de la base de datos (por definir) y se repite el alta con otro identificador.
+- Si se perdió la salida antes de copiarla, no hay manera de recuperar la contraseña ni los códigos. Los códigos de emergencia se reemiten solo con [la recuperación de la Raíz](recover-root.md), que exige dos códigos vigentes; la contraseña inicial extraviada no tiene comando. La organización recién creada, sin uso, se descarta con una intervención directa de administración de la base de datos (por definir) y se repite el alta con otro identificador.
 - Si un código o la contraseña pudo verse por alguien no autorizado, trátalo como un compromiso y sigue [Usuario o servidor comprometido](compromised-user-or-server-response.md).
 
 ## Responsables

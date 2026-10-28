@@ -46,6 +46,7 @@ Plantilla: [`template.md`](template.md).
 | [0034](0034-totp-generator-in-api-process.md) | Generador de TOTP en el proceso de la API, aislado antes de producción | Aceptada (aislamiento pendiente, N4) |
 | [0035](0035-transactional-outbox-for-events.md) | Eventos mediante bandeja de salida transaccional | Aceptada (implementación pendiente) |
 | [0036](0036-effective-access-computed-on-the-fly.md) | Acceso efectivo calculado al vuelo | Aceptada |
+| [0037](0037-root-recovery-dual-custody.md) | Recuperación de la Raíz por operaciones con control dual de los custodios | Aceptada con confirmación pendiente (dueño, C3) |
 
 ## Propuestas (huecos detectados, sin decidir)
 
