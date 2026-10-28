@@ -7,6 +7,16 @@ packages:
 # Espera de 7 días tras cada publicación (plan: cadena de suministro). Minutos.
 minimumReleaseAge: 10080
 
+# handlebars llega solo por eslint-plugin-boundaries (herramienta de lint, no va a producción).
+# 4.7.9 tiene avisos de seguridad; se fuerza la versión corregida hasta que el plugin la suba.
+overrides:
+  handlebars: 4.7.10
+
+# Excepción a la espera de 7 días, autorizada por la persona responsable el 2026-10-28
+# solo para esta corrección de seguridad (A8a). Retirar cuando la versión cumpla los 7 días.
+minimumReleaseAgeExclude:
+  - handlebars
+
 # Scripts de instalación deshabilitados por defecto; lista blanca explícita.
 onlyBuiltDependencies:
   - '@swc/core'
