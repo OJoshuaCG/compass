@@ -106,7 +106,7 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Pendiente | Efecto en el negocio |
 | --- | --- |
 | Exigir passkeys a la Raíz y a los Administradores | Hoy son opcionales para todos. Exigirlas queda como una futura configuración de la organización: todavía no hay pantalla de configuración y un registro forzado, sin alternativa, podría dejar a las personas fuera |
-| Recuperación de la Raíz sin contraseña | Si la Raíz olvida su contraseña y además pierde sus factores, el sistema no tiene recuperación; hace falta un procedimiento de operaciones. Los códigos de emergencia no sustituyen a la contraseña |
+| Recuperación de la Raíz sin contraseña (caída total de los códigos) | La Raíz que olvida su contraseña y pierde sus factores se recupera con el concurso de las dos personas custodias. Si ya no quedan códigos de emergencia vigentes de cada custodio, o la organización es anterior a la asignación de custodios, no hay recuperación en el sistema; hace falta el procedimiento de caída total, que sigue pendiente |
 | Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores; no entró en esta entrega |
 | Dominio de envío del correo | Para que las invitaciones lleguen a la bandeja de entrada, el dominio de la organización necesita registros de autenticación del remitente (SPF, DKIM y DMARC) en su configuración de DNS. Es una tarea del equipo, fuera del sistema |
 | Limpieza de datos temporales vencidos | Las claves de la protección contra reintentos y los desafíos de passkeys vencidos aún no se borran (falta una tarea de limpieza). Además, un reintento dentro de las 24 horas no vuelve a comprobar los permisos de quien lo hace |
@@ -127,7 +127,7 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub; despriorizada por el dueño |
 
-**Conclusión.** La fase 1a funciona en lo esencial, pero no se da por cerrada: la entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados, y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y la recuperación de una Raíz que pierde contraseña y factores, que deben resolverse antes de la puerta de producción. La fase 1b no ha empezado.
+**Conclusión.** La fase 1a funciona en lo esencial, pero no se da por cerrada: la entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados, y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y el procedimiento de caída total de los códigos de emergencia (la recuperación de una Raíz que pierde contraseña y factores ya existe), que deben resolverse antes de la puerta de producción. La fase 1b no ha empezado.
 
 ### 4.2 Fase 1b: Bóveda y 2FA (no iniciada)
 
@@ -241,5 +241,5 @@ Además de las decisiones anteriores, estos puntos no están definidos por el pl
 | 2 | Quién es el equipo de guardia para incidentes | Los procedimientos sugieren responsables, pero el plan no fija un equipo de guardia |
 | 3 | Cuándo se resuelven las dos decisiones técnicas que siguen en estado de propuesta: los bloqueos de auditoría en transacciones largas y la retención de auditoría | La auditoría de las negaciones ya quedó resuelta y aceptada en la fase 1a. Las dos restantes afectan a la auditoría de acciones largas y a cuánto tiempo se conserva. Ver [`docs/adr/`](../adr/README.md) |
 | 4 | Qué documento fija el procedimiento de caída total | El plan lo menciona y el repositorio todavía no lo tiene redactado |
-| 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin una recuperación para la Raíz que pierde contraseña y factores | Las passkeys y los códigos de emergencia ya existen; esos dos pendientes siguen abiertos |
+| 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin el procedimiento de caída total de los códigos de emergencia | Las passkeys, los códigos de emergencia y la recuperación de la Raíz ya existen; esos dos pendientes siguen abiertos |
 | 6 | Cuál es el dominio de envío del correo y quién configura sus registros de autenticación del remitente | Se decidió que el correo sale del dominio propio de la organización; el dominio concreto y su configuración de DNS dependen del equipo |

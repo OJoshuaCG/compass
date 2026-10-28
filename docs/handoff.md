@@ -59,7 +59,7 @@ Tamaños relativos: **S** (días), **M** (una a dos semanas), **L** (varias sema
 1. **Fase 1b, porciones B1 a B7** (bloque B, abajo; especificaciones en `odd/tasks/phase-1b-vault.md`). Sus tres decisiones abiertas (sección 5) se resuelven antes de la porción que las usa: el límite de revelaciones por hora con su alerta y las reglas del motivo escrito antes de B2, y la biblioteca para leer códigos QR antes de B4 y B5. El ADR 0023 (bloqueo de auditoría en transacciones largas) ya se aceptó el 2026-10-27.
 2. **Redis para los límites de intentos** (A8, parte pendiente). Hasta entonces, una sola instancia ([runbook](runbooks/single-instance-operation.md)).
 3. **Trabajo de purga** de las filas vencidas de `idempotency_keys` y `webauthn_challenges` (necesita el camino para recorrer organizaciones, `docs/database.md` §7.5, y un ADR).
-4. **Procedimiento de operaciones para la Raíz que olvida su contraseña y pierde sus factores**, y una forma de emitir códigos de emergencia nuevos.
+4. ~~Procedimiento de operaciones para la Raíz que olvida su contraseña y pierde sus factores~~ **Hecho (2026-10-27, [ADR 0037](adr/0037-root-recovery-dual-custody.md)).** Queda el runbook de caída total (códigos agotados), pendiente (TODO L3).
 5. **Exigir passkeys como configuración de la organización**, cuando exista la pantalla de configuración (opcional hoy; decisión del dueño). Incluye decidir si la reautenticación admite passkey.
 6. **Primera ejecución del CI en GitHub** (A9, despriorizada por el dueño).
 

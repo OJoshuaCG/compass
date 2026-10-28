@@ -1,6 +1,6 @@
 # ADR 0037: Recuperación de la Raíz por operaciones con control dual de los custodios
 
-- **Estado**: Aceptada con confirmación pendiente (la decisión de diseño es del dueño, `TODO.md` C3; se implementó por encargo explícito el 2026-10-27)
+- **Estado**: Aceptada (2026-10-27). La decisión de diseño es del dueño (`TODO.md` C3); se implementó por encargo explícito y el dueño delegó el cierre en la misma fecha por no estar disponible para ratificarla en persona
 - **Fecha**: 2026-10-27
 - **Referencias**: [`plan.md`](../../plan.md) ("Autenticación del propio sistema", recuperación de la Raíz); [ADR 0027](0027-emergency-codes-root-reset-model.md); [ADR 0016](0016-append-only-audit-hash-chain.md); [ADR 0033](0033-reauthentication-totp-and-passkey.md); [`docs/threat-model.md`](../threat-model.md); [runbook](../runbooks/recover-root.md).
 

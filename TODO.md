@@ -123,7 +123,7 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] C1 | Nube: elegir proveedor y cerrar la confirmación pendiente del ADR 0020 | Decisión | Equipo | M | — | |
 | [ ] C2 | Escala del primer año y disponibilidad requerida (RPO 5 min y RTO 4 h están "a validar") | Decisión | Dueño | S | — | |
-| [ ] C3 | ADR de recuperación de la Raíz que pierde contraseña y factores, y de emisión de códigos de emergencia nuevos. Hoy no tiene recuperación en el sistema [V] | ADR ⚠ | Dueño | M | — | |
+| [x] C3 | ADR de recuperación de la Raíz que pierde contraseña y factores, y de emisión de códigos de emergencia nuevos | ADR ⚠ | Dueño | M | — | ADR 0037 (2026-10-27): comando de operaciones con control dual de los custodios A y B; aceptado por delegación del dueño |
 | [ ] C4 | ADR de correos duplicados entre organizaciones: el correo es único global y no hay política (`plan.md:192`) [V] | ADR ⚠ | Equipo | S | — | |
 | [ ] C5 | ADR del modelo de `identities` y `memberships` (anunciado en `docs/adr/README.md:55`) | ADR ⚠ | Ing. | S | — | |
 | [ ] C6 | Excepción de `node:crypto` en `db/src/migrate.ts` (checksums de migraciones) [V]: aceptarla por escrito o moverla | Decisión | Ing. | S | — | |
@@ -186,7 +186,7 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] G1 | Purga de filas vencidas de `idempotency_keys` y `webauthn_challenges` (incluye un ADR corto sobre el recorrido de organizaciones, `docs/database.md` §7.5) [V] | Código ⚠ + ADR | Ing. | M | B10 | |
-| [ ] G2 | Recuperar a la Raíz sin factores y emitir códigos de emergencia nuevos (mecanismo y runbook) | Código ⚠ | Ing. | M | C3 | |
+| [x] G2 | Recuperar a la Raíz sin factores y emitir códigos de emergencia nuevos (mecanismo y runbook) | Código ⚠ | Ing. | M | C3 | Hecha (2026-10-27): comando `recover-root`, migración 0013, runbook `recover-root.md` (borrador sin ensayar); queda L3 para la caída total |
 | [x] G3 | Reautenticación con código de recuperación y passkey, según la decisión B6 | Código ⚠ | Ing. | M | B6 | Hecha (2026-10-27): endpoints `auth/reauth/passkey/*`, migración 0012, acción de auditoría propia `auth.reauth_failed`, diálogo del frontend con la opción de passkey y pruebas de denegación y de repetición del desafío (6 archivos de prueba, 109 pruebas en verde). Sin ejecutar: la prueba de navegador (`pnpm e2e`) |
 | [ ] G4 | Editar roles personalizados ya creados (A6 del cierre de 1a lo dejó pendiente) | Código ⚠ | Ing. | M | B5 | |
 | [ ] G5 | Avisos de correo que faltan: dispositivo nuevo, uso de código de recuperación y cambios de factores | Código ⚠ | Ing. | M | D7 | |
