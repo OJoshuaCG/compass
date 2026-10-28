@@ -1,8 +1,8 @@
 /**
- * Roles personalizados: listar, crear y archivar.
+ * Roles personalizados: listar, crear, editar y archivar.
  *
  * Invariantes de seguridad
- * - Crear o archivar exige `role.manage`; ver la lista, `user.invite` (quien invita puede adjuntar roles y debe
+ * - Crear, editar o archivar exige `role.manage`; ver la lista, `user.invite` (quien invita puede adjuntar roles y debe
  *   saber cuáles hay; `role.assign` exige reautenticación y no sirve para solo consultar).
  * - No escalamiento: un rol personalizado solo contiene permisos que su creador tiene.
  * - Las plantillas del sistema no se archivan ni se modifican.
@@ -84,6 +84,63 @@ export class ManageRoles {
         metadata: { permissionCount: permissions.length },
       });
       return ok({ id, name, isSystem: false, permissions });
+    });
+  }
+
+  update(
+    roleId: string,
+    input: { readonly name: string; readonly permissions: readonly Permission[] },
+  ): Promise<Result<RoleRecord, DomainError>> {
+    const { context, uow, authorizer, directory, roles, audit } = this.deps;
+    return uow.run(async () => {
+      await authorizer.require({ permission: 'role.manage' });
+      const current = context.current();
+      const actor = current.actorId === null ? null : await directory.findById(current.actorId);
+      if (actor === null) throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
+
+      // Con bloqueo de fila: la comprobación de escalamiento se hace sobre lo que realmente se reemplaza.
+      const role = await roles.findLiveByIdForUpdate(roleId);
+      if (role === null) return err(new DomainError('NOT_FOUND', 'Role not found'));
+      if (role.isSystem) {
+        await authorizer.auditDenial({ code: 'ROLE.SYSTEM_PROTECTED', permission: 'role.manage' });
+        return err(new DomainError('ROLE.SYSTEM_PROTECTED', 'System roles cannot be changed'));
+      }
+
+      const permissions = [...new Set(input.permissions)];
+      const own = effectivePermissions(await roles.rolePermissionsOf(actor.id), actor.rank);
+      // Los titulares ya usan los permisos actuales y recibirán los nuevos al instante (no hay caché),
+      // así que el editor debe tener ambos conjuntos: con solo los nuevos podría tocar un rol que lo supera.
+      const touched = [...new Set<Permission>([...role.permissions, ...permissions])];
+      if (!isSubsetOfCreator(touched, own)) {
+        await authorizer.auditDenial({ code: 'AUTHZ.ROLE_ESCALATION', permission: 'role.manage' });
+        return err(new DomainError('AUTHZ.ROLE_ESCALATION', 'Cannot grant permissions you lack'));
+      }
+
+      const name = input.name.trim();
+      const outcome = await roles.updateCustom({ id: role.id, name, permissions });
+      if (outcome === 'name_taken') {
+        return err(new DomainError('ROLE.NAME_TAKEN', 'A role with that name already exists'));
+      }
+      // Sin filas cambiadas no hay cambio que auditar ni que confirmar al cliente.
+      if (outcome === 'not_found') return err(new DomainError('NOT_FOUND', 'Role not found'));
+      await audit.record({
+        action: 'role.updated',
+        actorId: actor.id,
+        targetType: 'role',
+        targetId: role.id,
+        outcome: 'success',
+        reasonCode: null,
+        ip: null,
+        requestId: current.requestId,
+        metadata: {
+          addedCount: permissions.filter((permission) => !role.permissions.includes(permission))
+            .length,
+          removedCount: role.permissions.filter((permission) => !permissions.includes(permission))
+            .length,
+          renamed: name !== role.name,
+        },
+      });
+      return ok({ id: role.id, name, isSystem: false, permissions });
     });
   }
 

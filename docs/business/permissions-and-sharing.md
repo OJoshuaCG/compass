@@ -15,7 +15,7 @@ Este documento explica cómo el sistema decide si una persona puede hacer algo: 
 | Motor de decisión (organización, sesión, permiso, jerarquía, contexto) | **Funciona.** El paso de compartición llega con la bóveda (fase 1b) |
 | Reautenticación, motivo escrito y auditoría crítica como obligaciones | **El motor las exige.** La reautenticación está disponible con la aplicación autenticadora; el motivo escrito y la auditoría crítica se aplicarán cuando existan las acciones que los usan (revelar, exportar, acceso de emergencia) |
 | Auditoría de negaciones | **Funciona.** Toda negación se registra con su código de motivo, aunque la acción se revierta (ver [ADR 0022](../adr/0022-audit-of-denials-in-independent-transaction.md)) |
-| Roles personalizados (crear, archivar, elegir al invitar) | **Funciona.** Editar un rol ya creado sigue pendiente |
+| Roles personalizados (crear, editar, archivar, elegir al invitar) | **Funciona.** Editar un rol ya creado todavía no tiene pantalla: hoy solo lo permite el servicio |
 | Niveles de compartición, vencimientos, revocación, acceso de emergencia | **Pendiente** (fase 1b y 1c) |
 
 ## Contenido
@@ -131,7 +131,7 @@ Un rol es un conjunto de permisos con nombre, para asignarlos juntos.
 | Tipo | Qué es | ¿Editable? |
 | --- | --- | --- |
 | Plantilla del sistema | Raíz (todos los permisos), Administrador (todos salvo configurar la organización), Líder y Operador (con conjuntos por defecto) | No |
-| Rol personalizado | Creado por quien tenga el permiso de gestionar roles | Se pueden crear y archivar desde la interfaz y elegir al invitar. *Pendiente: editar un rol ya creado* |
+| Rol personalizado | Creado por quien tenga el permiso de gestionar roles | Se pueden crear y archivar desde la interfaz y elegir al invitar; el servicio también permite editarlos. *Pendiente: la pantalla de edición*. Quien edita un rol debe tener todos los permisos que el rol tiene hoy y los que tendrá, porque quienes ya lo tienen los reciben de inmediato |
 
 **Conjuntos que se aplican hoy a Líder y Operador.** El plan solo dice "conjuntos por defecto" sin enumerarlos. La implementación asumió que cada plantilla incluye **todo lo que su rango puede tener**, es decir, todos los permisos cuyo techo alcanza ese rango:
 

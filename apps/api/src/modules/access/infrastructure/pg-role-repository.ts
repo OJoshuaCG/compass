@@ -80,11 +80,46 @@ export class PgRoleRepository implements RoleRepository {
     }
   }
 
+  async updateCustom(input: {
+    id: string;
+    name: string;
+    permissions: readonly Permission[];
+  }): Promise<'updated' | 'name_taken' | 'not_found'> {
+    const client = this.transactions.current();
+    // Savepoint: igual que al insertar, un nombre repetido es un resultado esperado.
+    await client.query('savepoint update_role');
+    try {
+      // `is_system` en el filtro: aunque el caso de uso falle, una plantilla nunca se modifica.
+      const result = await client.query(
+        `update roles set name = $2, permissions = $3, version = version + 1
+          where id = $1 and archived_at is null and not is_system`,
+        [input.id, input.name, [...input.permissions]],
+      );
+      await client.query('release savepoint update_role');
+      return result.rowCount === 0 ? 'not_found' : 'updated';
+    } catch (error) {
+      await client.query('rollback to savepoint update_role');
+      if ((error as { code?: string }).code === '23505') return 'name_taken';
+      throw error;
+    }
+  }
+
   async findLiveById(id: string): Promise<RoleRecord | null> {
     const result = await this.transactions
       .current()
       .query<RoleRow>(
         'select id, name, is_system, permissions from roles where id = $1 and archived_at is null',
+        [id],
+      );
+    const row = result.rows[0];
+    return row === undefined ? null : toRecord(row);
+  }
+
+  async findLiveByIdForUpdate(id: string): Promise<RoleRecord | null> {
+    const result = await this.transactions
+      .current()
+      .query<RoleRow>(
+        'select id, name, is_system, permissions from roles where id = $1 and archived_at is null for update',
         [id],
       );
     const row = result.rows[0];

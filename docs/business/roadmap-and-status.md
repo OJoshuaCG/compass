@@ -110,7 +110,7 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores; no entró en esta entrega |
 | Dominio de envío del correo | Para que las invitaciones lleguen a la bandeja de entrada, el dominio de la organización necesita registros de autenticación del remitente (SPF, DKIM y DMARC) en su configuración de DNS. Es una tarea del equipo, fuera del sistema |
 | Limpieza de datos temporales vencidos | Las claves de la protección contra reintentos y los desafíos de passkeys vencidos aún no se borran (falta una tarea de limpieza). Además, un reintento dentro de las 24 horas no vuelve a comprobar los permisos de quien lo hace |
-| Edición de roles personalizados | Se pueden crear y archivar, pero no editar un rol ya creado |
+| Edición de roles personalizados | El servicio ya permite editar un rol ya creado; falta la pantalla para hacerlo |
 | Transferencia de la Raíz | No existe. Las demás acciones de gestión de personas ya funcionan |
 | Cierre automático de sesiones al cambiar roles y avisos por correo | La acción de cambiar roles aún no existe. Tampoco hay avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores) |
 | Reautenticación con código de recuperación | No está soportada; solo se acepta el código de la aplicación autenticadora |

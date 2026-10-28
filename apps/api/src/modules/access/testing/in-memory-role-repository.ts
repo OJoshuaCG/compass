@@ -56,8 +56,27 @@ export class InMemoryRoleRepository implements RoleRepository {
     return Promise.resolve('inserted');
   }
 
+  updateCustom(input: {
+    id: string;
+    name: string;
+    permissions: readonly Permission[];
+  }): Promise<'updated' | 'name_taken' | 'not_found'> {
+    const existing = this.roles.get(input.id);
+    if (existing === undefined || existing.isSystem) return Promise.resolve('not_found');
+    const taken = [...this.roles.values()].some(
+      (r) => r.id !== input.id && r.name.toLowerCase() === input.name.toLowerCase(),
+    );
+    if (taken) return Promise.resolve('name_taken');
+    this.addRole({ ...existing, name: input.name, permissions: input.permissions });
+    return Promise.resolve('updated');
+  }
+
   findLiveById(id: string): Promise<RoleRecord | null> {
     return Promise.resolve(this.roles.get(id) ?? null);
+  }
+
+  findLiveByIdForUpdate(id: string): Promise<RoleRecord | null> {
+    return this.findLiveById(id);
   }
 
   archive(id: string): Promise<void> {

@@ -149,6 +149,156 @@ describe('custom roles', () => {
   });
 });
 
+describe('editing custom roles', () => {
+  let editable: Role;
+  let ownerOnly: Role;
+
+  it('replaces name and permissions, and audits the change without listing permissions', async () => {
+    editable = (
+      await adminA.client.post<Role>('/roles', {
+        name: 'Editable',
+        permissions: ['credential.create'],
+      })
+    ).body;
+
+    const response = await adminA.client.patch<Role>(`/roles/${editable.id}`, {
+      name: '  Editado  ',
+      permissions: ['account.create', 'account.create'],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ id: editable.id, name: 'Editado', isSystem: false });
+    expect(response.body.permissions).toEqual(['account.create']);
+    const listed = (await adminA.client.get<{ data: Role[] }>('/roles')).body.data;
+    expect(listed.find((r) => r.id === editable.id)?.permissions).toEqual(['account.create']);
+
+    const events = await env.db.admin.query<{ outcome: string; metadata: Record<string, unknown> }>(
+      `select outcome, metadata from audit_events
+        where organization_id = $1 and action = 'role.updated' and target_id = $2`,
+      [orgId, editable.id],
+    );
+    expect(events.rows).toEqual([
+      { outcome: 'success', metadata: { addedCount: 1, removedCount: 1, renamed: true } },
+    ]);
+  });
+
+  it('refuses a name already used by another live role, whatever the case', async () => {
+    const response = await adminA.client.patch<ProblemDetails>(`/roles/${editable.id}`, {
+      name: 'DUEÑO',
+      permissions: ['account.create'],
+    });
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe('ROLE.NAME_TAKEN');
+  });
+
+  it('lets the role keep its own name when only the permissions change', async () => {
+    const response = await adminA.client.patch<Role>(`/roles/${editable.id}`, {
+      name: 'editado',
+      permissions: ['account.create', 'credential.create'],
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it('refuses to add a permission the editor lacks, and audits the denial', async () => {
+    const before = (await audit('authz.denied')).length;
+    const response = await adminA.client.patch<ProblemDetails>(`/roles/${editable.id}`, {
+      name: 'Editado',
+      permissions: ['account.create', 'org.settings'],
+    });
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe('AUTHZ.ROLE_ESCALATION');
+    const denials = await audit('authz.denied');
+    expect(denials.length).toBe(before + 1);
+    expect(denials.at(-1)).toEqual({ outcome: 'denied', reason_code: 'AUTHZ.ROLE_ESCALATION' });
+  });
+
+  it('refuses to edit a role that holds permissions the editor lacks, even to shrink it', async () => {
+    ownerOnly = (
+      await root.client.post<Role>('/roles', {
+        name: 'Solo raíz',
+        permissions: ['org.settings', 'account.create'],
+      })
+    ).body;
+
+    const before = (await audit('authz.denied')).length;
+    const response = await adminA.client.patch<ProblemDetails>(`/roles/${ownerOnly.id}`, {
+      name: 'Solo raíz',
+      permissions: ['account.create'],
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe('AUTHZ.ROLE_ESCALATION');
+    const denials = await audit('authz.denied');
+    expect(denials.length).toBe(before + 1);
+    expect(denials.at(-1)).toEqual({ outcome: 'denied', reason_code: 'AUTHZ.ROLE_ESCALATION' });
+    const stored = (await root.client.get<{ data: Role[] }>('/roles')).body.data.find(
+      (r) => r.id === ownerOnly.id,
+    );
+    expect([...(stored?.permissions ?? [])].sort()).toEqual(['account.create', 'org.settings']);
+  });
+
+  it('cannot be done without role.manage, on system templates or on unknown/archived roles', async () => {
+    const payload = { name: 'Otro', permissions: ['account.create'] };
+    expect((await operator.client.patch(`/roles/${editable.id}`, payload)).status).toBe(403);
+
+    const system = (await adminA.client.get<{ data: Role[] }>('/roles')).body.data.find(
+      (r) => r.isSystem,
+    );
+    const deniedBefore = (await audit('authz.denied')).length;
+    const systemAttempt = await adminA.client.patch<ProblemDetails>(
+      `/roles/${system?.id ?? ''}`,
+      payload,
+    );
+    expect(systemAttempt.status).toBe(403);
+    expect(systemAttempt.body.code).toBe('ROLE.SYSTEM_PROTECTED');
+    const denials = await audit('authz.denied');
+    expect(denials.length).toBe(deniedBefore + 1);
+    expect(denials.at(-1)).toEqual({ outcome: 'denied', reason_code: 'ROLE.SYSTEM_PROTECTED' });
+
+    expect(
+      (await adminA.client.patch('/roles/0194f3a0-0000-7000-8000-000000000000', payload)).status,
+    ).toBe(404);
+    expect((await adminA.client.post(`/roles/${editable.id}/archive`)).status).toBe(204);
+    expect((await adminA.client.patch(`/roles/${editable.id}`, payload)).status).toBe(404);
+  });
+
+  it('does not see or change a role of another organization', async () => {
+    const other = await env.bootstrapOrganization({
+      slug: 'ri-other',
+      rootEmail: 'root@ri-other.test',
+      rootName: 'Grace Hopper',
+    });
+    expect(other.organizationId).not.toBe(orgId);
+    const client = new TestClient(env, '203.0.113.81');
+    await client.post('/auth/login', { email: 'root@ri-other.test', password: STRONG_PASSWORD });
+    const otherRoot = await enroll(env, client);
+
+    const response = await otherRoot.client.patch(`/roles/${ownerOnly.id}`, {
+      name: 'Secuestrado',
+      permissions: ['account.create'],
+    });
+
+    expect(response.status).toBe(404);
+    const stored = (await root.client.get<{ data: Role[] }>('/roles')).body.data.find(
+      (r) => r.id === ownerOnly.id,
+    );
+    expect(stored?.name).toBe('Solo raíz');
+  });
+
+  it('validates the body like creation does', async () => {
+    const empty = await adminA.client.patch(`/roles/${ownerOnly.id}`, {
+      name: 'X',
+      permissions: [],
+    });
+    expect(empty.status).toBe(422);
+    const unknown = await adminA.client.patch(`/roles/${ownerOnly.id}`, {
+      name: 'X',
+      permissions: ['everything.all'],
+    });
+    expect(unknown.status).toBe(422);
+  });
+});
+
 describe('pending invitations and resending', () => {
   let invitation: CreateInvitationResponse;
   let firstToken: string;

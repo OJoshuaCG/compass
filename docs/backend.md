@@ -107,6 +107,7 @@ Endpoints y auditoría añadidos al cerrar la fase 1a (A5, A6 y A7):
 | `POST /users/:id/sessions/revoke` | Cierra todas las sesiones de una persona gestionada. Permiso `user.deactivate`, reglas de jerarquía, Raíz protegida; toma el bloqueo de jerarquía | `user.sessions_revoked` |
 | `GET /roles` | Requiere `user.invite` | — |
 | `POST /roles` | Cuerpo `{name, permissions}`. Permiso `role.manage`. Los permisos deben ser subconjunto de los del creador (`403 AUTHZ.ROLE_ESCALATION`); nombre repetido sin distinguir mayúsculas, `409 ROLE.NAME_TAKEN`. Usa idempotencia | `role.created` |
+| `PATCH /roles/:id` | Cuerpo `{name, permissions}` (reemplazo completo). Permiso `role.manage`. El editor debe tener los permisos que el rol tiene hoy **y** los que quedarán, porque los titulares los reciben al instante (`403 AUTHZ.ROLE_ESCALATION`, con la negación auditada); plantillas del sistema `403 ROLE.SYSTEM_PROTECTED`; rol inexistente o archivado `404`; nombre repetido `409 ROLE.NAME_TAKEN`. Usa idempotencia | `role.updated` (solo conteos de permisos añadidos y quitados y si cambió el nombre) |
 | `POST /roles/:id/archive` | Permiso `role.manage`. Las plantillas del sistema no se archivan (`403 ROLE.SYSTEM_PROTECTED`). Un rol archivado deja de otorgar permisos y no sirve en invitaciones nuevas | `role.archived` |
 | `GET /invitations` | Invitaciones pendientes propias; la Raíz ve todas; marca las vencidas | — |
 | `POST /invitations/:id/resend` | Solo quien la envió o la Raíz. Revoca el enlace anterior, genera token nuevo con 72 h y lo envía por correo. Si la inserción falla, el anterior no queda revocado (retroceso ante conflicto). Usa idempotencia | `user.invitation_resent` |
@@ -279,7 +280,7 @@ Orden efectivo en la fase 1a: límite por dirección de red, protección CSRF, g
 
 #### 7.2.1 Idempotencia
 
-- Las peticiones `POST` que crean recursos exigen la cabecera `Idempotency-Key` (8 a 200 caracteres: letras, dígitos y `. _ : -`). Hoy se aplica a `POST /invitations`, `POST /invitations/:id/resend` y `POST /roles`. El cliente web ya la envía.
+- Las peticiones `POST` que crean recursos exigen la cabecera `Idempotency-Key` (8 a 200 caracteres: letras, dígitos y `. _ : -`). Hoy se aplica a `POST /invitations`, `POST /invitations/:id/resend`, `POST /roles` y `PATCH /roles/:id`. El cliente web ya la envía.
 - La respuesta se guarda 24 horas por organización, actor y clave (tabla `idempotency_keys`). Un reintento con la misma clave y la misma petición devuelve la misma respuesta con la cabecera `Idempotent-Replayed: true` y sin crear nada de nuevo.
 - Errores: misma clave con otra petición, `422 IDEMPOTENCY.KEY_REUSED`; clave ausente o inválida, `422 IDEMPOTENCY.KEY_REQUIRED`; petición original aún en curso, `409 IDEMPOTENCY.IN_PROGRESS`.
 - La reserva dura 1 minuto, para que una petición caída no bloquee la clave durante un día. La toma de una reserva vencida es atómica y una petición original lenta no puede sobrescribir a un dueño más reciente. Si guardar la respuesta falla después del *commit*, la clave no se libera.
@@ -476,7 +477,7 @@ Pendientes de la fase 1a:
 - [ ] **Guard de permisos** como primera barrera (§7.2).
 - [x] **Comando de operaciones** para dar de alta una organización y registrar el alta en la auditoría (A3), ahora también con los códigos de emergencia.
 - [x] **Gestión de personas** (A1) y **gestión de sesiones propias y ajenas** (A5): hechas. Sigue pendiente transferir la Raíz.
-- [x] **Roles personalizados e invitaciones** (A6): crear y archivar roles, elegirlos al invitar y reenviar invitaciones. Sigue pendiente editar un rol ya creado.
+- [x] **Roles personalizados e invitaciones** (A6): crear, editar y archivar roles, elegirlos al invitar y reenviar invitaciones. La edición existe en la API (G4); la pantalla para editar aún no.
 
 Pendientes de fases posteriores:
 

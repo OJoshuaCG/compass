@@ -24,7 +24,21 @@ export interface RoleRepository {
     readonly permissions: readonly Permission[];
     readonly createdBy: UserId;
   }): Promise<'inserted' | 'name_taken'>;
+  /**
+   * Reemplaza nombre y permisos de un rol personalizado vigente. `name_taken` si otro vigente ya usa el
+   * nombre; `not_found` si ya no hay un rol personalizado vigente con ese id (p. ej. se archivó antes).
+   */
+  updateCustom(input: {
+    readonly id: string;
+    readonly name: string;
+    readonly permissions: readonly Permission[];
+  }): Promise<'updated' | 'name_taken' | 'not_found'>;
   findLiveById(id: string): Promise<RoleRecord | null>;
+  /**
+   * Como `findLiveById`, pero bloquea la fila hasta el fin de la transacción: la edición decide sobre los
+   * permisos actuales y nadie puede archivarlos ni cambiarlos entre la comprobación y la escritura.
+   */
+  findLiveByIdForUpdate(id: string): Promise<RoleRecord | null>;
   archive(id: string, at: Date): Promise<void>;
   assign(userId: UserId, roleId: string, grantedBy: UserId): Promise<void>;
 }

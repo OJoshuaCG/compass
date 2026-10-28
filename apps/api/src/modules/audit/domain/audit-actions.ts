@@ -10,6 +10,7 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'user.invited': ['rank', 'roleCount'],
   'user.invitation_resent': ['rank', 'roleCount'],
   'role.created': ['permissionCount'],
+  'role.updated': ['addedCount', 'removedCount', 'renamed'],
   'role.archived': [],
   'user.deactivated': ['rotationTasks', 'reassignedReports'],
   'user.suspended': [],

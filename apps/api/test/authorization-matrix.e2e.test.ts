@@ -70,6 +70,7 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
 
   'GET /roles': 'full-session',
   'POST /roles': 'full-session',
+  'PATCH /roles/:id': 'full-session',
   'POST /roles/:id/archive': 'full-session',
 
   'GET /invitations': 'full-session',

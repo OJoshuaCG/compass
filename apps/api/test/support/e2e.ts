@@ -129,7 +129,7 @@ export class TestClient {
   ) {}
 
   async request<T = unknown>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH',
     url: string,
     payload?: unknown,
     headers: Record<string, string> = {},
@@ -140,8 +140,8 @@ export class TestClient {
       ...(payload === undefined ? {} : { payload: payload as object }),
       remoteAddress: this.ip,
       headers: {
-        // Como el cliente real: cada POST lleva una clave de idempotencia nueva salvo que se indique.
-        ...(method === 'POST'
+        // Como el cliente real: cada escritura lleva una clave de idempotencia nueva salvo que se indique.
+        ...(method !== 'GET'
           ? { 'x-requested-with': 'test', origin: APP_ORIGIN, 'idempotency-key': randomUUID() }
           : {}),
         ...(this.cookie === null ? {} : { cookie: `__Host-session=${this.cookie}` }),
@@ -162,6 +162,8 @@ export class TestClient {
   get = <T = unknown>(url: string) => this.request<T>('GET', url);
   post = <T = unknown>(url: string, payload?: unknown, headers?: Record<string, string>) =>
     this.request<T>('POST', url, payload ?? {}, headers);
+  patch = <T = unknown>(url: string, payload?: unknown, headers?: Record<string, string>) =>
+    this.request<T>('PATCH', url, payload ?? {}, headers);
 }
 
 export interface EnrolledSession {

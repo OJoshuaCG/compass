@@ -1,6 +1,6 @@
-import { createRoleRequestSchema } from '@iam/contracts';
-import type { CreateRoleRequest, Role } from '@iam/contracts';
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { createRoleRequestSchema, updateRoleRequestSchema } from '@iam/contracts';
+import type { CreateRoleRequest, Role, UpdateRoleRequest } from '@iam/contracts';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { z } from 'zod';
 
 import { Idempotent, unwrap } from '../../../shared/http/http-decorators.js';
@@ -30,6 +30,15 @@ export class RolesController {
     @Body(new ZodValidationPipe(createRoleRequestSchema)) body: CreateRoleRequest,
   ): Promise<Role> {
     return toRole(unwrap(await this.manageRoles.create(body)));
+  }
+
+  @Idempotent()
+  @Patch(':id')
+  async update(
+    @Param('id', new ZodValidationPipe(z.uuid())) id: string,
+    @Body(new ZodValidationPipe(updateRoleRequestSchema)) body: UpdateRoleRequest,
+  ): Promise<Role> {
+    return toRole(unwrap(await this.manageRoles.update(id, body)));
   }
 
   @Post(':id/archive')

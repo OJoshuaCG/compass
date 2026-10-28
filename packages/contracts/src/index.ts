@@ -75,8 +75,8 @@ export type {
 export { sessionSummarySchema } from './sessions.js';
 export type { SessionSummary } from './sessions.js';
 
-export { createRoleRequestSchema, roleSchema } from './roles.js';
-export type { CreateRoleRequest, Role } from './roles.js';
+export { createRoleRequestSchema, roleSchema, updateRoleRequestSchema } from './roles.js';
+export type { CreateRoleRequest, Role, UpdateRoleRequest } from './roles.js';
 export { pendingInvitationSchema } from './invitations.js';
 export type { PendingInvitation } from './invitations.js';
 
