@@ -1,6 +1,6 @@
 # ADR 0023: Advisory lock de auditoría y transacciones largas
 
-- **Estado**: Aceptada (2026-10-27). La implementación del `lock_timeout` y de la medición de latencia queda pendiente (ver "Pendiente")
+- **Estado**: Aceptada (2026-10-27). `lock_timeout` implementado el 2026-10-27 (G6); la medición de latencia queda pendiente (ver "Pendiente")
 - **Fecha**: 2026-10-26 (propuesta) · 2026-10-27 (aceptada)
 - **Referencias**: [`plan.md`](../../plan.md) sección "Auditoría" (escritura serializada por organización mediante advisory lock); [`docs/backend.md`](../backend.md) §5.2 y §16; [ADR 0016](0016-append-only-audit-hash-chain.md); [ADR 0022](0022-audit-of-denials-in-independent-transaction.md).
 
@@ -31,8 +31,8 @@ Se acepta la **opción 1**. En el código ya es así por diseño: el lock se tom
 
 - **Positivas**: la ventana de serialización queda acotada y medible; la cadena sigue sin bifurcarse.
 - **Negativas o costos**: el orden de pasos dentro del caso de uso se vuelve parte del contrato (el lock va al final); hay que manejar el timeout (falla cerrada de la acción).
-- **Pendiente** (ninguno está implementado hoy; no existe `lock_timeout` en `apps/` ni en `db/`):
-  - Implementar el `lock_timeout` y el error de dominio, con su prueba. Toca auditoría, una ruta protegida: requiere encargo humano.
+- **Implementado (2026-10-27, G6)**: `lock_timeout` de 5 s local a la transacción en `PgAuditEventRepository`; el 55P03 se traduce a `AUDIT.LOCK_TIMEOUT` (503), con prueba de integración. El límite no se restablece: el evento debe seguir siendo lo último que escribe cada caso de uso.
+- **Pendiente**:
   - Medir con transacciones concurrentes la latencia p95 de las acciones sensibles para confirmar o ajustar los 5 s. Ya existe la prueba de no bifurcación (`db/tests/audit.test.ts`), pero no mide latencia.
-  - Revisar que `DeactivateUser` cumpla la regla 1 (no se verificó al aceptar este ADR).
+  - `DeactivateUser` cumple la regla 1 (verificado el 2026-10-27: la auditoría es el último paso; el bloqueo de jerarquía es un lock aparte y temprano).
   - Decidir cómo se agrupan las negaciones repetidas para que una ráfaga no sature el lock de la organización (el ADR 0022 lo deja abierto).

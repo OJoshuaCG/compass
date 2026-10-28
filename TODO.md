@@ -107,7 +107,7 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 | [x] B2 | Límite de revelaciones por usuario y hora (el plan dice 30), qué alerta se emite al superarlo y su canal | ADR ⚠ | Dueño | S | — | ADR 0031: 30/h por usuario, conteo desde auditoría con lock por usuario, aviso a la Raíz |
 | [x] B3 | Reglas del motivo escrito al revelar: longitud mínima, texto libre o lista cerrada | Decisión ⚠ | Dueño | S | — | Lista cerrada de categorías obligatoria + texto corto (10–200) con aviso "no pegues secretos"; ver `docs/handoff.md` §5 |
 | [x] B4 | Índice ciego: derivarlo de la DEK (obliga a reindexar en cada rotación) o de una clave estable por organización [V: `plan.md:434`] | ADR ⚠ | Ing. | S | — | ADR 0032: se mantiene derivado de la DEK; clave estable queda como plan B |
-| [x] B5 | Permisos por defecto de Líder y Operador. Hoy un Operador puede revelar contraseñas y compartir, lo que anula "USE no revela" | Decisión ⚠ | Dueño | S | — | Operador sin `credential.reveal_password`; compartir solo a nivel MANAGE (ya vigente); ver handoff §5 |
+| [x] B5 | Permisos por defecto de Líder y Operador. Hoy un Operador puede revelar contraseñas y compartir, lo que anula "USE no revela" | Decisión ⚠ | Dueño | S | — | Operador sin `credential.reveal_password`; compartir solo a nivel MANAGE (ya vigente); ver handoff §5. Código aplicado 2026-10-27; falta sincronizar el rol de organizaciones ya creadas |
 | [x] B6 | Reautenticación: ¿acepta código de recuperación y passkey, además de TOTP? Quien perdió su app queda bloqueado para revelar y exportar | ADR ⚠ | Dueño | S | — | ADR 0033: TOTP o passkey; nunca código de recuperación |
 | [x] B7 | Biblioteca para leer códigos QR en el navegador. Dependencia nueva: versión exacta y espera de 7 días | Decisión | Equipo | S | — | jsQR (versión exacta, espera de 7 días, import dinámico en la ruta de registro 2FA); sin aprobar aún la dependencia |
 | [x] B8 | Recorte de la primera entrega de 2FA: ¿clave manual e imagen primero, y diferir captura de pestaña, Google Authenticator y entrega por celular? (el ADR 0017 fija cinco métodos) [S] | Decisión | Dueño | S | — | v1: clave manual, imagen y captura de pestaña; Google Authenticator y celular a v1.1; enmienda al ADR 0017 |
@@ -187,10 +187,10 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] G1 | Purga de filas vencidas de `idempotency_keys` y `webauthn_challenges` (incluye un ADR corto sobre el recorrido de organizaciones, `docs/database.md` §7.5) [V] | Código ⚠ + ADR | Ing. | M | B10 | |
 | [ ] G2 | Recuperar a la Raíz sin factores y emitir códigos de emergencia nuevos (mecanismo y runbook) | Código ⚠ | Ing. | M | C3 | |
-| [ ] G3 | Reautenticación con código de recuperación y passkey, según la decisión B6 | Código ⚠ | Ing. | M | B6 | |
+| [~] G3 | Reautenticación con código de recuperación y passkey, según la decisión B6 | Código ⚠ | Ing. | M | B6 | Servidor hecho (2026-10-27): endpoints `auth/reauth/passkey/*`, migración 0012, pruebas e2e. Falta: diálogo del frontend, más pruebas de denegación/repetición y acción de auditoría propia para el fallo (hoy usa `auth.mfa_failed`) |
 | [ ] G4 | Editar roles personalizados ya creados (A6 del cierre de 1a lo dejó pendiente) | Código ⚠ | Ing. | M | B5 | |
 | [ ] G5 | Avisos de correo que faltan: dispositivo nuevo, uso de código de recuperación y cambios de factores | Código ⚠ | Ing. | M | D7 | |
-| [ ] G6 | Cumplir el ADR 0023: implementar el `lock_timeout` de 5 s con falla cerrada y error de dominio (con su prueba), medir la latencia p95 de las acciones sensibles con escritores concurrentes, revisar que `DeactivateUser` escriba la auditoría al final y decidir la agrupación de negaciones repetidas (ADR 0022) | Código ⚠ | Ing. | M | B1 | |
+| [ ] G6 | Cumplir el ADR 0023: implementar el `lock_timeout` de 5 s con falla cerrada y error de dominio (con su prueba), medir la latencia p95 de las acciones sensibles con escritores concurrentes, revisar que `DeactivateUser` escriba la auditoría al final y decidir la agrupación de negaciones repetidas (ADR 0022) | Código ⚠ | Ing. | M | B1 | `lock_timeout` hecho (2026-10-27, con prueba). Falta: latencia p95, agrupación de negaciones (ADR 0022); `DeactivateUser` verificado: la auditoría es el último paso |
 
 ## H · Infraestructura base
 

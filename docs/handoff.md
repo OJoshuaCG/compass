@@ -125,13 +125,13 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 
 | Tema | Hoy | Pregunta |
 | --- | --- | --- |
-| Permisos por defecto de Líder y Operador | **Decidido 2026-10-27 (B5):** el Operador pierde `credential.reveal_password` por defecto (defensa en profundidad: revelar exige además una compartición VIEW); compartir ya exige nivel MANAGE. Los roles personalizados pueden volver a otorgarlo | Falta aplicarlo en `system-roles.ts` (ruta protegida: encargo humano) y subir `SYSTEM_ROLES_VERSION` |
+| Permisos por defecto de Líder y Operador | **Decidido 2026-10-27 (B5):** el Operador pierde `credential.reveal_password` por defecto (defensa en profundidad: revelar exige además una compartición VIEW); compartir ya exige nivel MANAGE. Los roles personalizados pueden volver a otorgarlo | **Aplicado en código** (`system-roles.ts`, `SYSTEM_ROLES_VERSION = 2`). Falta sincronizar el rol Operador de las organizaciones ya creadas: nada compara la versión y la tabla `roles` tiene RLS forzado, así que requiere una vía de aislamiento con encargo humano |
 | Responsable de la persona invitada | Siempre quien invita | El plan sugiere que quien invita lo define |
-| Reautenticación | **Decidido 2026-10-27 ([ADR 0033](adr/0033-reauthentication-totp-and-passkey.md)):** TOTP o passkey; nunca el código de recuperación | Implementar en la tarea G3 |
+| Reautenticación | **Decidido 2026-10-27 ([ADR 0033](adr/0033-reauthentication-totp-and-passkey.md)):** TOTP o passkey; nunca el código de recuperación | **Implementado en el servidor** (`POST /auth/reauth/passkey/options` y `/verify`, migración 0012). Falta el diálogo de reautenticación del frontend con passkey; sin pruebas e2e de navegador |
 | Archivar un rol personalizado | Un rol archivado deja de otorgar sus permisos y no sirve en invitaciones nuevas | ¿Es el efecto deseado sobre quien ya lo tenía asignado? |
 | Directorio visible | Muestra nombre, correo y rango; solo personas activas | ¿Rango visible o solo nombre y correo? |
 | Índice ciego derivado de la clave de datos | **Decidido 2026-10-27 ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)):** se mantiene derivado de la DEK; el recálculo va en el job de recifrado | Clave estable por organización queda como plan B |
-| ADR 0023 (bloqueo de auditoría) | Aceptado el 2026-10-27; falta implementar el `lock_timeout` | Implementarlo con encargo humano (ruta protegida) |
+| ADR 0023 (bloqueo de auditoría) | Aceptado el 2026-10-27; `lock_timeout` de 5 s con falla cerrada implementado (`AUDIT.LOCK_TIMEOUT`, 503). Faltan medir la latencia p95 y decidir la agrupación de negaciones | Medir p95 con escritores concurrentes; el evento de auditoría debe seguir siendo lo último de cada caso de uso |
 | ADR 0024 (retención de auditoría) | Propuesto, sin decidir | Decidir antes de la auditoría con retención (fase 1c) |
 | Versión de PostgreSQL | Pruebas con la 17 | ¿Pasar a la 18 (identificadores ordenables nativos)? |
 | Proveedor de inicio de sesión único sobre Fastify | Sin probar | Hacer una prueba corta antes de la fase 2 |

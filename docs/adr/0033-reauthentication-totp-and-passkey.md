@@ -1,6 +1,6 @@
 # ADR 0033: Reautenticación con TOTP o passkey
 
-- **Estado**: Aceptada (2026-10-27). La implementación queda pendiente (tarea G3)
+- **Estado**: Aceptada (2026-10-27). Servidor implementado el 2026-10-27 (tarea G3); falta el diálogo del frontend
 - **Fecha**: 2026-10-27
 - **Referencias**: [ADR 0028](0028-passkeys-optional-enforcement-later.md); [ADR 0027](0027-emergency-codes-root-reset-model.md); `apps/api/src/modules/identity/` (`second-factor.ts`, `reauthenticate`).
 
@@ -23,4 +23,4 @@ Las acciones sensibles piden reautenticar. Hoy `reauthenticate` acepta solo un c
 
 - **Positivas**: coherencia con el modelo de passkeys opcionales.
 - **Negativas**: dos rutas de verificación que probar; el desafío WebAuthn debe ir ligado a la sesión (ADR 0030).
-- **Pendiente**: implementar en G3 (ruta protegida: encargo humano) con matriz de autorización.
+- **Pendiente**: diálogo del frontend y matriz de autorización completa (denegaciones y repetición de desafío).

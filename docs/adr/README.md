@@ -1,6 +1,6 @@
 # Registro de decisiones de arquitectura (ADR)
 
-Una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias (regla de [`plan.md`](../../plan.md), sección "Comentarios y documentación"). Los ADR 0001 a 0020 son las decisiones cerradas de la tabla "Decisiones cerradas (ADR)" del plan y numeran igual que allí (001 a 020). Los ADR 0021 a 0024 nacieron como huecos detectados al analizar el plan (ver [`docs/backend.md`](../backend.md) §16). Con la fase 1a, el 0021 y el 0022 pasaron a **Aceptada (implementada en la fase 1a)**; el 0023 se aceptó el 2026-10-27 (su `lock_timeout` sigue sin implementar) y el 0024 sigue en **Propuesta** y no se implementa hasta aceptarse. Los ADR 0025 a 0030 se escribieron al implementar la fase 1a y nacen **Aceptada**.
+Una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias (regla de [`plan.md`](../../plan.md), sección "Comentarios y documentación"). Los ADR 0001 a 0020 son las decisiones cerradas de la tabla "Decisiones cerradas (ADR)" del plan y numeran igual que allí (001 a 020). Los ADR 0021 a 0024 nacieron como huecos detectados al analizar el plan (ver [`docs/backend.md`](../backend.md) §16). Con la fase 1a, el 0021 y el 0022 pasaron a **Aceptada (implementada en la fase 1a)**; el 0023 se aceptó el 2026-10-27 (su `lock_timeout` se implementó ese mismo día) y el 0024 sigue en **Propuesta** y no se implementa hasta aceptarse. Los ADR 0025 a 0030 se escribieron al implementar la fase 1a y nacen **Aceptada**.
 Plantilla: [`template.md`](template.md).
 
 ## Decisiones cerradas
@@ -42,7 +42,7 @@ Plantilla: [`template.md`](template.md).
 | [0030](0030-session-bound-webauthn-challenges.md) | Desafíos de WebAuthn ligados a la sesión | Aceptada |
 | [0031](0031-reveal-rate-limit-per-user.md) | Límite de revelaciones por usuario | Aceptada (implementación pendiente) |
 | [0032](0032-blind-index-derived-from-dek.md) | Índice ciego derivado de la clave de datos | Aceptada |
-| [0033](0033-reauthentication-totp-and-passkey.md) | Reautenticación con TOTP o passkey (amplía el 0028) | Aceptada (implementación pendiente) |
+| [0033](0033-reauthentication-totp-and-passkey.md) | Reautenticación con TOTP o passkey (amplía el 0028) | Aceptada (servidor implementado; falta el diálogo del frontend) |
 | [0034](0034-totp-generator-in-api-process.md) | Generador de TOTP en el proceso de la API, aislado antes de producción | Aceptada (aislamiento pendiente, N4) |
 | [0035](0035-transactional-outbox-for-events.md) | Eventos mediante bandeja de salida transaccional | Aceptada (implementación pendiente) |
 | [0036](0036-effective-access-computed-on-the-fly.md) | Acceso efectivo calculado al vuelo | Aceptada |
@@ -51,7 +51,7 @@ Plantilla: [`template.md`](template.md).
 
 | ADR | Tema | Estado | Se necesita antes de |
 | --- | --- | --- | --- |
-| [0023](0023-audit-advisory-lock-and-long-transactions.md) | Advisory lock de auditoría y transacciones largas | Aceptada (2026-10-27; `lock_timeout` pendiente de implementar) | Fase 1b (primeras acciones sensibles concurrentes) |
+| [0023](0023-audit-advisory-lock-and-long-transactions.md) | Advisory lock de auditoría y transacciones largas | Aceptada (2026-10-27; `lock_timeout` implementado, medición p95 pendiente) | Fase 1b (primeras acciones sensibles concurrentes) |
 | [0024](0024-audit-retention-vs-revoke-delete.md) | Retención de auditoría frente a `REVOKE DELETE` | Propuesta | Fase 1c (auditoría con retención) |
 
 Las fases indicadas son una recomendación de este registro, no una decisión del plan.
