@@ -134,7 +134,7 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 | [x] C3 | ADR de recuperación de la Raíz que pierde contraseña y factores, y de emisión de códigos de emergencia nuevos | ADR ⚠ | Dueño | M | — | ADR 0037 (2026-10-27): comando de operaciones con control dual de los custodios A y B; aceptado por delegación del dueño |
 | [ ] C4 | ADR de correos duplicados entre organizaciones: el correo es único global y no hay política (`plan.md:192`) [V] | ADR ⚠ | Equipo | S | — | |
 | [ ] C5 | ADR del modelo de `identities` y `memberships` (anunciado en `docs/adr/README.md:55`) | ADR ⚠ | Ing. | S | — | |
-| [ ] C6 | Excepción de `node:crypto` en `db/src/migrate.ts` (checksums de migraciones) [V]: aceptarla por escrito o moverla | Decisión | Ing. | S | — | |
+| [x] C6 | Excepción de `node:crypto` en `db/src/migrate.ts` (checksums de migraciones) [V]: aceptarla por escrito o moverla | Decisión | Ing. | S | — | Decidido (2026-10-28): se acepta. Es una huella SHA-256 de integridad sobre SQL público, sin secretos, y la regla de lint de `node:crypto` solo rige en `apps/api`; el porqué queda como comentario en `checksumOf`. Moverla al módulo de criptografía acoplaría el migrador a la API sin ganar seguridad. |
 | [ ] C7 | Presupuesto y proveedor de la prueba de intrusión externa | Decisión | Dueño | S | — | |
 | [ ] C8 | Identidad de las dos personas que custodian los códigos de emergencia | Decisión | Dueño | S | — | |
 | [ ] C9 | Política de retención de auditoría y versiones de secretos, validada con el área legal | Decisión | Dueño | M | — | |
