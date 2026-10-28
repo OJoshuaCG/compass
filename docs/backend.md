@@ -128,6 +128,20 @@ Endpoints y auditoría añadidos con A2 (passkeys) y A3 (códigos de emergencia)
 
 Decisión del dueño (2026-10-27): solo quienes custodian los códigos pueden restablecer la Raíz; ningún Administrador puede hacerlo, solo recibe la alerta. Limitación: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema; falta un procedimiento de operaciones.
 
+**Módulo `vault` (fase 1b, porción B1a: cuentas).** Cada acción pide dos llaves: el permiso del catálogo y el nivel efectivo sobre esa cuenta (vista `effective_access`, calculada en SQL; ADR 0010 y 0036). El rango nunca concede acceso a una cuenta. Sin acceso se responde `NOT_FOUND`, igual que si no existiera; con nivel insuficiente, `AUTHZ.SHARE` (403) y la negación se audita con el id de la cuenta. Editar y archivar bloquean primero la fila de la cuenta y después leen el nivel, para no decidir con un nivel vencido mientras se espera el bloqueo.
+
+| Endpoint | Permiso y nivel | Auditoría |
+| --- | --- | --- |
+| `GET /platforms` | Persona activa | — |
+| `GET /accounts` | Persona activa; solo cuentas con acceso efectivo | — |
+| `GET /accounts/inventory` | `vault.inventory.read`; solo metadatos, no concede acceso | — |
+| `GET /accounts/:id` | Cualquier nivel | — |
+| `POST /accounts` | `account.create`; quien crea recibe MANAGE directo en la misma transacción | `account.created` |
+| `PATCH /accounts/:id` | `account.update` y EDIT | `account.updated` (solo nombres de campos) |
+| `POST /accounts/:id/archive` | `account.archive` y MANAGE; revoca todas las comparticiones vivas (las filas se conservan con su fecha) | `account.archived` (con el número de comparticiones revocadas) |
+
+Los listados usan paginación por cursor ordenada por nombre en minúsculas e id (índice de la migración 0016); un cursor alterado devuelve la primera página.
+
 ### 3.7 Flujo de una petición autenticada
 
 1. La petición llega con la cookie de sesión. Los proveedores globales se evalúan en este orden: límite por dirección de red (solo en las rutas marcadas), protección CSRF (cabecera personalizada y verificación de `Origin` en las peticiones que modifican) y guard de sesión.

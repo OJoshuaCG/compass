@@ -218,7 +218,7 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
 | [x] I1 | Criterios de aceptación medibles para las subtareas de la bóveda en `odd/tasks/phase-1b-vault.md` (I2, K1, K2, M1, M2, N1 a N3, O1, O2): rendimiento del listado por acceso efectivo, qué ve quien tiene `inventory`, efecto de archivar una cuenta, duración y desbloqueo tras superar el límite de revelaciones, y el umbral de latencia del acceso efectivo que decide si se materializa (ADR 0036). Añadir el ADR 0023 como prerrequisito | Doc | Equipo | S | B1, B2, B5 | Escrito en `odd/tasks/phase-1b-vault.md` (prerrequisitos y criterios). Las cifras marcadas "propuesta" (volumen de prueba, p95 150/300 ms, 10 códigos por minuto, concurrencia 20→5) las debe confirmar el equipo antes de empezar I2 |
-| [ ] I2 | **B1 del plan:** acceso efectivo y cuentas. Catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo y pantalla de cuentas | Código ⚠ | — | M | I1, B1, B5, B11 | |
+| [ ] I2 | **B1 del plan:** acceso efectivo y cuentas. Catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo y pantalla de cuentas | Código ⚠ | — | M | I1, B1, B5, B11 | Backend hecho (2026-10-28, módulo `vault`, migración 0016): jueces ciegos, mutación detectada y p95 del listado ≈ 16 ms con el volumen del plan (ADR 0036, no se materializa). Falta: pantalla de cuentas; revisión humana de las pruebas de autorización (`vault-accounts.e2e.test.ts`, entradas de la matriz) y del cambio aditivo `targetAccountId` en el autorizador (ruta protegida) |
 
 ---
 

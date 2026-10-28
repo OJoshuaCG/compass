@@ -20,6 +20,10 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'user.rank_changed': ['fromRank', 'toRank'],
   'user.manager_changed': ['newManagerId'],
   'authz.denied': ['permission', 'resourceType', 'suppressedCount'],
+  // Cuentas de la bóveda. `revokedShares`: comparticiones que se cerraron al archivar.
+  'account.created': ['platformId', 'hasOwnerGroup'],
+  'account.updated': ['changedFields'],
+  'account.archived': ['revokedShares'],
   'credential.revealed': ['reason'],
   'credential.totp_code_issued': [],
   'credential.totp_exported': ['reason'],

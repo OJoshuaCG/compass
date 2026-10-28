@@ -29,7 +29,7 @@ Cada porción es vertical (casos de uso + API + pantalla + pruebas + documentaci
 
 | ID | Specs | Ruta | Estado |
 | --- | --- | --- | --- |
-| B1 Acceso efectivo y cuentas: catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo, pantalla de cuentas | S4 (motor), S5, S6, S8 (listado) | pendiente | pendiente |
+| B1 Acceso efectivo y cuentas: catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo, pantalla de cuentas | S4 (motor), S5, S6, S8 (listado) | directa | backend hecho (2026-10-28); pantalla pendiente |
 | B2 Credenciales: crear, cambiar contraseña con versiones y huella, historial sin contenido, copiar usuario; revelar contraseña con reautenticación, motivo, límite por hora y `no-store`; pantalla de detalle con ocultado a los 30 s | S1, S2, S3, S5, S7 | pendiente | pendiente |
 | B3 Compartición y grupos: compartir y revocar por persona y por grupo, caducidad, no compartir más de lo propio, tarea de rotación al revocar tras una revelación, pantalla de compartir | S4 | pendiente | pendiente |
 | B4 2FA en servidor: `RegisterTotpSecret` (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen; pantallas | S9, S10, S12, S13 | pendiente | pendiente |
@@ -95,6 +95,8 @@ Las cifras marcadas como **propuesta** son un punto de partida para que el equip
 - Motivo escrito en revelar: longitud mínima y si es texto libre o lista cerrada (el plan solo dice "motivo").
 
 ## Log
+
+- B1a (2026-10-28): Backend de cuentas hecho: catálogo de plataformas, listado por acceso efectivo, inventario (`vault.inventory.read`), consultar, crear (con MANAGE directo para quien crea), editar (EDIT) y archivar (MANAGE, revoca las comparticiones en la misma transacción). Dos llaves: permiso del catálogo y nivel efectivo sobre la cuenta; sin acceso responde `NOT_FOUND`, con nivel insuficiente `AUTHZ.SHARE` auditado con el id de la cuenta. Editar y archivar bloquean la fila antes de leer el nivel (los dos jueces ciegos señalaron la carrera); mutación comprobada (sin el chequeo de nivel fallan dos pruebas). Medición p95 del listado con 5 000 cuentas, ~20 000 comparticiones y 200 grupos (490 cuentas visibles): ≈ 16 ms en la primera página y en una página profunda, muy por debajo de 150 ms; no se materializa (ADR 0036). Migración 0016 (índice del orden del listado). Pendiente de esta porción: pantalla de cuentas (B1b), revisión humana de las pruebas de autorización y del cambio aditivo en el autorizador (`targetAccountId`), y que la tarea de rotación al revocar llega con B3.
 
 - I1 (2026-10-28): Añadidos prerrequisitos (ADR 0023, 0031, 0036) y criterios de aceptación medibles por porción. Los umbrales numéricos son propuestas pendientes de confirmar por el equipo; el umbral de latencia p95 del acceso efectivo decide si se materializa (ADR 0036).
 

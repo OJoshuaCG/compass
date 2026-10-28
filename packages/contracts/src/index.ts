@@ -88,6 +88,21 @@ export {
 } from './passkeys.js';
 export type { Passkey, PasskeyLoginRequest, RegisterPasskeyRequest } from './passkeys.js';
 export {
+  SHARE_LEVELS,
+  accountSchema,
+  createAccountRequestSchema,
+  platformSchema,
+  shareLevelSchema,
+  updateAccountRequestSchema,
+} from './accounts.js';
+export type {
+  Account,
+  CreateAccountRequest,
+  Platform,
+  ShareLevel,
+  UpdateAccountRequest,
+} from './accounts.js';
+export {
   dataKeyRotationReasonSchema,
   dataKeyRotationSchema,
   rotateDataKeyRequestSchema,

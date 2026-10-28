@@ -74,6 +74,14 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'POST /organization/data-key/rotate': 'full-session',
   'POST /roles/:id/archive': 'full-session',
 
+  'GET /platforms': 'full-session',
+  'GET /accounts': 'full-session',
+  'GET /accounts/inventory': 'full-session',
+  'GET /accounts/:id': 'full-session',
+  'POST /accounts': 'full-session',
+  'PATCH /accounts/:id': 'full-session',
+  'POST /accounts/:id/archive': 'full-session',
+
   'GET /invitations': 'full-session',
   'POST /invitations': 'full-session',
   'POST /invitations/:id/resend': 'full-session',

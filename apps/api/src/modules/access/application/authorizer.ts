@@ -120,6 +120,7 @@ export class Authorizer {
     readonly code: ErrorCode;
     readonly permission: Permission;
     readonly targetUserId?: UserId;
+    readonly targetAccountId?: string;
   }): Promise<void> {
     await this.recordDenial(input);
   }
@@ -128,6 +129,7 @@ export class Authorizer {
     readonly code: ErrorCode;
     readonly permission: Permission | typeof DIRECTORY_VIEW;
     readonly targetUserId?: UserId;
+    readonly targetAccountId?: string;
   }): Promise<void> {
     const { audit, context, independently, denialGrouper } = this.deps;
     const current = context.current();
@@ -138,22 +140,30 @@ export class Authorizer {
       code: input.code,
       permission: input.permission,
       targetUserId: input.targetUserId ?? null,
+      targetAccountId: input.targetAccountId ?? null,
     };
     const grouping = denialGrouper.decide(groupKey);
     if (!grouping.record) return;
+    // Una negación apunta a un usuario o a una cuenta, nunca a ambos.
+    const targetType =
+      input.targetUserId !== undefined
+        ? 'user'
+        : input.targetAccountId !== undefined
+          ? 'account'
+          : null;
     const recorded = await independently(async () => {
       return audit.record({
         action: 'authz.denied',
         actorId: current.actorId,
-        targetType: input.targetUserId === undefined ? null : 'user',
-        targetId: input.targetUserId ?? null,
+        targetType,
+        targetId: input.targetUserId ?? input.targetAccountId ?? null,
         outcome: 'denied',
         reasonCode: input.code,
         ip: null,
         requestId: current.requestId,
         metadata: {
           permission: input.permission,
-          resourceType: input.targetUserId === undefined ? 'none' : 'user',
+          resourceType: targetType ?? 'none',
           // Solo cuando hubo repeticiones agrupadas desde el evento anterior de esta clave.
           ...(grouping.suppressedCount > 0 ? { suppressedCount: grouping.suppressedCount } : {}),
         },

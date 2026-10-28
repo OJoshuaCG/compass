@@ -58,6 +58,7 @@ import {
 } from '../modules/identity/index.js';
 import type { Argon2Params } from '../modules/identity/index.js';
 import type { Mailer } from '../modules/notification/index.js';
+import { ManageAccounts, PgAccountRepository } from '../modules/vault/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
 import type { Clock } from '../shared/kernel/index.js';
 import { AsyncLocalRequestContext } from '../shared/infrastructure/async-local-request-context.js';
@@ -199,6 +200,15 @@ export function buildContainer(options: ContainerOptions) {
       authorizer,
       directory,
       roles,
+      ids,
+      audit,
+      clock,
+    }),
+    manageAccounts: new ManageAccounts({
+      context: requestContext,
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
       ids,
       audit,
       clock,

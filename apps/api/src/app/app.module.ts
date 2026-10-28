@@ -27,6 +27,11 @@ import {
 } from '../modules/identity/index.js';
 import { AuthController, MeController } from '../modules/identity/interface/auth.controller.js';
 import { InvitationsController } from '../modules/identity/interface/invitations.controller.js';
+import { ManageAccounts } from '../modules/vault/index.js';
+import {
+  AccountsController,
+  PlatformsController,
+} from '../modules/vault/interface/accounts.controller.js';
 import { CsrfGuard } from '../shared/http/csrf.guard.js';
 import { RateLimitGuard } from '../shared/http/rate-limit.guard.js';
 import {
@@ -71,6 +76,7 @@ export class AppModule {
       { provide: ResendInvitation, useValue: container.resendInvitation },
       { provide: ManageRoles, useValue: container.manageRoles },
       { provide: RotateDataKey, useValue: container.rotateDataKey },
+      { provide: ManageAccounts, useValue: container.manageAccounts },
       { provide: IdempotencyService, useValue: container.idempotency },
       { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
@@ -85,6 +91,8 @@ export class AppModule {
         RolesController,
         DataKeyController,
         UsersController,
+        PlatformsController,
+        AccountsController,
       ],
       providers,
     };
