@@ -30,6 +30,14 @@ const audit = async (action: string) =>
     )
   ).rows;
 
+// El auditor agrupa las negaciones idénticas dentro de 60 s (ADR 0022); el reloj de pruebas solo
+// avanza con los códigos TOTP, así que estas pruebas lo mueven para que cada negación quede como
+// evento propio y se pueda contar.
+const DENIAL_GROUPING_WINDOW_MS = 61_000;
+const leaveDenialGroupingWindow = (): void => {
+  env.clock.advance(DENIAL_GROUPING_WINDOW_MS);
+};
+
 const preview = (token: string) =>
   new TestClient(env, '198.51.100.99').post<ProblemDetails>('/invitations/preview', { token });
 
@@ -201,6 +209,7 @@ describe('editing custom roles', () => {
 
   it('refuses to add a permission the editor lacks, and audits the denial', async () => {
     const before = (await audit('authz.denied')).length;
+    leaveDenialGroupingWindow();
     const response = await adminA.client.patch<ProblemDetails>(`/roles/${editable.id}`, {
       name: 'Editado',
       permissions: ['account.create', 'org.settings'],
@@ -221,6 +230,7 @@ describe('editing custom roles', () => {
     ).body;
 
     const before = (await audit('authz.denied')).length;
+    leaveDenialGroupingWindow();
     const response = await adminA.client.patch<ProblemDetails>(`/roles/${ownerOnly.id}`, {
       name: 'Solo raíz',
       permissions: ['account.create'],
@@ -245,6 +255,7 @@ describe('editing custom roles', () => {
       (r) => r.isSystem,
     );
     const deniedBefore = (await audit('authz.denied')).length;
+    leaveDenialGroupingWindow();
     const systemAttempt = await adminA.client.patch<ProblemDetails>(
       `/roles/${system?.id ?? ''}`,
       payload,
