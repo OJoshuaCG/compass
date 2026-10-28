@@ -84,7 +84,7 @@ Cubren lo que los lectores de esta revisión **no** alcanzaron a verificar. Cada
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] A1 | Línea base: ejecutar formato, compilación, tipos, lint y pruebas (y `pnpm e2e`) y registrar resultado y fecha. Nadie lo ha comprobado en esta revisión. Requiere permiso expreso para correr pruebas | Verificación | Ing. | S | — | |
+| [~] A1 | Línea base: ejecutar formato, compilación, tipos, lint y pruebas (y `pnpm e2e`) y registrar resultado y fecha. **2026-10-27, Node 24.22.1:** `format:check`, `build`, `typecheck` y `lint` en verde; `pnpm test` en verde (1.052 pruebas: api 612, web 295, db 55, ui 60, i18n 17, contracts 13). **Falta `pnpm e2e`:** el equipo no tiene Google Chrome (`/opt/google/chrome/chrome`), es un fallo de entorno, no de código. Se cierra al instalar Chrome y correrlo | Verificación | Ing. | S | — | Claude |
 | [ ] A2 | Revisar `SessionService.authenticate`: expiración, rotación y estado del usuario (suspendido o desactivado) | Verificación ⚠ | Ing. | S | — | |
 | [ ] A3 | Revisar los filtros de jerarquía en `pg-user-directory.ts` y en `ListManaged`, y si `ListDirectory` valida el estado del actor [S] | Verificación ⚠ | Ing. | S | — | |
 | [ ] A4 | Confirmar qué cuerpos guarda `idempotency_keys` y que ninguna respuesta con secretos se almacene | Verificación ⚠ | Ing. | S | — | |
