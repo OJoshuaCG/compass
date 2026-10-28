@@ -29,9 +29,11 @@ Tipo de documento: referencia para quien opera o amplía el sistema.
 
 ### Redacción
 
-- Se redactan, a profundidad 0, 1 y 2, las claves `password`, `secret`, `token`, `totp`, `code`, `authorization`, `cookie`, `ciphertext` y `wrapped_dek`.
+- Se redacta toda propiedad cuya clave contenga una palabra sensible (`password`, `secret`, `token`, `totp`, `otp`, `code`, `cookie`, `authorization`, `ciphertext`, `dek`, `seed`, entre otras), sea cual sea la forma de escribirla: `newPassword`, `x-csrf-token`, `APIToken`, `accesstoken`. Se recorren objetos, arreglos, instancias de clase y el resultado de `toJSON`, hasta profundidad 8; lo que esté más hondo se descarta como `[Truncated]`.
+- Los datos binarios (`Buffer`, arreglos tipados) nunca se escriben: salen como `[Binary]`. Los `child()` también se redactan.
 - Se redactan además las cabeceras `authorization`, `cookie` y `set-cookie`, y **todo** el cuerpo de la petición.
-- **Límite conocido (D4):** la redacción depende de los nombres de clave y de una profundidad máxima de 2. Un secreto en una clave con otro nombre, o más profundo, no se redacta. El transporte de correo de desarrollo registra el enlace con su token; solo lo protege el bloqueo que impide usarlo en producción.
+- Claves de diagnóstico como `statusCode` o `errorCode` se dejan legibles a propósito.
+- **Límites conocidos (D4):** la redacción mira el nombre de la clave, no el contenido. Un secreto dentro de un texto (`/ruta?token=abc`, `password=abc`) o en las propiedades extra de un `Error` no se redacta. El transporte de correo de desarrollo registra el enlace con su token; solo lo protege el bloqueo que impide usarlo en producción.
 
 ### Lo que nunca debe aparecer
 
