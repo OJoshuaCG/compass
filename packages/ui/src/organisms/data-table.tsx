@@ -134,10 +134,14 @@ export function DataTable<T extends object>({
   const busy = status === 'loading' || refreshing;
 
   return (
-    <div className={cn('rounded-lg border border-border-strong bg-surface', className)}>
+    <div className={cn('rounded-lg border border-border bg-surface shadow-card', className)}>
       {toolbar !== undefined ? <div className="border-b border-border p-3">{toolbar}</div> : null}
-      {/* Scroll horizontal contenido en la tabla, no en la página; enfocable para teclado. */}
-      <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto">
+      {/*
+        Scroll horizontal contenido en la tabla, no en la página; enfocable para teclado.
+        `relative` contiene al caption `sr-only` (posición absoluta): sin él, el caption se ancla
+        al documento y lo ensancha en móvil aunque sea invisible.
+      */}
+      <div role="region" aria-label={caption} tabIndex={0} className="relative overflow-x-auto">
         <table
           aria-busy={busy}
           className={cn('w-full text-sm tabular-nums', refreshing && 'opacity-70')}

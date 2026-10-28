@@ -38,7 +38,7 @@ export function ConfirmDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-canvas/80" />
+        <Dialog.Overlay className="fixed inset-0 bg-text/40" />
         <Dialog.Content className="fixed inset-x-4 top-1/2 mx-auto max-w-md -translate-y-1/2 rounded-lg border border-border-strong bg-overlay p-6 shadow-overlay">
           <Dialog.Title className="font-heading text-lg text-text">{title}</Dialog.Title>
           <Dialog.Description className="mt-2 text-sm text-text-secondary">

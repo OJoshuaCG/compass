@@ -1,46 +1,59 @@
 @import 'tailwindcss';
 
 /*
- * Tokens globales del tema oscuro "carbón" (docs/frontend.md §4.1).
+ * Tokens globales del tema claro "Compass" sobre la paleta azul de CIROX (docs/frontend.md §4.1).
  * Único punto de verdad de colores, formas y movimiento: los componentes solo usan
  * utilidades semánticas. Al añadir un color se mide su contraste y se actualiza §4.2.
  */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Superficies (de más profundo a más elevado) */
-  --color-canvas: #0f1114;
-  --color-surface: #16191d;
-  --color-raised: #1c2025;
-  --color-overlay: #23282f;
+  /* Superficies: fondo de página, tarjetas, realce (hover, fila activa) y capas */
+  --color-canvas: #f2f5fb;
+  --color-surface: #ffffff;
+  --color-raised: #e8f0fa;
+  --color-overlay: #ffffff;
 
   /* Texto */
-  --color-text: #e8eaed;
-  --color-text-secondary: #a8afba;
-  --color-text-muted: #8b93a0;
-  --color-text-disabled: #69717d;
+  --color-text: #0f1f3d;
+  --color-text-secondary: #374151;
+  --color-text-muted: #5a6475;
+  --color-text-disabled: #7c8594;
 
   /* Bordes */
-  --color-border: #2a2f37; /* separadores decorativos */
-  --color-border-strong: #454d59; /* tarjetas, tablas */
-  --color-border-input: #656e7a; /* controles interactivos (>=3:1) */
+  --color-border: #e5e7eb; /* separadores decorativos */
+  --color-border-strong: #c3ccd9; /* tarjetas, tablas */
+  --color-border-input: #6b7280; /* controles interactivos (>=3:1) */
 
   /* Marca y estados */
-  --color-accent: #6aa6ff;
-  --color-accent-solid: #2f6fe0;
-  --color-accent-solid-hover: #2563c9;
+  --color-accent: #1956b0;
+  --color-accent-solid: #2d6bcb;
+  --color-accent-solid-hover: #1956b0;
   --color-on-accent: #ffffff;
-  --color-success: #4cc49a;
-  --color-warning: #e8b04a;
-  --color-danger: #ff7a85;
-  --color-danger-solid: #c93843;
-  --color-focus: #6aa6ff;
+  --color-success: #137238;
+  --color-warning: #a14a0b;
+  --color-danger: #b91c1c;
+  --color-danger-solid: #c62f3a;
+  --color-focus: #1956b0;
+
+  /* Fondos suaves de estado (círculos de íconos); el color del estado sobre ellos >=4.5:1 */
+  --color-success-soft: #e1f3e7;
+  --color-warning-soft: #fdf1dc;
+  --color-danger-soft: #fde8e8;
+
+  /* Navegación y pantallas de acceso: azul marino de la marca con texto claro */
+  --color-nav: #0c3572;
+  --color-nav-raised: #1e4a8a; /* elemento activo o con hover */
+  --color-nav-text: #ffffff;
+  --color-nav-text-muted: #c8def5;
+  --color-nav-focus: #a3c6ee;
 
   /* Forma y movimiento */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
-  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.45);
+  --shadow-card: 0 4px 16px rgb(15 31 61 / 0.08);
+  --shadow-overlay: 0 8px 32px rgb(15 31 61 / 0.16);
   --duration-fast: 120ms;
   --duration-base: 200ms;
 }
@@ -67,16 +80,25 @@
   --color-accent-solid-hover: var(--color-accent-solid-hover);
   --color-on-accent: var(--color-on-accent);
   --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-danger-soft: var(--color-danger-soft);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
   --color-danger-solid: var(--color-danger-solid);
   --color-focus: var(--color-focus);
+  --color-nav: var(--color-nav);
+  --color-nav-raised: var(--color-nav-raised);
+  --color-nav-text: var(--color-nav-text);
+  --color-nav-text-muted: var(--color-nav-text-muted);
+  --color-nav-focus: var(--color-nav-focus);
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-heading: 'Space Grotesk Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
+  --shadow-card: var(--shadow-card);
   --shadow-overlay: var(--shadow-overlay);
 }
 
@@ -85,12 +107,12 @@
     @apply bg-canvas font-sans text-text;
   }
 
-  /* Los encabezados usan Space Grotesk; los componentes no repiten la clase. */
+  /* Encabezados en negrita y con interletrado cerrado; los componentes no repiten la clase. */
   h1,
   h2,
   h3,
   h4 {
-    @apply font-heading;
+    @apply font-heading font-bold tracking-tight;
     line-height: 1.25;
   }
 

@@ -47,8 +47,8 @@ function token(name: string): string {
 const SURFACES = ['canvas', 'surface', 'raised'] as const;
 
 describe('design tokens', () => {
-  it('declares dark color-scheme and the heading font in the base layer', () => {
-    expect(css).toMatch(/color-scheme:\s*dark/);
+  it('declares light color-scheme and the heading font in the base layer', () => {
+    expect(css).toMatch(/color-scheme:\s*light/);
     expect(css).toMatch(/h1,[\s\S]*h4\s*\{[^}]*@apply font-heading/);
     expect(css).toMatch(/@theme inline/);
   });
@@ -75,6 +75,11 @@ describe('design tokens', () => {
       'danger',
       'danger-solid',
       'focus',
+      'nav',
+      'nav-raised',
+      'nav-text',
+      'nav-text-muted',
+      'nav-focus',
     ]) {
       expect(tokens, name).toHaveProperty(name);
     }
@@ -112,6 +117,20 @@ describe('design tokens', () => {
     expect(contrast(token('on-accent'), token('accent-solid'))).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token('on-accent'), token('accent-solid-hover'))).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token('on-accent'), token('danger-solid'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each([
+    ['success', 'success-soft'],
+    ['warning', 'warning-soft'],
+    ['danger', 'danger-soft'],
+  ])('status color %s stays readable on its soft background %s', (fg, bg) => {
+    expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  describe.each(['nav', 'nav-raised'] as const)('on the %s navigation background', (background) => {
+    it.each(['nav-text', 'nav-text-muted', 'nav-focus'])('%s reaches 4.5:1', (name) => {
+      expect(contrast(token(name), token(background))).toBeGreaterThanOrEqual(4.5);
+    });
   });
 
   it('strong borders of tables and cards stay distinguishable from surfaces (decorative border excluded)', () => {

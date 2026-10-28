@@ -28,7 +28,7 @@ Esta guía describe reglas y decisiones; no incluye código. El catálogo de com
 | Íconos | `lucide-react` | Siempre con texto o etiqueta accesible |
 | Tablas | `@tanstack/react-table` (modo manual) | Solo lógica; el diseño es nuestro |
 | Variantes de componentes | `class-variance-authority`, `clsx`, `tailwind-merge` | Una utilidad común para combinar clases en `shared/lib` |
-| Fuentes | Google Fonts: Inter, Space Grotesk, JetBrains Mono, vía `@fontsource-variable/*` | Mismas fuentes de Google, servidas desde nuestro origen (CSP sin terceros) |
+| Fuentes | Google Fonts: Inter y JetBrains Mono, vía `@fontsource-variable/*` | Mismas fuentes de Google, servidas desde nuestro origen (CSP sin terceros) |
 
 > **Estado de dependencias:** instaladas con versión exacta y lockfile, como el resto del monorepo. En `packages/ui`: `@tanstack/react-table`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` y cinco paquetes de Radix (diálogo, menú, selector, ranura y información emergente). En `apps/web`: las tres familias `@fontsource-variable/*`, `@simplewebauthn/browser` (passkeys), `qrcode` (dibujar el código QR del registro del segundo factor), `react-hook-form` con `@hookform/resolvers`, TanStack Query y Router, `i18next` y `react-i18next`. Sigue sin instalarse `i18next-icu` (ver §10). El registro de la aprobación humana de cada una no está en el repositorio: confirmar con el equipo.
 
@@ -92,60 +92,80 @@ Se verifica con `eslint-plugin-boundaries` y dependency-cruiser en CI, igual que
 
 Todos los tokens viven en el archivo de tokens de `packages/ui` (ver nota de §3.1). Los componentes usan **solo** utilidades semánticas (superficie, texto secundario), nunca un color literal ni la paleta por defecto de Tailwind.
 
-Paleta "carbón": casi negro con un leve matiz frío, sin llegar a negro puro. Los contrastes están medidos con la fórmula WCAG 2.x. Tailwind consume cada token mediante el bloque de tema del CSS; las tres familias tipográficas y los tres radios también se publican como tokens.
+Paleta "Compass": tema claro sobre la escala azul de CIROX (sistema de diseño de INBTEL). Fondo gris azulado, tarjetas blancas, texto azul marino y la navegación en azul marino profundo. Los contrastes están medidos con la fórmula WCAG 2.x. Tailwind consume cada token mediante el bloque de tema del CSS; las familias tipográficas, los radios y las sombras también se publican como tokens.
 
-**Superficies** (de más profundo a más elevado)
+**Superficies**
 
-| Token | Valor |
-| --- | --- |
-| canvas | `#0f1114` |
-| surface | `#16191d` |
-| raised | `#1c2025` |
-| overlay | `#23282f` |
+| Token | Valor | Uso |
+| --- | --- | --- |
+| canvas | `#f2f5fb` | Fondo de página |
+| surface | `#ffffff` | Tarjetas, tablas, barra superior |
+| raised | `#e8f0fa` | Hover, fila o elemento activo |
+| overlay | `#ffffff` | Diálogos y menús (se separan con sombra) |
 
 **Texto**
 
 | Token | Valor |
 | --- | --- |
-| text | `#e8eaed` |
-| text-secondary | `#a8afba` |
-| text-muted | `#8b93a0` |
-| text-disabled | `#69717d` |
+| text | `#0f1f3d` |
+| text-secondary | `#374151` |
+| text-muted | `#5a6475` |
+| text-disabled | `#7c8594` |
 
 **Bordes**
 
 | Token | Valor | Uso |
 | --- | --- | --- |
-| border | `#2a2f37` | Separadores decorativos |
-| border-strong | `#454d59` | Tarjetas y tablas |
-| border-input | `#656e7a` | Controles interactivos (contraste mínimo de 3:1) |
+| border | `#e5e7eb` | Separadores decorativos |
+| border-strong | `#c3ccd9` | Tarjetas y tablas |
+| border-input | `#6b7280` | Controles interactivos (contraste mínimo de 3:1) |
 
 **Marca y estados**
 
 | Token | Valor |
 | --- | --- |
-| accent | `#6aa6ff` |
-| accent-solid | `#2f6fe0` |
-| accent-solid-hover | `#2563c9` |
+| accent | `#1956b0` |
+| accent-solid | `#2d6bcb` |
+| accent-solid-hover | `#1956b0` |
 | on-accent | `#ffffff` |
-| success | `#4cc49a` |
-| warning | `#e8b04a` |
-| danger | `#ff7a85` |
-| danger-solid | `#c93843` |
-| focus | `#6aa6ff` |
+| success | `#137238` |
+| warning | `#a14a0b` |
+| danger | `#b91c1c` |
+| danger-solid | `#c62f3a` |
+| focus | `#1956b0` |
+
+**Fondos suaves de estado** (círculos de íconos; el color del estado sobre ellos llega a 4.5:1)
+
+| Token | Valor | Contraste del estado encima |
+| --- | --- | --- |
+| success-soft | `#e1f3e7` | success 5.2 |
+| warning-soft | `#fdf1dc` | warning 5.4 |
+| danger-soft | `#fde8e8` | danger 5.5 |
+
+**Navegación** (barra lateral y pantallas de acceso)
+
+| Token | Valor | Uso |
+| --- | --- | --- |
+| nav | `#0c3572` | Fondo de la barra lateral y de las pantallas de acceso |
+| nav-raised | `#1e4a8a` | Elemento activo o con hover, avatar |
+| nav-text | `#ffffff` | Texto principal sobre nav |
+| nav-text-muted | `#c8def5` | Enlaces inactivos y etiquetas sobre nav |
+| nav-focus | `#a3c6ee` | Contorno de foco dentro de la navegación |
 
 **Forma y movimiento**
 
 | Token | Valor |
 | --- | --- |
 | radio pequeño / medio / grande | 0.375 rem / 0.5 rem / 0.75 rem |
-| sombra de capas superpuestas | desplazamiento vertical de 8 px, desenfoque de 24 px, negro con 45 % de opacidad |
+| sombra de tarjeta | desplazamiento vertical de 4 px, desenfoque de 16 px, azul marino con 8 % de opacidad |
+| sombra de capas superpuestas | desplazamiento vertical de 8 px, desenfoque de 32 px, azul marino con 16 % de opacidad |
 | duración rápida / base | 120 ms / 200 ms |
-| esquema de color del navegador | oscuro |
+| esquema de color del navegador | claro |
 
 Reglas:
 
-- **Un solo juego de valores oscuros** (decisión del plan). No hay variantes por modo ni modo claro; las variables permiten cambiar la paleta en un solo archivo.
+- **Un solo juego de valores claros.** La decisión original del plan era un tema oscuro único; se cambió por el tema claro del diseño de Compass (prototipo en Claude Design con el sistema CIROX). Sigue sin haber variantes por modo; las variables permiten cambiar la paleta en un solo archivo.
+- La navegación es la única zona oscura: dentro de ella el foco usa nav-focus, porque el foco general (azul) no contrasta con el fondo marino.
 - Para añadir un color nuevo: se agrega el token, se mide el contraste y se documenta aquí.
 - Valores arbitrarios de Tailwind (anchos o tamaños sueltos) prohibidos salvo justificación en un comentario. Lint con `eslint-plugin-tailwindcss` (aprobación pendiente).
 
@@ -153,32 +173,32 @@ Reglas:
 
 | Token | canvas | surface | raised | Uso |
 | --- | --- | --- | --- | --- |
-| text | 15.7 | 14.6 | 13.6 | Texto principal |
-| text-secondary | 8.6 | 8.0 | 7.4 | Texto de apoyo |
-| text-muted | 6.1 | 5.7 | 5.3 | Metadatos, placeholders |
-| accent | 7.7 | 7.1 | 6.6 | Enlaces, foco |
-| success / warning / danger | ≥7.5 / ≥8.4 / ≥6.5 | | | Texto de estado |
-| border-input | 3.7 | 3.4 | 3.2 | Bordes de controles (WCAG 1.4.11, ≥3:1) |
-| text-disabled | 3.8 | 3.6 | 3.3 | Solo controles inactivos |
+| text | 15.0 | 16.4 | 14.2 | Texto principal |
+| text-secondary | 9.4 | 10.3 | 9.0 | Texto de apoyo |
+| text-muted | 5.5 | 6.0 | 5.2 | Metadatos, placeholders |
+| accent | 6.4 | 7.0 | 6.1 | Enlaces, foco |
+| success / warning / danger | ≥5.2 / ≥5.2 / ≥5.6 | | | Texto de estado |
+| border-input | 4.4 | 4.8 | 4.2 | Bordes de controles (WCAG 1.4.11, ≥3:1) |
+| text-disabled | 3.4 | 3.7 | 3.2 | Solo controles inactivos |
 
-- Botón sólido: blanco sobre accent-solid = 4.7; sobre danger-solid = 5.1.
+- Botón sólido: blanco sobre accent-solid = 5.2; sobre danger-solid = 5.4.
+- Navegación (sobre nav / nav-raised): nav-text 11.9 / 8.7; nav-text-muted 8.6 / 6.3; nav-focus 6.7 / 4.9.
 - **Decisión documentada:** text-disabled queda por debajo de 4.5 porque WCAG exime a los controles inactivos, y bajar el contraste es lo que los hace verse deshabilitados. Nunca se usa para información que el usuario deba leer; el estado se refuerza con los atributos de accesibilidad de deshabilitado, el cursor y, si hace falta, texto.
 - Una prueba automática recorre los pares anteriores y falla si alguno baja del umbral (ver sección 11).
 
 ### 4.3 Tipografía
 
-Tres familias de Google Fonts, cada una con un papel fijo:
+Dos familias de Google Fonts, cada una con un papel fijo:
 
 | Papel | Fuente | Dónde se usa |
 | --- | --- | --- |
-| Principal | **Inter** | Cuerpo, formularios, tablas, botones |
-| Encabezados | **Space Grotesk** | Títulos de nivel 1 a 4, títulos de página y de tarjeta, cifras destacadas |
+| Principal y encabezados | **Inter** | Cuerpo, formularios, tablas, botones; títulos de nivel 1 a 4 en negrita con interletrado cerrado |
 | Monoespaciada | **JetBrains Mono** | Códigos TOTP, claves, identificadores, identificador de petición, fragmentos de auditoría |
 
-Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene cifras tabulares; Space Grotesk aporta el toque tecnológico solo donde se ve poco texto (encabezados), sin cansar en párrafos; JetBrains Mono distingue bien caracteres ambiguos (0/O, 1/l), clave para leer secretos y códigos.
+Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene cifras tabulares; en negrita cubre los encabezados con el mismo tono que el diseño de Compass (que usa DM Sans, muy parecida; se mantuvo Inter para no añadir dependencias). JetBrains Mono distingue bien caracteres ambiguos (0/O, 1/l), clave para leer secretos y códigos. El token de fuente de encabezados se conserva y hoy apunta a Inter.
 
 - **Se sirven desde nuestro origen, no desde los servidores de Google.** Son las mismas fuentes de Google, empaquetadas con `@fontsource-variable/*`. Cargarlas desde el CDN de Google exigiría abrir las políticas de estilos y fuentes a terceros y filtraría la IP de cada usuario, lo que choca con la CSP estricta del plan (fuentes solo del propio origen).
-- Los títulos de nivel 1 a 4 usan la fuente de encabezados desde los estilos base; los componentes no lo repiten en cada uso. El resto del texto hereda la fuente principal.
+- Los títulos de nivel 1 a 4 usan la fuente y el peso de encabezados desde los estilos base; los componentes no lo repiten en cada uso. El resto del texto hereda la fuente principal.
 - Fuentes variables (un archivo `woff2` por familia). Se muestra texto alternativo mientras carga; precarga solo de Inter, que es la que pinta el primer contenido.
 - Se importa solo el subconjunto latino (cubre español e inglés) para reducir peso.
 - Cifras alineadas en tablas y códigos TOTP: cifras tabulares.
@@ -356,7 +376,7 @@ Todo lo del plan, convertido en reglas verificables:
 - Partición de código **por ruta**; el login no descarga la bóveda.
 - Presupuesto inicial de JavaScript (comprimido) a fijar en la fase 0 y vigilado en CI (propuesta de partida: 200 KB en la ruta de entrada). Un PR que lo supere explica por qué.
 - Sin listas virtualizadas: la paginación del servidor acota las filas (máximo 100).
-- Fuentes: un solo archivo variable por familia (Inter, Space Grotesk, JetBrains Mono), subconjunto latino y texto alternativo mientras cargan. Solo Inter se precarga; las otras dos cargan al necesitarse.
+- Fuentes: un solo archivo variable por familia (Inter y JetBrains Mono), subconjunto latino y texto alternativo mientras cargan. Solo Inter se precarga; JetBrains Mono carga al necesitarse.
 - Imágenes e íconos: SVG en línea mediante `lucide-react` (se importa solo lo usado, sin importar el paquete completo).
 
 ## 13. Accesibilidad

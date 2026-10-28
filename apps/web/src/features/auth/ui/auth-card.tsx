@@ -9,7 +9,7 @@ export type AuthCardProps = {
 /** Marco común de las pantallas de acceso: un único `h1` y el contenido en una tarjeta. */
 export function AuthCard({ title, description, children }: AuthCardProps) {
   return (
-    <section className="flex flex-col gap-6 rounded-lg border border-border-strong bg-surface p-6">
+    <section className="flex flex-col gap-6 rounded-lg bg-surface p-6 shadow-overlay sm:p-8">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl text-text">{title}</h1>
         {description !== undefined ? (

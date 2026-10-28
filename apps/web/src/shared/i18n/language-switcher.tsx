@@ -5,13 +5,18 @@ import { useTranslation } from 'react-i18next';
 
 import { changeLocale } from './setup';
 
-/** Selector de idioma es-MX / en-US. Recuerda la elección (ver `locale-storage`). */
-export function LanguageSwitcher() {
+/**
+ * Selector de idioma es-MX / en-US. Recuerda la elección (ver `locale-storage`).
+ * `inverse` aclara la etiqueta para fondos azul marino (pantallas de acceso).
+ */
+export function LanguageSwitcher({ inverse = false }: { inverse?: boolean }) {
   const { t, i18n } = useTranslation('common');
   const id = useId();
   const current = isLocale(i18n.language) ? i18n.language : LOCALES[0];
   return (
-    <div className="flex items-center gap-2 text-sm text-text-secondary">
+    <div
+      className={`flex items-center gap-2 text-sm ${inverse ? 'text-nav-text-muted' : 'text-text-secondary'}`}
+    >
       <label htmlFor={id}>{t('language.label')}</label>
       <NativeSelect
         id={id}

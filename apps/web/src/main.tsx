@@ -1,7 +1,6 @@
 // Fuentes autoalojadas (misma tipografía de Google, sin terceros: CSP `font-src 'self'`).
 import '@fontsource-variable/inter/wght.css';
 import '@fontsource-variable/jetbrains-mono/wght.css';
-import '@fontsource-variable/space-grotesk/wght.css';
 import './shared/styles/base.css';
 
 import { StrictMode } from 'react';

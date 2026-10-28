@@ -15,6 +15,7 @@ import { HomePage } from '../routes/home-page';
 import { NotFoundPage, RootNotFound } from '../routes/not-found-page';
 import { PublicLayout } from '../routes/public-layout';
 import { RootLayout } from '../routes/root-layout';
+import { vaultPreviewSearchSchema } from '../routes/vault-preview-search';
 import {
   invitationSearchSchema,
   mfaSearchSchema,
@@ -133,6 +134,23 @@ const catalogRoute = createRoute({
   component: lazyRouteComponent(loadCatalog, 'CatalogRoutePage'),
 });
 
+// Vista previa de la bóveda (diseño de Compass con datos ficticios), también solo en desarrollo:
+// la bóveda real es la fase 1b y llegará con su API (B01). En producción responde 404.
+const loadVaultPreview = import.meta.env.DEV
+  ? () => import('../routes/vault-preview-route-page')
+  : () => Promise.resolve({ VaultPreviewRoutePage: NotFoundPage });
+
+const vaultPreviewRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/vault',
+  validateSearch: vaultPreviewSearchSchema,
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    if (!import.meta.env.DEV) throw notFound();
+  },
+  component: lazyRouteComponent(loadVaultPreview, 'VaultPreviewRoutePage'),
+});
+
 // Rutas en código (sin file-based routing): el árbol es explícito y revisable.
 const routeTree = rootRoute.addChildren([
   publicLayout.addChildren([
@@ -149,6 +167,7 @@ const routeTree = rootRoute.addChildren([
     securityRoute,
     rolesRoute,
     catalogRoute,
+    vaultPreviewRoute,
   ]),
 ]);
 

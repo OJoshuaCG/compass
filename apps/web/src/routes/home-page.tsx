@@ -1,7 +1,5 @@
-import { PageHeader } from '@iam/ui';
-import { useTranslation } from 'react-i18next';
+import { HomePage as HomeScreen } from '../features/home';
 
 export function HomePage() {
-  const { t } = useTranslation('common');
-  return <PageHeader title={t('home.title')} description={t('home.description')} />;
+  return <HomeScreen />;
 }
