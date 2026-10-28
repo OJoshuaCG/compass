@@ -37,6 +37,57 @@ Cada porción es vertical (casos de uso + API + pantalla + pruebas + documentaci
 | B6 Búsqueda avanzada, índice ciego por usuario y vistas guardadas | S8 | pendiente | pendiente |
 | B7 Importación CSV | S14 | pendiente | pendiente |
 
+## Prerrequisitos
+
+- [ADR 0023](../../docs/adr/0023-audit-advisory-lock-and-long-transactions.md) (bloqueo de auditoría): toda acción de la bóveda escribe auditoría en su transacción, y revelar una contraseña toma además el bloqueo por usuario del [ADR 0031](../../docs/adr/0031-reveal-rate-limit-per-user.md) antes que el de auditoría. Ninguna porción de esta fase empieza sin el `lock_timeout` de 5 s y la falla cerrada ya implementados (G6) y sin medir la latencia p95 de la auditoría que el ADR deja pendiente.
+- [ADR 0036](../../docs/adr/0036-effective-access-computed-on-the-fly.md) (acceso efectivo al vuelo): el umbral de la sección siguiente decide si se materializa.
+- Decisiones B1, B2 y B5 de `TODO.md` (cerradas): lock de auditoría, límite de 30 revelaciones por hora y Operador sin `credential.reveal_password`.
+
+## Criterios de aceptación medibles
+
+Las cifras marcadas como **propuesta** son un punto de partida para que el equipo las confirme o las cambie antes de empezar la porción; una porción no se da por terminada sin cumplir las suyas. Las demás salen de los specs o de los ADR citados.
+
+**Acceso efectivo y cuentas (I2, ADR 0036).**
+
+- Con el volumen de prueba de **propuesta** (1 organización, 5 000 cuentas, 20 000 comparticiones, 200 grupos, una persona con 500 cuentas visibles), el listado paginado de 50 cuentas filtrado por acceso efectivo tarda **p95 ≤ 150 ms** medido en la base, sin contar la red.
+- Si p95 supera **300 ms** con ese volumen, se abre la decisión de materializar la vista (ADR 0036) antes de seguir con K2 y O1; entre 150 y 300 ms se anota y se vigila.
+- El listado nunca devuelve una cuenta sin acceso efectivo, una compartición revocada o vencida, ni una cuenta de un grupo archivado; una prueba por cada caso lo comprueba con el reloj controlado.
+- Quien tiene `vault.inventory.read` (Raíz y Administradores) ve en el inventario los metadatos de **todas** las cuentas de su organización, aunque no tenga compartición, y nunca un secreto ni su existencia como credencial revelable. No gana por ello USE, VIEW ni ninguna otra acción sobre la cuenta (ADR 0010). Una prueba comprueba que desde el inventario revelar, copiar usuario y pedir un código responden `403`.
+- Archivar una cuenta (`account.archive`) revoca todas sus comparticiones en la misma transacción, la saca del listado y del inventario por defecto, conserva sus secretos cifrados y deja un evento de auditoría; una prueba comprueba que ninguna persona la revela ni genera códigos después, y que la fila y sus versiones siguen en la base.
+
+**Credenciales y compartición (K1, K2, M2).**
+
+- Cambiar la contraseña crea una versión nueva sin borrar la anterior; el historial devuelve versiones, fechas y autor, y **ningún campo con contenido** (una prueba recorre la respuesta buscando el texto de la contraseña).
+- Compartir un nivel superior al propio responde `403 AUTHZ.ROLE_ESCALATION` o su equivalente de compartición, con la negación auditada.
+- Revocar una compartición tiene efecto en la **siguiente petición** de la persona afectada (sin esperar caché ni expiración de sesión); si esa persona reveló la contraseña antes, queda registrada una tarea de rotación consultable.
+- Restaurar una versión (M2) crea una versión nueva con el contenido de la elegida; no reescribe el historial y exige EDIT.
+
+**Revelar contraseña (M1, ADR 0031).**
+
+- La respuesta lleva `Cache-Control: no-store`, el secreto no aparece en listados, detalle, registros ni en el cuerpo de ninguna respuesta de error.
+- Exige reautenticación vigente (ventana de 5 min) y motivo; sin cualquiera de los dos responde la negación auditada y no se descifra nada.
+- Límite de **30 revelaciones exitosas por usuario y hora**, contadas desde la auditoría (ADR 0031). La revelación 31 dentro de la misma hora móvil se niega con un código estable y la negación se audita.
+- Desbloqueo: se rige por la ventana móvil, no por un reloj fijo. La persona vuelve a poder revelar en cuanto la revelación exitosa más antigua de la última hora cumple **60 min** (probado con reloj controlado: 30 revelaciones, la 31 negada, avanzar a 60 min + 1 s desde la primera, la siguiente pasa).
+- Con **propuesta** de 20 revelaciones concurrentes de la misma persona cuando le quedan 5 de cupo, exactamente 5 tienen éxito y 15 se niegan (prueba de concurrencia; sin ella el lock por usuario no está probado).
+- Superar el tope envía el aviso a la Raíz; el canal real depende del correo (A8), así que mientras tanto el criterio es que exista el evento de auditoría crítico y el aviso pendiente en la bandeja de salida.
+- La interfaz oculta el secreto a los **30 s** y limpia el portapapeles a los 30 s (mejor esfuerzo): prueba de componente con temporizador simulado.
+
+**Segundo factor (N1 a N3).**
+
+- Validación de la URI: se rechazan HOTP, algoritmos distintos de SHA1/SHA256/SHA512, dígitos distintos de 6 u 8, periodo distinto de 30 o 60 y secretos de menos de 128 bits; una prueba por cada caso.
+- Un secreto `pending` no pasa a `verified` sin el código actual confirmado; si lleva **24 h** sin confirmar se genera el aviso (prueba con reloj controlado).
+- El código bajo demanda exige USE y `credential.use_totp`, responde con `expiresIn` y deja auditoría ligera en cada solicitud; el límite por usuario y credencial se fija en la porción (**propuesta**: 10 por minuto).
+- Exportar el secreto exige MANAGE, `credential.export_totp`, reautenticación y motivo, marca el secreto como expuesto y escribe un evento crítico.
+- El token de entrega por celular (N3) es de 256 bits, se guarda solo su hash, sirve **una vez** y caduca a los **5 min**; un segundo uso y un uso tardío responden error y se prueban.
+
+**Búsqueda e importación (O1, O2).**
+
+- Toda búsqueda se filtra por acceso efectivo **en SQL**, nunca después; una prueba comprueba que una persona sin acceso no obtiene la cuenta ni por nombre, etiqueta, plataforma, grupo ni usuario exacto.
+- La búsqueda exacta por usuario de la plataforma usa el índice ciego: el plan de ejecución de la consulta usa el índice y no recorre la tabla (prueba sobre el volumen de **propuesta**).
+- La importación CSV procesa el archivo en memoria, valida antes de guardar y no deja el archivo ni su contenido en disco ni en los registros; con una fila inválida, la previsualización la señala y no se guarda nada hasta confirmar.
+
+**Para todas las porciones.** Las pruebas de autorización, aislamiento y criptografía las revisa una persona antes de cerrar la porción; cada porción deja la mutación manual hecha y registrada en su bitácora.
+
 ## Decisiones abiertas
 
 - Biblioteca para decodificar códigos QR en el navegador (B4 y B5): no hay ninguna aprobada. Propuesta: una biblioteca pequeña, mantenida y sin dependencias, con versión exacta y la espera de 7 días; la decisión es del equipo.
@@ -44,5 +95,7 @@ Cada porción es vertical (casos de uso + API + pantalla + pruebas + documentaci
 - Motivo escrito en revelar: longitud mínima y si es texto libre o lista cerrada (el plan solo dice "motivo").
 
 ## Log
+
+- I1 (2026-10-28): Añadidos prerrequisitos (ADR 0023, 0031, 0036) y criterios de aceptación medibles por porción. Los umbrales numéricos son propuestas pendientes de confirmar por el equipo; el umbral de latencia p95 del acceso efectivo decide si se materializa (ADR 0036).
 
 - L1 (2026-10-27): Tarea creada a partir de la sección "Bóveda" y "2FA/TOTP" del plan y de la hoja de ruta (`docs/handoff.md`). Las tablas de la bóveda existen desde la fase 0; el motor de decisión, el catálogo de permisos con techos y el cifrado de sobre ya están implementados y probados (fases 0 y 1a).
