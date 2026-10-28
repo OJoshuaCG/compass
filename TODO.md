@@ -253,7 +253,7 @@ K1 y K2 son independientes entre sí. Comparten la zona de la bóveda: avisa en 
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] L1 | Adaptador de KMS de producción (el local se niega a arrancar con `NODE_ENV=production`, así que la API hoy no arranca así) [V] | Código ⚠ | — | L | C1, F5, D1 | |
 | [ ] L2 | Definir los comandos "por definir" de los runbooks: rotar DEK, restaurar respaldo, fuga de base de datos, usuario o servidor comprometido, transferir la Raíz | Ops | Ing. | M | F4 | |
-| [ ] L3 | Runbooks que faltan: caída total con sobres sellados, pérdida o borrado de la KEK, restauración con el KMS, y regeneración de la contraseña inicial extraviada de la Raíz | Ops | Ing. | M | C11, G2 | |
+| [x] L3 | Runbooks que faltan: caída total con sobres sellados, pérdida o borrado de la KEK, restauración con el KMS, y regeneración de la contraseña inicial extraviada de la Raíz | Ops | Ing. | M | C11, G2 | Hecha (2026-10-28): cuatro borradores en `docs/runbooks/` (`total-outage.md`, `kek-loss.md`, `restore-with-kms.md`, `regenerate-root-initial-password.md`), sin ensayar. Marcan **por definir** lo que no existe: adaptador de KMS de producción (L1), respaldo de la KEK, administración directa de la base sin códigos, política de sobres sellados, equipo de guardia (C11) |
 
 ---
 
