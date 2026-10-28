@@ -26,7 +26,7 @@ Plantilla: [`template.md`](template.md).
 | [0017](0017-five-totp-enrollment-methods.md) | Cinco métodos de registro de 2FA, todos disponibles | Aceptada |
 | [0018](0018-sso-provider-oidc-provider-and-samlify.md) | Proveedor SSO con `oidc-provider` (fase 2) y SAML (fase 3) | Aceptada |
 | [0019](0019-cerby-style-broker-ports-first.md) | Broker tipo Cerby: puertos e interfaces desde la fase 1, implementación al final | Aceptada |
-| [0020](0020-reference-cloud-aws.md) | Nube de referencia AWS, adaptadores intercambiables | Aceptada con confirmación pendiente |
+| [0020](0020-reference-cloud-aws.md) | Nube de referencia AWS, adaptadores intercambiables | Aceptada |
 
 ## Decisiones surgidas del análisis del plan y de la fase 1a
 

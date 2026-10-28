@@ -210,7 +210,7 @@ La documentación del repositorio solo registra el cierre de dos de las decision
 
 | N.º | Decisión | Por qué importa | Estado según la documentación |
 | --- | --- | --- | --- |
-| 1 | Proveedor de nube (AWS es la referencia) | Define el servicio de claves, la base de datos gestionada y el correo | Abierta (el ADR de referencia indica confirmación pendiente) |
+| 1 | Proveedor de nube (AWS es la referencia) | Define el servicio de claves, la base de datos gestionada y el correo | Cerrada el 2026-10-28: los servidores en Linode, con el servicio de claves de AWS |
 | 2 | Escala esperada el primer año (usuarios, cuentas y revelaciones diarias) | Ajusta límites, vigencias y tamaño de la infraestructura | Abierta |
 | 3 | Disponibilidad requerida (horario y tolerancia a caídas) | Valida el objetivo de pérdida máxima de 5 minutos y de recuperación de 4 horas | Abierta |
 | 4 | Subdominio para los alias de las cuentas, con su configuración de DNS | Permite crear cada cuenta con su correo definitivo desde el primer día | Abierta |

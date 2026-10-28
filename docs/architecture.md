@@ -33,7 +33,7 @@ El plan habla de "dos procesos (API y worker)" más las migraciones como paso pr
 
 ## 2. Contexto y contenedores
 
-Diagrama de contexto y contenedores. Los servicios externos se muestran con la referencia AWS del plan ([ADR 0020](adr/0020-reference-cloud-aws.md), confirmación pendiente); cada uno está detrás de un puerto.
+Diagrama de contexto y contenedores. Los servicios externos se muestran con la referencia AWS del plan ([ADR 0020](adr/0020-reference-cloud-aws.md); lo que realmente se despliega es Dokploy, PostgreSQL dedicado y AWS solo para el KMS); cada uno está detrás de un puerto.
 
 ```mermaid
 flowchart LR

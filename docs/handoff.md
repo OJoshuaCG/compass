@@ -108,7 +108,7 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 
 ## 5. Decisiones abiertas
 
-**Del equipo (bloquean o condicionan; ya estaban en el plan):** proveedor de nube; escala del primer año; disponibilidad requerida; subdominio para los alias de cuentas; presupuesto de la prueba de penetración; política de retención; elegibilidad de Meta para la fase 3; identidad de las dos personas que custodian los códigos de emergencia. Exigir passkeys a Raíz y Administradores ya no está abierta como pregunta: se decidió que sean opcionales y la exigencia queda como futura configuración (ver abajo).
+**Del equipo (bloquean o condicionan; ya estaban en el plan):** disponibilidad requerida (el proveedor de nube y la escala del primer año ya se decidieron: Dokploy en Linode con AWS KMS, y menos de 20 clientes); subdominio para los alias de cuentas; presupuesto de la prueba de penetración; política de retención; elegibilidad de Meta para la fase 3; identidad de las dos personas que custodian los códigos de emergencia. Exigir passkeys a Raíz y Administradores ya no está abierta como pregunta: se decidió que sean opcionales y la exigencia queda como futura configuración (ver abajo).
 
 **Decisiones del dueño (2026-10-27):**
 

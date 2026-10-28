@@ -1,10 +1,10 @@
 # ADR 0020: Nube de referencia AWS, adaptadores intercambiables
 
-- **Estado**: Aceptada con confirmación pendiente
+- **Estado**: Aceptada (2026-10-28, `TODO.md` C1)
 - **Fecha**: 2026-10-26
 - **Referencias**: [`plan.md`](../../plan.md) secciones "Infraestructura, despliegue y operación" y "Decisiones pendientes del equipo" (proveedor de nube); [`docs/backend.md`](../backend.md) §6.3.
 
-> **Confirmación pendiente**: el proveedor de nube sigue en las decisiones pendientes del plan ("AWS es la referencia del plan; confirmar o elegir GCP o Azure"). Esta decisión fija la arquitectura para que **no dependa** del proveedor; no cierra la elección del proveedor. Se actualizará el estado a "Aceptada" cuando el equipo confirme.
+> **Confirmada (2026-10-28)**: el dueño confirmó el despliegue en Dokploy con Docker, PostgreSQL en un servidor dedicado y los servidores en Linode, con AWS solo para el KMS. La decisión sigue fijando una arquitectura que **no depende** del proveedor: los servicios externos van detrás de puertos.
 
 > **Alcance real del despliegue (2026-10-28)**: la lista de servicios de la sección "Decisión" es la referencia original. Lo acordado para desplegar es Dokploy con Docker, PostgreSQL en un servidor dedicado y, de AWS, solo el KMS; ver la [adenda](#adenda-2026-10-28-adaptador-de-aws-kms-l1) y [`docs/deployment.md`](../deployment.md).
 
