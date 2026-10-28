@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 import { generateSync } from 'otplib';
 import { Pool } from 'pg';
+import type { DestinationStream, Logger } from 'pino';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 import { buildContainer } from '../../src/app/container.js';
@@ -33,6 +34,7 @@ export interface E2eEnvironment {
   readonly container: Container;
   readonly clock: ManualClock;
   readonly mailer: InMemoryMailer;
+  readonly logger: Logger;
   readonly adminPool: Pool;
   bootstrapOrganization(input: {
     slug: string;
@@ -45,12 +47,23 @@ export interface E2eEnvironment {
 }
 
 /** Levanta la API completa (Nest + Fastify) contra un PostgreSQL real, con reloj y correo controlables. */
-export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvironment> {
+export interface StartEnvironmentOptions {
+  /** Captura los logs a nivel `trace`; sin ella los logs se silencian (o siguen `E2E_LOG`). */
+  readonly logDestination?: DestinationStream;
+}
+
+export async function startEnvironment(
+  clusterAdminUrl: string,
+  options: StartEnvironmentOptions = {},
+): Promise<E2eEnvironment> {
   const db = await createTestDatabase(clusterAdminUrl);
   const kekDir = mkdtempSync(join(tmpdir(), 'iam-e2e-kek-'));
   const clock = new ManualClock(new Date());
   const mailer = new InMemoryMailer();
-  const logger = createLogger({ level: process.env['E2E_LOG'] ?? 'silent' });
+  const logger = createLogger({
+    level: options.logDestination === undefined ? (process.env['E2E_LOG'] ?? 'silent') : 'trace',
+    ...(options.logDestination === undefined ? {} : { destination: options.logDestination }),
+  });
   const container = buildContainer({
     pool: db.appPool,
     independentPool: db.independentPool,
@@ -82,6 +95,7 @@ export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvi
     container,
     clock,
     mailer,
+    logger,
     adminPool,
     async bootstrapOrganization(input) {
       const result = await bootstrap.execute({
