@@ -5,6 +5,7 @@ import {
   registerPasskeyRequestSchema,
   mfaVerifyRequestSchema,
   recoveryCodeRequestSchema,
+  reauthPasskeyRequestSchema,
   reauthRequestSchema,
   totpConfirmRequestSchema,
 } from '@iam/contracts';
@@ -17,6 +18,7 @@ import type {
   LoginRequest,
   LoginResponse,
   MfaVerifyRequest,
+  ReauthPasskeyRequest,
   ReauthRequest,
   RecoveryCodeRequest,
   TotpConfirmRequest,
@@ -154,6 +156,21 @@ export class AuthController {
     @Body(new ZodValidationPipe(reauthRequestSchema)) body: ReauthRequest,
   ): Promise<void> {
     unwrap(await this.secondFactor.reauthenticate(body.code));
+  }
+
+  /** Paso 1 de la reautenticación con llave de acceso (sesión completa, ADR 0033). */
+  @Post('reauth/passkey/options')
+  @HttpCode(200)
+  async reauthPasskeyOptions(): Promise<unknown> {
+    return unwrap(await this.secondFactor.beginPasskeyReauthentication()).options;
+  }
+
+  @Post('reauth/passkey/verify')
+  @HttpCode(204)
+  async reauthPasskeyVerify(
+    @Body(new ZodValidationPipe(reauthPasskeyRequestSchema)) body: ReauthPasskeyRequest,
+  ): Promise<void> {
+    unwrap(await this.secondFactor.reauthenticateWithPasskey(body.response));
   }
 
   @PartialSession()

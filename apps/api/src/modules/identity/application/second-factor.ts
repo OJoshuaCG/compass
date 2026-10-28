@@ -207,57 +207,49 @@ export class SecondFactor {
    * Sin llaves registradas responde igual que un fallo, para no revelar si las tiene.
    */
   beginPasskeyLogin(): Promise<Result<{ options: unknown }, DomainError>> {
-    const { uow, passkeys, challenges, webauthn, clock } = this.deps;
-    return uow.run(async () => {
-      const { user, sessionId, requestId } = await this.currentUser();
-      // Pedir el desafío no cuenta como intento (solo la verificación): el límite por IP ya acota
-      // cuántos se piden, y quien falla al verificar queda frenado por el contador de la persona.
-      const live = await passkeys.listLive(user.id);
-      if (live.length === 0) return this.failed(user.id, requestId);
-      const { options, challenge } = await webauthn.authenticationOptions({
-        allowed: live.map((p) => ({ id: p.credentialId, transports: p.transports })),
-      });
-      await challenges.issue({
-        userId: user.id,
-        sessionId,
-        purpose: 'authentication',
-        challenge,
-        expiresAt: new Date(clock.now().getTime() + PASSKEY_CHALLENGE_MS),
-      });
-      return ok({ options });
-    });
+    return this.beginPasskeyCeremony('authentication');
+  }
+
+  /** Reautenticación con llave de acceso, paso 1 (ADR 0033): desafío con su propia finalidad. */
+  beginPasskeyReauthentication(): Promise<Result<{ options: unknown }, DomainError>> {
+    return this.beginPasskeyCeremony('reauthentication');
   }
 
   /** Paso 2: verifica la firma de la llave (con verificación de la persona) y cumple el segundo factor. */
   verifyPasskey(response: unknown): Promise<Result<void, DomainError>> {
-    const { uow, passkeys, challenges, webauthn, sessions, audit, clock } = this.deps;
+    const { uow, sessions, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, sessionId, requestId } = await this.currentUser();
       const blocked = await this.checkThrottle(user.id);
       if (blocked !== null) return err(blocked);
       const now = clock.now();
-      const expected = await challenges.consume(user.id, sessionId, 'authentication', now);
-      const presented = (response as { id?: unknown }).id;
-      const credential =
-        typeof presented === 'string'
-          ? (await passkeys.listLive(user.id)).find((p) => p.credentialId === presented)
-          : undefined;
-      if (expected === null || credential === undefined) return this.failed(user.id, requestId);
-      const verified = await webauthn.verifyAuthentication({
-        response,
-        expectedChallenge: expected,
-        credential,
-      });
-      // Un contador que no avanza indica un clon o una repetición: se rechaza como cualquier fallo.
-      if (
-        verified === null ||
-        !(await passkeys.recordUse(credential.id, verified.newCounter, now))
-      ) {
+      if (!(await this.verifyPasskeyAssertion(user.id, sessionId, 'authentication', response))) {
         return this.failed(user.id, requestId);
       }
       await sessions.setMfa(sessionId, now);
       await this.clearFailures(user.id);
       await audit.record(this.event('auth.passkey_login', 'success', user.id, requestId));
+      return ok(undefined);
+    });
+  }
+
+  /**
+   * Reautenticación con llave de acceso, paso 2 (ADR 0033): misma verificación que el inicio de sesión
+   * (firma, verificación de la persona y contador) pero con desafío propio, y solo renueva la ventana
+   * de reautenticación. Nunca acepta códigos de recuperación ni de emergencia.
+   */
+  reauthenticateWithPasskey(response: unknown): Promise<Result<void, DomainError>> {
+    const { uow, sessions, audit, clock } = this.deps;
+    return uow.run(async () => {
+      const { user, sessionId, requestId } = await this.currentUser();
+      const blocked = await this.checkThrottle(user.id);
+      if (blocked !== null) return err(blocked);
+      if (!(await this.verifyPasskeyAssertion(user.id, sessionId, 'reauthentication', response))) {
+        return this.failed(user.id, requestId);
+      }
+      await sessions.setReauth(sessionId, clock.now());
+      await this.clearFailures(user.id);
+      await audit.record(this.event('auth.reauthenticated_passkey', 'success', user.id, requestId));
       return ok(undefined);
     });
   }
@@ -285,6 +277,62 @@ export class SecondFactor {
   }
 
   // ---------------------------------------------------------------------------------------------
+
+  /**
+   * Emite el desafío WebAuthn de una ceremonia de autenticación. Sin llaves registradas responde igual
+   * que un fallo, para no revelar si la persona las tiene.
+   */
+  private beginPasskeyCeremony(
+    purpose: 'authentication' | 'reauthentication',
+  ): Promise<Result<{ options: unknown }, DomainError>> {
+    const { uow, passkeys, challenges, webauthn, clock } = this.deps;
+    return uow.run(async () => {
+      const { user, sessionId, requestId } = await this.currentUser();
+      // Pedir el desafío no cuenta como intento (solo la verificación): el límite por IP ya acota
+      // cuántos se piden, y quien falla al verificar queda frenado por el contador de la persona.
+      const live = await passkeys.listLive(user.id);
+      if (live.length === 0) return this.failed(user.id, requestId);
+      const { options, challenge } = await webauthn.authenticationOptions({
+        allowed: live.map((p) => ({ id: p.credentialId, transports: p.transports })),
+      });
+      await challenges.issue({
+        userId: user.id,
+        sessionId,
+        purpose,
+        challenge,
+        expiresAt: new Date(clock.now().getTime() + PASSKEY_CHALLENGE_MS),
+      });
+      return ok({ options });
+    });
+  }
+
+  /**
+   * Consume el desafío de esa finalidad y verifica la firma con verificación de la persona. Un contador
+   * que no avanza indica un clon o una repetición: se rechaza como cualquier otro fallo.
+   */
+  private async verifyPasskeyAssertion(
+    userId: UserId,
+    sessionId: string,
+    purpose: 'authentication' | 'reauthentication',
+    response: unknown,
+  ): Promise<boolean> {
+    const { passkeys, challenges, webauthn, clock } = this.deps;
+    const now = clock.now();
+    const expected = await challenges.consume(userId, sessionId, purpose, now);
+    const presented = (response as { id?: unknown }).id;
+    const credential =
+      typeof presented === 'string'
+        ? (await passkeys.listLive(userId)).find((p) => p.credentialId === presented)
+        : undefined;
+    if (expected === null || credential === undefined) return false;
+    const verified = await webauthn.verifyAuthentication({
+      response,
+      expectedChallenge: expected,
+      credential,
+    });
+    if (verified === null) return false;
+    return passkeys.recordUse(credential.id, verified.newCounter, now);
+  }
 
   /**
    * Mejor esfuerzo, ya confirmado el restablecimiento: un fallo del correo no debe dejar a la Raíz sin

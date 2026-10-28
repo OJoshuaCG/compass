@@ -246,7 +246,7 @@ export interface PasskeyRepository {
   revoke(id: string, userId: UserId, at: Date): Promise<boolean>;
 }
 
-export type ChallengePurpose = 'registration' | 'authentication';
+export type ChallengePurpose = 'registration' | 'authentication' | 'reauthentication';
 
 export interface ChallengeStore {
   /** Emite un desafío para esa sesión; deja sin efecto el anterior aún pendiente de la misma sesión y finalidad. */

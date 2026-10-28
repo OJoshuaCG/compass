@@ -376,3 +376,46 @@ describe('a person without passkeys, and revoking them', () => {
     ).toBe(401);
   });
 });
+
+describe('re-authenticating with a passkey (ADR 0033)', () => {
+  it('renews the re-authentication window with a verified signature and audits the method', async () => {
+    env.clock.advance(16 * 60 * 1000); // pasa el bloqueo temporal de las pruebas anteriores
+    expect((await root.client.get('/me')).status).toBe(200);
+    const second = new VirtualAuthenticator(APP_ORIGIN);
+    expect((await registerKey(second, 'Reauth key')).status).toBe(201);
+    env.clock.advance(6 * 60 * 1000); // vence la ventana de reautenticación
+    expect((await root.client.get('/me')).status).toBe(200);
+    const spare = (await root.client.get<{ data: Passkey[] }>('/me/passkeys')).body.data.find(
+      (p) => p.name === 'Reauth key',
+    );
+    const stale = await root.client.post<ProblemDetails>(`/me/passkeys/${spare?.id ?? ''}/revoke`);
+    expect(stale.status).toBe(403);
+
+    const options = await root.client.post<AuthenticationOptions>('/auth/reauth/passkey/options');
+    expect(options.status).toBe(200);
+    const verified = await root.client.post('/auth/reauth/passkey/verify', {
+      response: second.authenticate(options.body),
+    });
+
+    expect(verified.status).toBe(204);
+    expect((await root.client.post(`/me/passkeys/${spare?.id ?? ''}/revoke`)).status).toBe(204);
+    expect((await audit('auth.reauthenticated_passkey')).map((e) => e.outcome)).toEqual([
+      'success',
+    ]);
+  });
+
+  it('a sign-in challenge cannot be redeemed as a re-authentication (purpose is bound)', async () => {
+    env.clock.advance(6 * 60 * 1000);
+    expect((await root.client.get('/me')).status).toBe(200);
+    const signer = new VirtualAuthenticator(APP_ORIGIN);
+    expect((await registerKey(signer, 'Purpose key')).status).toBe(201);
+    env.clock.advance(6 * 60 * 1000);
+    expect((await root.client.get('/me')).status).toBe(200);
+
+    const loginChallenge = await loginOptions(root.client);
+    const forged = signer.authenticate(loginChallenge);
+
+    const response = await root.client.post('/auth/reauth/passkey/verify', { response: forged });
+    expect(response.status).toBe(401);
+  });
+});

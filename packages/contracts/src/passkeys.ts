@@ -15,7 +15,7 @@ export type Passkey = z.infer<typeof passkeySchema>;
  * La respuesta del navegador (`PublicKeyCredential` en JSON) se valida a fondo en el servidor con
  * la biblioteca de WebAuthn; aquí solo se acota su forma general y su tamaño.
  */
-const ceremonyResponseSchema = z
+export const ceremonyResponseSchema = z
   .object({ id: z.string().min(1).max(1024), type: z.literal('public-key') })
   .loose();
 
