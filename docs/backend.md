@@ -242,7 +242,17 @@ Fuente de verdad: `apps/api/src/app/config.ts` (no existe `.env.example`). Las d
 | `DB_POOL_MAX` | `10` | Tamaño del pool de conexiones (1 a 100) |
 | `LOCAL_KMS_KEY_FILE` | `.local-kms/kek.key` | Archivo de la clave del adaptador de desarrollo; no sirve en producción |
 | `WEB_DIST_DIR` | Ninguno | Carpeta de la SPA compilada; si se omite, la API no sirve el frontend |
-| `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For` |
+| `KMS_ADAPTER` | `local` | Adaptador de gestión de claves. Hoy solo existe `local`; con `NODE_ENV=production` la configuración falla al arrancar con un error sobre esta clave |
+| `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For`. Léelo completo en [§6.4](#64-trust_proxy-todo-o-nada) |
+
+### 6.4 `TRUST_PROXY`: todo o nada
+
+`TRUST_PROXY` es un booleano: con `true`, Fastify confía en **toda** la cadena de `X-Forwarded-For`, no solo en el último salto. Dos efectos opuestos, y ambos son un riesgo:
+
+- **Sin activarlo detrás de un balanceador**: todas las peticiones llegan con la IP del balanceador. El límite de 60 peticiones por minuto por IP se comparte entre todas las personas y un solo cliente ruidoso bloquea a los demás.
+- **Activado sin que el balanceador sobrescriba la cabecera**: quien llama puede enviar su propio `X-Forwarded-For` y la API lo toma como su IP. Cada petición con una IP distinta evita el límite por IP (los contadores por correo y por usuario del segundo factor no dependen de la IP y siguen aplicando).
+
+Para activarlo con seguridad, el balanceador debe **reemplazar** la cabecera (no añadirle) y la API solo debe ser alcanzable a través de él. Si el puerto de la API se puede alcanzar directo, déjalo en `false`. Una lista de proxies de confianza (rangos CIDR o número de saltos) queda como mejora pendiente: tocaría la configuración de cabeceras, que es una ruta protegida.
 
 El comando de alta de organizaciones usa sus propias variables (`PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`; ver §3.6) y las migraciones usan `DATABASE_URL` con el rol de migraciones ([`database.md`](database.md) §1).
 

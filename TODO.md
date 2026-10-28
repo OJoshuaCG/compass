@@ -85,14 +85,18 @@ Cubren lo que los lectores de esta revisión **no** alcanzaron a verificar. Cada
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
 | [~] A1 | Línea base: ejecutar formato, compilación, tipos, lint y pruebas (y `pnpm e2e`) y registrar resultado y fecha. **2026-10-27, Node 24.22.1:** `format:check`, `build`, `typecheck` y `lint` en verde; `pnpm test` en verde (1.052 pruebas: api 612, web 295, db 55, ui 60, i18n 17, contracts 13). **Falta `pnpm e2e`:** el equipo no tiene Google Chrome (`/opt/google/chrome/chrome`), es un fallo de entorno, no de código. Se cierra al instalar Chrome y correrlo | Verificación | Ing. | S | — | Claude |
-| [ ] A2 | Revisar `SessionService.authenticate`: expiración, rotación y estado del usuario (suspendido o desactivado) | Verificación ⚠ | Ing. | S | — | |
-| [ ] A3 | Revisar los filtros de jerarquía en `pg-user-directory.ts` y en `ListManaged`, y si `ListDirectory` valida el estado del actor [S] | Verificación ⚠ | Ing. | S | — | |
-| [ ] A4 | Confirmar qué cuerpos guarda `idempotency_keys` y que ninguna respuesta con secretos se almacene | Verificación ⚠ | Ing. | S | — | |
-| [ ] A5 | Revisar el resto de los repositorios y el uso del contexto de organización en cada uno | Verificación ⚠ | Ing. | M | — | |
-| [ ] A6 | Confirmar en código las hipótesis marcadas [S]: caché de DEK por instancia y su invalidación, uso del contexto de cifrado del KMS, comportamiento de `trustProxy` | Verificación ⚠ | Ing. | S | — | |
+| [x] A2 | Revisar `SessionService.authenticate`: expiración, rotación y estado del usuario (suspendido o desactivado) | Verificación ⚠ | Ing. | S | — | Verificado: expiración, inactividad, revocación, estado y cookie. Hallazgo A2-1 (fijación de sesión, sin rotación del token al cumplir el segundo factor) corregido: `rotateToken` en la misma transacción, 4 rutas, prueba e2e y rotura deliberada confirmada |
+| [x] A3 | Revisar los filtros de jerarquía en `pg-user-directory.ts` y en `ListManaged`, y si `ListDirectory` valida el estado del actor [S] | Verificación ⚠ | Ing. | S | — | `listManaged` filtra por subárbol. `ListDirectory` no validaba el estado del actor: ahora exige un actor activo (con prueba). Pendiente: la regla de rango vive solo en la aplicación y F6 (listados sin Authorizer) sigue como decisión |
+| [x] A4 | Confirmar qué cuerpos guarda `idempotency_keys` y que ninguna respuesta con secretos se almacene | Verificación ⚠ | Ing. | S | — | Las 3 rutas `@Idempotent` actuales no devuelven secretos. Control nuevo: `secret-fields.ts` se niega a guardar una respuesta con campos que parecen secretos (heurística por nombre, defensa en profundidad). Limitación conocida: si una ruta lo activa por error, la reserva vence en 1 min y el reintento vuelve a ejecutarse. Sigue sin borrarse lo vencido (G1) |
+| [x] A5 | Revisar el resto de los repositorios y el uso del contexto de organización en cada uno | Verificación ⚠ | Ing. | M | — | 15 repositorios revisados: todos usan el contexto de organización; `pg-pre-auth-lookup` es la excepción de diseño. NO verificado: que `iam_app` no tenga BYPASSRLS en producción ni la política tabla por tabla (26 tablas) |
+| [x] A6 | Confirmar en código las hipótesis marcadas [S]: caché de DEK por instancia y su invalidación, uso del contexto de cifrado del KMS, comportamiento de `trustProxy` | Verificación ⚠ | Ing. | S | — | Caché de DEK por proceso (TTL 10 min; versión activa 60 s) y `rotate()` sin llamadores fuera de pruebas. Contexto del KMS ligado a la organización en el adaptador local (el de AWS no se verificó: depende de L1). `trustProxy` es todo o nada: documentado en H3 |
 | [ ] A7 | Auditar el frontend (unas 6.900 líneas): accesibilidad, textos en es-MX y en-US, uso exclusivo del sistema de diseño y de la tabla estándar | Verificación | Ing. | M | — | |
 | [ ] A8 | Auditar la cadena de suministro: dependencias, archivo de bloqueo, antigüedad de 7 días y escáneres que pide el plan | Verificación | Equipo | M | — | |
-| [ ] A9 | Auditar observabilidad: qué se registra, métricas y alertas. Hoy no hay un criterio escrito | Verificación | Ing. | M | — | |
+| [x] A9 | Auditar observabilidad: qué se registra, métricas y alertas. Hoy no hay un criterio escrito | Verificación | Ing. | M | — | `pino` con redacción y solo 5 puntos de registro; sin organización ni actor en los registros; sin métricas ni alertas. Seguimiento en A9a y A9b |
+| [ ] A9a | Escribir `docs/observability.md`: qué se registra, métricas y alertas mínimas | Doc | Ing. | M | A9 | |
+| [ ] A9b | Prueba de que ningún registro contiene secretos (`plan.md`, línea 972) | Código | Ing. | S | A9 | |
+| [ ] A2a | Restricción de rango como invariante de base de datos (trigger o check; ruta protegida, migración nueva) | Código ⚠ | Ing. | M | A3 | |
+| [ ] H3a | Lista de proxies de confianza (CIDR o saltos) en vez del booleano `TRUST_PROXY` (toca cabeceras: ruta protegida) | Código ⚠ | Ing. | S | H3 | |
 | [ ] A10 | Revisar privacidad y cumplimiento de los datos personales que guarda el sistema (nombres, correos), con el área legal | Verificación | Dueño | M | — | |
 
 ## B · Decisiones de la bóveda
@@ -140,7 +144,7 @@ Decisiones baratas que desbloquean la fase 1b. Todas independientes entre sí.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] D1 | Guardarraíl de producción para la KEK local: `config.ts` impide `MAIL_TRANSPORT=log` en producción pero no `LocalKeyManagement`, que `main.http.ts` instancia siempre [V]. Hoy es riesgo futuro, no actual | Código ⚠ | Ing. | S | — | |
+| [x] D1 | Guardarraíl de producción para la KEK local: `config.ts` impide `MAIL_TRANSPORT=log` en producción pero no `LocalKeyManagement`, que `main.http.ts` instancia siempre [V]. Hoy es riesgo futuro, no actual | Código ⚠ | Ing. | S | — | `KMS_ADAPTER` en la configuración: con `NODE_ENV=production` falla al arrancar con un error de configuración (con prueba). La lista de adaptadores aptos queda vacía hasta L1 |
 | [ ] D2 | Prueba de matriz de autorización por ruta: que falle si un controlador nuevo carece de guarda. Hoy la "rotura intencional" es manual [V: no encontré una prueba así] | Prueba ⚠ | Ing. | M | — | |
 | [ ] D3 | Pruebas unitarias propias para `idempotency` (363 líneas) y `organization` (159). Hoy solo se ejercen vía integración y e2e [V] | Prueba ⚠ | Ing. | S | — | |
 | [ ] D4 | Redacción de logs más robusta: hoy depende de nombres de clave y profundidad 0 a 2; `LogMailer` registra `link` con token, protegido solo por el bloqueo de producción [V] | Código ⚠ | Ing. | S | — | |
@@ -200,7 +204,7 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] H1 | Punto de entrada del worker (no existe) [V]: purga de versiones a los 30 días y aviso de 24 h de un segundo factor pendiente | Código | Equipo | M | C1 | |
 | [ ] H2 | Primera ejecución del CI en GitHub, corregir lo que falle y añadir los escáneres de seguridad. El dueño lo despriorizó; la puerta de producción lo vuelve necesario. Subir al remoto es decisión del equipo | Código | Equipo | S | A8 | |
-| [ ] H3 | Guía de `trustProxy`: detrás de un balanceador todos comparten la IP; mal activado, se falsifica [S] | Doc | Ing. | S | A6 | |
+| [x] H3 | Guía de `trustProxy`: detrás de un balanceador todos comparten la IP; mal activado, se falsifica [S] | Doc | Ing. | S | A6 | `docs/backend.md` §6.4 y el runbook de instancia única |
 
 ## I · Bóveda: cuentas
 
