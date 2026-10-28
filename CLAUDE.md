@@ -37,7 +37,7 @@ Identidad, acceso, criptografía, auditoría, migraciones con aislamiento, CSP y
 - `README.md` y `docs/business/` son para lectores humanos: sin código.
 - Frontend: solo componentes y tokens del sistema de diseño, toda tabla usa la tabla estándar y ningún texto va literal (siempre es-MX y en-US).
 - Dependencias: no agregues ninguna sin aprobación; versión exacta; se respeta la espera de 7 días. TypeScript se queda en 6.0 (la 7 rompe el lint) y todo el repositorio es ESM.
-- Commits convencionales, por parte terminada, sin `Co-Authored-By` ni atribución a herramientas. No subas nada al remoto sin decisión del equipo.
+- Commits convencionales, por parte terminada, sin `Co-Authored-By` ni atribución a herramientas. Subir commits al remoto (`git push`) está permitido cuando la persona lo pide en el turno actual; nunca con `--force` ni hacia una rama distinta de la que se trabaja.
 - Imita el código vecino y reutiliza antes de crear.
 
 ## Cómo trabajar
