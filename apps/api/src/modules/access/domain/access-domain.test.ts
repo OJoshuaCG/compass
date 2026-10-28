@@ -78,17 +78,13 @@ describe('system role templates', () => {
     }
   });
 
-  it('an Operator can use the vault day to day but cannot manage people or export 2FA secrets', () => {
+  it('an Operator can use the vault day to day but cannot reveal passwords, manage people or export 2FA secrets', () => {
     const operator = new Set(systemRole('operator').permissions);
-    for (const allowed of [
-      'account.create',
-      'credential.reveal_password',
-      'credential.use_totp',
-      'share.manage',
-    ]) {
+    for (const allowed of ['account.create', 'credential.use_totp', 'share.manage']) {
       expect(operator.has(allowed as Permission), allowed).toBe(true);
     }
     for (const denied of [
+      'credential.reveal_password',
       'user.invite',
       'credential.export_totp',
       'role.manage',
