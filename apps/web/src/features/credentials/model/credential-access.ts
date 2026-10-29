@@ -1,0 +1,51 @@
+import type { ShareLevel } from '@iam/contracts';
+
+/**
+ * Orden de los niveles de acceso a una cuenta. Refleja `apps/api/src/modules/vault/domain/share-level.ts`.
+ * Aquí solo sirve de comodidad para la interfaz: el servidor vuelve a decidir y puede negar la acción.
+ */
+const LEVEL_RANK: Readonly<Record<ShareLevel, number>> = {
+  USE: 1,
+  VIEW: 2,
+  EDIT: 3,
+  MANAGE: 4,
+};
+
+function levelSatisfies(actual: ShareLevel | null, required: ShareLevel): boolean {
+  if (actual === null) return false;
+  return LEVEL_RANK[actual] >= LEVEL_RANK[required];
+}
+
+/** Copiar el usuario exige nivel USE y ningún permiso del catálogo. */
+export function canCopyUsername(myLevel: ShareLevel | null): boolean {
+  return levelSatisfies(myLevel, 'USE');
+}
+
+/** Revelar exige el permiso `credential.reveal_password` Y nivel VIEW o superior. */
+export function canRevealPassword(
+  hasRevealPermission: boolean,
+  myLevel: ShareLevel | null,
+): boolean {
+  return hasRevealPermission && levelSatisfies(myLevel, 'VIEW');
+}
+
+/** Crear una credencial exige el permiso `credential.create` Y nivel EDIT. */
+export function canCreateCredential(
+  hasCreatePermission: boolean,
+  myLevel: ShareLevel | null,
+): boolean {
+  return hasCreatePermission && levelSatisfies(myLevel, 'EDIT');
+}
+
+/** Cambiar la contraseña exige el permiso `credential.update` Y nivel EDIT. */
+export function canChangePassword(
+  hasUpdatePermission: boolean,
+  myLevel: ShareLevel | null,
+): boolean {
+  return hasUpdatePermission && levelSatisfies(myLevel, 'EDIT');
+}
+
+/** El historial exige nivel EDIT y ningún permiso adicional. */
+export function canViewHistory(myLevel: ShareLevel | null): boolean {
+  return levelSatisfies(myLevel, 'EDIT');
+}

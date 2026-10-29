@@ -27,6 +27,8 @@
   "action.editLabel": "Edit the account {{name}}",
   "action.archive": "Archive",
   "action.archiveLabel": "Archive the account {{name}}",
+  "action.credentials": "Credentials",
+  "action.credentialsLabel": "View the credentials of the account {{name}}",
   "form.name": "Account name",
   "form.handle": "Handle",
   "form.handleHelp": "Optional. For example, the username or email used to sign in to the platform.",

@@ -1,5 +1,6 @@
 import {
   loadAccountsCatalog,
+  loadCredentialsCatalog,
   loadDirectoryCatalog,
   loadRolesCatalog,
   loadSecurityCatalog,
@@ -20,6 +21,7 @@ export const es = {
   roles: (await loadRolesCatalog())['es-MX'],
   security: (await loadSecurityCatalog())['es-MX'],
   accounts: (await loadAccountsCatalog())['es-MX'],
+  credentials: (await loadCredentialsCatalog())['es-MX'],
 };
 
 /**

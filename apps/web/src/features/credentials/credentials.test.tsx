@@ -1,0 +1,685 @@
+import type { Account, Credential, Permission, ShareLevel } from '@iam/contracts';
+import { act, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { axeViolations } from '../../test/axe';
+import { jsonResponse, meFixture, problem, stubApi } from '../../test/fake-api';
+import { es, expectNoSecretsStored, field } from '../../test/helpers';
+import { renderApp } from '../../test/render-app';
+
+const ACCOUNT_ID = '33333333-3333-4333-8333-333333333331';
+const CREDENTIAL_ID = '44444444-4444-4444-8444-444444444441';
+const OTHER_CREDENTIAL_ID = '44444444-4444-4444-8444-444444444442';
+const NEW_CREDENTIAL_ID = '44444444-4444-4444-8444-444444444443';
+const PLATFORM_ID = '11111111-1111-4111-8111-111111111111';
+const CREATOR_ID = '5c9e6f3e-4c1a-4a53-9d9e-6b0f0a1f7a01';
+
+const PASSWORD = 'S3cr3t-de-prueba-Ωmega';
+const USERNAME = 'rh-usuario@example.com';
+const REASON = 'Recuperar acceso tras cambio de dispositivo';
+const HIDE_AFTER_MS = 30_000;
+
+const ALL_PERMISSIONS: Permission[] = [
+  'credential.create',
+  'credential.update',
+  'credential.reveal_password',
+];
+
+const accountFixture = (myLevel: ShareLevel | null): Account => ({
+  id: ACCOUNT_ID,
+  platformId: PLATFORM_ID,
+  displayName: 'Nómina',
+  handle: null,
+  ownerGroupId: null,
+  tags: [],
+  status: 'active',
+  myLevel,
+  createdAt: '2026-01-01T00:00:00.000Z',
+});
+
+const ROTATED: Credential = {
+  id: CREDENTIAL_ID,
+  accountId: ACCOUNT_ID,
+  label: 'Portal de nómina',
+  kind: 'password',
+  lastRotatedAt: '2026-03-01T12:00:00.000Z',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+const NEVER_ROTATED: Credential = {
+  id: OTHER_CREDENTIAL_ID,
+  accountId: ACCOUNT_ID,
+  label: 'Banco',
+  kind: 'password_totp',
+  lastRotatedAt: null,
+  createdAt: '2026-01-02T00:00:00.000Z',
+};
+
+const fill = (template: string, values: Record<string, string | number>) =>
+  Object.entries(values).reduce(
+    (text, [name, value]) => text.replace(`{{${name}}}`, String(value)),
+    template,
+  );
+
+const revealLabel = (label: string) => fill(es.credentials['action.revealLabel'], { label });
+const copyLabel = (label: string) => fill(es.credentials['action.copyUsernameLabel'], { label });
+const changeLabel = (label: string) =>
+  fill(es.credentials['action.changePasswordLabel'], { label });
+const historyLabel = (label: string) => fill(es.credentials['action.historyLabel'], { label });
+
+function setup(
+  options: {
+    level?: ShareLevel | null;
+    permissions?: Permission[];
+    extra?: Record<string, Parameters<typeof stubApi>[0][string]>;
+  } = {},
+) {
+  const { level = 'MANAGE', permissions = ALL_PERMISSIONS, extra = {} } = options;
+  return stubApi({
+    'GET /me': jsonResponse(meFixture({ permissions, rank: 1 })),
+    [`GET /accounts/${ACCOUNT_ID}`]: jsonResponse(accountFixture(level)),
+    [`GET /accounts/${ACCOUNT_ID}/credentials`]: jsonResponse({ data: [ROTATED, NEVER_ROTATED] }),
+    ...extra,
+  });
+}
+
+const PAGE = `/accounts/${ACCOUNT_ID}/credentials`;
+const rowsLoaded = () => screen.findByRole('cell', { name: ROTATED.label });
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe('credentials list', () => {
+  it('lists label, kind and last rotation, without violations', async () => {
+    setup();
+    const { container } = renderApp(PAGE);
+    await rowsLoaded();
+    const table = screen.getByRole('table', { name: es.credentials.caption });
+    const headers = within(table)
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        es.credentials['col.label'],
+        es.credentials['col.kind'],
+        es.credentials['col.lastRotated'],
+      ]),
+    );
+    expect(within(table).getByText(es.credentials['kind.password'])).toBeInTheDocument();
+    expect(within(table).getByText(es.credentials['kind.password_totp'])).toBeInTheDocument();
+    expect(within(table).getByText(es.credentials['rotated.never'])).toBeInTheDocument();
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  it('is reachable from the accounts screen', async () => {
+    const user = userEvent.setup();
+    setup({
+      extra: {
+        'GET /accounts': jsonResponse({
+          data: [accountFixture('USE')],
+          page: { nextCursor: null, limit: 25 },
+        }),
+        'GET /platforms': jsonResponse({ data: [] }),
+      },
+    });
+    const { router } = renderApp('/accounts');
+    await user.click(
+      await screen.findByRole('link', {
+        name: fill(es.accounts['action.credentialsLabel'], { name: 'Nómina' }),
+      }),
+    );
+    await rowsLoaded();
+    expect(router.state.location.pathname).toBe(PAGE);
+  });
+
+  it('shows an empty state', async () => {
+    setup({ extra: { [`GET /accounts/${ACCOUNT_ID}/credentials`]: jsonResponse({ data: [] }) } });
+    renderApp(PAGE);
+    expect(await screen.findByText(es.credentials['empty.title'])).toBeInTheDocument();
+  });
+
+  it('shows a translated error with Retry when the list is denied', async () => {
+    setup({
+      extra: { [`GET /accounts/${ACCOUNT_ID}/credentials`]: problem(403, 'AUTHZ.SHARE') },
+    });
+    renderApp(PAGE);
+    expect(await screen.findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.SHARE']);
+  });
+
+  it('shows not found when the account is not visible', async () => {
+    setup({ extra: { [`GET /accounts/${ACCOUNT_ID}`]: problem(404, 'NOT_FOUND') } });
+    renderApp(PAGE);
+    expect(await screen.findByRole('alert')).toHaveTextContent(es.errors.NOT_FOUND);
+  });
+
+  it('answers not found for an identifier that is not a UUID, without calling the API', async () => {
+    const api = setup();
+    renderApp('/accounts/no-es-uuid/credentials');
+    expect(await screen.findByText(es.errors.NOT_FOUND)).toBeInTheDocument();
+    expect(api.callsTo('GET', '/accounts/no-es-uuid')).toHaveLength(0);
+  });
+});
+
+describe('action gating by level and permission', () => {
+  it('USE only offers copying the username', async () => {
+    setup({ level: 'USE' });
+    renderApp(PAGE);
+    await rowsLoaded();
+    expect(screen.getByRole('button', { name: copyLabel('Portal de nómina') })).toBeVisible();
+    expect(screen.queryByRole('button', { name: revealLabel('Portal de nómina') })).toBeNull();
+    expect(screen.queryByRole('button', { name: changeLabel('Portal de nómina') })).toBeNull();
+    expect(screen.queryByRole('button', { name: historyLabel('Portal de nómina') })).toBeNull();
+    expect(screen.queryByRole('button', { name: es.credentials['action.create'] })).toBeNull();
+  });
+
+  it('VIEW adds reveal, but only with the reveal permission', async () => {
+    setup({ level: 'VIEW' });
+    const first = renderApp(PAGE);
+    await rowsLoaded();
+    expect(screen.getByRole('button', { name: revealLabel('Portal de nómina') })).toBeVisible();
+    expect(screen.queryByRole('button', { name: changeLabel('Portal de nómina') })).toBeNull();
+    first.unmount();
+
+    setup({ level: 'VIEW', permissions: [] });
+    renderApp(PAGE);
+    await rowsLoaded();
+    expect(screen.queryByRole('button', { name: revealLabel('Portal de nómina') })).toBeNull();
+    expect(screen.getByRole('button', { name: copyLabel('Portal de nómina') })).toBeVisible();
+  });
+
+  it('EDIT adds create, change password and history', async () => {
+    setup({ level: 'EDIT' });
+    renderApp(PAGE);
+    await rowsLoaded();
+    expect(screen.getByRole('button', { name: es.credentials['action.create'] })).toBeVisible();
+    expect(screen.getByRole('button', { name: changeLabel('Portal de nómina') })).toBeVisible();
+    expect(screen.getByRole('button', { name: historyLabel('Portal de nómina') })).toBeVisible();
+  });
+
+  it('EDIT without catalog permissions keeps only history and copy', async () => {
+    setup({ level: 'EDIT', permissions: [] });
+    renderApp(PAGE);
+    await rowsLoaded();
+    expect(screen.queryByRole('button', { name: es.credentials['action.create'] })).toBeNull();
+    expect(screen.queryByRole('button', { name: changeLabel('Portal de nómina') })).toBeNull();
+    expect(screen.queryByRole('button', { name: revealLabel('Portal de nómina') })).toBeNull();
+    expect(screen.getByRole('button', { name: historyLabel('Portal de nómina') })).toBeVisible();
+  });
+});
+
+describe('copy username', () => {
+  function usernameRoute() {
+    return {
+      [`POST /credentials/${CREDENTIAL_ID}/username`]: jsonResponse({ username: USERNAME }),
+    };
+  }
+
+  it('writes the username to the clipboard and clears it after 30 s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    const api = setup({ level: 'USE', extra: usernameRoute() });
+    const { queryClient } = renderApp(PAGE);
+    await rowsLoaded();
+    const write = vi.spyOn(navigator.clipboard, 'writeText');
+
+    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
+    await waitFor(() => {
+      expect(write).toHaveBeenCalledWith(USERNAME);
+    });
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/username`)).toHaveLength(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HIDE_AFTER_MS + 1_000);
+    });
+    // El stub de user-event no permite leer un portapapeles vacío: se verifica la escritura.
+    expect(write).toHaveBeenLastCalledWith('');
+    expectNoSecretsStored(queryClient, [USERNAME]);
+  });
+
+  it('does not clear the clipboard when it holds something else by then', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    setup({ level: 'USE', extra: usernameRoute() });
+    renderApp(PAGE);
+    await rowsLoaded();
+    const write = vi.spyOn(navigator.clipboard, 'writeText');
+
+    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
+    await waitFor(() => {
+      expect(write).toHaveBeenCalledWith(USERNAME);
+    });
+    await navigator.clipboard.writeText('otra cosa que copió la persona');
+    write.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HIDE_AFTER_MS + 1_000);
+    });
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('shows the translated error when the server denies it', async () => {
+    const user = userEvent.setup();
+    setup({
+      level: 'USE',
+      extra: { [`POST /credentials/${CREDENTIAL_ID}/username`]: problem(403, 'AUTHZ.SHARE') },
+    });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.SHARE']);
+  });
+});
+
+describe('reveal password', () => {
+  const revealPath = `POST /credentials/${CREDENTIAL_ID}/reveal`;
+
+  async function openReveal(user: ReturnType<typeof userEvent.setup>) {
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: revealLabel('Portal de nómina') }));
+    return screen.findByRole('dialog', {
+      name: fill(es.credentials['reveal.title'], { label: 'Portal de nómina' }),
+    });
+  }
+
+  it('asks for a reason with a warning and a live counter, without violations', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'VIEW' });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    expect(within(dialog).getByText(es.credentials['reveal.warning'])).toBeVisible();
+    const counter = (length: number) =>
+      fill(es.credentials['reveal.counter'], { length, max: 500, min: 6 });
+    expect(within(dialog).getByText(counter(0))).toBeVisible();
+    await user.type(field(es.credentials['reveal.reason']), '  abc  ');
+    // El contador cuenta como el servidor: sin los espacios de los extremos.
+    expect(within(dialog).getByText(counter(3))).toBeVisible();
+    expect(await axeViolations(dialog)).toEqual([]);
+  });
+
+  it('rejects a reason shorter than 6 characters and sends nothing', async () => {
+    const user = userEvent.setup();
+    const api = setup({ level: 'VIEW' });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), 'corto');
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    expect(await within(dialog).findByText(es.errors['CREDENTIAL.REASON_INVALID'])).toBeVisible();
+    expect(field(es.credentials['reveal.reason'])).toHaveAttribute('aria-invalid', 'true');
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(0);
+  });
+
+  it('rejects a reason made only of spaces', async () => {
+    const user = userEvent.setup();
+    const api = setup({ level: 'VIEW' });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), '          ');
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    expect(await within(dialog).findByText(es.errors['CREDENTIAL.REASON_INVALID'])).toBeVisible();
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(0);
+  });
+
+  it('caps the reason at 500 characters', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'VIEW' });
+    renderApp(PAGE);
+    await openReveal(user);
+    expect(field(es.credentials['reveal.reason'])).toHaveAttribute('maxlength', '500');
+  });
+
+  it('maps a server-side CREDENTIAL.REASON_INVALID to the reason field', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'VIEW', extra: { [revealPath]: problem(422, 'CREDENTIAL.REASON_INVALID') } });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await waitFor(() => {
+      expect(field(es.credentials['reveal.reason'])).toHaveAttribute('aria-invalid', 'true');
+    });
+    expect(within(dialog).getByText(es.errors['CREDENTIAL.REASON_INVALID'])).toBeVisible();
+  });
+
+  it('shows the hourly limit message and blocks further attempts', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      level: 'VIEW',
+      extra: { [revealPath]: problem(429, 'CREDENTIAL.REVEAL_LIMIT') },
+    });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    expect(
+      await within(dialog).findByText(new RegExp(es.errors['CREDENTIAL.REVEAL_LIMIT'])),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }),
+    ).toBeDisabled();
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(1);
+  });
+
+  it('shows the re-authentication message when the user cancels the identity check', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      level: 'VIEW',
+      extra: { [revealPath]: problem(403, 'AUTHZ.REAUTH_REQUIRED') },
+    });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    const reauth = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
+    await user.click(within(reauth).getByRole('button', { name: es.common['actions.cancel'] }));
+    expect(
+      await screen.findByText(new RegExp(es.errors['AUTHZ.REAUTH_REQUIRED'])),
+    ).toBeInTheDocument();
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(1);
+  });
+
+  it('shows the password, hides it after 30 s and leaves no trace in the DOM or the stores', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    const api = setup({
+      level: 'VIEW',
+      extra: { [revealPath]: jsonResponse({ password: PASSWORD }) },
+    });
+    const { queryClient } = renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), `  ${REASON}  `);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+
+    expect(await screen.findByDisplayValue(PASSWORD)).toBeInTheDocument();
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)[0]?.body).toEqual({
+      reason: REASON,
+    });
+    expect(await axeViolations(screen.getByRole('dialog'))).toEqual([]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HIDE_AFTER_MS - 5_000);
+    });
+    expect(screen.getByDisplayValue(PASSWORD)).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_000);
+    });
+    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
+    expect(document.body.textContent).not.toContain(PASSWORD);
+    expect(screen.getByText(es.credentials['reveal.hidden'])).toBeVisible();
+    expect(window.location.href).not.toContain(PASSWORD);
+    expectNoSecretsStored(queryClient, [PASSWORD]);
+  });
+
+  it('hides the password right away with "Hide now"', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await screen.findByDisplayValue(PASSWORD);
+    await user.click(screen.getByRole('button', { name: es.credentials['reveal.hideNow'] }));
+    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
+    expect(document.body.textContent).not.toContain(PASSWORD);
+  });
+
+  it('asks for a new reason to reveal again', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      level: 'VIEW',
+      extra: { [revealPath]: jsonResponse({ password: PASSWORD }) },
+    });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await screen.findByDisplayValue(PASSWORD);
+    await user.click(screen.getByRole('button', { name: es.credentials['reveal.hideNow'] }));
+    await user.click(screen.getByRole('button', { name: es.credentials['reveal.again'] }));
+    expect(field(es.credentials['reveal.reason'])).toHaveValue('');
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(1);
+  });
+
+  it('drops the password when the dialog is closed', async () => {
+    const user = userEvent.setup();
+    const { queryClient } = {
+      ...setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } }),
+      ...renderApp(PAGE),
+    };
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await screen.findByDisplayValue(PASSWORD);
+    await user.click(screen.getByRole('button', { name: es.common['dialog.close'] }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
+    expect(document.body.textContent).not.toContain(PASSWORD);
+    expectNoSecretsStored(queryClient, [PASSWORD]);
+  });
+
+  it('drops the password when the screen unmounts', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    const { unmount } = renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await screen.findByDisplayValue(PASSWORD);
+    unmount();
+    expect(document.body.textContent).not.toContain(PASSWORD);
+  });
+
+  it('copies the revealed password and clears the clipboard after 30 s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await screen.findByDisplayValue(PASSWORD);
+    const write = vi.spyOn(navigator.clipboard, 'writeText');
+    await user.click(screen.getByRole('button', { name: es.credentials['reveal.copy'] }));
+    await waitFor(() => {
+      expect(write).toHaveBeenCalledWith(PASSWORD);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HIDE_AFTER_MS + 1_000);
+    });
+    expect(write).toHaveBeenLastCalledWith('');
+  });
+});
+
+describe('create credential', () => {
+  it('sends label, username and password, then refreshes the list', async () => {
+    const user = userEvent.setup();
+    let created = false;
+    const api = setup({
+      level: 'EDIT',
+      extra: {
+        [`GET /accounts/${ACCOUNT_ID}/credentials`]: () =>
+          jsonResponse({ data: created ? [ROTATED, NEVER_ROTATED] : [ROTATED] }),
+        [`POST /accounts/${ACCOUNT_ID}/credentials`]: () => {
+          created = true;
+          return jsonResponse({ ...NEVER_ROTATED, id: NEW_CREDENTIAL_ID }, 201);
+        },
+      },
+    });
+    const { queryClient } = renderApp(PAGE);
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: es.credentials['action.create'] }));
+    const dialog = await screen.findByRole('dialog', { name: es.credentials['create.title'] });
+    expect(await axeViolations(dialog)).toEqual([]);
+
+    await user.type(field(es.credentials['form.label']), 'Banco');
+    await user.type(field(es.credentials['form.username']), USERNAME);
+    await user.type(field(es.credentials['form.password']), PASSWORD);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['create.submit'] }));
+
+    expect(
+      await screen.findByText(fill(es.credentials['create.toast'], { label: 'Banco' })),
+    ).toBeInTheDocument();
+    expect(api.callsTo('POST', `/accounts/${ACCOUNT_ID}/credentials`)[0]?.body).toEqual({
+      label: 'Banco',
+      username: USERNAME,
+      password: PASSWORD,
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.getByRole('cell', { name: 'Banco' })).toBeInTheDocument();
+    });
+    expectNoSecretsStored(queryClient, [PASSWORD, USERNAME]);
+  });
+
+  it('requires the three fields and sends nothing', async () => {
+    const user = userEvent.setup();
+    const api = setup({ level: 'EDIT' });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: es.credentials['action.create'] }));
+    const dialog = await screen.findByRole('dialog', { name: es.credentials['create.title'] });
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['create.submit'] }));
+    const alerts = await within(dialog).findAllByRole('alert');
+    expect(alerts).toHaveLength(3);
+    expect(api.callsTo('POST', `/accounts/${ACCOUNT_ID}/credentials`)).toHaveLength(0);
+  });
+
+  it('shows AUTHZ.SHARE (403) in the dialog and keeps it open', async () => {
+    const user = userEvent.setup();
+    setup({
+      level: 'EDIT',
+      extra: { [`POST /accounts/${ACCOUNT_ID}/credentials`]: problem(403, 'AUTHZ.SHARE') },
+    });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: es.credentials['action.create'] }));
+    const dialog = await screen.findByRole('dialog', { name: es.credentials['create.title'] });
+    await user.type(field(es.credentials['form.label']), 'Banco');
+    await user.type(field(es.credentials['form.username']), USERNAME);
+    await user.type(field(es.credentials['form.password']), PASSWORD);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['create.submit'] }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.SHARE']);
+  });
+});
+
+describe('change password', () => {
+  it('sends only the new password and refreshes the list', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      level: 'EDIT',
+      extra: {
+        [`POST /credentials/${CREDENTIAL_ID}/password`]: jsonResponse({
+          ...ROTATED,
+          lastRotatedAt: '2026-10-28T12:00:00.000Z',
+        }),
+      },
+    });
+    const { queryClient } = renderApp(PAGE);
+    await rowsLoaded();
+    const before = api.callsTo('GET', `/accounts/${ACCOUNT_ID}/credentials`).length;
+    await user.click(screen.getByRole('button', { name: changeLabel('Portal de nómina') }));
+    const dialog = await screen.findByRole('dialog', {
+      name: fill(es.credentials['password.title'], { label: 'Portal de nómina' }),
+    });
+    expect(await axeViolations(dialog)).toEqual([]);
+    await user.type(field(es.credentials['form.newPassword']), PASSWORD);
+    await user.click(
+      within(dialog).getByRole('button', { name: es.credentials['password.submit'] }),
+    );
+
+    expect(
+      await screen.findByText(
+        fill(es.credentials['password.toast'], { label: 'Portal de nómina' }),
+      ),
+    ).toBeInTheDocument();
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/password`)[0]?.body).toEqual({
+      password: PASSWORD,
+    });
+    await waitFor(() => {
+      expect(api.callsTo('GET', `/accounts/${ACCOUNT_ID}/credentials`).length).toBeGreaterThan(
+        before,
+      );
+    });
+    expectNoSecretsStored(queryClient, [PASSWORD]);
+  });
+
+  it('requires a password and sends nothing', async () => {
+    const user = userEvent.setup();
+    const api = setup({ level: 'EDIT' });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: changeLabel('Portal de nómina') }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(
+      within(dialog).getByRole('button', { name: es.credentials['password.submit'] }),
+    );
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      es.common['validation.required'],
+    );
+    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/password`)).toHaveLength(0);
+  });
+});
+
+describe('history', () => {
+  it('lists versions with their state and no secret content', async () => {
+    const user = userEvent.setup();
+    setup({
+      level: 'EDIT',
+      extra: {
+        [`GET /credentials/${CREDENTIAL_ID}/history`]: jsonResponse({
+          data: [
+            {
+              version: 2,
+              isCurrent: true,
+              createdAt: '2026-03-01T12:00:00.000Z',
+              createdBy: CREATOR_ID,
+            },
+            {
+              version: 1,
+              isCurrent: false,
+              createdAt: '2026-01-01T12:00:00.000Z',
+              createdBy: CREATOR_ID,
+            },
+          ],
+        }),
+      },
+    });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: historyLabel('Portal de nómina') }));
+    const dialog = await screen.findByRole('dialog', {
+      name: fill(es.credentials['history.title'], { label: 'Portal de nómina' }),
+    });
+    expect(await within(dialog).findByText(es.credentials['history.current'])).toBeVisible();
+    expect(within(dialog).getByText(es.credentials['history.previous'])).toBeVisible();
+    expect(await axeViolations(dialog)).toEqual([]);
+  });
+
+  it('shows a translated error when the history is denied', async () => {
+    const user = userEvent.setup();
+    setup({
+      level: 'EDIT',
+      extra: { [`GET /credentials/${CREDENTIAL_ID}/history`]: problem(403, 'AUTHZ.SHARE') },
+    });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: historyLabel('Portal de nómina') }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.SHARE']);
+  });
+});
+
+describe('credentials screen in English', () => {
+  it('renders in English too', async () => {
+    const { loadCredentialsCatalog } = await import('@iam/i18n');
+    const en = (await loadCredentialsCatalog())['en-US'];
+    setup();
+    renderApp(PAGE, 'en-US');
+    expect(await screen.findByRole('table', { name: en.caption })).toBeInTheDocument();
+    await rowsLoaded();
+    expect(screen.getByText(en['kind.password'])).toBeInTheDocument();
+  });
+});

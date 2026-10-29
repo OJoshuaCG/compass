@@ -1,5 +1,14 @@
 import type { Account, Platform } from '@iam/contracts';
-import { Badge, Button, DataTable, EmptyState, StatusBadge, type Column } from '@iam/ui';
+import {
+  Badge,
+  Button,
+  buttonVariants,
+  DataTable,
+  EmptyState,
+  StatusBadge,
+  type Column,
+} from '@iam/ui';
+import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -109,6 +118,16 @@ export function AccountsTable({
         variant === 'mine'
           ? (row) => (
               <span className="flex flex-wrap justify-end gap-2">
+                {/* Navegación, no acción: es un enlace con aspecto de botón. Todas las filas de
+                    "Mis cuentas" tienen al menos USE; el servidor decide qué se ve dentro. */}
+                <Link
+                  to="/accounts/$accountId/credentials"
+                  params={{ accountId: row.id }}
+                  className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+                  aria-label={t('action.credentialsLabel', { name: row.displayName })}
+                >
+                  {t('action.credentials')}
+                </Link>
                 {canEdit(row) ? (
                   <Button
                     variant="secondary"
