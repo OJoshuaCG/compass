@@ -20,7 +20,10 @@ import {
   canChangePassword,
   canCopyUsername,
   canCreateCredential,
+  canEditTotp,
+  canExportTotp,
   canRevealPassword,
+  canUseTotp,
   canViewHistory,
 } from '../model/credential-access';
 import { CLIPBOARD_CLEAR_MS, CLIPBOARD_CLEAR_SECONDS } from '../model/secret-policy';
@@ -31,9 +34,12 @@ import { CreateCredentialDialog } from './create-credential-dialog';
 import { HistoryDialog } from './history-dialog';
 import { RevealPasswordDialog } from './reveal-password-dialog';
 import { copySecretWithAutoClear } from './secret-clipboard';
+import { TotpDialog } from './totp-dialog';
 
 type DialogState =
-  { kind: 'create' } | { kind: 'reveal' | 'password' | 'history'; credential: Credential } | null;
+  | { kind: 'create' }
+  | { kind: 'reveal' | 'password' | 'history' | 'totp'; credential: Credential }
+  | null;
 
 export type CredentialsPageProps = {
   accountId: string;
@@ -42,7 +48,8 @@ export type CredentialsPageProps = {
 /**
  * Container de `/accounts/:accountId/credentials`: las credenciales de una cuenta con la
  * `DataTable` estándar. Las acciones se ofrecen según el permiso y el `myLevel` de la cuenta
- * (USE copiar usuario, VIEW revelar, EDIT crear, cambiar contraseña e historial); solo es
+ * (USE copiar usuario y segundo factor, VIEW revelar, EDIT crear, cambiar contraseña, historial y
+ * registrar o retirar el segundo factor, MANAGE exportar su clave); solo es
  * comodidad, el servidor decide siempre.
  */
 export function CredentialsPage({ accountId }: CredentialsPageProps) {
@@ -55,6 +62,8 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   const hasCreatePermission = usePermission('credential.create');
   const hasUpdatePermission = usePermission('credential.update');
   const hasRevealPermission = usePermission('credential.reveal_password');
+  const hasUseTotpPermission = usePermission('credential.use_totp');
+  const hasExportTotpPermission = usePermission('credential.export_totp');
   const [dialog, setDialog] = useState<DialogState>(null);
 
   const accountQuery = useQuery({
@@ -105,6 +114,13 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   const account = accountQuery.data;
   const myLevel = account.myLevel;
   const allowCreate = canCreateCredential(hasCreatePermission, myLevel);
+
+  // Sin poder leer el estado (USE y `credential.use_totp`) el diálogo no tiene punto de partida.
+  const totpCapabilities = {
+    canUse: canUseTotp(hasUseTotpPermission, myLevel),
+    canEdit: canEditTotp(hasUpdatePermission, myLevel),
+    canExport: canExportTotp(hasExportTotpPermission, myLevel),
+  };
 
   const close = () => {
     setDialog(null);
@@ -163,6 +179,7 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
         canReveal={canRevealPassword(hasRevealPermission, myLevel)}
         canChangePassword={canChangePassword(hasUpdatePermission, myLevel)}
         canViewHistory={canViewHistory(myLevel)}
+        canOpenTotp={totpCapabilities.canUse}
         onCopyUsername={(credential) => {
           void handleCopyUsername(credential);
         }}
@@ -174,6 +191,9 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
         }}
         onViewHistory={(credential) => {
           setDialog({ kind: 'history', credential });
+        }}
+        onOpenTotp={(credential) => {
+          setDialog({ kind: 'totp', credential });
         }}
       />
       {allowCreate ? (
@@ -209,6 +229,14 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
       ) : null}
       {dialog?.kind === 'history' ? (
         <HistoryDialog credential={dialog.credential} onClose={close} />
+      ) : null}
+      {dialog?.kind === 'totp' ? (
+        <TotpDialog
+          credential={dialog.credential}
+          capabilities={totpCapabilities}
+          onClose={close}
+          onChanged={reload}
+        />
       ) : null}
     </>
   );

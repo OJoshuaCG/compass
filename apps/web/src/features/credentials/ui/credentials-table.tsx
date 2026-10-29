@@ -19,10 +19,13 @@ export type CredentialsTableProps = {
   canReveal: boolean;
   canChangePassword: boolean;
   canViewHistory: boolean;
+  /** Abrir el diálogo del segundo factor: permiso `credential.use_totp` y nivel USE. */
+  canOpenTotp: boolean;
   onCopyUsername: (credential: Credential) => void;
   onReveal: (credential: Credential) => void;
   onChangePassword: (credential: Credential) => void;
   onViewHistory: (credential: Credential) => void;
+  onOpenTotp: (credential: Credential) => void;
 };
 
 const NO_OP = () => undefined;
@@ -42,10 +45,12 @@ export function CredentialsTable({
   canReveal,
   canChangePassword,
   canViewHistory,
+  canOpenTotp,
   onCopyUsername,
   onReveal,
   onChangePassword,
   onViewHistory,
+  onOpenTotp,
 }: CredentialsTableProps) {
   const { t, i18n } = useTranslation('credentials');
   const labels = useDataTableLabels();
@@ -66,7 +71,8 @@ export function CredentialsTable({
     [i18n.language, t, timeZone],
   );
 
-  const hasAnyAction = canCopyUsername || canReveal || canChangePassword || canViewHistory;
+  const hasAnyAction =
+    canCopyUsername || canReveal || canChangePassword || canViewHistory || canOpenTotp;
 
   return (
     <DataTable<Credential>
@@ -133,6 +139,18 @@ export function CredentialsTable({
                     }}
                   >
                     {t('action.history')}
+                  </Button>
+                ) : null}
+                {canOpenTotp ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    aria-label={t('action.totpLabel', { label: row.label })}
+                    onClick={() => {
+                      onOpenTotp(row);
+                    }}
+                  >
+                    {t('action.totp')}
                   </Button>
                 ) : null}
               </span>

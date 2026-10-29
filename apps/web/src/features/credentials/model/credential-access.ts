@@ -45,6 +45,21 @@ export function canChangePassword(
   return hasUpdatePermission && levelSatisfies(myLevel, 'EDIT');
 }
 
+/** Ver el estado del segundo factor y pedir códigos exige el permiso `credential.use_totp` Y nivel USE. */
+export function canUseTotp(hasUseTotpPermission: boolean, myLevel: ShareLevel | null): boolean {
+  return hasUseTotpPermission && levelSatisfies(myLevel, 'USE');
+}
+
+/** Registrar, confirmar y retirar el segundo factor exige `credential.update` Y nivel EDIT. */
+export function canEditTotp(hasUpdatePermission: boolean, myLevel: ShareLevel | null): boolean {
+  return hasUpdatePermission && levelSatisfies(myLevel, 'EDIT');
+}
+
+/** Exportar la clave exige el permiso `credential.export_totp` Y nivel MANAGE (un Operador no lo tiene). */
+export function canExportTotp(hasExportPermission: boolean, myLevel: ShareLevel | null): boolean {
+  return hasExportPermission && levelSatisfies(myLevel, 'MANAGE');
+}
+
 /** El historial exige nivel EDIT y ningún permiso adicional. */
 export function canViewHistory(myLevel: ShareLevel | null): boolean {
   return levelSatisfies(myLevel, 'EDIT');
