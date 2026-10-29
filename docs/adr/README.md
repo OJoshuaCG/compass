@@ -1,6 +1,6 @@
 # Registro de decisiones de arquitectura (ADR)
 
-Una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias (regla de [`plan.md`](../../plan.md), sección "Comentarios y documentación"). Los ADR 0001 a 0020 son las decisiones cerradas de la tabla "Decisiones cerradas (ADR)" del plan y numeran igual que allí (001 a 020). Los ADR 0021 a 0024 nacieron como huecos detectados al analizar el plan (ver [`docs/backend.md`](../backend.md) §16). Con la fase 1a, el 0021 y el 0022 pasaron a **Aceptada (implementada en la fase 1a)**; el 0023 se aceptó el 2026-10-27 (su `lock_timeout` se implementó ese mismo día y la latencia p95 se midió el 2026-10-28, en 7b56776; falta medir con transacciones largas) y el 0024 sigue en **Propuesta** y no se implementa hasta aceptarse. Los ADR 0025 a 0030 se escribieron al implementar la fase 1a y nacen **Aceptada**.
+Una decisión por archivo, numerada, con contexto, decisión, alternativas y consecuencias (regla de [`plan.md`](../../plan.md), sección "Comentarios y documentación"). Los ADR 0001 a 0020 son las decisiones cerradas de la tabla "Decisiones cerradas (ADR)" del plan y numeran igual que allí (001 a 020). Los ADR 0021 a 0024 nacieron como huecos detectados al analizar el plan (ver [`docs/backend.md`](../backend.md) §16). Con la fase 1a, el 0021 y el 0022 pasaron a **Aceptada (implementada en la fase 1a)**; el 0023 se aceptó el 2026-10-27 (su `lock_timeout` se implementó ese mismo día y la latencia p95 se midió el 2026-10-28, en 7b56776; falta medir con transacciones largas) y el 0024 sigue en **Propuesta** y no se implementa hasta aceptarse. Los ADR 0042 a 0044 son borradores en **Propuesta** a la espera de una persona que decida. Los ADR 0025 a 0030 se escribieron al implementar la fase 1a y nacen **Aceptada**.
 Plantilla: [`template.md`](template.md).
 
 ## Decisiones cerradas
@@ -58,12 +58,15 @@ Plantilla: [`template.md`](template.md).
 | --- | --- | --- | --- |
 | [0023](0023-audit-advisory-lock-and-long-transactions.md) | Advisory lock de auditoría y transacciones largas | Aceptada (2026-10-27; `lock_timeout` implementado; p95 medido el 2026-10-28; falta medir con transacciones largas) | Fase 1b (primeras acciones sensibles concurrentes) |
 | [0024](0024-audit-retention-vs-revoke-delete.md) | Retención de auditoría frente a `REVOKE DELETE` | Propuesta | Fase 1c (auditoría con retención) |
+| [0042](0042-audit-chain-external-anchoring.md) | Anclaje externo periódico de la cadena de auditoría (`TODO.md` F2) | Propuesta (borrador, falta la decisión) | Puerta de producción (verificación diaria y R1) |
+| [0043](0043-kms-encryption-context-bound-to-organization.md) | Contexto de cifrado del KMS ligado a la organización y control de usos anómalos (`TODO.md` F5) | Propuesta (borrador, falta la decisión) | Puerta de producción (política de la clave y alertas) |
+| [0044](0044-identities-and-memberships-model.md) | Modelo de `identities` y `memberships` (`TODO.md` C5) | Propuesta (borrador; no bloquea la fase 1) | Cuando una persona deba entrar a varias organizaciones |
 
 Las fases indicadas son una recomendación de este registro, no una decisión del plan.
 
 ## ADR futuro ya anunciado en el plan
 
-La tabla `identities` separada de `memberships` (una persona en varias organizaciones) queda registrada como ADR futuro en la sección "Identidad y organizaciones" del plan; no se redacta hasta que se necesite.
+La tabla `identities` separada de `memberships` (una persona en varias organizaciones) queda registrada como ADR futuro en la sección "Identidad y organizaciones" del plan. Hay un borrador propuesto en el [ADR 0044](0044-identities-and-memberships-model.md); no se implementa hasta que se necesite.
 
 ## Cómo añadir un ADR
 
