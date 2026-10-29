@@ -53,6 +53,17 @@ const envSchema = z
     MAIL_FROM: z.string().min(3).optional(),
     /** Nombre que el autenticador muestra al registrar una llave de acceso. */
     WEBAUTHN_RP_NAME: z.string().min(1).max(100).default('IAM'),
+    /**
+     * Publicador de eventos del outbox dentro de la API (ADR 0035). Apagado salvo que se active
+     * expresamente: un manejador mal configurado no debe empezar a actuar por un despliegue.
+     * Se compara el texto: `z.coerce.boolean()` leería "false" como verdadero.
+     */
+    OUTBOX_WORKER_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    /** Pausa entre pasadas del publicador. Mínimo 500 ms para no saturar la base; máximo 60 s para acotar la latencia. */
+    OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(500).max(60000).default(5000),
   })
   .superRefine((env, ctx) => {
     if (env.MAIL_TRANSPORT === 'smtp') {

@@ -144,4 +144,22 @@ describe('loadConfig', () => {
       }
     });
   });
+  describe('outbox worker', () => {
+    it('is disabled by default and reads the text, not the truthiness', () => {
+      expect(loadConfig({}).OUTBOX_WORKER_ENABLED).toBe(false);
+      expect(loadConfig({ OUTBOX_WORKER_ENABLED: 'false' }).OUTBOX_WORKER_ENABLED).toBe(false);
+      expect(loadConfig({ OUTBOX_WORKER_ENABLED: 'true' }).OUTBOX_WORKER_ENABLED).toBe(true);
+      expect(() => loadConfig({ OUTBOX_WORKER_ENABLED: 'yes' })).toThrow(/OUTBOX_WORKER_ENABLED/);
+    });
+
+    it('bounds the polling interval', () => {
+      expect(loadConfig({}).OUTBOX_POLL_INTERVAL_MS).toBe(5000);
+      expect(() => loadConfig({ OUTBOX_POLL_INTERVAL_MS: '100' })).toThrow(
+        /OUTBOX_POLL_INTERVAL_MS/,
+      );
+      expect(() => loadConfig({ OUTBOX_POLL_INTERVAL_MS: '600000' })).toThrow(
+        /OUTBOX_POLL_INTERVAL_MS/,
+      );
+    });
+  });
 });

@@ -21,7 +21,13 @@ import {
 } from '../modules/crypto/index.js';
 import type { KeyManagementPort } from '../modules/crypto/index.js';
 import { IdempotencyService, PgIdempotencyStore } from '../modules/idempotency/index.js';
-import { RotateDataKey } from '../modules/maintenance/index.js';
+import { PgOrganizationLister, RotateDataKey } from '../modules/maintenance/index.js';
+import {
+  OutboxHandlerRegistry,
+  OutboxPoller,
+  OutboxWorker,
+  PgOutboxRepository,
+} from '../modules/outbox/index.js';
 import {
   CreateUser,
   ListDirectory,
@@ -89,7 +95,12 @@ export interface ContainerOptions {
   readonly argon2?: Argon2Params;
   /** Solo para pruebas: reloj controlable. */
   readonly clock?: Clock;
+  /** Pausa entre pasadas del publicador del outbox (ms); ver `OUTBOX_POLL_INTERVAL_MS`. */
+  readonly outboxPollIntervalMs?: number;
 }
+
+/** Pausa por defecto entre pasadas del publicador; la configuración de la API la sobrescribe. */
+const DEFAULT_OUTBOX_POLL_INTERVAL_MS = 5000;
 
 export function buildContainer(options: ContainerOptions) {
   const { pool, independentPool, mailer, kms, logger } = options;
@@ -172,9 +183,30 @@ export function buildContainer(options: ContainerOptions) {
     clock,
   });
 
+  // outbox: sin manejadores reales todavía; cada módulo registrará los suyos en `outboxHandlers`
+  // antes de llamar a `outboxPoller.start()`. Un tipo sin manejador espera pendiente, sin gastar intentos, hasta que se registre.
+  const outboxHandlers = new OutboxHandlerRegistry();
+  const outboxWorker = new OutboxWorker({
+    organizations: new PgOrganizationLister(pool),
+    repository: new PgOutboxRepository(uow),
+    scope,
+    handlers: outboxHandlers,
+    ids,
+    clock,
+    logger,
+  });
+  const outboxPoller = new OutboxPoller({
+    worker: outboxWorker,
+    logger,
+    intervalMs: options.outboxPollIntervalMs ?? DEFAULT_OUTBOX_POLL_INTERVAL_MS,
+  });
+
   return {
     clock,
     ids,
+    outboxHandlers,
+    outboxWorker,
+    outboxPoller,
     primitives,
     requestContext,
     uow,
@@ -381,6 +413,8 @@ export function buildContainer(options: ContainerOptions) {
     }),
     /** Libera conexiones y borra las DEK de memoria (apagado ordenado). */
     async shutdown(): Promise<void> {
+      // Primero el publicador: espera a la pasada en curso antes de cerrar los pools que usa.
+      await outboxPoller.stop();
       await login.drain();
       keys.clearCache();
       await Promise.all([pool.end(), independentPool.end()]);

@@ -62,6 +62,7 @@ const container = buildContainer({
         )
       : new LogMailer(logger, config.APP_ORIGIN, config.NODE_ENV),
   logger,
+  outboxPollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
 });
 const app = await createApp({
   logger,
@@ -90,4 +91,8 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
 }
 
 await app.listen(config.PORT, config.HOST);
+if (config.OUTBOX_WORKER_ENABLED) {
+  container.outboxPoller.start();
+  logger.info({ intervalMs: config.OUTBOX_POLL_INTERVAL_MS }, 'outbox worker started');
+}
 logger.info({ host: config.HOST, port: config.PORT }, 'http server listening');

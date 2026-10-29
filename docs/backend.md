@@ -260,6 +260,8 @@ Fuente de verdad: `apps/api/src/app/config.ts` (no existe `.env.example`). Las d
 | `KMS_ADAPTER` | `local` | Adaptador de gestión de claves: `local` (desarrollo) o `aws` (AWS KMS, [ADR 0020](adr/0020-reference-cloud-aws.md)). Con `NODE_ENV=production` solo se acepta `aws`; otro valor hace fallar la configuración al arrancar con un error sobre esta clave |
 | `AWS_KMS_KEY_ID` | Ninguno | Id, ARN o alias de la clave simétrica de AWS KMS. Obligatoria con `KMS_ADAPTER=aws` |
 | `AWS_REGION` | Ninguno | Región de esa clave. Obligatoria con `KMS_ADAPTER=aws`. Las credenciales de AWS las lee el SDK (variables estándar o rol IAM), no la aplicación |
+| `OUTBOX_WORKER_ENABLED` | `false` | `true` o `false` (se compara el texto). Activa el publicador del outbox dentro de la API ([ADR 0035](adr/0035-transactional-outbox-for-events.md)). Apagado salvo orden expresa; mientras no haya manejadores registrados, los eventos pendientes esperan (sin contar intentos) |
+| `OUTBOX_POLL_INTERVAL_MS` | `5000` | Pausa entre pasadas del publicador, de 500 a 60000 |
 | `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For`. Acepta `false`, `true`, un número de saltos o una lista de IP y rangos CIDR. Léelo completo en [§6.4](#64-trust_proxy-qué-proxies-son-de-confianza) |
 
 ### 6.4 `TRUST_PROXY`: qué proxies son de confianza
@@ -337,13 +339,35 @@ Cada error sigue el formato de detalles de problema (RFC 9457) y lleva cinco dat
 - Eventos en tiempo real por SSE (`/api/v1/events`).
 - Contratos Zod en `packages/contracts` y OpenAPI generado de ellos. Un cambio incompatible crea `v2` del recurso afectado.
 
+### 6.5 Publicador del outbox (worker)
+
+Módulo `modules/outbox` ([ADR 0035](adr/0035-transactional-outbox-for-events.md)). Corre dentro del proceso de la API con `OUTBOX_WORKER_ENABLED=true`, arranca después de `listen` y se detiene primero en el apagado ordenado (espera a la pasada en curso antes de cerrar los pools). Se asume una sola instancia; `FOR UPDATE SKIP LOCKED` evita el doble procesamiento aunque hubiera dos.
+
+- **Manejadores**: `container.outboxHandlers.register(type, handler)`, antes de arrancar. Deben ser idempotentes por `event.id` (la entrega es al menos una vez). No hay manejadores reales todavía.
+- **Aislamiento**: cada evento se procesa en su propia transacción con `app.org_id` fijado a la organización del evento (`TenantScope.runAs`, como la purga). No se usa un rol con BYPASSRLS: así un manejador no puede leer otros inquilinos.
+- **Fallos**: se revierte lo que escribió el manejador, se cuenta el intento y se reprograma con espera exponencial (30 s, doble en cada fallo, tope 1 h). Al octavo fallo el evento queda en cuarentena: `published_at is null and next_attempt_at = 'infinity'`. Cada manejador tiene un plazo de 30 s por evento; si vence cuenta como fallo (`OUTBOX.HANDLER_TIMEOUT`).
+- **Tipo sin manejador**: espera. No cuenta intentos ni va a cuarentena; se reprograma al tope (1 h) y se avisa una vez por pasada y tipo (solo nombre y conteo). Así no se pierden eventos escritos antes de que exista su manejador.
+- **Defensa en profundidad**: tras reclamar, se comprueba que el evento sea de la organización del ámbito; si no, no se procesa, se registran solo los ids y la organización cuenta como fallida.
+- **Apagado**: la pasada se detiene entre eventos y entre organizaciones; `stop()` espera como máximo 35 s y, si se excede, lo registra y devuelve.
+- **Cuarentena, SQL manual** (rol de administración):
+
+  ```sql
+  select id, organization_id, type, attempts, created_at
+    from outbox_events where published_at is null and next_attempt_at = 'infinity';
+
+  update outbox_events set next_attempt_at = now(), attempts = 0
+   where published_at is null and next_attempt_at = 'infinity' and id = '<id del evento>';
+  ```
+- **Registro**: solo id del evento, tipo, organización, intento, resultado y código de fallo. Nunca el `payload` ni el mensaje del error.
+- **Pendiente**: retención de eventos publicados ([ADR 0035](adr/0035-transactional-outbox-for-events.md)); separar en `main.worker.ts`.
+
 ### 7.5 Respuestas con secretos
 
 Solo la acción dedicada (revelar, código 2FA, exportar) devuelve un secreto, con la cabecera de no almacenamiento en caché. Nunca aparece en listados ni en detalles.
 
 ## 8. Buenas prácticas de NestJS
 
-- **Puntos de entrada, una imagen**: `main.http.ts` (API), `main.migrate.ts` (migraciones) y `main.provision.ts` (alta de organizaciones por operaciones), con comandos de arranque distintos, todos en `apps/api/src`. El del worker (colas y outbox) está planeado y aún no existe.
+- **Puntos de entrada, una imagen**: `main.http.ts` (API), `main.migrate.ts` (migraciones) y `main.provision.ts` (alta de organizaciones por operaciones), con comandos de arranque distintos, todos en `apps/api/src`. El publicador del outbox corre dentro de la API (§6.5); su punto de entrada propio (`main.worker.ts`) sigue planeado.
 - **Fastify** como adaptador. Los plugins de Fastify (cabeceras de seguridad, cookies) se registran en el punto de entrada de la API, no en módulos de dominio.
 - **Módulos por funcionalidad**: un módulo de Nest por módulo de dominio; solo exporta lo que la fachada declara.
 - **Inyección por constructor**, con símbolos para los puertos. Prohibida la inyección por propiedad y la obtención de dependencias "al vuelo" desde el módulo de referencia.
