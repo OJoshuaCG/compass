@@ -576,13 +576,32 @@ describe('reveal password', () => {
     expect(countdown).toHaveAttribute('aria-live', 'off');
     expect(countdown).not.toHaveTextContent(PASSWORD);
     const secondsOf = () => Number(/\d+/.exec(countdown.textContent)?.[0]);
-    expect(secondsOf()).toBeGreaterThanOrEqual(29);
+    // Con reloj simulado el valor es determinista: el ocultado y la cuenta salen del mismo límite.
+    expect(secondsOf()).toBe(30);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
-    expect(secondsOf()).toBeLessThanOrEqual(20);
-    expect(secondsOf()).toBeGreaterThanOrEqual(18);
+    expect(secondsOf()).toBe(20);
+
+    // Baja de forma monótona: nunca sube entre dos puntos y nunca es negativa.
+    let previousSeconds = secondsOf();
+    for (let elapsedSeconds = 11; elapsedSeconds <= 29; elapsedSeconds += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+      const currentSeconds = secondsOf();
+      expect(currentSeconds).toBe(30 - elapsedSeconds);
+      expect(currentSeconds).toBeLessThan(previousSeconds);
+      previousSeconds = currentSeconds;
+    }
+
+    // Último segundo: llega a 0 sin pasar a negativo y la contraseña se oculta.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
+    expect(within(dialog).queryByRole('timer')).toBeNull();
   });
 
   // SENSIBLE (revisión humana): al ocultar a mano el foco va al aviso de oculto, que sigue montado y

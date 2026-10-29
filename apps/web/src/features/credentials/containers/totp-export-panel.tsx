@@ -184,6 +184,27 @@ function ShownSecret({ secret, noticeRef, onHide }: ShownSecretProps) {
   );
 }
 
+/** Controles que reciben foco y en los que la persona puede estar escribiendo o pulsando. */
+const INTERACTIVE_CONTROL_SELECTOR =
+  'input, textarea, select, button, a[href], [contenteditable]:not([contenteditable="false"])';
+
+/**
+ * Verdadero solo si el foco está en un control interactivo AJENO al contenedor (p. ej. el motivo
+ * del otro panel del mismo diálogo). Un cambio de fase automático (temporizador) no debe robarlo:
+ * la persona estaría escribiendo y el foco saltaría al aviso.
+ *
+ * Es el inverso explícito de «foco propio o perdido» porque, al desmontarse el botón enfocado,
+ * el FocusScope de Radix devuelve el foco al contenedor del diálogo (role="dialog", tabIndex -1),
+ * que no es <body> ni está dentro del panel, pero tampoco es un control de la persona. Cualquier
+ * otro caso (null, <body>, dentro del contenedor o un contenedor no interactivo) sí mueve el foco.
+ */
+function isFocusOnForeignControl(container: HTMLElement | null): boolean {
+  const focused = document.activeElement;
+  if (focused === null || focused === document.body) return false;
+  if (container !== null && container.contains(focused)) return false;
+  return focused.matches(INTERACTIVE_CONTROL_SELECTOR);
+}
+
 export type TotpExportPanelProps = {
   credential: Credential;
   /** Se llama al recibir el secreto: desde ese momento la credencial queda marcada como expuesta. */
@@ -201,6 +222,7 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
   const [phase, setPhase] = useState<Phase>({ kind: 'closed' });
   const headingRef = useRef<HTMLHeadingElement>(null);
   const phaseNoticeRef = useRef<HTMLParagraphElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const previousPhaseKind = useRef<Phase['kind']>('closed');
 
   // Tras cada cambio de fase el botón pulsado se desmontó. El foco va al aviso propio de la fase
@@ -211,6 +233,8 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
   useEffect(() => {
     if (previousPhaseKind.current === phaseKind) return;
     previousPhaseKind.current = phaseKind;
+    // Si se ocultó solo a los 30 s y la persona está en otro control, no se mueve el foco.
+    if (isFocusOnForeignControl(sectionRef.current)) return;
     (phaseNoticeRef.current ?? headingRef.current)?.focus();
   }, [phaseKind]);
 
@@ -227,7 +251,7 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
   }, [phase]);
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+    <section ref={sectionRef} aria-labelledby={headingId} className="flex flex-col gap-3">
       <h3 id={headingId} ref={headingRef} tabIndex={-1} className="text-base text-text">
         {t('totp.export.heading', { ns: 'credentials' })}
       </h3>

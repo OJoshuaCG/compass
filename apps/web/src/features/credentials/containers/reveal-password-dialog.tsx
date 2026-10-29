@@ -180,6 +180,27 @@ function ShownPassword({ password, secondsLeft, onHide }: ShownPasswordProps) {
   );
 }
 
+/** Controles que reciben foco y en los que la persona puede estar escribiendo o pulsando. */
+const INTERACTIVE_CONTROL_SELECTOR =
+  'input, textarea, select, button, a[href], [contenteditable]:not([contenteditable="false"])';
+
+/**
+ * Verdadero solo si el foco está en un control interactivo AJENO al contenedor (p. ej. el motivo
+ * del otro panel del mismo diálogo). Un cambio de fase automático (temporizador) no debe robarlo:
+ * la persona estaría escribiendo y el foco saltaría al aviso.
+ *
+ * Es el inverso explícito de «foco propio o perdido» porque, al desmontarse el botón enfocado,
+ * el FocusScope de Radix devuelve el foco al contenedor del diálogo (role="dialog", tabIndex -1),
+ * que no es <body> ni está dentro del panel, pero tampoco es un control de la persona. Cualquier
+ * otro caso (null, <body>, dentro del contenedor o un contenedor no interactivo) sí mueve el foco.
+ */
+function isFocusOnForeignControl(container: HTMLElement | null): boolean {
+  const focused = document.activeElement;
+  if (focused === null || focused === document.body) return false;
+  if (container !== null && container.contains(focused)) return false;
+  return focused.matches(INTERACTIVE_CONTROL_SELECTOR);
+}
+
 type RevealBodyProps = {
   credential: Credential;
   onClose: () => void;
@@ -192,6 +213,7 @@ function RevealBody({ credential, onClose }: RevealBodyProps) {
   // debe robarle el foco inicial a Radix.
   const [hasBeenHidden, setHasBeenHidden] = useState(false);
   const hiddenNoticeRef = useRef<HTMLParagraphElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   // Oculta a los 30 s. Al desmontar se cancelan los temporizadores y el estado se descarta con el
   // componente, así que cerrar el diálogo también borra la contraseña. El efecto depende solo de
@@ -225,7 +247,11 @@ function RevealBody({ credential, onClose }: RevealBodyProps) {
   // texto fijo (sin el valor) es el anuncio, por lo que no hay región de estado aparte.
   const isHidden = phase.kind === 'hidden';
   useEffect(() => {
-    if (isHidden) hiddenNoticeRef.current?.focus();
+    if (!isHidden) return;
+    // Si se ocultó solo a los 30 s y el foco está en un control ajeno al cuerpo (p. ej. el botón de
+    // cerrar del diálogo), no se mueve (ver isFocusOnForeignControl).
+    if (isFocusOnForeignControl(bodyRef.current)) return;
+    hiddenNoticeRef.current?.focus();
   }, [isHidden]);
 
   let body: ReactNode;
@@ -282,7 +308,7 @@ function RevealBody({ credential, onClose }: RevealBodyProps) {
     );
   }
 
-  return body;
+  return <div ref={bodyRef}>{body}</div>;
 }
 
 export type RevealPasswordDialogProps = {

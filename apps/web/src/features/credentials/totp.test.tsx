@@ -597,6 +597,57 @@ describe('get a code', () => {
     expect(within(dialog).queryByRole('alert')).toBeNull();
   });
 
+  // SENSIBLE (revisión humana): si el código vence solo mientras la persona escribe en otro control
+  // del diálogo (el motivo del export), el foco NO se mueve al aviso de «venció». Falla si el efecto
+  // de foco vuelve a ser incondicional.
+  it('does not steal focus from another control of the dialog when the code expires by itself', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    const { routes } = totpRoutes(totpFixture());
+    setup({ extra: { ...routes, [codePath]: jsonResponse({ code: CODE, expiresIn: 5 }) } });
+    renderApp(PAGE);
+    const dialog = await requestCode(user);
+    await screen.findByDisplayValue(CODE);
+    await user.click(within(dialog).getByRole('button', { name: t['totp.export.open'] }));
+    const reasonField = field(t['reveal.reason']);
+    await user.click(reasonField);
+    await user.type(reasonField, 'abc');
+    expect(reasonField).toHaveFocus();
+
+    await advance(6_000);
+
+    expect(screen.queryByDisplayValue(CODE)).toBeNull();
+    const notice = within(dialog).getByText(t['totp.code.expired']);
+    expect(notice).not.toHaveFocus();
+    expect(reasonField).toHaveFocus();
+    expect(reasonField).toHaveValue('abc');
+  });
+
+  // SENSIBLE (revisión humana): con el foco DENTRO del panel en un control que sigue montado (su
+  // encabezado), el vencimiento automático sí mueve el foco al aviso. Falla si la regla deja de
+  // mirar el contenedor del panel.
+  it('moves focus to the expired notice when it was inside the panel on a control that stays mounted', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    const { routes } = totpRoutes(totpFixture());
+    setup({ extra: { ...routes, [codePath]: jsonResponse({ code: CODE, expiresIn: 5 }) } });
+    renderApp(PAGE);
+    const dialog = await requestCode(user);
+    await screen.findByDisplayValue(CODE);
+    const heading = within(dialog).getByRole('heading', { name: t['totp.code.heading'] });
+    act(() => {
+      heading.focus();
+    });
+    expect(heading).toHaveFocus();
+
+    await advance(6_000);
+
+    const notice = within(dialog).getByText(t['totp.code.expired']);
+    await waitFor(() => {
+      expect(notice).toHaveFocus();
+    });
+  });
+
   // SENSIBLE (revisión humana): tras un error el foco vuelve al encabezado (montado, no el <body>) y
   // el único anuncio es el role="alert" con el mensaje fijo del error.
   it('returns focus to the heading after an error and announces it with the alert only', async () => {
@@ -864,6 +915,60 @@ describe('export the key', () => {
       expect(notice).toHaveFocus();
     });
     expect(document.activeElement).not.toBe(document.body);
+  });
+
+  // SENSIBLE (revisión humana): si la clave se oculta sola a los 30 s mientras el foco está en un
+  // control ajeno al panel (el botón de pedir código), el foco NO se mueve al aviso de oculto. Falla
+  // si el efecto de foco vuelve a ser incondicional.
+  it('does not steal focus from another control of the dialog when the key hides by itself', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    const { routes } = totpRoutes(totpFixture());
+    setup({ extra: { ...routes, [exportPath]: jsonResponse(exported) } });
+    renderApp(PAGE);
+    const dialog = await openExport(user);
+    await user.type(field(t['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: t['totp.export.submit'] }));
+    await screen.findByDisplayValue(SECRET_KEY);
+    const otherPanelButton = within(dialog).getByRole('button', { name: t['totp.code.get'] });
+    act(() => {
+      otherPanelButton.focus();
+    });
+    expect(otherPanelButton).toHaveFocus();
+
+    await advance(HIDE_AFTER_MS + 1_000);
+
+    expect(screen.queryByDisplayValue(SECRET_KEY)).toBeNull();
+    const notice = within(dialog).getByText(t['totp.export.hidden']);
+    expect(notice).not.toHaveFocus();
+    expect(otherPanelButton).toHaveFocus();
+  });
+
+  // SENSIBLE (revisión humana): con el foco DENTRO del panel en un control que sigue montado (su
+  // encabezado), el ocultado automático sí mueve el foco al aviso. Falla si la regla deja de mirar
+  // el contenedor del panel.
+  it('moves focus to the hidden notice when it was inside the panel on a control that stays mounted', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    const { routes } = totpRoutes(totpFixture());
+    setup({ extra: { ...routes, [exportPath]: jsonResponse(exported) } });
+    renderApp(PAGE);
+    const dialog = await openExport(user);
+    await user.type(field(t['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: t['totp.export.submit'] }));
+    await screen.findByDisplayValue(SECRET_KEY);
+    const heading = within(dialog).getByRole('heading', { name: t['totp.export.heading'] });
+    act(() => {
+      heading.focus();
+    });
+    expect(heading).toHaveFocus();
+
+    await advance(HIDE_AFTER_MS + 1_000);
+
+    const notice = within(dialog).getByText(t['totp.export.hidden']);
+    await waitFor(() => {
+      expect(notice).toHaveFocus();
+    });
   });
 
   it('copies the key and clears the clipboard after 30 s', async () => {
