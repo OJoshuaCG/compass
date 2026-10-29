@@ -66,6 +66,17 @@ const toRecord = (row: CredentialRow): CredentialRecord => ({
   archivedAt: row.archived_at,
 });
 
+const toSecretVersionRecord = (row: SecretRow): SecretVersionRecord => ({
+  field: row.field,
+  version: row.version,
+  ciphertext: new Uint8Array(row.ciphertext),
+  nonce: new Uint8Array(row.nonce),
+  dekVersion: row.dek_version,
+  isCurrent: row.is_current,
+  createdBy: row.created_by,
+  createdAt: row.created_at,
+});
+
 export class PgVaultCredentialRepository implements CredentialRepository {
   constructor(private readonly transactions: TransactionProvider) {}
 
@@ -128,18 +139,22 @@ export class PgVaultCredentialRepository implements CredentialRepository {
       [credentialId, field],
     );
     const row = result.rows[0];
-    return row === undefined
-      ? null
-      : {
-          field: row.field,
-          version: row.version,
-          ciphertext: new Uint8Array(row.ciphertext),
-          nonce: new Uint8Array(row.nonce),
-          dekVersion: row.dek_version,
-          isCurrent: row.is_current,
-          createdBy: row.created_by,
-          createdAt: row.created_at,
-        };
+    return row === undefined ? null : toSecretVersionRecord(row);
+  }
+
+  async secretByVersion(
+    credentialId: string,
+    field: SecretField,
+    version: number,
+  ): Promise<SecretVersionRecord | null> {
+    const result = await this.transactions.current().query<SecretRow>(
+      `select field, version, ciphertext, nonce, dek_version, is_current, created_by, created_at
+         from credential_secrets
+        where credential_id = $1 and field = $2 and version = $3`,
+      [credentialId, field, version],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : toSecretVersionRecord(row);
   }
 
   async retireCurrentSecret(credentialId: string, field: SecretField): Promise<void> {

@@ -28,6 +28,19 @@ const NO_STORE = 'no-store';
 
 const uuidPipe = new ZodValidationPipe(z.uuid());
 
+/**
+ * Número de versión de la ruta: solo dígitos decimales, sin ceros a la izquierda, notación científica ni
+ * hexadecimal (`Number('0x10')` sería 16), y dentro del rango de `integer` de la base de datos.
+ */
+const MAX_VERSION_NUMBER = 2_147_483_647;
+const versionPipe = new ZodValidationPipe(
+  z
+    .string()
+    .regex(/^[1-9]\d{0,9}$/)
+    .transform(Number)
+    .pipe(z.number().int().max(MAX_VERSION_NUMBER)),
+);
+
 const toCredential = (credential: CredentialRecord): Credential => ({
   id: credential.id,
   accountId: credential.accountId,
@@ -83,6 +96,17 @@ export class CredentialsController {
     body: ChangeCredentialPasswordRequest,
   ): Promise<Credential> {
     return toCredential(unwrap(await this.manageCredentials.changePassword(id, body.password)));
+  }
+
+  // Sin cuerpo: la versión viaja en la ruta y la respuesta son los metadatos de la credencial, nunca el
+  // contenido. Se responde 201 como al cambiar la contraseña, porque también crea una versión.
+  @Header('Cache-Control', NO_STORE)
+  @Post(':id/versions/:version/restore')
+  async restoreVersion(
+    @Param('id', uuidPipe) id: string,
+    @Param('version', versionPipe) version: number,
+  ): Promise<Credential> {
+    return toCredential(unwrap(await this.manageCredentials.restoreVersion(id, version)));
   }
 
   @Header('Cache-Control', NO_STORE)

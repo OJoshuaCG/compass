@@ -27,6 +27,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   // Credenciales: nunca el contenido. `version` es el número de versión de la contraseña.
   'credential.created': ['kind'],
   'credential.password_changed': ['version'],
+  // Restaurar crea una versión nueva con el contenido de una anterior: se anotan solo los dos números.
+  'credential.version_restored': ['restoredVersion', 'newVersion'],
   'credential.username_copied': [],
   'credential.revealed': ['reason'],
   // Evento crítico: la persona superó el tope de revelaciones por hora (ADR 0031); `limit` es el tope vigente.

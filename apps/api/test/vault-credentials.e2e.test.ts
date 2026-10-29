@@ -26,6 +26,7 @@ import type { E2eEnvironment, EnrolledSession } from './support/e2e.js';
 const DENIAL_GROUPING_WINDOW_MS = 61_000;
 const REAUTH_WINDOW_MS = 6 * 60 * 1000;
 const REVEAL_LIMIT = 30;
+const RESTORE_ROTATION_GAP_MS = 5 * 60 * 1000;
 const LIMIT_WINDOW_MS = 60 * 60 * 1000 + 1000;
 const VALID_REASON = 'Rotating the shared login for the brand page';
 
@@ -357,6 +358,271 @@ describe('changing the password and the history', () => {
   });
 });
 
+describe('restoring a password version (M2, BO-7)', () => {
+  const secretRows = async (credentialId: string) =>
+    (
+      await env.db.admin.query<{ version: number; is_current: boolean; ciphertext: Buffer }>(
+        `select version, is_current, ciphertext from credential_secrets
+          where credential_id = $1 and field = 'password' order by version`,
+        [credentialId],
+      )
+    ).rows;
+
+  const restore = (who: EnrolledSession, credentialId: string, version: number | string) =>
+    who.client.post<Credential & ProblemDetails>(
+      `/credentials/${credentialId}/versions/${String(version)}/restore`,
+    );
+
+  /** Credencial con dos versiones: la 1 con PASSWORD_CANARY y la 2 (vigente) con NEW_PASSWORD_CANARY. */
+  const credentialWithTwoVersions = async (label: string): Promise<Credential> => {
+    const own = await newCredential(label);
+    const changed = await editor.client.post(`/credentials/${own.id}/password`, {
+      password: NEW_PASSWORD_CANARY,
+    });
+    expect(changed.status).toBe(201);
+    return own;
+  };
+
+  it('creates a new current version with the old content, keeps the history and audits without secrets', async () => {
+    const own = await newCredential('Restorable login');
+    const fingerprintOfVersionOne = (
+      await env.db.admin.query<{ hmac: Buffer }>(
+        'select hmac from password_fingerprints where credential_id = $1',
+        [own.id],
+      )
+    ).rows[0]?.hmac;
+    const changed = await editor.client.post<Credential>(`/credentials/${own.id}/password`, {
+      password: NEW_PASSWORD_CANARY,
+    });
+    expect(changed.status).toBe(201);
+    const rowsBefore = await secretRows(own.id);
+
+    // El cambio de contraseña ya dejó `lastRotatedAt` con valor, así que un `not.toBeNull()` no
+    // detectaría que la restauración omite `markRotated`. Se adelanta el reloj de prueba y se exige
+    // que la fecha pase a ser exactamente el instante de la restauración.
+    env.clock.advance(RESTORE_ROTATION_GAP_MS);
+    const restoreInstant = env.clock.now().toISOString();
+
+    const restored = await restore(editor, own.id, 1);
+    expect(restored.status).toBe(201);
+    expect(restored.headers['cache-control']).toBe('no-store');
+    expect(restored.body.id).toBe(own.id);
+    expect(changed.body.lastRotatedAt).not.toBeNull();
+    expect(restored.body.lastRotatedAt).not.toBe(changed.body.lastRotatedAt);
+    expect(restored.body.lastRotatedAt).toBe(restoreInstant);
+    // La respuesta son metadatos: ningún texto de contraseña.
+    expect(JSON.stringify(restored.body)).not.toContain(PASSWORD_CANARY);
+    expect(JSON.stringify(restored.body)).not.toContain(NEW_PASSWORD_CANARY);
+
+    // El historial conserva todo y crece en uno: la restaurada es la 3 y la vigente.
+    const history = await editor.client.get<{ data: PasswordVersion[] }>(
+      `/credentials/${own.id}/history`,
+    );
+    expect(history.body.data.map((row) => [row.version, row.isCurrent])).toEqual([
+      [3, true],
+      [2, false],
+      [1, false],
+    ]);
+    expect(JSON.stringify(history.body)).not.toContain(PASSWORD_CANARY);
+    expect(JSON.stringify(history.body)).not.toContain(NEW_PASSWORD_CANARY);
+
+    // Las versiones anteriores no se tocaron: mismo texto cifrado byte a byte.
+    const rowsAfter = await secretRows(own.id);
+    expect(rowsAfter).toHaveLength(rowsBefore.length + 1);
+    for (const before of rowsBefore) {
+      const after = rowsAfter.find((row) => row.version === before.version);
+      expect(after?.ciphertext.equals(before.ciphertext)).toBe(true);
+    }
+    // La versión nueva es un cifrado nuevo (nonce propio), no una copia de la fila vieja.
+    const newRow = rowsAfter.find((row) => row.version === 3);
+    const oldRow = rowsAfter.find((row) => row.version === 1);
+    expect(newRow?.ciphertext.equals(oldRow?.ciphertext ?? Buffer.alloc(0))).toBe(false);
+
+    // La huella se recalcula con el contenido restaurado: vuelve a ser la de la versión 1 (HMAC determinista
+    // con la misma versión de DEK).
+    const fingerprintNow = (
+      await env.db.admin.query<{ hmac: Buffer }>(
+        'select hmac from password_fingerprints where credential_id = $1',
+        [own.id],
+      )
+    ).rows[0]?.hmac;
+    expect(fingerprintNow?.equals(fingerprintOfVersionOne ?? Buffer.alloc(0))).toBe(true);
+
+    // Revelar con el flujo existente devuelve el contenido de la versión 1.
+    await reauth(editor);
+    const revealed = await reveal(editor, own.id, VALID_REASON);
+    expect(revealed.status).toBe(200);
+    expect(revealed.body.password).toBe(PASSWORD_CANARY);
+
+    const events = (await auditRows('credential.version_restored')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]?.outcome).toBe('success');
+    expect(events[0]?.metadata).toEqual({ restoredVersion: 1, newVersion: 3 });
+    expect(JSON.stringify(events)).not.toContain(PASSWORD_CANARY);
+    expect(JSON.stringify(events)).not.toContain(NEW_PASSWORD_CANARY);
+  });
+
+  it('denies VIEW and USE (audited) and no access looks like not found (audited), changing nothing', async () => {
+    const own = await credentialWithTwoVersions('Guarded restore');
+    const versionsBefore = await secretVersionCount(own.id);
+
+    for (const email of ['viewer@creds.test', 'use@creds.test']) {
+      const session = email === 'viewer@creds.test' ? viewer : useOnly;
+      const denied = await deniedAndAudited(email, () => restore(session, own.id, 1));
+      expect(denied.status).toBe(403);
+      expect(denied.body.code).toBe('AUTHZ.SHARE');
+    }
+    const asStranger = await deniedAndAudited('stranger@creds.test', () =>
+      restore(stranger, own.id, 1),
+    );
+    expect(asStranger.status).toBe(404);
+
+    expect(await secretVersionCount(own.id)).toBe(versionsBefore);
+    const events = (await auditRows('credential.version_restored')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(events).toHaveLength(0);
+  });
+
+  it('rejects restoring the version that is already current, without creating a version', async () => {
+    const own = await credentialWithTwoVersions('Already current');
+    const versionsBefore = await secretVersionCount(own.id);
+
+    const response = await restore(editor, own.id, 2);
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe('CREDENTIAL.VERSION_ALREADY_CURRENT');
+    expect(JSON.stringify(response.body)).not.toContain(NEW_PASSWORD_CANARY);
+
+    expect(await secretVersionCount(own.id)).toBe(versionsBefore);
+    const events = (await auditRows('credential.version_restored')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(events).toHaveLength(0);
+  });
+
+  it('answers not found for a missing version or one that belongs to another credential', async () => {
+    const own = await credentialWithTwoVersions('Has two versions');
+    // Esta credencial solo tiene la versión 1: la 2 existe, pero en otra credencial.
+    const single = await newCredential('Has one version');
+    const versionsBefore = await secretVersionCount(single.id);
+
+    const missing = await restore(editor, own.id, 99);
+    const foreign = await restore(editor, single.id, 2);
+    expect(missing.status).toBe(404);
+    expect(foreign.status).toBe(404);
+    // Sin distinguir cuál de los dos casos es.
+    expect(foreign.body.code).toBe(missing.body.code);
+    expect(await secretVersionCount(single.id)).toBe(versionsBefore);
+  });
+
+  it('treats a restore on an archived account as not found, writing no version and no audit event', async () => {
+    const archivedAccount = (
+      await owner.client.post<Account>('/accounts', {
+        platformId: instagramId,
+        displayName: 'Archived before restore',
+      })
+    ).body;
+    // Archivar exige MANAGE sobre la cuenta; EDIT bastaría para restaurar, así que `editor` recibe MANAGE.
+    await shareAccount(archivedAccount.id, 'editor@creds.test', 'MANAGE');
+    const own = (
+      await owner.client.post<Credential>(`/accounts/${archivedAccount.id}/credentials`, {
+        label: 'Archived restore',
+        username: USERNAME_CANARY,
+        password: PASSWORD_CANARY,
+      })
+    ).body;
+    expect(
+      (
+        await editor.client.post(`/credentials/${own.id}/password`, {
+          password: NEW_PASSWORD_CANARY,
+        })
+      ).status,
+    ).toBe(201);
+    const versionsBefore = await secretVersionCount(own.id);
+    expect((await editor.client.post(`/accounts/${archivedAccount.id}/archive`)).status).toBe(204);
+
+    const response = await restore(editor, own.id, 1);
+    expect(response.status).toBe(404);
+
+    expect(await secretVersionCount(own.id)).toBe(versionsBefore);
+    const events = (await auditRows('credential.version_restored')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(events).toHaveLength(0);
+  });
+
+  it('answers not found to a person of another organization, writing no version and no audit event', async () => {
+    const own = await credentialWithTwoVersions('Foreign restore target');
+    const versionsBefore = await secretVersionCount(own.id);
+
+    // Segunda organización con su propia Raíz (mismo patrón que el aislamiento de vault-accounts).
+    await env.bootstrapOrganization({
+      slug: 'creds-other',
+      rootEmail: 'root@creds-other.test',
+      rootName: 'Grace Hopper',
+    });
+    const foreignClient = new TestClient(env, '203.0.113.82');
+    await foreignClient.post('/auth/login', {
+      email: 'root@creds-other.test',
+      password: STRONG_PASSWORD,
+    });
+    const foreign = await enroll(env, foreignClient);
+
+    // La versión 1 existe, pero en otra organización: el aislamiento por filas la oculta y la
+    // respuesta es la de una credencial inexistente.
+    const response = await restore(foreign, own.id, 1);
+    expect(response.status).toBe(404);
+
+    expect(await secretVersionCount(own.id)).toBe(versionsBefore);
+    const events = (await auditRows('credential.version_restored')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(events).toHaveLength(0);
+  });
+
+  it('rejects a malformed version number at the edge', async () => {
+    // '01' y '0x10' no son enteros canónicos; los dos últimos desbordan el entero de 32 bits.
+    for (const version of ['abc', '0', '-1', '1.5', '01', '0x10', '2147483648', '99999999999']) {
+      const response = await restore(editor, credential.id, version);
+      expect(response.status).toBe(422);
+    }
+  });
+
+  it('serializes restores with concurrent password changes: versions stay consecutive and one is current', async () => {
+    const own = await credentialWithTwoVersions('Contended restore');
+    const concurrentEach = 4;
+    const responses = await Promise.all([
+      ...Array.from({ length: concurrentEach }, (_unused, index) =>
+        editor.client.post<Credential & ProblemDetails>(`/credentials/${own.id}/password`, {
+          password: `${NEW_PASSWORD_CANARY}-restore-race-${String(index)}`,
+        }),
+      ),
+      // La versión 1 nunca vuelve a ser la vigente (restaurar crea una nueva), así que todas proceden.
+      ...Array.from({ length: concurrentEach }, () => restore(editor, own.id, 1)),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual(
+      Array.from({ length: concurrentEach * 2 }, () => 201),
+    );
+
+    const rows = await secretRows(own.id);
+    expect(rows.map((row) => row.version)).toEqual(
+      Array.from({ length: 2 + concurrentEach * 2 }, (_unused, index) => index + 1),
+    );
+    expect(rows.filter((row) => row.is_current)).toHaveLength(1);
+    expect(rows.at(-1)?.is_current).toBe(true);
+
+    const restoredEvents = (await auditRows('credential.version_restored')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(restoredEvents).toHaveLength(concurrentEach);
+    expect(restoredEvents.every((row) => row.metadata.restoredVersion === 1)).toBe(true);
+    const newVersions = restoredEvents.map((row) => Number(row.metadata.newVersion));
+    expect(new Set(newVersions).size).toBe(concurrentEach);
+  });
+});
+
 describe('copying the username', () => {
   it('works with USE, is audited and is not cacheable', async () => {
     const response = await useOnly.client.post<{ username: string }>(
@@ -467,6 +733,14 @@ describe('revealing the password', () => {
 });
 
 describe('the reveal limit', () => {
+  // El reloj de prueba es compartido y los bloques anteriores lo adelantan varios minutos cada uno: las
+  // sesiones abiertas en el `beforeAll` general ya pasaron el límite de inactividad (30 min) cuando
+  // llegan aquí. Se abren sesiones nuevas para estas dos personas en lugar de acortar los avances.
+  beforeAll(async () => {
+    racer = { ...racer, client: await signIn(env, 'racer@creds.test', racer.secret) };
+    limited = { ...limited, client: await signIn(env, 'limited@creds.test', limited.secret) };
+  });
+
   it('never lets concurrent reveals exceed the quota', async () => {
     await reauth(racer);
     const alreadyUsed = REVEAL_LIMIT - 5;

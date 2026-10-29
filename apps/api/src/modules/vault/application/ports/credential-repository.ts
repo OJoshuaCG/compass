@@ -78,6 +78,12 @@ export interface CredentialRepository {
   listByAccount(accountId: string): Promise<readonly CredentialRecord[]>;
   /** Versión vigente del campo, o `null` si la credencial no lo tiene. */
   currentSecret(credentialId: string, field: SecretField): Promise<SecretVersionRecord | null>;
+  /** Una versión concreta del campo (vigente o histórica), o `null` si no existe en esta credencial. */
+  secretByVersion(
+    credentialId: string,
+    field: SecretField,
+    version: number,
+  ): Promise<SecretVersionRecord | null>;
   /**
    * Marca como no vigente la versión actual del campo. Debe ir ANTES de insertar la nueva: el índice
    * único parcial solo admite una versión vigente por campo.

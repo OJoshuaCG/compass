@@ -19,6 +19,7 @@
   "SHARE.GRANTEE_INVALID": "La persona o el grupo elegido no existe, no está activo o es quien comparte.",
   "SHARE.EXPIRY_INVALID": "La fecha de caducidad debe ser futura y no superar un año.",
   "CREDENTIAL.REASON_INVALID": "Escribe un motivo de entre 6 y 500 caracteres para revelar la contraseña.",
+  "CREDENTIAL.VERSION_ALREADY_CURRENT": "Esa versión ya es la contraseña vigente: no hay nada que restaurar.",
   "CREDENTIAL.REVEAL_LIMIT": "Alcanzaste el límite de revelaciones por hora. Se avisó a la persona responsable.",
   "CREDENTIAL.TOTP_URI_INVALID": "El URI otpauth no es válido: solo se admite TOTP con clave de al menos 128 bits, 6 u 8 dígitos y periodo de 30 o 60 segundos.",
   "CREDENTIAL.TOTP_STATE_INVALID": "El segundo factor no está en un estado que permita esta acción.",

@@ -1,11 +1,11 @@
 /**
  * Credenciales de las cuentas de la bóveda: crear, cambiar la contraseña (con versiones y huella),
- * historial sin contenido, copiar el usuario y revelar la contraseña.
+ * historial sin contenido, restaurar una versión anterior, copiar el usuario y revelar la contraseña.
  *
  * Invariantes de seguridad
  * - Dos llaves, como en las cuentas: el permiso del catálogo y el nivel de acceso efectivo a la cuenta.
  *   Sin acceso a la cuenta se responde `NOT_FOUND` y con nivel insuficiente, `AUTHZ.SHARE`; las dos
- *   negaciones se auditan (`authz.denied`) en crear, cambiar la contraseña, historial, copiar y revelar.
+ *   negaciones se auditan (`authz.denied`) en crear, cambiar la contraseña, historial, restaurar, copiar y revelar.
  *   El inventario (`vault.inventory.read`) no concede ningún nivel: no revela, no copia, no ve el historial.
  * - Solo el módulo de criptografía cifra y descifra. Aquí el texto en claro vive dentro de una llamada y
  *   se borra de memoria al terminar; nunca se registra, se audita ni viaja en un error.
@@ -42,6 +42,7 @@ import type {
   CredentialRepository,
   PasswordVersionSummary,
   SecretField,
+  SecretVersionRecord,
 } from './ports/credential-repository.js';
 
 export interface ManageCredentialsDeps {
@@ -196,6 +197,84 @@ export class ManageCredentials {
         ip: null,
         requestId: current.requestId,
         metadata: { version: nextVersion },
+      });
+      return ok(updated ?? credential);
+    });
+  }
+
+  /**
+   * Restaura una versión anterior de la contraseña (BO-7). No edita ni borra versiones: crea una versión
+   * NUEVA y vigente cuyo contenido es el de la elegida, así el historial solo crece. Solo aplica a la
+   * contraseña, el único campo cuyo historial se expone; el usuario y el segundo factor tienen otras reglas.
+   *
+   * El texto en claro de la versión vieja vive solo entre el descifrado y el cifrado de la versión nueva,
+   * dentro de esta transacción: no se devuelve, no se audita y no viaja en ningún error. La auditoría lleva
+   * únicamente los dos números de versión.
+   */
+  restoreVersion(
+    credentialId: string,
+    version: number,
+  ): Promise<Result<CredentialRecord, DomainError>> {
+    const { context, uow, authorizer, credentials, audit, clock } = this.deps;
+    return uow.run(async () => {
+      await authorizer.require({ permission: 'credential.update' });
+      const current = context.current();
+      const actorId = this.requireActorId();
+
+      // Mismo bloqueo que al cambiar la contraseña: restaurar y cambiar se serializan y la numeración
+      // de versiones no se pisa.
+      const lockedCredential = await credentials.findByIdForUpdate(credentialId);
+      const credential = await this.liveOrNull(lockedCredential);
+      if (credential === null) return err(notFound());
+      const level = await this.levelOrNotFound(
+        credential.accountId,
+        actorId,
+        'credential.update',
+        'EDIT',
+      );
+      if (!level.ok) return level;
+
+      // Se busca por credencial Y versión: una versión de otra credencial u organización no aparece
+      // (RLS) y se responde igual que una inexistente, sin distinguirlas.
+      const chosen = await credentials.secretByVersion(credential.id, 'password', version);
+      if (chosen === null) return err(notFound());
+      if (chosen.isCurrent) {
+        return err(
+          new DomainError(
+            'CREDENTIAL.VERSION_ALREADY_CURRENT',
+            'The chosen version is already the current password',
+          ),
+        );
+      }
+
+      // Se descifra ANTES de retirar la vigente: si falla, no se ha escrito nada.
+      const opened = await this.openSecretVersion(credential, chosen);
+      if (!opened.ok) return opened;
+
+      const previous = await credentials.currentSecret(credential.id, 'password');
+      const nextVersion = (previous?.version ?? 0) + FIRST_VERSION;
+      if (previous !== null) await credentials.retireCurrentSecret(credential.id, 'password');
+      await this.storeSecret({
+        credentialId: credential.id,
+        field: 'password',
+        version: nextVersion,
+        plaintext: opened.value,
+        blindIndexPurpose: null,
+        createdBy: actorId,
+      });
+      await credentials.markRotated(credential.id, clock.now());
+      const updated = await credentials.findById(credential.id);
+
+      await audit.record({
+        action: 'credential.version_restored',
+        actorId,
+        targetType: 'credential',
+        targetId: credential.id,
+        outcome: 'success',
+        reasonCode: null,
+        ip: null,
+        requestId: current.requestId,
+        metadata: { restoredVersion: chosen.version, newVersion: nextVersion },
       });
       return ok(updated ?? credential);
     });
@@ -480,14 +559,23 @@ export class ManageCredentials {
     credential: CredentialRecord,
     field: SecretField,
   ): Promise<Result<string, DomainError>> {
-    const { context, credentials, cipher } = this.deps;
+    const { credentials } = this.deps;
     const secret = await credentials.currentSecret(credential.id, field);
     if (secret === null) return err(notFound());
+    return this.openSecretVersion(credential, secret);
+  }
+
+  /** Descifra una versión concreta: el contexto autenticado incluye su número de versión. */
+  private async openSecretVersion(
+    credential: CredentialRecord,
+    secret: SecretVersionRecord,
+  ): Promise<Result<string, DomainError>> {
+    const { context, cipher } = this.deps;
     const opened = await cipher.decrypt(
       {
         organizationId: context.current().organizationId,
         resourceId: credential.id,
-        field,
+        field: secret.field,
         version: secret.version,
       },
       { ciphertext: secret.ciphertext, nonce: secret.nonce, dekVersion: secret.dekVersion },
