@@ -82,10 +82,13 @@ describe('RecordAuditEvent', () => {
   it('rejects malformed action names and over-long values', async () => {
     const { audit } = setup();
     const badName = await audit.record(input({ action: 'Not A Valid Action' }));
-    const longValue = await audit.record(input({ metadata: { reason: 'x'.repeat(257) } }));
+    // El motivo del revelado admite hasta 500 caracteres (decisión del dueño, B2): 501 ya excede.
+    const longValue = await audit.record(input({ metadata: { reason: 'x'.repeat(501) } }));
+    const longestAllowed = await audit.record(input({ metadata: { reason: 'x'.repeat(500) } }));
 
     expect(badName.ok).toBe(false);
     expect(longValue.ok).toBe(false);
+    expect(longestAllowed.ok).toBe(true);
   });
 
   it('requires a reason code for denials and accepts them when present', async () => {
