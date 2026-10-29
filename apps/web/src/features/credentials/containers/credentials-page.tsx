@@ -2,7 +2,7 @@ import type { Credential } from '@iam/contracts';
 import { Button, PageHeader, Spinner } from '@iam/ui';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAsyncAction } from '../../../shared/api';
@@ -27,7 +27,7 @@ import {
   canViewHistory,
 } from '../model/credential-access';
 import { CLIPBOARD_CLEAR_MS, CLIPBOARD_CLEAR_SECONDS } from '../model/secret-policy';
-import { CredentialsTable } from '../ui/credentials-table';
+import { CredentialsTable, rowMenuTriggerSelector } from '../ui/credentials-table';
 
 import { ChangePasswordDialog } from './change-password-dialog';
 import { CreateCredentialDialog } from './create-credential-dialog';
@@ -65,6 +65,9 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   const hasUseTotpPermission = usePermission('credential.use_totp');
   const hasExportTotpPermission = usePermission('credential.export_totp');
   const [dialog, setDialog] = useState<DialogState>(null);
+  // Fila cuyo menú "⋯" abrió el diálogo actual; sirve para devolver el foco al cerrarlo.
+  const menuOriginRef = useRef<string | null>(null);
+  const tableRegionRef = useRef<HTMLDivElement>(null);
 
   const accountQuery = useQuery({
     queryKey: credentialsKeys.account(accountId),
@@ -82,6 +85,29 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
     const username = await fetchCredentialUsername(credential.id);
     return copySecretWithAutoClear(username, CLIPBOARD_CLEAR_MS);
   });
+
+  // Un diálogo abierto desde el menú de fila puede cerrarse con el foco en un elemento ya
+  // desmontado (el ítem del menú), y el foco se pierde en <body>. Al cerrar, si pasó eso, se
+  // devuelve al disparador del menú de esa fila o, si la fila ya no existe, a la región de la
+  // tabla (WCAG 2.4.3). El temporizador deja que Radix termine primero su propia devolución.
+  useEffect(() => {
+    if (dialog !== null) return;
+    const originCredentialId = menuOriginRef.current;
+    if (originCredentialId === null) return;
+    menuOriginRef.current = null;
+    const timer = window.setTimeout(() => {
+      const active = document.activeElement;
+      const focusIsLost = active === null || active === document.body || !active.isConnected;
+      if (!focusIsLost) return;
+      const trigger = tableRegionRef.current?.querySelector<HTMLElement>(
+        rowMenuTriggerSelector(originCredentialId),
+      );
+      (trigger ?? tableRegionRef.current)?.focus();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [dialog]);
 
   if (!catalogReady) return <Spinner label={t('state.loading', { ns: 'common' })} />;
 
@@ -129,6 +155,12 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
     void queryClient.invalidateQueries({ queryKey: credentialsKeys.list(accountId) });
   };
 
+  // Cambiar contraseña, historial y segundo factor se eligen en el menú de fila.
+  function openFromMenu(kind: 'password' | 'history' | 'totp', credential: Credential) {
+    menuOriginRef.current = credential.id;
+    setDialog({ kind, credential });
+  }
+
   async function handleCopyUsername(credential: Credential) {
     const result = await copyUsername.run(credential);
     if (!result.ok) return;
@@ -167,35 +199,41 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
         }
       />
       {copyUsername.error !== undefined ? <ErrorAlert error={copyUsername.error} /> : null}
-      <CredentialsTable
-        credentials={credentialsQuery.data ?? []}
-        status={tableStatus}
-        errorMessage={errorMessage(credentialsQuery.error)}
-        onRetry={() => {
-          void credentialsQuery.refetch();
-        }}
-        timeZone={timeZone}
-        canCopyUsername={canCopyUsername(myLevel)}
-        canReveal={canRevealPassword(hasRevealPermission, myLevel)}
-        canChangePassword={canChangePassword(hasUpdatePermission, myLevel)}
-        canViewHistory={canViewHistory(myLevel)}
-        canOpenTotp={totpCapabilities.canUse}
-        onCopyUsername={(credential) => {
-          void handleCopyUsername(credential);
-        }}
-        onReveal={(credential) => {
-          setDialog({ kind: 'reveal', credential });
-        }}
-        onChangePassword={(credential) => {
-          setDialog({ kind: 'password', credential });
-        }}
-        onViewHistory={(credential) => {
-          setDialog({ kind: 'history', credential });
-        }}
-        onOpenTotp={(credential) => {
-          setDialog({ kind: 'totp', credential });
-        }}
-      />
+      <div
+        ref={tableRegionRef}
+        tabIndex={-1}
+        className="focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+      >
+        <CredentialsTable
+          credentials={credentialsQuery.data ?? []}
+          status={tableStatus}
+          errorMessage={errorMessage(credentialsQuery.error)}
+          onRetry={() => {
+            void credentialsQuery.refetch();
+          }}
+          timeZone={timeZone}
+          canCopyUsername={canCopyUsername(myLevel)}
+          canReveal={canRevealPassword(hasRevealPermission, myLevel)}
+          canChangePassword={canChangePassword(hasUpdatePermission, myLevel)}
+          canViewHistory={canViewHistory(myLevel)}
+          canOpenTotp={totpCapabilities.canUse}
+          onCopyUsername={(credential) => {
+            void handleCopyUsername(credential);
+          }}
+          onReveal={(credential) => {
+            setDialog({ kind: 'reveal', credential });
+          }}
+          onChangePassword={(credential) => {
+            openFromMenu('password', credential);
+          }}
+          onViewHistory={(credential) => {
+            openFromMenu('history', credential);
+          }}
+          onOpenTotp={(credential) => {
+            openFromMenu('totp', credential);
+          }}
+        />
+      </div>
       {allowCreate ? (
         <CreateCredentialDialog
           accountId={accountId}

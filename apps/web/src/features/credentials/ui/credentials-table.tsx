@@ -1,5 +1,13 @@
 import { DEFAULT_PAGE_LIMIT, type Credential } from '@iam/contracts';
-import { Badge, Button, DataTable, EmptyState, type Column } from '@iam/ui';
+import {
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  RowActionsMenu,
+  type Column,
+  type RowActionItem,
+} from '@iam/ui';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -29,6 +37,14 @@ export type CredentialsTableProps = {
 };
 
 const NO_OP = () => undefined;
+
+/**
+ * Selector del disparador del menú "⋯" de una fila. El container lo usa para devolver el foco a un
+ * elemento que siga montado cuando se cierra un diálogo abierto desde ese menú.
+ */
+export function rowMenuTriggerSelector(credentialId: string): string {
+  return `[data-credential-row-menu="${credentialId}"] button`;
+}
 
 /**
  * Tabla estándar de credenciales. Presentacional: nunca recibe usuario ni contraseña, solo los
@@ -71,6 +87,50 @@ export function CredentialsTable({
     [i18n.language, t, timeZone],
   );
 
+  // Las demás acciones viven en el menú "⋯" (docs/frontend.md §6.2). Cada una solo se ofrece si el
+  // container la permite; sin ninguna el menú no se pinta. Los textos visibles son los nombres
+  // accesibles; el botón del menú nombra a la credencial.
+  function menuItemsFor(row: Credential): RowActionItem[] {
+    const items: RowActionItem[] = [];
+    if (canCopyUsername) {
+      items.push({
+        id: 'copyUsername',
+        label: t('action.copyUsername'),
+        onSelect: () => {
+          onCopyUsername(row);
+        },
+      });
+    }
+    if (canChangePassword) {
+      items.push({
+        id: 'changePassword',
+        label: t('action.changePassword'),
+        onSelect: () => {
+          onChangePassword(row);
+        },
+      });
+    }
+    if (canViewHistory) {
+      items.push({
+        id: 'history',
+        label: t('action.history'),
+        onSelect: () => {
+          onViewHistory(row);
+        },
+      });
+    }
+    if (canOpenTotp) {
+      items.push({
+        id: 'totp',
+        label: t('action.totp'),
+        onSelect: () => {
+          onOpenTotp(row);
+        },
+      });
+    }
+    return items;
+  }
+
   const hasAnyAction =
     canCopyUsername || canReveal || canChangePassword || canViewHistory || canOpenTotp;
 
@@ -92,20 +152,9 @@ export function CredentialsTable({
       rowActions={
         hasAnyAction
           ? (row) => (
-              <span className="flex flex-wrap justify-end gap-2">
-                {canCopyUsername ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    aria-label={t('action.copyUsernameLabel', { label: row.label })}
-                    onClick={() => {
-                      onCopyUsername(row);
-                    }}
-                  >
-                    {t('action.copyUsername')}
-                  </Button>
-                ) : null}
+              <span className="flex items-center justify-end gap-2">
                 {canReveal ? (
+                  // Acción primaria: su nombre accesible empieza con el texto visible (WCAG 2.5.3).
                   <Button
                     variant="secondary"
                     size="sm"
@@ -117,42 +166,14 @@ export function CredentialsTable({
                     {t('action.reveal')}
                   </Button>
                 ) : null}
-                {canChangePassword ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    aria-label={t('action.changePasswordLabel', { label: row.label })}
-                    onClick={() => {
-                      onChangePassword(row);
-                    }}
-                  >
-                    {t('action.changePassword')}
-                  </Button>
-                ) : null}
-                {canViewHistory ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    aria-label={t('action.historyLabel', { label: row.label })}
-                    onClick={() => {
-                      onViewHistory(row);
-                    }}
-                  >
-                    {t('action.history')}
-                  </Button>
-                ) : null}
-                {canOpenTotp ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    aria-label={t('action.totpLabel', { label: row.label })}
-                    onClick={() => {
-                      onOpenTotp(row);
-                    }}
-                  >
-                    {t('action.totp')}
-                  </Button>
-                ) : null}
+                {/* El contenedor marca la fila para que el container devuelva el foco al disparador
+                    del menú al cerrar un diálogo abierto desde él. */}
+                <span data-credential-row-menu={row.id}>
+                  <RowActionsMenu
+                    label={t('action.rowMenu', { label: row.label })}
+                    items={menuItemsFor(row)}
+                  />
+                </span>
               </span>
             )
           : undefined

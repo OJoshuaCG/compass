@@ -67,6 +67,7 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
   // Solo la etiqueta (texto para identificar la cuenta), nunca el secreto ni el enlace otpauth.
   const [singleAccountLabel, setSingleAccountLabel] = useState<string | null>(null);
   const captureSupported = isDisplayCaptureSupported();
+  const chooserHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -74,6 +75,13 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
       isMountedRef.current = false;
     };
   }, []);
+
+  // El selector aparece sin que la persona toque nada en él: el foco va a su encabezado (estable y
+  // sin datos de cuentas) para que el teclado y el lector de pantalla lo encuentren (WCAG 2.4.3).
+  const isChoosing = outcomeKind === 'migration_choose';
+  useEffect(() => {
+    if (isChoosing) chooserHeadingRef.current?.focus();
+  }, [isChoosing]);
 
   async function readFrom(reader: () => Promise<QrReadResult>) {
     setReading(true);
@@ -151,6 +159,11 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
     void readFrom(() => readQrFromImageFile(file));
   }
 
+  // Solo recibe pegados: el valor nunca cambia, así que lo que se teclee se descarta.
+  function ignoreTyping() {
+    return undefined;
+  }
+
   function handlePaste(event: ClipboardEvent<HTMLInputElement>) {
     const items = Array.from(event.clipboardData.items);
     const imageItem = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'));
@@ -218,9 +231,24 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
         help={t('totp.register.image.pasteHelp')}
       >
         {(controlProps) => (
-          <Input {...controlProps} value="" readOnly autoComplete="off" onPaste={handlePaste} />
+          // No es `readOnly`: en móvil un campo de solo lectura no ofrece "Pegar" al mantener
+          // pulsado. `inputMode="none"` evita que se abra el teclado en pantalla.
+          <Input
+            {...controlProps}
+            value=""
+            onChange={ignoreTyping}
+            inputMode="none"
+            autoComplete="off"
+            spellCheck={false}
+            onPaste={handlePaste}
+          />
         )}
       </FormField>
+      {/* Región siempre montada para que el cambio se anuncie. Mensaje FIJO: nunca etiquetas de
+          cuentas ni nada derivado de los secretos. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {isChoosing ? t('totp.register.image.migration.status') : ''}
+      </p>
       {reading ? <Spinner label={t('totp.register.image.reading')} /> : null}
       {outcomeKind === 'found' ? (
         <Alert tone="success">
@@ -231,8 +259,14 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
       ) : null}
       {outcomeKind === 'migration_choose' ? (
         <div className="flex flex-col gap-3">
+          <h3 ref={chooserHeadingRef} tabIndex={-1} className="text-base text-text">
+            {t('totp.register.image.migration.heading')}
+          </h3>
           <p className="text-sm text-text-secondary">{t('totp.register.image.migration.help')}</p>
+          {/* Altura máxima para que una exportación larga no empuje fuera de la vista los botones
+              de confirmar y cancelar, que quedan fuera de la zona con desplazamiento. */}
           <RadioGroup
+            className="max-h-64 overflow-y-auto"
             legend={t('totp.register.image.migration.legend')}
             options={choiceOptions}
             value={selectedIndex}

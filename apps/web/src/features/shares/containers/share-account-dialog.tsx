@@ -15,7 +15,7 @@ import {
   Spinner,
 } from '@iam/ui';
 import { useQuery } from '@tanstack/react-query';
-import { useState, type ChangeEvent } from 'react';
+import { useId, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
@@ -40,7 +40,13 @@ function ShareAccountForm({ accountId, onCancel, onShared }: ShareAccountFormPro
   const currentUserId = useMe()?.user.id;
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useDebouncedCommit(query, setQuery);
-  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  // La persona elegida se guarda completa y aparte de los resultados: la búsqueda filtra la lista
+  // y, si la selección se derivara de ella, desaparecería al buscar otro texto. Solo vive en el
+  // estado de este formulario y se descarta al cerrar el diálogo.
+  const [selectedPerson, setSelectedPerson] = useState<DirectoryUser | undefined>(undefined);
+  const selectedId = selectedPerson?.id;
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const submitHintId = useId();
   const [level, setLevel] = useState<ShareLevel>(DEFAULT_SHARE_LEVEL);
   const [expiresAtLocal, setExpiresAtLocal] = useState('');
   const [formError, setFormError] = useState<ShareFormError | undefined>(undefined);
@@ -59,7 +65,6 @@ function ShareAccountForm({ accountId, onCancel, onShared }: ShareAccountFormPro
   const eligible: DirectoryUser[] = (candidates.data?.data ?? []).filter(
     (candidate) => candidate.id !== currentUserId,
   );
-  const selectedPerson = eligible.find((candidate) => candidate.id === selectedId);
 
   async function submit() {
     const built = buildShareRequest({ granteeId: selectedId, level, expiresAtLocal }, new Date());
@@ -99,6 +104,7 @@ function ShareAccountForm({ accountId, onCancel, onShared }: ShareAccountFormPro
         placeholder={t('search.placeholder', { ns: 'common' })}
         value={draft}
         onValueChange={setDraft}
+        ref={searchInputRef}
       />
       {candidates.isError ? (
         <ErrorAlert
@@ -126,12 +132,33 @@ function ShareAccountForm({ accountId, onCancel, onShared }: ShareAccountFormPro
             label: candidate.displayName,
             description: candidate.email,
           }))}
-          value={selectedPerson?.id}
+          value={selectedId}
           onValueChange={(personId) => {
-            setSelectedId(personId);
+            setSelectedPerson(eligible.find((candidate) => candidate.id === personId));
             setFormError(undefined);
           }}
         />
+      ) : null}
+      {selectedPerson !== undefined ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-strong px-3 py-2">
+          <p className="min-w-0 break-words text-sm text-text">
+            {t('share.selected', {
+              ns: 'shares',
+              name: selectedPerson.displayName,
+              email: selectedPerson.email,
+            })}
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setSelectedPerson(undefined);
+              searchInputRef.current?.focus();
+            }}
+          >
+            {t('share.clearSelection', { ns: 'shares' })}
+          </Button>
+        </div>
       ) : null}
       {formError === 'granteeRequired' ? (
         <p role="alert" className="text-sm text-danger">
@@ -173,6 +200,13 @@ function ShareAccountForm({ accountId, onCancel, onShared }: ShareAccountFormPro
           />
         )}
       </FormField>
+      {selectedPerson === undefined ? (
+        // Motivo visible del botón deshabilitado: un botón deshabilitado no recibe foco y el
+        // texto, enlazado con `aria-describedby`, deja la razón disponible para lectores de pantalla.
+        <p id={submitHintId} className="text-sm text-text-secondary">
+          {t('share.submitHint', { ns: 'shares' })}
+        </p>
+      ) : null}
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}
@@ -181,6 +215,7 @@ function ShareAccountForm({ accountId, onCancel, onShared }: ShareAccountFormPro
           type="submit"
           loading={action.pending}
           disabled={selectedPerson === undefined || cooldown.secondsLeft > 0}
+          aria-describedby={selectedPerson === undefined ? submitHintId : undefined}
         >
           {t('share.submit', { ns: 'shares' })}
         </Button>

@@ -9,7 +9,8 @@ import {
   resources,
 } from '@iam/i18n';
 import type { QueryClient } from '@tanstack/react-query';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import type { UserEvent } from '@testing-library/user-event';
 import { expect } from 'vitest';
 
 export const es = {
@@ -63,4 +64,43 @@ export function expectNoSecretsStored(queryClient: QueryClient, secrets: readonl
     expect(storage, `web storage leaks ${secret}`).not.toContain(secret);
   }
   expect(window.sessionStorage.length).toBe(0);
+}
+
+/**
+ * Abre el menú "⋯" de una fila por el nombre de su botón. El menú se descarga en diferido y mientras
+ * tanto el botón está deshabilitado, así que se espera a que se habilite antes de pulsarlo.
+ */
+export async function openRowMenu(user: UserEvent, menuLabel: string): Promise<HTMLElement> {
+  const trigger = await waitFor(() => {
+    const button = screen.getByRole('button', { name: menuLabel });
+    expect(button).toBeEnabled();
+    return button;
+  });
+  await user.click(trigger);
+  return trigger;
+}
+
+/** Abre el menú de una fila y elige una de sus opciones por su nombre visible. */
+export async function chooseRowMenuAction(
+  user: UserEvent,
+  menuLabel: string,
+  itemName: string,
+): Promise<void> {
+  await openRowMenu(user, menuLabel);
+  await user.click(await screen.findByRole('menuitem', { name: itemName }));
+}
+
+/**
+ * Textos de las opciones del menú, en orden. Lo cierra al terminar: abierto, Radix oculta el resto
+ * de la página a las consultas por rol y las comprobaciones posteriores pasarían en falso.
+ */
+export async function rowMenuItemTexts(user: UserEvent, menuLabel: string): Promise<string[]> {
+  await openRowMenu(user, menuLabel);
+  const items = await screen.findAllByRole('menuitem');
+  const texts = items.map((item) => item.textContent);
+  await user.keyboard('{Escape}');
+  await waitFor(() => {
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+  return texts;
 }

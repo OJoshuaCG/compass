@@ -61,6 +61,12 @@ const CANDIDATE: DirectoryUser = {
   email: 'maria@example.com',
   rank: 2,
 };
+const OTHER_CANDIDATE: DirectoryUser = {
+  id: '77777777-7777-4777-8777-777777777773',
+  displayName: 'Pedro León',
+  email: 'pedro@example.com',
+  rank: 2,
+};
 const SELF_CANDIDATE: DirectoryUser = {
   id: SELF_ID,
   displayName: 'Ana Pérez',
@@ -238,6 +244,101 @@ describe('share dialog', () => {
     expect(submit).toBeDisabled();
     await pickCandidate(user, dialog);
     expect(submit).toBeEnabled();
+  });
+
+  it('explains why the submit button is disabled with a visible hint linked to it', async () => {
+    const user = userEvent.setup();
+    setup();
+    renderApp(PAGE);
+    const dialog = await openShareDialog(user);
+    const submit = within(dialog).getByRole('button', { name: es.shares['share.submit'] });
+    expect(within(dialog).getByText(es.shares['share.submitHint'])).toBeVisible();
+    expect(submit).toHaveAccessibleDescription(es.shares['share.submitHint']);
+    await pickCandidate(user, dialog);
+    expect(within(dialog).queryByText(es.shares['share.submitHint'])).toBeNull();
+    expect(submit).not.toHaveAttribute('aria-describedby');
+  });
+
+  describe('the chosen person and a later search', () => {
+    // La búsqueda filtra en el servidor: "pedro" devuelve a otra persona y no a la elegida.
+    const searchingApi = () =>
+      setup({
+        extra: {
+          'GET /users': (call) =>
+            jsonResponse({
+              data:
+                call.search.get('q') === 'pedro'
+                  ? [OTHER_CANDIDATE]
+                  : [SELF_CANDIDATE, CANDIDATE, OTHER_CANDIDATE],
+              page: { nextCursor: null, limit: 25 },
+            }),
+          [`POST ${SHARES_PATH}`]: jsonResponse(PERSON_SHARE, 201),
+        },
+      });
+    const summaryText = (person: DirectoryUser) =>
+      fill(es.shares['share.selected'], { name: person.displayName, email: person.email });
+
+    it('keeps the selection when searching for other text and still submits it', async () => {
+      const user = userEvent.setup();
+      const api = searchingApi();
+      renderApp(PAGE);
+      const dialog = await openShareDialog(user);
+      await pickCandidate(user, dialog);
+      expect(within(dialog).getByText(summaryText(CANDIDATE))).toBeVisible();
+
+      await user.type(
+        within(dialog).getByRole('searchbox', { name: es.shares['share.search'] }),
+        'pedro',
+      );
+      // `OTHER_CANDIDATE` ya estaba en la lista inicial: solo la desaparición de la persona elegida
+      // prueba que llegó la lista filtrada.
+      await waitFor(() => {
+        expect(
+          within(dialog).queryByRole('radio', { name: new RegExp(CANDIDATE.displayName) }),
+        ).toBeNull();
+      });
+      // Mientras llega la consulta nueva la lista se desmonta (spinner): hay que esperar el resultado.
+      expect(
+        await within(dialog).findByRole('radio', { name: new RegExp(OTHER_CANDIDATE.displayName) }),
+      ).toBeInTheDocument();
+
+      // La elegida ya no está en la lista filtrada, pero la selección y el envío siguen.
+      expect(within(dialog).getByText(summaryText(CANDIDATE))).toBeVisible();
+      const submit = within(dialog).getByRole('button', { name: es.shares['share.submit'] });
+      expect(submit).toBeEnabled();
+      expect(await axeViolations(dialog)).toEqual([]);
+      await user.click(submit);
+
+      await waitFor(() => {
+        expect(api.callsTo('POST', SHARES_PATH)).toHaveLength(1);
+      });
+      expect(api.callsTo('POST', SHARES_PATH)[0]?.body).toEqual({
+        granteeType: 'user',
+        granteeId: GRANTEE_ID,
+        level: 'USE',
+      });
+    });
+
+    it('lets the person clear the selection, which disables the button again and focuses the search', async () => {
+      const user = userEvent.setup();
+      searchingApi();
+      renderApp(PAGE);
+      const dialog = await openShareDialog(user);
+      await pickCandidate(user, dialog);
+
+      await user.click(
+        within(dialog).getByRole('button', { name: es.shares['share.clearSelection'] }),
+      );
+
+      expect(within(dialog).queryByText(summaryText(CANDIDATE))).toBeNull();
+      expect(
+        within(dialog).getByRole('button', { name: es.shares['share.submit'] }),
+      ).toBeDisabled();
+      expect(within(dialog).getByText(es.shares['share.submitHint'])).toBeVisible();
+      expect(
+        within(dialog).getByRole('searchbox', { name: es.shares['share.search'] }),
+      ).toHaveFocus();
+    });
   });
 
   it('shares with the chosen person and level, shows a toast and reloads the list', async () => {

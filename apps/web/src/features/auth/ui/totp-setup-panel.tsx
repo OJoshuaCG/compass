@@ -1,4 +1,4 @@
-import { CopyButton } from '@iam/ui';
+import { CopyButton, FormField, Input } from '@iam/ui';
 import { useTranslation } from 'react-i18next';
 
 /** El secreto se limpia del portapapeles pasado este tiempo (docs/frontend.md §9). */
@@ -26,13 +26,22 @@ export function TotpSetupPanel({ qrSrc, secret }: TotpSetupPanelProps) {
         className="size-48 self-center rounded-md"
       />
       <p className="text-sm text-text-secondary">{t('enroll.manual', { ns: 'auth' })}</p>
-      <div className="flex flex-wrap items-center gap-3">
-        <code
-          aria-label={t('enroll.secretLabel', { ns: 'auth' })}
-          className="break-all rounded-md border border-border-strong bg-raised px-3 py-2 font-mono text-sm text-text"
-        >
-          {secret}
-        </code>
+      {/* El rol `code` no admite nombre accesible: la clave va en un campo de solo lectura con su
+          etiqueta visible, así el lector de pantalla anuncia nombre y valor. El valor sigue solo en
+          las props de este componente; no se registra ni se guarda. */}
+      <div className="flex flex-wrap items-end gap-3">
+        <FormField label={t('enroll.secretLabel', { ns: 'auth' })} className="min-w-0 flex-1">
+          {(controlProps) => (
+            <Input
+              {...controlProps}
+              value={secret}
+              readOnly
+              autoComplete="off"
+              spellCheck={false}
+              className="font-mono"
+            />
+          )}
+        </FormField>
         <CopyButton
           value={secret}
           label={t('enroll.copySecret', { ns: 'auth' })}

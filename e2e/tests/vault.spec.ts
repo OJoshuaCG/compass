@@ -123,9 +123,7 @@ test.describe.serial('vault journey in a real browser (accounts, credentials, im
     const accountsTable = page.getByRole('table', { name: 'Accounts you have access to' });
     await expect(accountsTable.getByText(ACCOUNT_NAME)).toBeVisible();
 
-    await page
-      .getByRole('link', { name: `View the credentials of the account ${ACCOUNT_NAME}` })
-      .click();
+    await page.getByRole('link', { name: `Credentials of the account ${ACCOUNT_NAME}` }).click();
     await expect(
       page.getByRole('heading', { name: `Credentials of ${ACCOUNT_NAME}` }),
     ).toBeVisible();
@@ -194,7 +192,8 @@ test.describe.serial('vault journey in a real browser (accounts, credentials, im
 
   test('changing the password adds a version and restoring the first one adds another', async () => {
     test.setTimeout(150_000);
-    await page.getByRole('button', { name: `Change the password of ${CREDENTIAL_LABEL}` }).click();
+    await page.getByRole('button', { name: `Actions for ${CREDENTIAL_LABEL}` }).click();
+    await page.getByRole('menuitem', { name: 'Change password', exact: true }).click();
     const changeDialog = page.getByRole('dialog', {
       name: `Change the password of ${CREDENTIAL_LABEL}`,
     });
@@ -208,7 +207,8 @@ test.describe.serial('vault journey in a real browser (accounts, credentials, im
       page.getByText(`Password of ${CREDENTIAL_LABEL} updated`),
     );
 
-    await page.getByRole('button', { name: `View the history of ${CREDENTIAL_LABEL}` }).click();
+    await page.getByRole('button', { name: `Actions for ${CREDENTIAL_LABEL}` }).click();
+    await page.getByRole('menuitem', { name: 'History', exact: true }).click();
     const historyDialog = page.getByRole('dialog', { name: `History of ${CREDENTIAL_LABEL}` });
     const versionsTable = historyDialog.getByRole('table', { name: 'Password versions' });
     // Solo las filas de versión (con insignia Current o Previous); la cabecera no cuenta.

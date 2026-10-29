@@ -28,7 +28,7 @@
   "action.archive": "Archivar",
   "action.archiveLabel": "Archivar la cuenta {{name}}",
   "action.credentials": "Credenciales",
-  "action.credentialsLabel": "Ver las credenciales de la cuenta {{name}}",
+  "action.credentialsLabel": "Credenciales de la cuenta {{name}}",
   "action.share": "Compartir",
   "action.shareLabel": "Compartir la cuenta {{name}}",
   "form.name": "Nombre de la cuenta",

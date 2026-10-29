@@ -5,7 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, problem, stubApi } from '../../test/fake-api';
-import { es, expectNoSecretsStored, field } from '../../test/helpers';
+import {
+  chooseRowMenuAction,
+  es,
+  expectNoSecretsStored,
+  field,
+  openRowMenu,
+  rowMenuItemTexts,
+} from '../../test/helpers';
 import { renderApp } from '../../test/render-app';
 
 const ACCOUNT_ID = '33333333-3333-4333-8333-333333333331';
@@ -62,10 +69,10 @@ const fill = (template: string, values: Record<string, string | number>) =>
   );
 
 const revealLabel = (label: string) => fill(es.credentials['action.revealLabel'], { label });
-const copyLabel = (label: string) => fill(es.credentials['action.copyUsernameLabel'], { label });
-const changeLabel = (label: string) =>
-  fill(es.credentials['action.changePasswordLabel'], { label });
-const historyLabel = (label: string) => fill(es.credentials['action.historyLabel'], { label });
+const menuLabel = (label: string) => fill(es.credentials['action.rowMenu'], { label });
+const copyUsernameItem = es.credentials['action.copyUsername'];
+const changePasswordItem = es.credentials['action.changePassword'];
+const historyItem = es.credentials['action.history'];
 
 function setup(
   options: {
@@ -162,49 +169,152 @@ describe('credentials list', () => {
 });
 
 describe('action gating by level and permission', () => {
+  const LABEL = 'Portal de nómina';
+
   it('USE only offers copying the username', async () => {
+    const user = userEvent.setup();
     setup({ level: 'USE' });
     renderApp(PAGE);
     await rowsLoaded();
-    expect(screen.getByRole('button', { name: copyLabel('Portal de nómina') })).toBeVisible();
-    expect(screen.queryByRole('button', { name: revealLabel('Portal de nómina') })).toBeNull();
-    expect(screen.queryByRole('button', { name: changeLabel('Portal de nómina') })).toBeNull();
-    expect(screen.queryByRole('button', { name: historyLabel('Portal de nómina') })).toBeNull();
+    expect(screen.queryByRole('button', { name: revealLabel(LABEL) })).toBeNull();
+    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([copyUsernameItem]);
     expect(screen.queryByRole('button', { name: es.credentials['action.create'] })).toBeNull();
   });
 
-  it('VIEW adds reveal, but only with the reveal permission', async () => {
+  it('VIEW adds reveal as the visible primary action, but only with the reveal permission', async () => {
+    const user = userEvent.setup();
     setup({ level: 'VIEW' });
     const first = renderApp(PAGE);
     await rowsLoaded();
-    expect(screen.getByRole('button', { name: revealLabel('Portal de nómina') })).toBeVisible();
-    expect(screen.queryByRole('button', { name: changeLabel('Portal de nómina') })).toBeNull();
+    expect(screen.getByRole('button', { name: revealLabel(LABEL) })).toBeVisible();
+    // Revelar es la única acción fuera del menú: el resto no se ofrece como botones sueltos.
+    expect(screen.queryByRole('button', { name: copyUsernameItem })).toBeNull();
+    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([copyUsernameItem]);
     first.unmount();
 
     setup({ level: 'VIEW', permissions: [] });
     renderApp(PAGE);
     await rowsLoaded();
-    expect(screen.queryByRole('button', { name: revealLabel('Portal de nómina') })).toBeNull();
-    expect(screen.getByRole('button', { name: copyLabel('Portal de nómina') })).toBeVisible();
+    expect(screen.queryByRole('button', { name: revealLabel(LABEL) })).toBeNull();
+    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([copyUsernameItem]);
   });
 
   it('EDIT adds create, change password and history', async () => {
+    const user = userEvent.setup();
     setup({ level: 'EDIT' });
     renderApp(PAGE);
     await rowsLoaded();
     expect(screen.getByRole('button', { name: es.credentials['action.create'] })).toBeVisible();
-    expect(screen.getByRole('button', { name: changeLabel('Portal de nómina') })).toBeVisible();
-    expect(screen.getByRole('button', { name: historyLabel('Portal de nómina') })).toBeVisible();
+    expect(screen.getByRole('button', { name: revealLabel(LABEL) })).toBeVisible();
+    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([
+      copyUsernameItem,
+      changePasswordItem,
+      historyItem,
+    ]);
   });
 
   it('EDIT without catalog permissions keeps only history and copy', async () => {
+    const user = userEvent.setup();
     setup({ level: 'EDIT', permissions: [] });
     renderApp(PAGE);
     await rowsLoaded();
     expect(screen.queryByRole('button', { name: es.credentials['action.create'] })).toBeNull();
-    expect(screen.queryByRole('button', { name: changeLabel('Portal de nómina') })).toBeNull();
-    expect(screen.queryByRole('button', { name: revealLabel('Portal de nómina') })).toBeNull();
-    expect(screen.getByRole('button', { name: historyLabel('Portal de nómina') })).toBeVisible();
+    expect(screen.queryByRole('button', { name: revealLabel(LABEL) })).toBeNull();
+    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([copyUsernameItem, historyItem]);
+  });
+
+  it('draws no menu when the account level offers no action at all', async () => {
+    setup({ level: null, permissions: [] });
+    renderApp(PAGE);
+    await rowsLoaded();
+    expect(screen.queryByRole('button', { name: menuLabel(LABEL) })).toBeNull();
+  });
+});
+
+describe('row actions: accessible names and keyboard', () => {
+  const LABEL = 'Portal de nómina';
+
+  // WCAG 2.5.3: el nombre accesible empieza con el texto visible (control por voz).
+  it('names every visible row control starting with its visible text', async () => {
+    setup({ level: 'EDIT' });
+    renderApp(PAGE);
+    await rowsLoaded();
+    const reveal = screen.getByRole('button', { name: revealLabel(LABEL) });
+    expect(reveal).toHaveTextContent(es.credentials['action.reveal']);
+    expect(revealLabel(LABEL).startsWith(es.credentials['action.reveal'])).toBe(true);
+    expect(screen.getByRole('button', { name: menuLabel(LABEL) })).toHaveAttribute(
+      'aria-haspopup',
+      'menu',
+    );
+  });
+
+  it('opens the menu and runs an action with the keyboard only', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'EDIT' });
+    renderApp(PAGE);
+    await rowsLoaded();
+    const trigger = await waitFor(() => {
+      const button = screen.getByRole('button', { name: menuLabel(LABEL) });
+      expect(button).toBeEnabled();
+      return button;
+    });
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    await screen.findByRole('menuitem', { name: historyItem });
+    // Copiar usuario, Cambiar contraseña, Historial: dos flechas llegan al historial.
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    expect(
+      await screen.findByRole('dialog', {
+        name: fill(es.credentials['history.title'], { label: LABEL }),
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('has no accessibility violations with the row menu open', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'EDIT' });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await openRowMenu(user, menuLabel(LABEL));
+    expect(await axeViolations(await screen.findByRole('menu'))).toEqual([]);
+  });
+
+  // Hallazgo 21: Radix devolvía el foco al ítem del menú, ya desmontado, y se perdía en <body>.
+  it.each([
+    ['history dialog closed with Escape', historyItem, 'escape'],
+    ['change password dialog closed with its Close button', changePasswordItem, 'button'],
+  ])('returns focus to the row menu button: %s', async (_name, item, closeWith) => {
+    const user = userEvent.setup();
+    setup({
+      level: 'EDIT',
+      extra: {
+        [`GET /credentials/${CREDENTIAL_ID}/history`]: jsonResponse({
+          data: [
+            {
+              version: 1,
+              isCurrent: true,
+              createdAt: '2026-03-01T12:00:00.000Z',
+              createdBy: CREATOR_ID,
+            },
+          ],
+        }),
+      },
+    });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await chooseRowMenuAction(user, menuLabel(LABEL), item);
+    const dialog = await screen.findByRole('dialog');
+    if (closeWith === 'escape') {
+      await user.keyboard('{Escape}');
+    } else {
+      await user.click(within(dialog).getByRole('button', { name: es.common['dialog.close'] }));
+    }
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: menuLabel(LABEL) })).toHaveFocus();
+    });
   });
 });
 
@@ -223,7 +333,7 @@ describe('copy username', () => {
     await rowsLoaded();
     const write = vi.spyOn(navigator.clipboard, 'writeText');
 
-    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
+    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), copyUsernameItem);
     await waitFor(() => {
       expect(write).toHaveBeenCalledWith(USERNAME);
     });
@@ -245,7 +355,7 @@ describe('copy username', () => {
     await rowsLoaded();
     const write = vi.spyOn(navigator.clipboard, 'writeText');
 
-    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
+    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), copyUsernameItem);
     await waitFor(() => {
       expect(write).toHaveBeenCalledWith(USERNAME);
     });
@@ -266,7 +376,7 @@ describe('copy username', () => {
     });
     renderApp(PAGE);
     await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
+    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), copyUsernameItem);
     expect(await screen.findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.SHARE']);
   });
 });
@@ -628,7 +738,7 @@ describe('change password', () => {
     const { queryClient } = renderApp(PAGE);
     await rowsLoaded();
     const before = api.callsTo('GET', `/accounts/${ACCOUNT_ID}/credentials`).length;
-    await user.click(screen.getByRole('button', { name: changeLabel('Portal de nómina') }));
+    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), changePasswordItem);
     const dialog = await screen.findByRole('dialog', {
       name: fill(es.credentials['password.title'], { label: 'Portal de nómina' }),
     });
@@ -659,7 +769,7 @@ describe('change password', () => {
     const api = setup({ level: 'EDIT' });
     renderApp(PAGE);
     await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: changeLabel('Portal de nómina') }));
+    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), changePasswordItem);
     const dialog = await screen.findByRole('dialog');
     await user.click(
       within(dialog).getByRole('button', { name: es.credentials['password.submit'] }),
@@ -697,7 +807,7 @@ describe('history', () => {
     });
     renderApp(PAGE);
     await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: historyLabel('Portal de nómina') }));
+    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), historyItem);
     const dialog = await screen.findByRole('dialog', {
       name: fill(es.credentials['history.title'], { label: 'Portal de nómina' }),
     });
@@ -714,7 +824,7 @@ describe('history', () => {
     });
     renderApp(PAGE);
     await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: historyLabel('Portal de nómina') }));
+    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), historyItem);
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.SHARE']);
   });
@@ -739,7 +849,7 @@ describe('restore a password version', () => {
 
   async function openHistory(user: ReturnType<typeof userEvent.setup>) {
     await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: historyLabel('Portal de nómina') }));
+    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), historyItem);
     const dialog = await screen.findByRole('dialog', {
       name: fill(es.credentials['history.title'], { label: 'Portal de nómina' }),
     });
@@ -883,5 +993,30 @@ describe('credentials screen in English', () => {
     expect(await screen.findByRole('table', { name: en.caption })).toBeInTheDocument();
     await rowsLoaded();
     expect(screen.getByText(en['kind.password'])).toBeInTheDocument();
+  });
+});
+
+// WCAG 2.5.3: con control por voz se dice el texto visible, así que el nombre accesible debe
+// empezar con él. Se comprueba en las plantillas de ambos idiomas.
+describe('accessible names start with the visible text, in both languages', () => {
+  it.each(['es-MX', 'en-US'] as const)('%s', async (locale) => {
+    const { loadAccountsCatalog, loadCredentialsCatalog, loadSharesCatalog } =
+      await import('@iam/i18n');
+    const credentials = (await loadCredentialsCatalog())[locale];
+    const accounts = (await loadAccountsCatalog())[locale];
+    const shares = (await loadSharesCatalog())[locale];
+    const pairs: [visible: string, accessible: string][] = [
+      [credentials['action.reveal'], credentials['action.revealLabel']],
+      [accounts['action.credentials'], accounts['action.credentialsLabel']],
+      [accounts['action.share'], accounts['action.shareLabel']],
+      [accounts['action.edit'], accounts['action.editLabel']],
+      [accounts['action.archive'], accounts['action.archiveLabel']],
+      [shares['action.revoke'], shares['action.revokeLabel']],
+      [credentials['history.restore.action'], credentials['history.restore.label']],
+    ];
+    for (const [visible, accessible] of pairs) {
+      expect(accessible.startsWith(visible), `${accessible} must start with ${visible}`).toBe(true);
+    }
+    expect(credentials['action.rowMenu']).toContain('{{label}}');
   });
 });

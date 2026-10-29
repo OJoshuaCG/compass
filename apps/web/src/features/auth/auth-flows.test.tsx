@@ -216,7 +216,10 @@ describe('TOTP enrollment', () => {
     expect(qr).toHaveAttribute('height');
     // La URI con la clave nunca se envía fuera: solo hubo una llamada a `enroll`.
     expect(api.callsTo('POST', '/auth/mfa/totp/enroll')).toHaveLength(1);
-    expect(screen.getByLabelText(es.auth['enroll.secretLabel'])).toHaveTextContent(SECRET);
+    // La clave se lee por su etiqueta como campo de solo lectura (el rol `code` no admite nombre).
+    const secretField = screen.getByRole('textbox', { name: es.auth['enroll.secretLabel'] });
+    expect(secretField).toHaveValue(SECRET);
+    expect(secretField).toHaveAttribute('readonly');
     expect(await axeViolations(container)).toEqual([]);
 
     await user.click(screen.getByRole('button', { name: es.auth['enroll.copySecret'] }));
@@ -234,6 +237,8 @@ describe('TOTP enrollment', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(10);
     // La clave se descartó en cuanto se confirmó.
     expect(screen.queryByText(SECRET)).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue(SECRET)).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: es.auth['enroll.secretLabel'] })).toBeNull();
     expect(await axeViolations(container)).toEqual([]);
 
     // No se puede continuar sin confirmar que se guardaron.

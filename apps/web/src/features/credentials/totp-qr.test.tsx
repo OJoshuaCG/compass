@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, problem, stubApi } from '../../test/fake-api';
-import { es, expectNoSecretsStored } from '../../test/helpers';
+import { chooseRowMenuAction, es, expectNoSecretsStored } from '../../test/helpers';
 import { renderApp } from '../../test/render-app';
 
 import { buildMigrationUri, type FixtureEntry } from './model/migration-test-fixture';
@@ -52,7 +52,7 @@ const fill = (template: string, values: Record<string, string | number>) =>
     (text, [name, value]) => text.replaceAll(`{{${name}}}`, String(value)),
     template,
   );
-const totpButtonName = fill(t['action.totpLabel'], { label: LABEL });
+const rowMenuName = fill(t['action.rowMenu'], { label: LABEL });
 const dialogName = fill(t['totp.title'], { label: LABEL });
 
 const ACCOUNT: Account = {
@@ -155,7 +155,7 @@ function qrFile(name = 'qr.png', type = 'image/png') {
 
 async function openImageMethod(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole('cell', { name: LABEL });
-  await user.click(screen.getByRole('button', { name: totpButtonName }));
+  await chooseRowMenuAction(user, rowMenuName, t['action.totp']);
   const dialog = await screen.findByRole('dialog', { name: dialogName });
   await within(dialog).findByText(t['totp.status.none']);
   await user.click(within(dialog).getByRole('tab', { name: t['totp.register.method.image'] }));
@@ -472,6 +472,43 @@ describe('register from a QR image: Google Authenticator export', () => {
     expect(api.callsTo('POST', TOTP_PATH)).toHaveLength(0);
   });
 
+  // El selector aparece solo: el foco va a su encabezado y se anuncia un mensaje fijo, sin
+  // etiquetas de cuentas ni nada derivado de los secretos.
+  it('moves focus to the chooser heading and announces a fixed message without account data', async () => {
+    const { dialog } = await uploadMigration([ANA, BOB]);
+
+    const heading = await within(dialog).findByRole('heading', { name: migrationT('heading') });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+    const announcement = within(dialog).getByText(migrationT('status'));
+    expect(announcement).toHaveAttribute('role', 'status');
+    expect(announcement).toHaveAttribute('aria-live', 'polite');
+    for (const forbidden of [
+      ANA.name,
+      BOB.name,
+      'Acme',
+      'Globex',
+      MIGRATION_SECRET_BASE32,
+      MIGRATION_SECRET_TEXT,
+    ]) {
+      expect(announcement.textContent).not.toContain(forbidden);
+    }
+    expect(announcement).not.toHaveAttribute('aria-label');
+    expect(announcement).not.toHaveAttribute('title');
+  });
+
+  it('caps the height of the account list and keeps confirm and cancel outside the scroll area', async () => {
+    const { dialog } = await uploadMigration([ANA, BOB]);
+
+    const group = await within(dialog).findByRole('group', { name: migrationT('legend') });
+    expect(group).toHaveClass('max-h-64', 'overflow-y-auto');
+    const confirm = within(dialog).getByRole('button', { name: migrationT('confirm') });
+    const cancel = within(dialog).getByRole('button', { name: migrationT('cancel') });
+    expect(group).not.toContainElement(confirm);
+    expect(group).not.toContainElement(cancel);
+  });
+
   it('has no accessibility violations while choosing an account', async () => {
     const { dialog } = await uploadMigration([ANA, BOB, HOTP_ENTRY]);
     await within(dialog).findByRole('group', { name: migrationT('legend') });
@@ -502,6 +539,21 @@ describe('register from a QR image: paste', () => {
     await waitFor(() => {
       expect(api.callsTo('POST', TOTP_PATH)[0]?.body).toEqual({ otpauthUri: SECRET_URI });
     });
+  });
+
+  it('offers the paste field with a name and a description, and discards typed text', async () => {
+    const user = userEvent.setup();
+    installFakeBrowserMedia({ displayCapture: false });
+    setup();
+    renderApp(PAGE);
+    await openImageMethod(user);
+
+    const pasteField = screen.getByRole('textbox', { name: t['totp.register.image.pasteLabel'] });
+    // Editable (no `readonly`) para que el móvil ofrezca "Pegar" al mantener pulsado.
+    expect(pasteField).not.toHaveAttribute('readonly');
+    expect(pasteField).toHaveAccessibleDescription(t['totp.register.image.pasteHelp']);
+    await user.type(pasteField, 'texto que se descarta');
+    expect(pasteField).toHaveValue('');
   });
 
   it('ignores pasted text', async () => {
@@ -618,8 +670,10 @@ describe('register from a QR image in English', () => {
     setup();
     renderApp(PAGE, 'en-US');
     await screen.findByRole('cell', { name: LABEL });
-    await user.click(
-      screen.getByRole('button', { name: fill(en['action.totpLabel'], { label: LABEL }) }),
+    await chooseRowMenuAction(
+      user,
+      fill(en['action.rowMenu'], { label: LABEL }),
+      en['action.totp'],
     );
     const dialog = await screen.findByRole('dialog', {
       name: fill(en['totp.title'], { label: LABEL }),
@@ -639,8 +693,10 @@ describe('register from a QR image in English', () => {
     setup();
     renderApp(PAGE, 'en-US');
     await screen.findByRole('cell', { name: LABEL });
-    await user.click(
-      screen.getByRole('button', { name: fill(en['action.totpLabel'], { label: LABEL }) }),
+    await chooseRowMenuAction(
+      user,
+      fill(en['action.rowMenu'], { label: LABEL }),
+      en['action.totp'],
     );
     const dialog = await screen.findByRole('dialog', {
       name: fill(en['totp.title'], { label: LABEL }),
