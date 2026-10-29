@@ -16,12 +16,14 @@ import {
   REVEALED_PASSWORD_VISIBLE_SECONDS,
   revealReasonLength,
 } from '../model/secret-policy';
+import { TOTP_COUNTDOWN_TICK_MS } from '../model/totp-model';
 
 /**
  * Fases del diálogo. La contraseña vive SOLO en la fase `shown`, es decir, en el estado de este
  * componente: no pasa por Query, por la URL, por el almacenamiento ni por la consola.
  */
-type Phase = { kind: 'ask' } | { kind: 'shown'; password: string } | { kind: 'hidden' };
+type Phase =
+  { kind: 'ask' } | { kind: 'shown'; password: string; secondsLeft: number } | { kind: 'hidden' };
 
 type ReasonFormProps = {
   credential: Credential;
@@ -125,16 +127,18 @@ function ReasonForm({ credential, focusReasonOnMount, onCancel, onRevealed }: Re
 
 type ShownPasswordProps = {
   password: string;
+  secondsLeft: number;
   onHide: () => void;
 };
 
-function ShownPassword({ password, onHide }: ShownPasswordProps) {
+function ShownPassword({ password, secondsLeft, onHide }: ShownPasswordProps) {
   const { t } = useTranslation(['credentials', 'common']);
   const noticeRef = useRef<HTMLParagraphElement>(null);
 
   // El foco va al aviso de ocultado automático y NO al campo de la contraseña: así un lector de
   // pantalla no lee el secreto sin que la persona lo pida (WCAG 2.4.3). El campo queda justo antes
-  // en el orden de lectura.
+  // en el orden de lectura. Este foco es el ÚNICO anuncio del cambio de fase: no hay región de
+  // estado aparte que repita el mismo mensaje.
   useEffect(() => {
     noticeRef.current?.focus();
   }, []);
@@ -156,6 +160,11 @@ function ShownPassword({ password, onHide }: ShownPasswordProps) {
       <p ref={noticeRef} tabIndex={-1} className="text-sm text-text-secondary">
         {t('reveal.autoHide', { ns: 'credentials', seconds: REVEALED_PASSWORD_VISIBLE_SECONDS })}{' '}
         {t('reveal.clipboardNote', { ns: 'credentials', seconds: CLIPBOARD_CLEAR_SECONDS })}
+      </p>
+      {/* Cuenta regresiva visible y silenciosa: aria-live="off" evita que se anuncie cada segundo.
+          Solo lleva texto fijo y segundos, nunca el valor del secreto. */}
+      <p role="timer" aria-live="off" className="text-sm text-text-secondary tabular-nums">
+        {t('reveal.countdown', { ns: 'credentials', seconds: secondsLeft })}
       </p>
       <div className="flex flex-wrap justify-end gap-3">
         <CopyButton
@@ -184,40 +193,47 @@ function RevealBody({ credential, onClose }: RevealBodyProps) {
   const [hasBeenHidden, setHasBeenHidden] = useState(false);
   const hiddenNoticeRef = useRef<HTMLParagraphElement>(null);
 
-  // Oculta a los 30 s. Al desmontar se cancela el temporizador y el estado se descarta con el
-  // componente, así que cerrar el diálogo también borra la contraseña.
+  // Oculta a los 30 s. Al desmontar se cancelan los temporizadores y el estado se descarta con el
+  // componente, así que cerrar el diálogo también borra la contraseña. El efecto depende solo de
+  // `isShown`: si dependiera de `phase`, cada tick de la cuenta regresiva reiniciaría el ocultado.
+  const isShown = phase.kind === 'shown';
   useEffect(() => {
-    if (phase.kind !== 'shown') return;
-    const timer = window.setTimeout(() => {
+    if (!isShown) return;
+    // Un único instante límite: el ocultado y la cuenta regresiva salen del mismo origen, así lo
+    // que se ve nunca se desfasa del ocultado real. El intervalo solo vuelve a pintar; quien oculta
+    // sigue siendo el temporizador de 30 s.
+    const deadlineMs = Date.now() + REVEALED_PASSWORD_VISIBLE_MS;
+    const hideTimer = window.setTimeout(() => {
       setHasBeenHidden(true);
       setPhase({ kind: 'hidden' });
     }, REVEALED_PASSWORD_VISIBLE_MS);
+    const countdownTimer = window.setInterval(() => {
+      const secondsLeft = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
+      setPhase((current) => {
+        if (current.kind !== 'shown' || current.secondsLeft === secondsLeft) return current;
+        return { ...current, secondsLeft };
+      });
+    }, TOTP_COUNTDOWN_TICK_MS);
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(hideTimer);
+      window.clearInterval(countdownTimer);
     };
-  }, [phase]);
+  }, [isShown]);
 
+  // Tanto al ocultar a mano como al expirar solo, el botón o el campo que tenían el foco se
+  // desmontan. El aviso de oculto sigue montado en esa fase: es el destino estable del foco y su
+  // texto fijo (sin el valor) es el anuncio, por lo que no hay región de estado aparte.
   const isHidden = phase.kind === 'hidden';
   useEffect(() => {
     if (isHidden) hiddenNoticeRef.current?.focus();
   }, [isHidden]);
-
-  // Mensajes fijos de i18n: la región NUNCA recibe la contraseña ni nada derivado de ella.
-  let announcement = '';
-  if (phase.kind === 'shown') {
-    announcement = t('reveal.status.shown', {
-      ns: 'credentials',
-      seconds: REVEALED_PASSWORD_VISIBLE_SECONDS,
-    });
-  } else if (phase.kind === 'hidden') {
-    announcement = t('reveal.status.hidden', { ns: 'credentials' });
-  }
 
   let body: ReactNode;
   if (phase.kind === 'shown') {
     body = (
       <ShownPassword
         password={phase.password}
+        secondsLeft={phase.secondsLeft}
         onHide={() => {
           setHasBeenHidden(true);
           setPhase({ kind: 'hidden' });
@@ -227,7 +243,7 @@ function RevealBody({ credential, onClose }: RevealBodyProps) {
   } else if (phase.kind === 'hidden') {
     body = (
       <div className="flex flex-col gap-4">
-        {/* Párrafo y no Alert: el Alert (role="alert") repetiría lo que ya anuncia la región de estado. */}
+        {/* Párrafo y no Alert: el foco ya lo anuncia; un role="alert" lo repetiría. */}
         <p
           ref={hiddenNoticeRef}
           tabIndex={-1}
@@ -256,20 +272,17 @@ function RevealBody({ credential, onClose }: RevealBodyProps) {
         focusReasonOnMount={hasBeenHidden}
         onCancel={onClose}
         onRevealed={(password) => {
-          setPhase({ kind: 'shown', password });
+          setPhase({
+            kind: 'shown',
+            password,
+            secondsLeft: REVEALED_PASSWORD_VISIBLE_SECONDS,
+          });
         }}
       />
     );
   }
 
-  return (
-    <>
-      <p role="status" aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
-      {body}
-    </>
-  );
+  return body;
 }
 
 export type RevealPasswordDialogProps = {

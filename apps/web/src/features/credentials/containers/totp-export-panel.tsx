@@ -1,6 +1,6 @@
 import { ErrorCode, type Credential, type ExportedTotp } from '@iam/contracts';
 import { Alert, Button, CopyButton, FormField, Input, PasswordInput } from '@iam/ui';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError, useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
@@ -118,10 +118,12 @@ function ExportReasonForm({ credential, onCancel, onExported }: ReasonFormProps)
 
 type ShownSecretProps = {
   secret: ExportedTotp;
+  /** Aviso de ocultado automático: destino del foco al mostrar el secreto, lo asigna el panel. */
+  noticeRef: RefObject<HTMLParagraphElement | null>;
   onHide: () => void;
 };
 
-function ShownSecret({ secret, onHide }: ShownSecretProps) {
+function ShownSecret({ secret, noticeRef, onHide }: ShownSecretProps) {
   const { t } = useTranslation(['credentials', 'common']);
   const showLabel = t('password.show', { ns: 'common' });
   const hideLabel = t('password.hide', { ns: 'common' });
@@ -154,7 +156,7 @@ function ShownSecret({ secret, onHide }: ShownSecretProps) {
           />
         )}
       </FormField>
-      <p className="text-sm text-text-secondary">
+      <p ref={noticeRef} tabIndex={-1} className="text-sm text-text-secondary">
         {t('totp.export.autoHide', {
           ns: 'credentials',
           seconds: REVEALED_PASSWORD_VISIBLE_SECONDS,
@@ -198,27 +200,19 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
   const headingId = useId();
   const [phase, setPhase] = useState<Phase>({ kind: 'closed' });
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const phaseNoticeRef = useRef<HTMLParagraphElement>(null);
   const previousPhaseKind = useRef<Phase['kind']>('closed');
 
-  // Tras cada cambio de fase el botón pulsado se desmontó: el foco va al encabezado, que es estable
-  // y no contiene el secreto (WCAG 2.4.3). Sin cambio de fase (apertura del panel) no se toca.
+  // Tras cada cambio de fase el botón pulsado se desmontó. El foco va al aviso propio de la fase
+  // (ocultado automático o «oculto»), que sigue montado y no contiene el secreto (WCAG 2.4.3); sirve
+  // igual cuando la clave se oculta sola a los 30 s. Ese foco es el ÚNICO anuncio del cambio: no hay
+  // región de estado aparte. En fases sin aviso (apertura, motivo) se cae al encabezado, no al <body>.
   const phaseKind = phase.kind;
   useEffect(() => {
     if (previousPhaseKind.current === phaseKind) return;
     previousPhaseKind.current = phaseKind;
-    headingRef.current?.focus();
+    (phaseNoticeRef.current ?? headingRef.current)?.focus();
   }, [phaseKind]);
-
-  // Mensajes fijos de i18n: la región NUNCA recibe la clave, el enlace ni nada derivado de ellos.
-  let announcement = '';
-  if (phaseKind === 'shown') {
-    announcement = t('totp.export.status.shown', {
-      ns: 'credentials',
-      seconds: REVEALED_PASSWORD_VISIBLE_SECONDS,
-    });
-  } else if (phaseKind === 'hidden') {
-    announcement = t('totp.export.status.hidden', { ns: 'credentials' });
-  }
 
   // Oculta a los 30 s. Al desmontar se cancela el temporizador y el estado se descarta con el
   // componente, así que cerrar el diálogo también borra la clave.
@@ -237,9 +231,6 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
       <h3 id={headingId} ref={headingRef} tabIndex={-1} className="text-base text-text">
         {t('totp.export.heading', { ns: 'credentials' })}
       </h3>
-      <p role="status" aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
       {phase.kind === 'closed' ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-text-secondary">
@@ -272,6 +263,7 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
       {phase.kind === 'shown' ? (
         <ShownSecret
           secret={phase.secret}
+          noticeRef={phaseNoticeRef}
           onHide={() => {
             setPhase({ kind: 'hidden' });
           }}
@@ -279,8 +271,12 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
       ) : null}
       {phase.kind === 'hidden' ? (
         <div className="flex flex-col gap-3">
-          {/* Párrafo y no Alert: el Alert (role="alert") repetiría lo que ya anuncia la región de estado. */}
-          <p className="rounded-md border border-border-strong px-4 py-3 text-sm text-text">
+          {/* Párrafo y no Alert: el foco ya lo anuncia; un role="alert" lo repetiría. */}
+          <p
+            ref={phaseNoticeRef}
+            tabIndex={-1}
+            className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+          >
             {t('totp.export.hidden', { ns: 'credentials' })}
           </p>
           <div className="flex justify-end">

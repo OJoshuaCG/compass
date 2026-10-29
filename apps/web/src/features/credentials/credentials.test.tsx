@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, problem, stubApi } from '../../test/fake-api';
 import {
+  announcedStatusTexts,
   chooseRowMenuAction,
   es,
   expectNoSecretsStored,
@@ -534,9 +535,9 @@ describe('reveal password', () => {
     expect(document.body.textContent).not.toContain(PASSWORD);
   });
 
-  // SENSIBLE (revisión humana): al revelar el foco va al aviso de ocultado (no al campo del secreto) y
-  // la región de estado solo recibe mensajes fijos, nunca la contraseña.
-  it('moves focus to the auto-hide notice and announces a fixed message without the password', async () => {
+  // SENSIBLE (revisión humana): al revelar el foco va al aviso de ocultado (no al campo del secreto),
+  // ese foco es el único anuncio (sin región de estado) y nada fuera del campo contiene la contraseña.
+  it('moves focus to the auto-hide notice, with no duplicate live region and no password outside the field', async () => {
     const user = userEvent.setup();
     setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
     renderApp(PAGE);
@@ -545,23 +546,48 @@ describe('reveal password', () => {
     await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
     const passwordField = await screen.findByDisplayValue(PASSWORD);
     const autoHide = fill(es.credentials['reveal.autoHide'], { seconds: 30 });
+    const notice = within(dialog).getByText((content) => content.startsWith(autoHide));
     await waitFor(() => {
-      expect(document.activeElement).toHaveTextContent(autoHide);
+      expect(notice).toHaveFocus();
     });
+    expect(document.activeElement).not.toBe(document.body);
     expect(document.activeElement).not.toBe(passwordField);
-    expect(document.activeElement).not.toHaveTextContent(PASSWORD);
-    const announcement = within(dialog).getByText(
-      fill(es.credentials['reveal.status.shown'], { seconds: 30 }),
-    );
-    expect(announcement).toHaveAttribute('role', 'status');
-    expect(announcement).toHaveAttribute('aria-live', 'polite');
-    expect(announcement).not.toHaveTextContent(PASSWORD);
-    expect(announcement).not.toHaveAttribute('aria-label');
-    expect(announcement).not.toHaveAttribute('title');
+    expect(notice).not.toHaveTextContent(PASSWORD);
+    expect(notice).not.toHaveAttribute('aria-label');
+    expect(notice).not.toHaveAttribute('title');
+    expect(announcedStatusTexts(dialog)).toEqual([]);
+    expect(within(dialog).queryByRole('alert')).toBeNull();
   });
 
-  // SENSIBLE (revisión humana): al ocultar el foco va al aviso de oculto y se anuncia el mensaje fijo.
-  it('moves focus to the hidden notice and announces it when the password is hidden', async () => {
+  // SENSIBLE (revisión humana): la cuenta regresiva es visible, silenciosa (aria-live="off"), baja
+  // cada segundo y solo contiene texto fijo y segundos, nunca la contraseña.
+  it('shows a silent visible countdown that ticks every second without the password', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await screen.findByDisplayValue(PASSWORD);
+
+    const countdown = within(dialog).getByRole('timer');
+    expect(countdown).toBeVisible();
+    expect(countdown).toHaveAttribute('aria-live', 'off');
+    expect(countdown).not.toHaveTextContent(PASSWORD);
+    const secondsOf = () => Number(/\d+/.exec(countdown.textContent)?.[0]);
+    expect(secondsOf()).toBeGreaterThanOrEqual(29);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(secondsOf()).toBeLessThanOrEqual(20);
+    expect(secondsOf()).toBeGreaterThanOrEqual(18);
+  });
+
+  // SENSIBLE (revisión humana): al ocultar a mano el foco va al aviso de oculto, que sigue montado y
+  // es el único anuncio (texto fijo, sin región de estado ni alert).
+  it('moves focus to the hidden notice when the password is hidden by hand', async () => {
     const user = userEvent.setup();
     setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
     renderApp(PAGE);
@@ -570,16 +596,42 @@ describe('reveal password', () => {
     await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
     await screen.findByDisplayValue(PASSWORD);
     await user.click(screen.getByRole('button', { name: es.credentials['reveal.hideNow'] }));
+    const notice = within(dialog).getByText(es.credentials['reveal.hidden']);
     await waitFor(() => {
-      expect(document.activeElement).toHaveTextContent(es.credentials['reveal.hidden']);
+      expect(notice).toHaveFocus();
     });
-    const announcement = within(dialog).getByText(es.credentials['reveal.status.hidden']);
-    expect(announcement).toHaveAttribute('role', 'status');
-    expect(announcement).not.toHaveTextContent(PASSWORD);
-    // El aviso visible ya no es un role="alert": no repite el anuncio de la región de estado.
+    expect(notice).not.toHaveTextContent(PASSWORD);
+    expect(within(dialog).queryByRole('status')).toBeNull();
+    // El aviso visible no es un role="alert": no repite el anuncio del foco.
     expect(within(dialog).queryByRole('alert')).toBeNull();
     await user.click(screen.getByRole('button', { name: es.credentials['reveal.again'] }));
     expect(field(es.credentials['reveal.reason'])).toHaveFocus();
+  });
+
+  // SENSIBLE (revisión humana): al expirar solo (30 s) la contraseña sale del DOM y el foco, que
+  // estaba en el aviso desmontado, queda en el aviso de oculto y no cae al <body>.
+  it('removes the password and keeps focus on the hidden notice when it expires by itself', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await screen.findByDisplayValue(PASSWORD);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HIDE_AFTER_MS + 1_000);
+    });
+
+    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
+    expect(document.body.textContent).not.toContain(PASSWORD);
+    const notice = within(dialog).getByText(es.credentials['reveal.hidden']);
+    await waitFor(() => {
+      expect(notice).toHaveFocus();
+    });
+    expect(document.activeElement).not.toBe(document.body);
+    expect(within(dialog).queryByRole('timer')).toBeNull();
   });
 
   it('asks for a new reason to reveal again', async () => {

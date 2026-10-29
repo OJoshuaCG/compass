@@ -9,7 +9,7 @@ import {
   resources,
 } from '@iam/i18n';
 import type { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import { expect } from 'vitest';
 
@@ -35,6 +35,18 @@ export function field(label: string): HTMLElement {
   // Se escapan los metacaracteres: una etiqueta como "Caduca el (opcional)" no es un grupo de regex.
   const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return screen.getByLabelText(new RegExp(`^${escapedLabel}`));
+}
+
+/**
+ * Textos que las regiones `status` de un contenedor anuncian en este momento. El botón de copiar
+ * mantiene siempre montada una región vacía (solo habla al copiar), así que "no hay anuncio
+ * duplicado" se comprueba con esta lista vacía y no con la ausencia de la región.
+ */
+export function announcedStatusTexts(container: HTMLElement): string[] {
+  return within(container)
+    .queryAllByRole('status', { hidden: true })
+    .map((region) => region.textContent)
+    .filter((text) => text !== '');
 }
 
 /**

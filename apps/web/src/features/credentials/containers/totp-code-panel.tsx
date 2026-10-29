@@ -45,31 +45,25 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
   const action = useAsyncAction(() => issueTotpCode(credential.id));
   const cooldown = useRateLimitCooldown(action.error);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const phaseNoticeRef = useRef<HTMLParagraphElement>(null);
   const previousPhaseKind = useRef<Phase['kind']>('idle');
 
-  // Tras cada cambio de fase el botón pulsado se desmontó: el foco va al encabezado, que es estable
-  // y no contiene el código (WCAG 2.4.3). Sin cambio de fase (apertura del panel) no se toca.
+  // Tras cada cambio de fase el botón pulsado se desmontó. El foco va al aviso propio de la fase
+  // (cuenta regresiva, «oculto» o «venció»), que sigue montado, es estable y no contiene el código
+  // (WCAG 2.4.3). Ese foco es el ÚNICO anuncio del cambio: no hay región de estado aparte que lo
+  // repita. Sin aviso en la fase (apertura del panel) se cae al encabezado, nunca al <body>.
   const phaseKind = phase.kind;
   useEffect(() => {
     if (previousPhaseKind.current === phaseKind) return;
     previousPhaseKind.current = phaseKind;
-    headingRef.current?.focus();
+    (phaseNoticeRef.current ?? headingRef.current)?.focus();
   }, [phaseKind]);
 
-  // Un error deja el botón en carga o deshabilitado; el aviso ya se anuncia con role="alert".
+  // Un error deja el botón en carga o deshabilitado: el foco vuelve al encabezado, que siempre está
+  // montado. El aviso del error ya se anuncia con role="alert", con mensaje fijo sin el código.
   useEffect(() => {
     if (action.error !== undefined) headingRef.current?.focus();
   }, [action.error]);
-
-  // Mensajes fijos de i18n: la región NUNCA recibe el código ni nada derivado de él.
-  let announcement = '';
-  if (phaseKind === 'shown') {
-    announcement = t('totp.code.status.shown', { ns: 'credentials' });
-  } else if (phaseKind === 'hidden') {
-    announcement = t('totp.code.status.hidden', { ns: 'credentials' });
-  } else if (phaseKind === 'expired') {
-    announcement = t('totp.code.status.expired', { ns: 'credentials' });
-  }
 
   const isShown = phase.kind === 'shown';
   useEffect(() => {
@@ -106,9 +100,6 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
       <h3 id={headingId} ref={headingRef} tabIndex={-1} className="text-base text-text">
         {t('totp.code.heading', { ns: 'credentials' })}
       </h3>
-      <p role="status" aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
       {action.error !== undefined ? (
         <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
       ) : null}
@@ -125,7 +116,14 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
               />
             )}
           </FormField>
-          <p role="timer" className="text-sm text-text-secondary tabular-nums">
+          {/* aria-live="off": el contador se actualiza cada segundo sin anunciarse. */}
+          <p
+            ref={phaseNoticeRef}
+            tabIndex={-1}
+            role="timer"
+            aria-live="off"
+            className="text-sm text-text-secondary tabular-nums"
+          >
             {t('totp.code.expiresIn', { ns: 'credentials', seconds: phase.secondsLeft })}
           </p>
           {phase.issued.nextCode === undefined ? null : (
@@ -167,15 +165,29 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
       ) : (
         <>
           {phase.kind === 'expired' ? (
-            // Párrafo y no Alert: el Alert (role="alert") repetiría lo que ya anuncia la región de estado.
-            <p className="rounded-md border border-border-strong px-4 py-3 text-sm text-text">
+            // Párrafo y no Alert: el foco ya lo anuncia; un role="alert" lo repetiría.
+            <p
+              ref={phaseNoticeRef}
+              tabIndex={-1}
+              className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+            >
               {t('totp.code.expired', { ns: 'credentials' })}
             </p>
-          ) : (
+          ) : null}
+          {phase.kind === 'hidden' ? (
+            <p
+              ref={phaseNoticeRef}
+              tabIndex={-1}
+              className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+            >
+              {t('totp.code.status.hidden', { ns: 'credentials' })}
+            </p>
+          ) : null}
+          {phase.kind === 'idle' ? (
             <p className="text-sm text-text-secondary">
               {t('totp.code.description', { ns: 'credentials' })}
             </p>
-          )}
+          ) : null}
           <div className="flex justify-end">
             <Button
               loading={action.pending}
