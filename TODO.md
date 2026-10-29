@@ -248,7 +248,7 @@ K1 y K2 son independientes entre sí. Comparten la zona de la bóveda: avisa en 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] K1 | **B2 del plan, parte a:** credenciales. Crear, cambiar contraseña con versiones y huella, historial sin contenido, copiar usuario | Código ⚠ | — | M | I2, B4, B10 | |
-| [ ] K2 | **B3 del plan:** compartición y grupos. Por persona y por grupo, caducidad, no compartir más de lo propio. Incluye dónde vive la tarea de rotación al revocar mientras no exista P1 | Código ⚠ | — | M | I2, B10, B11 | |
+| [x] K2 | **B3 del plan:** compartición y grupos. Por persona y por grupo, caducidad, no compartir más de lo propio. Incluye dónde vive la tarea de rotación al revocar mientras no exista P1 | Código ⚠ | — | M | I2, B10, B11 | Backend hecho (2026-10-28), sin pantalla todavía; ver `odd/tasks/phase-1b-vault.md` (B3a). Valores provisionales por confirmar: tarea asignada a quien revoca, prioridad alta, 7 días |
 
 ## L · Operación: KMS y runbooks
 

@@ -192,7 +192,7 @@ A personas o a grupos. Para compartir con un grupo, el gestor del grupo debe ten
 
 ### 6.2 Vencimiento
 
-Una compartición puede tener una fecha de vencimiento. El sistema retira las vencidas automáticamente y, además, **ignora cualquier compartición vencida al decidir**, aunque aún no se haya retirado.
+Una compartición puede tener una fecha de vencimiento, que debe ser futura y no superar un año (límite provisional, por confirmar). Volver a compartir con alguien que ya tiene acceso vigente se rechaza; si su compartición anterior ya venció, se cierra y se crea la nueva. El sistema retira las vencidas automáticamente y, además, **ignora cualquier compartición vencida al decidir**, aunque aún no se haya retirado.
 
 ### 6.3 Qué pasa al revocar
 
@@ -202,6 +202,8 @@ Una compartición puede tener una fecha de vencimiento. El sistema retira las ve
 | La persona nunca reveló la contraseña | No se requiere acción adicional |
 | La persona **sí** reveló la contraseña antes | Se crea una tarea de rotación para esa credencial (ver [`governance.md`](governance.md)) |
 | Se archiva una cuenta | Se revocan todas sus comparticiones; los secretos se conservan cifrados |
+
+**Cómo se decide la tarea de rotación (valores provisionales, por confirmar con el negocio).** Se crea una tarea por cada credencial de la cuenta que la persona reveló en los últimos 180 días y que ya no podría ver. Si la persona conserva acceso por otra vía (por ejemplo, un grupo), no se crea. Si se revoca a un grupo, se evalúa a cada integrante actual. La tarea queda asignada a quien revoca, con prioridad alta y un plazo de 7 días, y no se duplica si ya hay una abierta para esa credencial. Las credenciales archivadas no generan tarea.
 
 **Por qué la tarea de rotación.** Quitar el acceso no borra lo que la persona ya vio. Si reveló la contraseña, sigue conociéndola; la única forma de cerrar ese riesgo es cambiarla.
 

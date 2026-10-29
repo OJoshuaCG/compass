@@ -60,8 +60,10 @@ import type { Argon2Params } from '../modules/identity/index.js';
 import type { Mailer } from '../modules/notification/index.js';
 import {
   ManageAccounts,
+  ManageShares,
   ManageCredentials,
   PgAccountRepository,
+  PgShareRepository,
   PgVaultCredentialRepository,
 } from '../modules/vault/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
@@ -215,6 +217,16 @@ export function buildContainer(options: ContainerOptions) {
       uow,
       authorizer,
       accounts: new PgAccountRepository(uow),
+      ids,
+      audit,
+      clock,
+    }),
+    manageShares: new ManageShares({
+      context: requestContext,
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
+      shares: new PgShareRepository(uow),
       ids,
       audit,
       clock,

@@ -27,11 +27,12 @@ import {
 } from '../modules/identity/index.js';
 import { AuthController, MeController } from '../modules/identity/interface/auth.controller.js';
 import { InvitationsController } from '../modules/identity/interface/invitations.controller.js';
-import { ManageAccounts, ManageCredentials } from '../modules/vault/index.js';
+import { ManageAccounts, ManageCredentials, ManageShares } from '../modules/vault/index.js';
 import {
   AccountsController,
   PlatformsController,
 } from '../modules/vault/interface/accounts.controller.js';
+import { AccountSharesController } from '../modules/vault/interface/shares.controller.js';
 import {
   AccountCredentialsController,
   CredentialsController,
@@ -82,6 +83,7 @@ export class AppModule {
       { provide: RotateDataKey, useValue: container.rotateDataKey },
       { provide: ManageAccounts, useValue: container.manageAccounts },
       { provide: ManageCredentials, useValue: container.manageCredentials },
+      { provide: ManageShares, useValue: container.manageShares },
       { provide: IdempotencyService, useValue: container.idempotency },
       { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
@@ -99,6 +101,7 @@ export class AppModule {
         PlatformsController,
         AccountsController,
         AccountCredentialsController,
+        AccountSharesController,
         CredentialsController,
       ],
       providers,

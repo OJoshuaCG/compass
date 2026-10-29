@@ -14,3 +14,11 @@ const LEVEL_RANK: Readonly<Record<ShareLevel, number>> = {
 /** Un nivel cubre al requerido cuando es igual o mayor: MANAGE incluye EDIT, que incluye VIEW, y así. */
 export const levelSatisfies = (actual: ShareLevel, required: ShareLevel): boolean =>
   LEVEL_RANK[actual] >= LEVEL_RANK[required];
+
+/**
+ * Techo de la compartición: nadie otorga un nivel superior al suyo (PE-7). Hoy compartir exige MANAGE, el
+ * nivel máximo, así que el techo no recorta nada; se conserva como regla propia para que siga valiendo si
+ * algún día se permite compartir con un nivel menor.
+ */
+export const canGrant = (grantorLevel: ShareLevel, requested: ShareLevel): boolean =>
+  levelSatisfies(grantorLevel, requested);

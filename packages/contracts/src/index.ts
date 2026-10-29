@@ -128,6 +128,13 @@ export type {
   RevealedPassword,
 } from './credentials.js';
 export {
+  SHARE_GRANTEE_TYPES,
+  createShareRequestSchema,
+  shareGranteeTypeSchema,
+  shareSchema,
+} from './shares.js';
+export type { CreateShareRequest, Share, ShareGranteeType } from './shares.js';
+export {
   dataKeyRotationReasonSchema,
   dataKeyRotationSchema,
   rotateDataKeyRequestSchema,

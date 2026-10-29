@@ -5,6 +5,8 @@ export type {
   ManageAccountsDeps,
   UpdateAccountInput,
 } from './application/manage-accounts.js';
+export { ManageShares } from './application/manage-shares.js';
+export type { ManageSharesDeps } from './application/manage-shares.js';
 export { ManageCredentials } from './application/manage-credentials.js';
 export type {
   CreateCredentialInput,
@@ -21,6 +23,12 @@ export type {
   AccountView,
   PlatformRecord,
 } from './application/ports/account-repository.js';
-export { levelSatisfies } from './domain/share-level.js';
+export type {
+  ShareRecord,
+  ShareRepository,
+  ShareView,
+} from './application/ports/share-repository.js';
+export { canGrant, levelSatisfies } from './domain/share-level.js';
 export { PgAccountRepository } from './infrastructure/pg-account-repository.js';
 export { PgVaultCredentialRepository } from './infrastructure/pg-credential-repository.js';
+export { PgShareRepository } from './infrastructure/pg-share-repository.js';

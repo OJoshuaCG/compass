@@ -34,7 +34,10 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'credential.totp_code_issued': [],
   'credential.totp_exported': ['reason'],
   'access.emergency_granted': ['reason', 'expiresInMinutes'],
-  'share.revoked': ['level', 'rotationTaskCreated'],
+  // Comparticiones de cuentas. `granteeId` es el id opaco de la persona o del grupo; `expiresAt` es ISO o
+  // `null` si no caduca; `rotationTasks` cuenta las tareas de rotación que dejó revocar tras una revelación.
+  'share.granted': ['level', 'granteeType', 'granteeId', 'expiresAt'],
+  'share.revoked': ['level', 'granteeType', 'granteeId', 'rotationTasks'],
   'audit.chain_verified': ['checked'],
   'auth.login_failed': [],
   'auth.login_password_verified': [],
