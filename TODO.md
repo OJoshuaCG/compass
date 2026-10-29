@@ -4,7 +4,7 @@ Backlog único, ordenado para que cualquier persona (o agente de IA) pueda **tom
 
 ## Veredicto
 
-El proyecto es viable y está bien cimentado: capas impuestas por lint, aislamiento por filas forzado en las 26 tablas, auditoría transaccional con negaciones, cookies y cabeceras sólidas. La fase 1b (la bóveda) concentra el riesgo: sus porciones B1 a B5 ya están implementadas en `main` (la última subida al remoto es 570f301: cuentas, credenciales con revelado, compartición, segundo factor por clave manual y por imagen del QR), pero faltan la entrega de la alerta de revelaciones a la Raíz, el aviso de 24 h del segundo factor, la importación de Google Authenticator, la entrega por celular, la búsqueda avanzada, la importación por CSV y la revisión humana de sus pruebas; ninguna credencial real se carga hasta cerrar la fase 1. Sobra alcance y ceremonia para un equipo de unas 3 personas; faltan decisiones de operación (nube, instancia única, anclaje de la auditoría) que no tienen ADR.
+El proyecto es viable y está bien cimentado: capas impuestas por lint, aislamiento por filas forzado en las 26 tablas, auditoría transaccional con negaciones, cookies y cabeceras sólidas. La fase 1b (la bóveda) concentra el riesgo: sus porciones B1 a B5 ya están implementadas en `main` (la última subida al remoto es 570f301: cuentas, credenciales con revelado, compartición, segundo factor por clave manual y por imagen del QR), pero faltan la entrega de la alerta de revelaciones a la Raíz, el aviso de 24 h del segundo factor, la importación de Google Authenticator, la entrega por celular, la búsqueda avanzada, la revisión humana de sus pruebas (la importación por CSV ya tiene backend y pantalla desde el 2026-10-29); ninguna credencial real se carga hasta cerrar la fase 1. Sobra alcance y ceremonia para un equipo de unas 3 personas; faltan decisiones de operación (nube, instancia única, anclaje de la auditoría) que no tienen ADR.
 
 ## Cómo se organiza (léelo una vez)
 
@@ -295,7 +295,7 @@ Las tres se hacen en orden: N2 depende de N1 y N3 de N2.
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] O1 | **B6 del plan:** búsqueda avanzada, índice ciego por usuario y vistas guardadas | Código ⚠ | — | M | K1, B4 | |
-| [~] O2 | **B7 del plan:** importación por CSV | Código | — | S | K1 | Backend (O2a) hecho el 2026-10-29: vista previa y confirmación todo o nada, un evento `credential.imported`; pruebas escritas sin ejecutar y revisión humana pendiente. Falta la pantalla (O2b) |
+| [x] O2 | **B7 del plan:** importación por CSV | Código | — | S | K1 | Backend (O2a) y pantalla (O2b) hechos el 2026-10-29. O2a: vista previa y confirmación todo o nada, un evento `credential.imported`. O2b: ruta `/credentials/import` con vista previa en la tabla estándar y confirmación solo sin filas inválidas; el CSV vive solo en una referencia del componente. Pruebas escritas sin ejecutar (typecheck y lint en verde); falta la revisión humana de las pruebas marcadas `SENSIBLE` y el e2e de navegador |
 
 ## P · Gobernanza base
 

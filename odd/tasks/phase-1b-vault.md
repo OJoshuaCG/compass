@@ -35,7 +35,7 @@ Cada porción es vertical (casos de uso + API + pantalla + pruebas + documentaci
 | B4 2FA en servidor: `RegisterTotpSecret` (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen; pantallas | S9, S10, S12, S13 | B4a backend y B4b pantalla hechos (2026-10-28); registro por imagen hecho en B5 (570f301); falta el aviso de 24 h y el límite de intentos al confirmar | hecho en parte (falta aviso de 24 h, límite de intentos, revisión humana y e2e) |
 | B5 Registro 2FA por captura de pestaña, importación de Google Authenticator y handoff con celular (SSE) | S9, S11 | primera pasada hecha (570f301): imagen, portapapeles y captura de pestaña con `jsqr` 1.4.0 | hecho en parte (pendientes: importación de Google Authenticator y entrega por celular, ruta protegida sin encargo; falta revisión humana y e2e) |
 | B6 Búsqueda avanzada, índice ciego por usuario y vistas guardadas | S8 | pendiente | pendiente |
-| B7 Importación CSV | S14 | hecho (O2a, pruebas sin ejecutar) | pendiente (O2b) |
+| B7 Importación CSV | S14 | hecho (O2a, 5a55530) | hecho (O2b) |
 
 ## Prerrequisitos
 

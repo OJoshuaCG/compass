@@ -51,5 +51,6 @@
   "archive.title": "¿Archivar la cuenta {{name}}?",
   "archive.description": "La cuenta dejará de estar disponible y se revocarán los accesos que se hayan compartido.",
   "archive.confirm": "Archivar cuenta",
-  "archive.toast": "Se archivó la cuenta {{name}}."
+  "archive.toast": "Se archivó la cuenta {{name}}.",
+  "import.open": "Importar desde CSV"
 }

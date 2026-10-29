@@ -1,6 +1,7 @@
 import type { Account } from '@iam/contracts';
-import { Button, PageHeader, Spinner, Tabs } from '@iam/ui';
+import { Button, buttonVariants, PageHeader, Spinner, Tabs } from '@iam/ui';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -31,6 +32,7 @@ export function AccountsPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const canCreate = usePermission('account.create');
+  const canCreateCredential = usePermission('credential.create');
   const canReadInventory = usePermission('vault.inventory.read');
   const platformsQuery = usePlatforms();
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -77,13 +79,21 @@ export function AccountsPage() {
         description={t('description', { ns: 'accounts' })}
         actions={
           canCreate ? (
-            <Button
-              onClick={() => {
-                setDialog({ kind: 'create' });
-              }}
-            >
-              {t('create.open', { ns: 'accounts' })}
-            </Button>
+            <>
+              {/* Importar crea cuentas y credenciales: se ofrece con ambos permisos; el servidor decide. */}
+              {canCreateCredential ? (
+                <Link to="/credentials/import" className={buttonVariants({ variant: 'secondary' })}>
+                  {t('import.open', { ns: 'accounts' })}
+                </Link>
+              ) : null}
+              <Button
+                onClick={() => {
+                  setDialog({ kind: 'create' });
+                }}
+              >
+                {t('create.open', { ns: 'accounts' })}
+              </Button>
+            </>
           ) : undefined
         }
       />

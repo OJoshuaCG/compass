@@ -51,5 +51,6 @@
   "archive.title": "Archive the account {{name}}?",
   "archive.description": "The account will no longer be available and any shared access will be revoked.",
   "archive.confirm": "Archive account",
-  "archive.toast": "The account {{name}} was archived."
+  "archive.toast": "The account {{name}} was archived.",
+  "import.open": "Import from CSV"
 }

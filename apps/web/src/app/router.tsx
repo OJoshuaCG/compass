@@ -127,6 +127,15 @@ const credentialsRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/credentials-route'), 'CredentialsRoute'),
 });
 
+const credentialImportRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/credentials/import',
+  component: lazyRouteComponent(
+    () => import('../routes/credential-import-route'),
+    'CredentialImportRoute',
+  ),
+});
+
 const sharesRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/accounts/$accountId/shares',
@@ -168,6 +177,7 @@ const routeTree = rootRoute.addChildren([
     rolesRoute,
     accountsRoute,
     credentialsRoute,
+    credentialImportRoute,
     sharesRoute,
     catalogRoute,
   ]),
