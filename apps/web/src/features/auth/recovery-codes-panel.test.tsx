@@ -105,6 +105,45 @@ describe('RecoveryCodesPanel leave protection', () => {
     expect(router.state.location.pathname).toBe('/elsewhere');
   });
 
+  it('re-arms the protection when the "saved" checkbox is unchecked again', async () => {
+    const user = userEvent.setup();
+    const { router } = renderPanel();
+    await screen.findByRole('list', { name: es.auth['enroll.recovery.list'] });
+    const savedCheckbox = screen.getByRole('checkbox', { name: es.auth['enroll.recovery.saved'] });
+
+    await user.click(savedCheckbox);
+    // Marcada: sin protección activa (precondición para que el desmarcado sea significativo).
+    expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true);
+
+    await user.click(savedCheckbox);
+    expect(savedCheckbox).not.toBeChecked();
+
+    // Un arrepentimiento debe devolver la protección: si no, se perderían los códigos sin aviso.
+    expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(false);
+
+    router.history.push('/elsewhere');
+    await screen.findByRole('dialog', { name: es.auth['enroll.recovery.leave.title'] });
+    expect(router.state.location.pathname).toBe('/enroll');
+  });
+
+  it('treats Escape on the leave dialog as "stay": keeps the route and the codes', async () => {
+    const user = userEvent.setup();
+    const { router } = renderPanel();
+    await screen.findByRole('list', { name: es.auth['enroll.recovery.list'] });
+
+    router.history.push('/elsewhere');
+    await screen.findByRole('dialog', { name: es.auth['enroll.recovery.leave.title'] });
+    await user.keyboard('{Escape}');
+
+    // Escape nunca debe contar como confirmar la salida: es la vía por defecto del teclado.
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(router.state.location.pathname).toBe('/enroll');
+    expect(screen.queryByText('destination')).toBeNull();
+    for (const code of CODES) expect(screen.getByText(code)).toBeInTheDocument();
+  });
+
   it('registers beforeunload only while unsaved and removes the same listener on unmount', async () => {
     const addSpy = vi.spyOn(window, 'addEventListener');
     const removeSpy = vi.spyOn(window, 'removeEventListener');
