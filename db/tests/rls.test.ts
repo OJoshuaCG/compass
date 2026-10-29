@@ -29,6 +29,7 @@ const PHASE1_TENANT_TABLES = [
   'totp_handoffs',
   'data_keys',
   'outbox_events',
+  'outbox_deliveries',
   'idempotency_keys',
 ];
 

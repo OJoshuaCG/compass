@@ -11,48 +11,49 @@ Diseño de la base de datos de la plataforma (PostgreSQL 18). Este documento des
 
 ### Migraciones existentes
 
-| Archivo | Contenido |
-| --- | --- |
-| `0001_base_roles_functions.sql` | Verifica los roles; crea el esquema `auth`, la función generadora de UUIDv7 y el trigger que actualiza la fecha de modificación |
-| `0002_organizations_identity.sql` | `organizations`, `users`, `user_passwords`, `webauthn_credentials`, `user_totp_factors`, `user_recovery_codes`, `sessions`, `invitations` |
-| `0003_crypto_infra.sql` | `data_keys`, `outbox_events`, `idempotency_keys` |
-| `0004_directory_access.sql` | `groups`, `group_memberships`, `roles`, `user_roles` |
-| `0005_vault.sql` | `platforms` (con catálogo global sembrado), `accounts`, `credentials`, `credential_secrets`, `shares`, `password_fingerprints` |
-| `0006_governance_audit.sql` | `access_requests`, `rotation_tasks`, `totp_handoffs`, `audit_events` (cadena de hashes) |
-| `0007_effective_access_view.sql` | Vista `effective_access` |
-| `0008_auth_functions.sql` | Funciones `auth.*` (`SECURITY DEFINER`) |
-| `0009_totp_replay_protection.sql` | Columna `last_used_step` en `user_totp_factors`: un código TOTP solo se acepta si su paso es mayor al último aceptado |
-| `0010_emergency_codes.sql` | Columna `kind` (`recovery` por defecto, o `emergency`) en `user_recovery_codes`, para los códigos de emergencia de la Raíz |
-| `0011_webauthn_challenges.sql` | Tabla `webauthn_challenges` (desafíos de las ceremonias de passkey) con aislamiento por fila |
+| Archivo                             | Contenido                                                                                                                                                                           |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001_base_roles_functions.sql`     | Verifica los roles; crea el esquema `auth`, la función generadora de UUIDv7 y el trigger que actualiza la fecha de modificación                                                     |
+| `0002_organizations_identity.sql`   | `organizations`, `users`, `user_passwords`, `webauthn_credentials`, `user_totp_factors`, `user_recovery_codes`, `sessions`, `invitations`                                           |
+| `0003_crypto_infra.sql`             | `data_keys`, `outbox_events`, `idempotency_keys`                                                                                                                                    |
+| `0004_directory_access.sql`         | `groups`, `group_memberships`, `roles`, `user_roles`                                                                                                                                |
+| `0005_vault.sql`                    | `platforms` (con catálogo global sembrado), `accounts`, `credentials`, `credential_secrets`, `shares`, `password_fingerprints`                                                      |
+| `0006_governance_audit.sql`         | `access_requests`, `rotation_tasks`, `totp_handoffs`, `audit_events` (cadena de hashes)                                                                                             |
+| `0007_effective_access_view.sql`    | Vista `effective_access`                                                                                                                                                            |
+| `0008_auth_functions.sql`           | Funciones `auth.*` (`SECURITY DEFINER`)                                                                                                                                             |
+| `0009_totp_replay_protection.sql`   | Columna `last_used_step` en `user_totp_factors`: un código TOTP solo se acepta si su paso es mayor al último aceptado                                                               |
+| `0010_emergency_codes.sql`          | Columna `kind` (`recovery` por defecto, o `emergency`) en `user_recovery_codes`, para los códigos de emergencia de la Raíz                                                          |
+| `0011_webauthn_challenges.sql`      | Tabla `webauthn_challenges` (desafíos de las ceremonias de passkey) con aislamiento por fila                                                                                        |
 | `0017_audit_actor_action_index.sql` | Índice `(organization_id, actor_id, action, created_at desc)` en `audit_events`, para contar los eventos de una persona en una ventana de tiempo (límite de revelaciones, ADR 0031) |
+| `0019_outbox_deliveries.sql`        | Tabla `outbox_deliveries` (acuses de entrega de los manejadores del outbox, con aislamiento por fila y sin clave foránea hacia `outbox_events`; ver ADR 0035)                       |
 
 ### Cómo se ejecuta
 
 El CLI de `db/src/cli.ts` ofrece dos operaciones, ambas con la dirección de la base de datos en la variable de entorno `DATABASE_URL`:
 
-| Operación | Quién la ejecuta | Cuándo |
-| --- | --- | --- |
-| Preparar roles (`bootstrap`) | Una conexión de administrador del clúster | Una sola vez por clúster |
-| Migrar (`migrate`) | El rol de migraciones | En cada despliegue, antes de arrancar la API |
+| Operación                    | Quién la ejecuta                          | Cuándo                                       |
+| ---------------------------- | ----------------------------------------- | -------------------------------------------- |
+| Preparar roles (`bootstrap`) | Una conexión de administrador del clúster | Una sola vez por clúster                     |
+| Migrar (`migrate`)           | El rol de migraciones                     | En cada despliegue, antes de arrancar la API |
 
-El ejecutor aplica cada archivo en su propia transacción junto con su registro en la tabla de control de migraciones, serializa ejecuciones concurrentes con un bloqueo consultivo y rechaza tres situaciones: huella (SHA-256) distinta de un archivo ya aplicado, archivo aplicado que desapareció y archivo nuevo numerado antes del último aplicado. Patrón *expandir y contraer*: se agrega, se despliega código compatible, y se retira lo viejo en otra migración.
+El ejecutor aplica cada archivo en su propia transacción junto con su registro en la tabla de control de migraciones, serializa ejecuciones concurrentes con un bloqueo consultivo y rechaza tres situaciones: huella (SHA-256) distinta de un archivo ya aplicado, archivo aplicado que desapareció y archivo nuevo numerado antes del último aplicado. Patrón _expandir y contraer_: se agrega, se despliega código compatible, y se retira lo viejo en otra migración.
 
 Los **respaldos de datos** dentro de una migración deben recordar que el aislamiento forzado por organización aplica también al dueño de las tablas. Hay dos caminos: recorrer una organización a la vez fijando su contexto solo para esa transacción, o desactivar el aislamiento forzado de la tabla y restablecerlo **dentro de la misma transacción** (así siembra la migración 0005 el catálogo global).
 
 ## 2. Convenciones
 
-| Convención | Detalle |
-| --- | --- |
-| Identificadores | `id` es la clave primaria, un UUIDv7 generado por defecto: ordenable por tiempo, buena localidad en índices, no expone conteos |
-| Tenant | `organization_id uuid not null references organizations(id)` en toda tabla de dominio (salvo `organizations` y las filas globales de `platforms`) |
-| Tiempo | `timestamptz` siempre (UTC). `created_at` y `updated_at`; un trigger mantiene `updated_at` en las tablas editables |
-| Bajas lógicas | `status` o `archived_at` / `revoked_at`. Nada del dominio se borra físicamente (ver excepciones abajo) |
-| Concurrencia optimista | `version integer not null default 1` en agregados editables. Lo incrementa el repositorio al guardar, solo si la versión sigue siendo la esperada (la misma que el cliente envía en la cabecera de condición de la petición), y no un trigger, para no doblar incrementos |
-| Nombres | Inglés, `snake_case` |
-| Integridad entre tenants | Claves foráneas **compuestas** `(organization_id, x_id) -> tabla(organization_id, id)`. Las comprobaciones de FK ignoran RLS, así que esta es la única defensa contra referencias entre organizaciones |
-| Índices | Todo índice compuesto empieza por `organization_id`. Una prueba de CI lo verifica para toda tabla descubierta dinámicamente |
-| Secretos | Cifrados con AES-256-GCM: `ciphertext` (incluye el tag de 16 bytes), `nonce` de 12 bytes, `dek_version`. Tokens y claves de un solo uso: solo su SHA-256 (`bytea`, 32 bytes) |
-| Estados | Texto con una restricción que lista los valores permitidos. Se prefiere a `enum` porque agregar un valor es una migración trivial y reversible |
+| Convención               | Detalle                                                                                                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identificadores          | `id` es la clave primaria, un UUIDv7 generado por defecto: ordenable por tiempo, buena localidad en índices, no expone conteos                                                                                                                                            |
+| Tenant                   | `organization_id uuid not null references organizations(id)` en toda tabla de dominio (salvo `organizations` y las filas globales de `platforms`)                                                                                                                         |
+| Tiempo                   | `timestamptz` siempre (UTC). `created_at` y `updated_at`; un trigger mantiene `updated_at` en las tablas editables                                                                                                                                                        |
+| Bajas lógicas            | `status` o `archived_at` / `revoked_at`. Nada del dominio se borra físicamente (ver excepciones abajo)                                                                                                                                                                    |
+| Concurrencia optimista   | `version integer not null default 1` en agregados editables. Lo incrementa el repositorio al guardar, solo si la versión sigue siendo la esperada (la misma que el cliente envía en la cabecera de condición de la petición), y no un trigger, para no doblar incrementos |
+| Nombres                  | Inglés, `snake_case`                                                                                                                                                                                                                                                      |
+| Integridad entre tenants | Claves foráneas **compuestas** `(organization_id, x_id) -> tabla(organization_id, id)`. Las comprobaciones de FK ignoran RLS, así que esta es la única defensa contra referencias entre organizaciones                                                                    |
+| Índices                  | Todo índice compuesto empieza por `organization_id`. Una prueba de CI lo verifica para toda tabla descubierta dinámicamente                                                                                                                                               |
+| Secretos                 | Cifrados con AES-256-GCM: `ciphertext` (incluye el tag de 16 bytes), `nonce` de 12 bytes, `dek_version`. Tokens y claves de un solo uso: solo su SHA-256 (`bytea`, 32 bytes)                                                                                              |
+| Estados                  | Texto con una restricción que lista los valores permitidos. Se prefiere a `enum` porque agregar un valor es una migración trivial y reversible                                                                                                                            |
 
 **Excepciones a "nada se borra"** (el rol de la aplicación tiene `DELETE` solo ahí):
 
@@ -66,11 +67,11 @@ Los **respaldos de datos** dentro de una migración deben recordar que el aislam
 
 Los roles son del clúster, no de la base, por eso **no** los crea una migración (el migrador no tiene `CREATEROLE`): los provisiona una vez `bootstrapRoles()` (`db/src/bootstrap.ts`) con una conexión de administrador, y `0001` solo verifica que existan. Se crean `NOLOGIN`: operaciones asigna `LOGIN` y contraseña desde el gestor de secretos; ninguna credencial vive en el repositorio.
 
-| Rol | Es | Puede | No puede |
-| --- | --- | --- | --- |
-| `iam_migrator` | Dueño de todas las tablas, vistas y funciones | DDL, sembrar el catálogo global | Reescribir `audit_events` (se revocó `UPDATE`/`DELETE`/`TRUNCATE` incluso al dueño). Con `FORCE RLS` tampoco lee datos de tenants sin `app.org_id` |
-| `iam_app` | Rol de la API y los workers | `SELECT/INSERT/UPDATE` (y `DELETE` en las excepciones) con RLS; `EXECUTE` en `auth.*` | `BYPASSRLS`, ser dueño, DDL, `UPDATE/DELETE` en `audit_events`, modificar el catálogo global, reescribir `ciphertext` o `wrapped_dek` |
-| `iam_auth_reader` | Dueño de las funciones `auth.*` | `SELECT` por columnas, solo a través de esas funciones | Login, `BYPASSRLS`, leer otras columnas |
+| Rol               | Es                                            | Puede                                                                                 | No puede                                                                                                                                           |
+| ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `iam_migrator`    | Dueño de todas las tablas, vistas y funciones | DDL, sembrar el catálogo global                                                       | Reescribir `audit_events` (se revocó `UPDATE`/`DELETE`/`TRUNCATE` incluso al dueño). Con `FORCE RLS` tampoco lee datos de tenants sin `app.org_id` |
+| `iam_app`         | Rol de la API y los workers                   | `SELECT/INSERT/UPDATE` (y `DELETE` en las excepciones) con RLS; `EXECUTE` en `auth.*` | `BYPASSRLS`, ser dueño, DDL, `UPDATE/DELETE` en `audit_events`, modificar el catálogo global, reescribir `ciphertext` o `wrapped_dek`              |
+| `iam_auth_reader` | Dueño de las funciones `auth.*`               | `SELECT` por columnas, solo a través de esas funciones                                | Login, `BYPASSRLS`, leer otras columnas                                                                                                            |
 
 Además: `revoke create on schema public from public` y `revoke temporary on database ... from public`. Los grants son por tabla y explícitos; los `UPDATE` de `credential_secrets` y `data_keys` son **por columna** (`is_current` y `status`), de modo que el texto cifrado y el material de claves son inmutables para la aplicación.
 
@@ -420,26 +421,26 @@ Las columnas del plan ("Tablas de la fase 1") están todas. Las columnas **adici
 
 **`organizations`** (sin `organization_id`; la fila es el tenant). `version`.
 
-| Columna | Tipo | Restricciones |
-| --- | --- | --- |
-| name | text | not null, 1 a 200 caracteres |
-| slug | text | not null, **UK**, `^[a-z0-9][a-z0-9-]{1,62}$` |
-| status | text | `active` \| `suspended`, default `active` |
-| settings | jsonb | not null, objeto, default `{}` |
-| default_locale | text | `es-MX` \| `en-US`, default `es-MX` |
+| Columna        | Tipo  | Restricciones                                 |
+| -------------- | ----- | --------------------------------------------- |
+| name           | text  | not null, 1 a 200 caracteres                  |
+| slug           | text  | not null, **UK**, `^[a-z0-9][a-z0-9-]{1,62}$` |
+| status         | text  | `active` \| `suspended`, default `active`     |
+| settings       | jsonb | not null, objeto, default `{}`                |
+| default_locale | text  | `es-MX` \| `en-US`, default `es-MX`           |
 
 **`users`** `version`. Índices: `users_one_active_root` (único parcial: `(organization_id) where rank = 0 and status <> 'deactivated'`), `(organization_id, status)`, `(organization_id, managed_by)`, `(organization_id, rank)`, `unique (organization_id, id)`.
 
-| Columna | Tipo | Restricciones |
-| --- | --- | --- |
-| email | text | not null, **UK global** (el correo de login es único globalmente), `email = lower(email)` |
-| display_name | text | not null |
-| rank | smallint | not null, `CHECK rank between 0 and 3` |
-| status | text | `invited` \| `active` \| `suspended` \| `deactivated`, default `invited` |
-| managed_by | uuid | FK(c) a `users`; una restricción exige que solo la Raíz (rango 0) carezca de responsable; nunca es el propio usuario |
-| created_by | uuid | FK(c) a `users`, nullable (la Raíz del bootstrap); inmutable por regla de dominio |
-| locale / timezone | text | `es-MX`\|`en-US` / default `UTC` |
-| last_login_at | timestamptz | nullable |
+| Columna           | Tipo        | Restricciones                                                                                                        |
+| ----------------- | ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| email             | text        | not null, **UK global** (el correo de login es único globalmente), `email = lower(email)`                            |
+| display_name      | text        | not null                                                                                                             |
+| rank              | smallint    | not null, `CHECK rank between 0 and 3`                                                                               |
+| status            | text        | `invited` \| `active` \| `suspended` \| `deactivated`, default `invited`                                             |
+| managed_by        | uuid        | FK(c) a `users`; una restricción exige que solo la Raíz (rango 0) carezca de responsable; nunca es el propio usuario |
+| created_by        | uuid        | FK(c) a `users`, nullable (la Raíz del bootstrap); inmutable por regla de dominio                                    |
+| locale / timezone | text        | `es-MX`\|`en-US` / default `UTC`                                                                                     |
+| last_login_at     | timestamptz | nullable                                                                                                             |
 
 Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: son reglas de dominio (`puedeGestionar`) con pruebas de matriz.
 
@@ -451,7 +452,7 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`user_recovery_codes`**: `user_id` FK(c), `code_hash bytea(32)`, `used_at`, `kind text not null default 'recovery'` (`recovery` \| `emergency`, migración 0010), `custody_group text` (`A` \| `B` o nulo, migración 0013; solo los códigos de `emergency` pueden tenerlo y reparte los ocho entre los dos custodios para el control dual de la [recuperación de la Raíz](adr/0037-root-recovery-dual-custody.md); los códigos anteriores a la migración quedan con valor nulo y no sirven para ese control). **UK** `(organization_id, user_id, code_hash)`. Los códigos de emergencia (8, solo de la Raíz, emitidos al crear la organización) usan el mismo hash y el mismo uso único; al registrar un segundo factor nuevo solo se reemiten los de `recovery`, y los de `emergency` sin usar siguen vigentes.
 
-**`webauthn_challenges`** (efímera, migración 0011): `user_id` (FK compuesta con `organization_id` a `users`), `session_id`, `purpose` (`registration` \| `authentication`), `challenge text` (16 a 512 caracteres), `expires_at`, `used_at`. Un desafío es aleatorio, de un solo uso, de 5 minutos y ligado a la persona, al propósito y a la sesión que lo pidió: el emitido para una ceremonia no valida otra, otra sesión de la misma persona no puede gastarlo y solo hay uno vigente por sesión y propósito ([ADR 0030](adr/0030-session-bound-webauthn-challenges.md)). Índice parcial `(organization_id, user_id, session_id, purpose, created_at) where used_at is null`. *Limitación conocida: los desafíos vencidos aún no se purgan.* `ENABLE + FORCE RLS` con la política de aislamiento por organización en la misma migración.
+**`webauthn_challenges`** (efímera, migración 0011): `user_id` (FK compuesta con `organization_id` a `users`), `session_id`, `purpose` (`registration` \| `authentication`), `challenge text` (16 a 512 caracteres), `expires_at`, `used_at`. Un desafío es aleatorio, de un solo uso, de 5 minutos y ligado a la persona, al propósito y a la sesión que lo pidió: el emitido para una ceremonia no valida otra, otra sesión de la misma persona no puede gastarlo y solo hay uno vigente por sesión y propósito ([ADR 0030](adr/0030-session-bound-webauthn-challenges.md)). Índice parcial `(organization_id, user_id, session_id, purpose, created_at) where used_at is null`. _Limitación conocida: los desafíos vencidos aún no se purgan._ `ENABLE + FORCE RLS` con la política de aislamiento por organización en la misma migración.
 
 **`sessions`** (efímera): `user_id` FK(c), `token_hash bytea(32)` **UK**, `ip inet`, `user_agent`, `mfa_at`, `reauth_at`, `last_seen_at +` (caducidad por inactividad de 30 min), `expires_at not null`, `revoked_at`. Índices `(organization_id, user_id) where revoked_at is null`, `(organization_id, expires_at)`.
 
@@ -471,16 +472,16 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`platforms`** `version`. `organization_id` **nullable**: nulo = catálogo global.
 
-| Columna | Tipo | Restricciones |
-| --- | --- | --- |
-| name, slug | text | slug `^[a-z0-9][a-z0-9-]{0,62}$` |
-| login_url | text | nulo (plataforma "Personalizada") o `https://...` |
-| icon | text | |
-| supports_totp | boolean | default true |
-| login_strategy | jsonb | objeto, default `{}` (fase 1: vacío) |
-| mail_rules | jsonb | objeto, default `{}` (fase 1: vacío) |
-| password_policy | jsonb + | objeto; límites de longitud/símbolos por plataforma (plan, "Generador de contraseñas") |
-| archived_at | timestamptz | |
+| Columna         | Tipo        | Restricciones                                                                          |
+| --------------- | ----------- | -------------------------------------------------------------------------------------- |
+| name, slug      | text        | slug `^[a-z0-9][a-z0-9-]{0,62}$`                                                       |
+| login_url       | text        | nulo (plataforma "Personalizada") o `https://...`                                      |
+| icon            | text        |                                                                                        |
+| supports_totp   | boolean     | default true                                                                           |
+| login_strategy  | jsonb       | objeto, default `{}` (fase 1: vacío)                                                   |
+| mail_rules      | jsonb       | objeto, default `{}` (fase 1: vacío)                                                   |
+| password_policy | jsonb +     | objeto; límites de longitud/símbolos por plataforma (plan, "Generador de contraseñas") |
+| archived_at     | timestamptz |                                                                                        |
 
 Índices: único parcial `(slug) where organization_id is null` y `(organization_id, slug) where organization_id is not null`. La migración `0005` siembra 11 filas globales: Instagram, Facebook, TikTok, YouTube / Google, X, LinkedIn, Pinterest, Threads, Gmail, Outlook y Personalizada.
 
@@ -508,9 +509,11 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`data_keys`**: `version int > 0` **UK**(org, version), `wrapped_dek bytea`, `kms_key_ref`, `status` `active` \| `retired`. Único parcial `(organization_id) where status = 'active'`. `iam_app` solo puede actualizar `status`.
 
-**`outbox_events`**: `aggregate`, `type`, `payload jsonb`, `published_at`, `attempts int +`, `next_attempt_at +` (reintentos con *backoff*). Índice parcial de pendientes `(organization_id, next_attempt_at) where published_at is null`.
+**`outbox_events`**: `aggregate`, `type`, `payload jsonb`, `published_at`, `attempts int +`, `next_attempt_at +` (reintentos con _backoff_). Índice parcial de pendientes `(organization_id, next_attempt_at) where published_at is null`.
 
-**`idempotency_keys`**: `key` (8 a 200), `actor_id`, `request_hash bytea(32)`, `response jsonb`, `status_code smallint +`, `expires_at`. **UK** `(organization_id, actor_id, key)`. La respuesta se conserva 24 horas; mientras la petición original corre, la fila es una reserva de 1 minuto que otra petición puede tomar de forma atómica al vencer (ver [`backend.md`](backend.md) §7.2.1). *Limitación conocida: las filas vencidas aún no se purgan; falta un trabajo de limpieza.*
+**`outbox_deliveries`**: `event_id` (sin clave foránea, a propósito: el trabajador retiene `FOR UPDATE` sobre el evento mientras el manejador escribe el acuse en otra conexión), `handler_key` (nombre del manejador; el aviso de revelaciones agrega `:<id de la destinataria>`, máx. 100 caracteres), `delivered_at +`. **PK** `(organization_id, event_id, handler_key)`. La aplicación solo puede leer e insertar; la purga queda pendiente con la retención del outbox (G1).
+
+**`idempotency_keys`**: `key` (8 a 200), `actor_id`, `request_hash bytea(32)`, `response jsonb`, `status_code smallint +`, `expires_at`. **UK** `(organization_id, actor_id, key)`. La respuesta se conserva 24 horas; mientras la petición original corre, la fila es una reserva de 1 minuto que otra petición puede tomar de forma atómica al vencer (ver [`backend.md`](backend.md) §7.2.1). _Limitación conocida: las filas vencidas aún no se purgan; falta un trabajo de limpieza._
 
 ### 5.6 Vista `effective_access`
 
@@ -535,11 +538,11 @@ Límites honestos: RLS contiene errores de la aplicación (olvidar un `WHERE`), 
 
 Las filas con `organization_id` nulo son de lectura para cualquier organización y nadie las modifica desde la aplicación. Políticas de `platforms`:
 
-| Comando | Condición |
-| --- | --- |
-| `SELECT` | hay `app.org_id` **y** (`organization_id is null` **o** coincide). Sin contexto, tampoco se ve el catálogo: sin casos especiales |
-| `INSERT` / `UPDATE` | `organization_id = app.org_id` (con `NULL` nunca coincide: no se pueden crear ni editar filas globales ni "adoptar" una global) |
-| `DELETE` | sin política y sin privilegio |
+| Comando             | Condición                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `SELECT`            | hay `app.org_id` **y** (`organization_id is null` **o** coincide). Sin contexto, tampoco se ve el catálogo: sin casos especiales |
+| `INSERT` / `UPDATE` | `organization_id = app.org_id` (con `NULL` nunca coincide: no se pueden crear ni editar filas globales ni "adoptar" una global)  |
+| `DELETE`            | sin política y sin privilegio                                                                                                    |
 
 El catálogo global lo siembra y cambia solo una migración.
 
@@ -553,23 +556,23 @@ Para **toda** tabla con `organization_id` (descubierta en `pg_class`/`pg_attribu
 
 Cuatro operaciones ocurren **antes** de conocer `app.org_id` y, con falla cerrada, devolverían cero filas:
 
-| Operación | Dato que se tiene | Dato que se necesita |
-| --- | --- | --- |
-| Login por correo | correo | usuario, organización, hash de contraseña |
-| Búsqueda de sesión | SHA-256 del token de cookie | sesión, organización, estado del usuario |
-| Token de invitación | SHA-256 del token | invitación, organización |
-| Token de handoff (página del celular) | SHA-256 del token | handoff, organización |
+| Operación                             | Dato que se tiene           | Dato que se necesita                      |
+| ------------------------------------- | --------------------------- | ----------------------------------------- |
+| Login por correo                      | correo                      | usuario, organización, hash de contraseña |
+| Búsqueda de sesión                    | SHA-256 del token de cookie | sesión, organización, estado del usuario  |
+| Token de invitación                   | SHA-256 del token           | invitación, organización                  |
+| Token de handoff (página del celular) | SHA-256 del token           | handoff, organización                     |
 
 ### 7.2 Decisión
 
 Cuatro funciones de lectura mínimas, que se ejecutan con los privilegios de su dueño y no del llamador (`SECURITY DEFINER`), en el esquema `auth` (migración `0008`). Tras la búsqueda, el llamador fija el contexto de organización con la organización devuelta y hace todo lo demás bajo RLS normal.
 
-| Función | Entrada | Devuelve |
-| --- | --- | --- |
-| `auth.find_login_by_email(text)` | correo | `user_id, organization_id, status, argon2_hash, must_change` |
-| `auth.find_session_by_token_hash(bytea)` | SHA-256 | `session_id, organization_id, user_id, user_status, expires_at, revoked_at, mfa_at, reauth_at, last_seen_at` |
-| `auth.find_invitation_by_token_hash(bytea)` | SHA-256 | `invitation_id, organization_id, email, rank, expires_at, accepted_at, revoked_at` |
-| `auth.find_handoff_by_token_hash(bytea)` | SHA-256 | `handoff_id, organization_id, user_id, credential_id, status, expires_at` |
+| Función                                     | Entrada | Devuelve                                                                                                     |
+| ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| `auth.find_login_by_email(text)`            | correo  | `user_id, organization_id, status, argon2_hash, must_change`                                                 |
+| `auth.find_session_by_token_hash(bytea)`    | SHA-256 | `session_id, organization_id, user_id, user_status, expires_at, revoked_at, mfa_at, reauth_at, last_seen_at` |
+| `auth.find_invitation_by_token_hash(bytea)` | SHA-256 | `invitation_id, organization_id, email, rank, expires_at, accepted_at, revoked_at`                           |
+| `auth.find_handoff_by_token_hash(bytea)`    | SHA-256 | `handoff_id, organization_id, user_id, credential_id, status, expires_at`                                    |
 
 ### 7.3 Por qué es seguro
 
@@ -589,7 +592,7 @@ Cuatro funciones de lectura mínimas, que se ejecutan con los privilegios de su 
 
 ### 7.5 Trabajos de fondo
 
-Los jobs transversales corren fuera de una petición y deben recorrer organizaciones. Se resuelve con `auth.list_organization_ids()` (migración `0014`, mismo molde que las funciones de preautenticación: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y el job fija `app.org_id` por organización con `TenantScope.runAs`, de modo que el aislamiento por filas sigue vigente ([ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)). Ya lo usa la purga de `idempotency_keys` y `webauthn_challenges` (`purge-expired`). Pendientes sobre el mismo recorrido: verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del *outbox* y rotación de DEK.
+Los jobs transversales corren fuera de una petición y deben recorrer organizaciones. Se resuelve con `auth.list_organization_ids()` (migración `0014`, mismo molde que las funciones de preautenticación: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y el job fija `app.org_id` por organización con `TenantScope.runAs`, de modo que el aislamiento por filas sigue vigente ([ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)). Ya lo usa la purga de `idempotency_keys` y `webauthn_challenges` (`purge-expired`). Pendientes sobre el mismo recorrido: verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del _outbox_ y rotación de DEK.
 
 ## 8. Auditoría
 
@@ -621,7 +624,7 @@ El trigger toma un bloqueo consultivo de transacción, cuya clave se deriva de l
 El plan exige auditar las negaciones, pero la auditoría se escribe en la misma transacción que la acción y, ante una negación, esa transacción se revierte: el evento se perdería. Recomendación:
 
 1. Al denegar, el caso de uso lanza el error y **la transacción de negocio hace `ROLLBACK`**.
-2. Un *interceptor* de la capa HTTP (o la unidad de trabajo, con una opción para el caso de negación) abre **después del rollback** una transacción nueva y breve: fija el contexto de organización, inserta un evento de auditoría con resultado "negado" y su código de motivo, y confirma.
+2. Un _interceptor_ de la capa HTTP (o la unidad de trabajo, con una opción para el caso de negación) abre **después del rollback** una transacción nueva y breve: fija el contexto de organización, inserta un evento de auditoría con resultado "negado" y su código de motivo, y confirma.
 3. **No** escribirla desde dentro de la transacción original con una segunda conexión: si la original ya auditó algo, retiene el advisory lock y la transacción independiente esperaría a la original, que a su vez espera al interceptor (interbloqueo dentro de la misma petición).
 4. Falla cerrada **solo para acciones sensibles exitosas**: si no se puede registrar una negación, la negación igual se devuelve al usuario (nunca se convierte en permiso) y se genera una alerta operativa y una métrica; la pérdida de un evento de negación no debe abrir una acción.
 5. Las negaciones son ruidosas (un patrón de ellas es señal de abuso): permitir `metadata` mínima y agrupación en reportes, y un rate limit propio para que una ráfaga de negaciones no sature la cadena.
@@ -630,7 +633,7 @@ El plan exige auditar las negaciones, pero la auditoría se escribe en la misma 
 
 El plan retenía 2 años en línea y más en archivo; el dueño decidió el 2026-10-28 reducir lo de en línea a 6 meses (archivo de al menos 2 años, pendiente de legal), pero `DELETE` está revocado. Propuesta:
 
-- **Particionar `audit_events` por rango de `created_at`** (mensual) en una migración *expandir y contraer* cuando el volumen lo justifique. En una tabla particionada la clave primaria y los índices únicos deben incluir la columna de partición, así que `unique (organization_id, seq)` pasará a `(organization_id, seq, created_at)`; la unicidad real de `seq` la sigue garantizando el trigger bajo el advisory lock.
+- **Particionar `audit_events` por rango de `created_at`** (mensual) en una migración _expandir y contraer_ cuando el volumen lo justifique. En una tabla particionada la clave primaria y los índices únicos deben incluir la columna de partición, así que `unique (organization_id, seq)` pasará a `(organization_id, seq, created_at)`; la unicidad real de `seq` la sigue garantizando el trigger bajo el advisory lock.
 - Crear el rol **`iam_audit_archiver`** (`NOLOGIN` en reposo; lo usa un job separado con credencial propia). Permisos: lectura de la tabla de auditoría mediante una política propia del rol (igual que `iam_auth_reader`) y ejecución de una única función privilegiada de retiro de particiones. Esa función recibe la partición y la huella del manifiesto de exportación, y **solo** separa y elimina la partición completa si existe un registro en una tabla `audit_exports` (con el último `seq` y `hash` por organización y la huella del objeto en S3 Object Lock, verificada) y la partición tiene más de 2 años. Nunca se borra fila por fila; `iam_app` sigue sin poder borrar.
 - Antes de retirar una partición, guardar un **punto de control** por organización (`audit_chain_checkpoints`: `organization_id, seq, hash`) para que `audit_verify_chain()` pueda arrancar desde él en lugar de exigir el génesis.
 - La verificación de la exportación y el rol de archivado los revisa seguridad; la política de retención final queda en la lista de decisiones pendientes (validar con el área legal).
@@ -641,14 +644,14 @@ Cómo quedará la base de datos al terminar la hoja de ruta. Las tablas de esta 
 
 ### 9.1 Mapa por fase
 
-| Fase | Entrega | Tablas nuevas (reservadas) | Cambios a tablas existentes |
-| --- | --- | --- | --- |
-| 2 · SSO OIDC | Proveedor OpenID Connect | `oidc_clients`, `oidc_grants`, `signing_keys` | Permisos `sso.clients.manage` (en código); acciones de auditoría nuevas |
-| 3 · SAML y SCIM | SAML IdP, SCIM como cliente | `saml_service_providers`, `scim_targets`, `federated_identities` | `users.external_id` (expandir) si el SCIM lo requiere |
-| 4 · Correos | Ingesta de correo entrante | `mailboxes`, `mail_aliases`, `inbound_messages`, `extracted_codes` | `platforms.mail_rules` se llena; `accounts.recovery_email_alias` se enlaza con `mail_aliases` |
-| 5 · SMS | Números virtuales | `sms_numbers` | `extracted_codes` admite origen SMS |
-| 6 · Extensión | Autocompletado con sesión de dispositivo | (ninguna nueva) | `sessions.kind` (`web` \| `device`) y `sessions.device_id` para el tipo de sesión `device` |
-| 7 · Broker | Login USE sin revelar contraseña | `login_intents`, `broker_sessions` | `platforms.login_strategy` se llena; acciones de auditoría `credential.injected`, `broker.session.started`, `credential.rotated_by_system` |
+| Fase            | Entrega                                  | Tablas nuevas (reservadas)                                         | Cambios a tablas existentes                                                                                                                |
+| --------------- | ---------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2 · SSO OIDC    | Proveedor OpenID Connect                 | `oidc_clients`, `oidc_grants`, `signing_keys`                      | Permisos `sso.clients.manage` (en código); acciones de auditoría nuevas                                                                    |
+| 3 · SAML y SCIM | SAML IdP, SCIM como cliente              | `saml_service_providers`, `scim_targets`, `federated_identities`   | `users.external_id` (expandir) si el SCIM lo requiere                                                                                      |
+| 4 · Correos     | Ingesta de correo entrante               | `mailboxes`, `mail_aliases`, `inbound_messages`, `extracted_codes` | `platforms.mail_rules` se llena; `accounts.recovery_email_alias` se enlaza con `mail_aliases`                                              |
+| 5 · SMS         | Números virtuales                        | `sms_numbers`                                                      | `extracted_codes` admite origen SMS                                                                                                        |
+| 6 · Extensión   | Autocompletado con sesión de dispositivo | (ninguna nueva)                                                    | `sessions.kind` (`web` \| `device`) y `sessions.device_id` para el tipo de sesión `device`                                                 |
+| 7 · Broker      | Login USE sin revelar contraseña         | `login_intents`, `broker_sessions`                                 | `platforms.login_strategy` se llena; acciones de auditoría `credential.injected`, `broker.session.started`, `credential.rotated_by_system` |
 
 ### 9.2 Tablas reservadas y relaciones previstas
 
@@ -657,7 +660,7 @@ Las claves foráneas serán compuestas con `organization_id` salvo que se indiqu
 **Fase 2 (OIDC)**
 
 - `oidc_clients`: registro de aplicaciones por administradores (sin registro dinámico). `client_id` único, `client_secret_hash` (solo hash, nunca el secreto), `redirect_uris text[]` (coincidencia exacta), `grant_types`, `scopes`, `claims_mapping jsonb`, `status`, `created_by` → `users`. Relación: 1 organización a N clientes.
-- `oidc_grants`: lo que `oidc-provider` necesita persistir (sesiones, códigos de autorización, *access/refresh tokens*, consentimientos) mediante un adaptador propio: `kind`, `payload jsonb` (cifrado o solo hashes de tokens), `client_id` → `oidc_clients`, `user_id` → `users`, `grant_id` (para revocar en cascada lógica ante reuso de *refresh token*), `expires_at` (TTL con purga física). Al desactivar un usuario se revocan sus grants y se dispara el *back-channel logout*.
+- `oidc_grants`: lo que `oidc-provider` necesita persistir (sesiones, códigos de autorización, _access/refresh tokens_, consentimientos) mediante un adaptador propio: `kind`, `payload jsonb` (cifrado o solo hashes de tokens), `client_id` → `oidc_clients`, `user_id` → `users`, `grant_id` (para revocar en cascada lógica ante reuso de _refresh token_), `expires_at` (TTL con purga física). Al desactivar un usuario se revocan sus grants y se dispara el _back-channel logout_.
 - `signing_keys`: claves de firma ES256/RS256 generadas por el sistema: `kid` único, `alg`, `public_jwk jsonb`, `private_key_ciphertext/nonce/dek_version` (cifrado con `SecretCipher`, como cualquier secreto), `status` (`active` \| `rotating` \| `retired`), `not_before`, `not_after`. Rotación cada 90 días con superposición. Relación: N por organización, una `active`.
 
 **Fase 3 (SAML y SCIM)**
@@ -679,7 +682,7 @@ Las claves foráneas serán compuestas con `organization_id` salvo que se indiqu
 
 **Fase 6 (extensión)**
 
-- Sin tablas nuevas: `sessions` gana `kind` (`web` \| `device`) y `device_id`; los tokens de dispositivo están ligados al dispositivo y a su `organization_id`. Se agrega con *expandir y contraer* (columna con default `web`).
+- Sin tablas nuevas: `sessions` gana `kind` (`web` \| `device`) y `device_id`; los tokens de dispositivo están ligados al dispositivo y a su `organization_id`. Se agrega con _expandir y contraer_ (columna con default `web`).
 
 **Fase 7 (broker)**
 
@@ -739,10 +742,10 @@ erDiagram
 
 `db/tests` (Vitest + Testcontainers, `postgres:18-alpine` real). Se ejecutan con el script de pruebas del espacio de trabajo `@iam/db`. Los comandos exactos, incluida la configuración para Podman, están en el [`README.md`](../README.md) raíz.
 
-| Archivo | Cubre |
-| --- | --- |
-| `migrations.test.ts` | Aplicación limpia e idempotente, checksum alterado rechazado, archivo faltante, orden, *rollback* de una migración fallida, roles |
-| `rls.test.ts` | Estructura de RLS para toda tabla con `organization_id`, falla cerrada, aislamiento A/B, referencias cruzadas, catálogo global |
-| `audit.test.ts` | Append-only, cadena de hashes, concurrencia sin bifurcación, detección de manipulación |
-| `auth-functions.test.ts` | Mínimo devuelto, sin enumeración, `SECURITY DEFINER`, `search_path`, privilegios |
-| `constraints.test.ts` | Raíz única, rango 0..3, estados, `effective_access`, UUIDv7, secretos |
+| Archivo                  | Cubre                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `migrations.test.ts`     | Aplicación limpia e idempotente, checksum alterado rechazado, archivo faltante, orden, _rollback_ de una migración fallida, roles |
+| `rls.test.ts`            | Estructura de RLS para toda tabla con `organization_id`, falla cerrada, aislamiento A/B, referencias cruzadas, catálogo global    |
+| `audit.test.ts`          | Append-only, cadena de hashes, concurrencia sin bifurcación, detección de manipulación                                            |
+| `auth-functions.test.ts` | Mínimo devuelto, sin enumeración, `SECURITY DEFINER`, `search_path`, privilegios                                                  |
+| `constraints.test.ts`    | Raíz única, rango 0..3, estados, `effective_access`, UUIDv7, secretos                                                             |

@@ -4,11 +4,13 @@ import {
   renderEmergencyAlertEmail,
   renderInvitationEmail,
 } from '../application/render-invitation-email.js';
+import { renderRevealLimitEmail } from '../application/render-reveal-limit-email.js';
 import { renderSecurityNoticeEmail } from '../application/render-security-notice-email.js';
 import type {
   EmergencyAlertMessage,
   InvitationMessage,
   Mailer,
+  RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
 
@@ -90,6 +92,15 @@ export class SmtpMailer implements Mailer {
 
   async sendSecurityNotice(message: SecurityNoticeMessage): Promise<void> {
     const email = renderSecurityNoticeEmail(message);
+    try {
+      await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
+    } catch {
+      throw new Error('Mail delivery failed');
+    }
+  }
+
+  async sendRevealLimitAlert(message: RevealLimitAlertMessage): Promise<void> {
+    const email = renderRevealLimitEmail(message);
     try {
       await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
     } catch {

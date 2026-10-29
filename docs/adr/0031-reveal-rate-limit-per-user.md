@@ -1,6 +1,6 @@
 # ADR 0031: Límite de revelaciones por usuario
 
-- **Estado**: Aceptada (2026-10-27). Límite implementado en b3fa673 (B2a); falta la entrega del aviso a la Raíz, que depende del trabajador del ADR 0035 (ver "Pendiente")
+- **Estado**: Aceptada (2026-10-27). Límite implementado en b3fa673 (B2a); aviso por correo a la Raíz implementado en R2a (2026-10-28) con el trabajador del ADR 0035. Sin ejecutar aún las pruebas de R2a (ver "Pendiente")
 - **Fecha**: 2026-10-27
 - **Referencias**: [`plan.md`](../../plan.md); [ADR 0022](0022-audit-of-denials-in-independent-transaction.md); [ADR 0023](0023-audit-advisory-lock-and-long-transactions.md); [ADR 0024](0024-audit-retention-vs-revoke-delete.md); `docs/handoff.md` §5 (límite de revelaciones).
 
@@ -27,4 +27,6 @@ Un usuario con acceso legítimo puede revelar contraseñas en masa (cuenta compr
 - **Positivas**: acota el daño de una cuenta comprometida; trazable porque usa la misma auditoría.
 - **Negativas**: cada revelación ejecuta una consulta de conteo; una ráfaga de negaciones presiona el lock de auditoría (relacionado con la tarea G6).
 - **Implementado (2026-10-28, B2a)**: conteo desde la auditoría con bloqueo por persona antes del de auditoría, evento crítico y aviso en la bandeja de salida una vez por ventana, prueba de concurrencia (20 solicitudes con 5 de cupo). El valor 30 es una constante, aún no configurable por organización.
-- **Pendiente**: definir el aviso a la Raíz; confirmar el valor 30 con el negocio.
+- **Implementado (2026-10-28, R2a)**: al superar el tope, la misma transacción que niega y audita deja un evento `credential.reveal_limit_exceeded` en `outbox_events`, una vez por ventana. Su contenido son solo ids y números (id de la persona, tope, conteo, ventana en segundos y hora); nunca la credencial, la cuenta ni el motivo. Un manejador del trabajador (`NotifyRevealLimitExceeded`) envía el correo a la Raíz activa con el puerto de correo existente, en el idioma de la Raíz (es-MX o en-US). El correo nombra a la persona (nombre visible, leído del directorio al enviar), el tope, el conteo y la hora en UTC; no lleva enlaces, nombres de cuentas ni de credenciales. Es idempotente por el id del evento y por Raíz destinataria mediante un acuse en `outbox_deliveries` (migración 0019).
+- **Decisiones abiertas de R2a** (se aplicó la opción más conservadora; ver `odd/tasks/phase-1b-worker.md`): (1) el negocio no dice qué datos lleva el correo; se incluye el nombre de la persona y se omite todo lo de la credencial; (2) si la organización no tiene una Raíz activa, el evento no se da por entregado: se reintenta y, agotados los intentos, queda en cuarentena para revisión humana (no se avisa a los Administradores); (3) el aviso se envía una vez por ventana, no por cada intento negado.
+- **Pendiente**: confirmar el valor 30 con el negocio y hacerlo configurable por organización.

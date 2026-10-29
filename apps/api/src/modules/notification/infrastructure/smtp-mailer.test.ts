@@ -73,6 +73,34 @@ describe('SmtpMailer', () => {
     expect((failure as Error).cause).toBeUndefined();
   });
 
+  it('sends the reveal limit alert to the Root and hides the provider error', async () => {
+    const alert = {
+      to: 'root@example.com',
+      locale: 'en-US' as const,
+      actorDisplayName: 'Sofia',
+      limitPerHour: 30,
+      revealedInWindow: 30,
+      windowMinutes: 60,
+      occurredAt: new Date('2026-03-04T15:30:00Z'),
+    };
+    const sendMail = vi.fn<MailTransport['sendMail']>().mockResolvedValue(undefined);
+    await new SmtpMailer(options, 'production', { sendMail }).sendRevealLimitAlert(alert);
+
+    expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
+      from: 'IAM <no-reply@example.com>',
+      to: 'root@example.com',
+      subject: 'Alert: a person reached the password reveal limit',
+    });
+
+    const failingSend = vi
+      .fn<MailTransport['sendMail']>()
+      .mockRejectedValue(new Error('550 rejected root@example.com'));
+    const failure = await new SmtpMailer(options, 'production', { sendMail: failingSend })
+      .sendRevealLimitAlert(alert)
+      .catch((error: unknown) => error);
+    expect(String(failure)).toBe('Error: Mail delivery failed');
+  });
+
   it('refuses to run without TLS in production, and allows it only for local tests', () => {
     const plain = { ...options, security: 'none' as const };
     expect(() => new SmtpMailer(plain, 'production')).toThrow(/TLS/);

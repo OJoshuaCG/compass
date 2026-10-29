@@ -12,6 +12,17 @@ export type {
   CreateCredentialInput,
   ManageCredentialsDeps,
 } from './application/manage-credentials.js';
+export { NotifyRevealLimitExceeded } from './application/notify-reveal-limit-exceeded.js';
+export type {
+  NotifyRevealLimitExceededDeps,
+  RevealLimitNoticeDeliveries,
+  RevealLimitNoticeEvent,
+} from './application/notify-reveal-limit-exceeded.js';
+export {
+  REVEAL_LIMIT_NOTICE_EVENT_TYPE,
+  REVEAL_LIMIT_NOTICE_HANDLER_KEY,
+  revealLimitNoticeHandlerKey,
+} from './domain/reveal-limit-notice.js';
 export { ManageTotp } from './application/manage-totp.js';
 export type {
   ExportedTotpSecret,

@@ -33,19 +33,19 @@ El plan ya la fija (ADR 001) y conviene mantenerla en el backend por tres razone
 
 Matices para que no se vuelva ceremonia:
 
-- **CQRS ligero** (plan): los *comandos* pasan por el dominio; las *consultas* de listado leen proyecciones SQL directas, siempre con el filtro de acceso.
+- **CQRS ligero** (plan): los _comandos_ pasan por el dominio; las _consultas_ de listado leen proyecciones SQL directas, siempre con el filtro de acceso.
 - **Un puerto existe cuando hay una razón real** (infraestructura externa o algo que se simula en pruebas). No se crean interfaces para clases internas con una sola implementación.
 - Los módulos "futuros" (`federation`, `inbound-codes`, `broker`) nacen como carpetas con puertos y sin adaptadores, como indica el plan.
 
 ### 3.2 Capas y regla de dependencia
 
-| Capa | Contiene | Puede importar |
-| --- | --- | --- |
-| `domain` | Entidades, objetos de valor, políticas, eventos, errores | Solo `domain` del módulo y `shared/kernel`. **Sin** NestJS, acceso a datos ni Node |
-| `application` | Casos de uso, puertos, DTO internos | `domain` del módulo, fachadas públicas de otros módulos y `shared/kernel`. **Sin** decoradores de Nest |
-| `infrastructure` | Repositorios, KMS, Redis, correo | `application`, `domain`, bibliotecas externas |
-| `interface` | Controladores, SSE, procesadores de cola, mapeo a contratos | `application` del módulo y `packages/contracts` |
-| Archivo de composición del módulo | **Raíz de composición**: une puertos con adaptadores | Todas las capas del módulo |
+| Capa                              | Contiene                                                    | Puede importar                                                                                         |
+| --------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `domain`                          | Entidades, objetos de valor, políticas, eventos, errores    | Solo `domain` del módulo y `shared/kernel`. **Sin** NestJS, acceso a datos ni Node                     |
+| `application`                     | Casos de uso, puertos, DTO internos                         | `domain` del módulo, fachadas públicas de otros módulos y `shared/kernel`. **Sin** decoradores de Nest |
+| `infrastructure`                  | Repositorios, KMS, Redis, correo                            | `application`, `domain`, bibliotecas externas                                                          |
+| `interface`                       | Controladores, SSE, procesadores de cola, mapeo a contratos | `application` del módulo y `packages/contracts`                                                        |
+| Archivo de composición del módulo | **Raíz de composición**: une puertos con adaptadores        | Todas las capas del módulo                                                                             |
 
 - Verificación en `apps/api`: restricciones de importación por capa en la configuración de ESLint (`apps/api/eslint.config.js`: domain y application sin Nest, acceso a datos ni módulos de Node; la criptografía de Node solo en el módulo `crypto`) y `dependency-cruiser` (`apps/api/.dependency-cruiser.cjs`) para la regla entre módulos (solo por la fachada) y los ciclos. `eslint-plugin-boundaries` se usa en `apps/web`. Ambas comprobaciones corren con `pnpm lint`.
 - **Entre módulos**: solo por la fachada pública o por eventos de dominio vía outbox. Ningún módulo lee tablas ni repositorios de otro.
@@ -57,16 +57,16 @@ Matices para que no se vuelva ceremonia:
 
 Cada módulo vive en `apps/api/src/modules/<modulo>/`. Tomando `vault` como ejemplo:
 
-| Elemento | Qué contiene |
-| --- | --- |
-| Carpeta de dominio | Entidades y agregados (cuenta, credencial), objetos de valor (el nivel de compartición, con su orden USE < VIEW < EDIT < MANAGE), errores con códigos estables y eventos de dominio |
-| Carpeta de aplicación | Un archivo por caso de uso, los puertos (interfaces de repositorios y de almacén de secretos) y los DTO internos |
-| Carpeta de infraestructura | Implementaciones de los repositorios y las tablas del módulo |
-| Carpeta de interfaz | El controlador y el mapeo de dominio a contrato |
-| Archivo de composición del módulo | Raíz de composición: une puertos con adaptadores |
-| Fachada pública | Único punto de entrada para otros módulos |
-| `README.md` | Responsabilidad, fachada, eventos que emite y consume |
-| `CLAUDE.md` | Solo en módulos protegidos |
+| Elemento                          | Qué contiene                                                                                                                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Carpeta de dominio                | Entidades y agregados (cuenta, credencial), objetos de valor (el nivel de compartición, con su orden USE < VIEW < EDIT < MANAGE), errores con códigos estables y eventos de dominio |
+| Carpeta de aplicación             | Un archivo por caso de uso, los puertos (interfaces de repositorios y de almacén de secretos) y los DTO internos                                                                    |
+| Carpeta de infraestructura        | Implementaciones de los repositorios y las tablas del módulo                                                                                                                        |
+| Carpeta de interfaz               | El controlador y el mapeo de dominio a contrato                                                                                                                                     |
+| Archivo de composición del módulo | Raíz de composición: une puertos con adaptadores                                                                                                                                    |
+| Fachada pública                   | Único punto de entrada para otros módulos                                                                                                                                           |
+| `README.md`                       | Responsabilidad, fachada, eventos que emite y consume                                                                                                                               |
+| `CLAUDE.md`                       | Solo en módulos protegidos                                                                                                                                                          |
 
 ### 3.4 `shared/kernel`
 
@@ -89,55 +89,55 @@ Si una pieza de `shared/kernel` empieza a conocer un concepto de un módulo, per
 
 Además de `crypto`, `audit` y `organization` (fase 0), la fase 1a añadió seis módulos en `apps/api/src/modules/`. Los módulos con dependencias hacia otros solo las tienen a través de sus fachadas.
 
-| Módulo | Responsabilidad en la fase 1a | Depende de |
-| --- | --- | --- |
+| Módulo                 | Responsabilidad en la fase 1a                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Depende de                                                               |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `identity` (protegido) | Inicio de sesión con segundo factor, sesiones y cierre de sesión, reautenticación, alta del segundo factor (aplicación autenticadora) y códigos de recuperación, passkeys WebAuthn (ingreso y gestión; ver la tabla de endpoints de A2 y A3 más abajo), uso de los códigos de emergencia de la Raíz en el paso de recuperación, invitaciones (crear, previsualizar, aceptar), cambio de contraseña (`POST /auth/password/change`; el cambio obligatorio de la contraseña inicial bloquea el segundo factor con `403 AUTH.PASSWORD_CHANGE_REQUIRED`; audita `auth.password_changed` y `auth.password_change_failed`), política de contraseñas y política de intentos fallidos. Sus consultas previas a la autenticación usan las funciones mínimas del [ADR 0021](adr/0021-pre-authentication-access-with-rls.md) | `access`, `audit`, `crypto`, `directory`, `notification`, `organization` |
-| `access` (protegido) | Catálogo de 27 permisos con techo de rango, plantillas de rol del sistema, permisos efectivos, no escalamiento de roles, función pura de decisión y el motor de autorización que audita cada negación ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md)) | `directory`, `audit` |
-| `directory` | Usuarios, rangos, responsable y creador, regla de gestión, matriz de creación, alta de un usuario y listado del directorio con búsqueda, orden y paginación por cursor, y gestión de personas (`GET /users/managed` y `POST /users/:id/suspend`, `reactivate`, `deactivate`, `rank` y `manager`; audita `user.suspended`, `user.reactivated`, `user.deactivated`, `user.rank_changed` y `user.manager_changed`) | `organization` |
-| `provisioning` | Alta de una organización por operaciones, con una conexión de administración: crea la organización, las plantillas de rol, la Raíz en estado invitada y su contraseña inicial en una sola transacción. Nunca se invoca desde una petición HTTP: lo ejecuta el comando de operaciones `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`), que genera una contraseña inicial aleatoria, la imprime una sola vez y audita `organization.provisioned`. Genera además 8 códigos de emergencia de un solo uso para la Raíz (misma forma que los de recuperación), los imprime UNA vez junto a la contraseña inicial con la instrucción de imprimirlos y entregarlos a los dos custodios, y los guarda solo como hash con `kind = 'emergency'` | `access`, `identity` |
-| `idempotency` | Protección contra peticiones de creación repetidas: reserva de la clave, respuesta guardada 24 horas e interceptor que la aplica a los `POST` marcados (ver §7.2.1 y el [ADR 0029](adr/0029-idempotency-reservation-and-ownership.md)) | `crypto`, `organization` |
-| `notification` | Puerto de correo saliente. Envía las invitaciones, el aviso a los Administradores por uso de un código de emergencia y el aviso de seguridad a la propia persona (código de recuperación usado, llave de acceso agregada o quitada; sin enlaces y sin la dirección en el registro). Adaptadores: SMTP del dominio de la organización (ver §6.3.1), uno de desarrollo que escribe el enlace en el registro (se niega a arrancar en producción) y uno en memoria para las pruebas | Ninguno |
+| `access` (protegido)   | Catálogo de 27 permisos con techo de rango, plantillas de rol del sistema, permisos efectivos, no escalamiento de roles, función pura de decisión y el motor de autorización que audita cada negación ([ADR 0022](adr/0022-audit-of-denials-in-independent-transaction.md))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `directory`, `audit`                                                     |
+| `directory`            | Usuarios, rangos, responsable y creador, regla de gestión, matriz de creación, alta de un usuario y listado del directorio con búsqueda, orden y paginación por cursor, y gestión de personas (`GET /users/managed` y `POST /users/:id/suspend`, `reactivate`, `deactivate`, `rank` y `manager`; audita `user.suspended`, `user.reactivated`, `user.deactivated`, `user.rank_changed` y `user.manager_changed`)                                                                                                                                                                                                                                                                                                                                                                                                  | `organization`                                                           |
+| `provisioning`         | Alta de una organización por operaciones, con una conexión de administración: crea la organización, las plantillas de rol, la Raíz en estado invitada y su contraseña inicial en una sola transacción. Nunca se invoca desde una petición HTTP: lo ejecuta el comando de operaciones `pnpm --filter @iam/api provision` (variables `PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`), que genera una contraseña inicial aleatoria, la imprime una sola vez y audita `organization.provisioned`. Genera además 8 códigos de emergencia de un solo uso para la Raíz (misma forma que los de recuperación), los imprime UNA vez junto a la contraseña inicial con la instrucción de imprimirlos y entregarlos a los dos custodios, y los guarda solo como hash con `kind = 'emergency'` | `access`, `identity`                                                     |
+| `idempotency`          | Protección contra peticiones de creación repetidas: reserva de la clave, respuesta guardada 24 horas e interceptor que la aplica a los `POST` marcados (ver §7.2.1 y el [ADR 0029](adr/0029-idempotency-reservation-and-ownership.md))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `crypto`, `organization`                                                 |
+| `notification`         | Puerto de correo saliente. Envía las invitaciones, el aviso a los Administradores por uso de un código de emergencia y el aviso de seguridad a la propia persona (código de recuperación usado, llave de acceso agregada o quitada; sin enlaces y sin la dirección en el registro). Adaptadores: SMTP del dominio de la organización (ver §6.3.1), uno de desarrollo que escribe el enlace en el registro (se niega a arrancar en producción) y uno en memoria para las pruebas                                                                                                                                                                                                                                                                                                                                  | Ninguno                                                                  |
 
 Endpoints y auditoría añadidos al cerrar la fase 1a (A5, A6 y A7):
 
-| Endpoint | Regla | Auditoría |
-| --- | --- | --- |
-| `GET /me/sessions` | Sesiones vivas de quien consulta: `id`, creación, última actividad, vencimiento, dispositivo, IP y marca `current`. Nunca devuelve tokens | — |
-| `POST /me/sessions/:id/revoke` | `404` si la sesión no es suya o ya está cerrada; `422` si es la actual (para eso se usa el cierre de sesión) | `auth.session_revoked` |
-| `POST /users/:id/sessions/revoke` | Cierra todas las sesiones de una persona gestionada. Permiso `user.deactivate`, reglas de jerarquía, Raíz protegida; toma el bloqueo de jerarquía | `user.sessions_revoked` |
-| `GET /roles` | Requiere `user.invite` | — |
-| `POST /roles` | Cuerpo `{name, permissions}`. Permiso `role.manage`. Los permisos deben ser subconjunto de los del creador (`403 AUTHZ.ROLE_ESCALATION`); nombre repetido sin distinguir mayúsculas, `409 ROLE.NAME_TAKEN`. Usa idempotencia | `role.created` |
-| `PATCH /roles/:id` | Cuerpo `{name, permissions}` (reemplazo completo). Permiso `role.manage`. El editor debe tener los permisos que el rol tiene hoy **y** los que quedarán, porque los titulares los reciben al instante (`403 AUTHZ.ROLE_ESCALATION`, con la negación auditada); plantillas del sistema `403 ROLE.SYSTEM_PROTECTED`; rol inexistente o archivado `404`; nombre repetido `409 ROLE.NAME_TAKEN`. Usa idempotencia | `role.updated` (solo conteos de permisos añadidos y quitados y si cambió el nombre) |
-| `POST /roles/:id/archive` | Permiso `role.manage`. Las plantillas del sistema no se archivan (`403 ROLE.SYSTEM_PROTECTED`). Un rol archivado deja de otorgar permisos y no sirve en invitaciones nuevas | `role.archived` |
-| `GET /invitations` | Invitaciones pendientes propias; la Raíz ve todas; marca las vencidas | — |
-| `POST /invitations/:id/resend` | Solo quien la envió o la Raíz. Revoca el enlace anterior, genera token nuevo con 72 h y lo envía por correo. Si la inserción falla, el anterior no queda revocado (retroceso ante conflicto). Usa idempotencia | `user.invitation_resent` |
+| Endpoint                          | Regla                                                                                                                                                                                                                                                                                                                                                                                                         | Auditoría                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `GET /me/sessions`                | Sesiones vivas de quien consulta: `id`, creación, última actividad, vencimiento, dispositivo, IP y marca `current`. Nunca devuelve tokens                                                                                                                                                                                                                                                                     | —                                                                                   |
+| `POST /me/sessions/:id/revoke`    | `404` si la sesión no es suya o ya está cerrada; `422` si es la actual (para eso se usa el cierre de sesión)                                                                                                                                                                                                                                                                                                  | `auth.session_revoked`                                                              |
+| `POST /users/:id/sessions/revoke` | Cierra todas las sesiones de una persona gestionada. Permiso `user.deactivate`, reglas de jerarquía, Raíz protegida; toma el bloqueo de jerarquía                                                                                                                                                                                                                                                             | `user.sessions_revoked`                                                             |
+| `GET /roles`                      | Requiere `user.invite`                                                                                                                                                                                                                                                                                                                                                                                        | —                                                                                   |
+| `POST /roles`                     | Cuerpo `{name, permissions}`. Permiso `role.manage`. Los permisos deben ser subconjunto de los del creador (`403 AUTHZ.ROLE_ESCALATION`); nombre repetido sin distinguir mayúsculas, `409 ROLE.NAME_TAKEN`. Usa idempotencia                                                                                                                                                                                  | `role.created`                                                                      |
+| `PATCH /roles/:id`                | Cuerpo `{name, permissions}` (reemplazo completo). Permiso `role.manage`. El editor debe tener los permisos que el rol tiene hoy **y** los que quedarán, porque los titulares los reciben al instante (`403 AUTHZ.ROLE_ESCALATION`, con la negación auditada); plantillas del sistema `403 ROLE.SYSTEM_PROTECTED`; rol inexistente o archivado `404`; nombre repetido `409 ROLE.NAME_TAKEN`. Usa idempotencia | `role.updated` (solo conteos de permisos añadidos y quitados y si cambió el nombre) |
+| `POST /roles/:id/archive`         | Permiso `role.manage`. Las plantillas del sistema no se archivan (`403 ROLE.SYSTEM_PROTECTED`). Un rol archivado deja de otorgar permisos y no sirve en invitaciones nuevas                                                                                                                                                                                                                                   | `role.archived`                                                                     |
+| `GET /invitations`                | Invitaciones pendientes propias; la Raíz ve todas; marca las vencidas                                                                                                                                                                                                                                                                                                                                         | —                                                                                   |
+| `POST /invitations/:id/resend`    | Solo quien la envió o la Raíz. Revoca el enlace anterior, genera token nuevo con 72 h y lo envía por correo. Si la inserción falla, el anterior no queda revocado (retroceso ante conflicto). Usa idempotencia                                                                                                                                                                                                | `user.invitation_resent`                                                            |
 
 Una sesión cuenta como viva si no está revocada, no ha vencido y tuvo actividad en los últimos 30 minutos.
 
 Endpoints y auditoría añadidos con A2 (passkeys) y A3 (códigos de emergencia). WebAuthn con verificación de usuario obligatoria y sin atestación; el identificador de la parte confiable y el origen salen de `APP_ORIGIN`.
 
-| Endpoint | Regla | Auditoría |
-| --- | --- | --- |
-| `POST /auth/passkey/options` | Tras la contraseña, entrega el desafío de ingreso. Desafío de 5 minutos, de un solo uso y ligado a la persona y al propósito. Pedirlo no cuenta como intento fallido. La respuesta del ingreso indica si la persona tiene passkeys | — |
-| `POST /auth/passkey/verify` | Verifica la firma; el contador de firmas debe avanzar. Los fallos comparten el límite de intentos de la persona | `auth.passkey_login` |
-| `GET /me/passkeys` | Passkeys de quien consulta. Nunca devuelve claves | — |
-| `POST /me/passkeys/registration/options` | Sesión completa y reautenticación reciente. Máximo 10 por persona | — |
-| `POST /me/passkeys/registration/verify` | Cuerpo con el nombre de la passkey. Sesión completa y reautenticación reciente | `auth.passkey_registered` |
-| `POST /me/passkeys/:id/revoke` | Sesión completa y reautenticación reciente | `auth.passkey_revoked` |
-| Paso de recuperación del ingreso (código de emergencia) | Solo después de la contraseña. Restablece el segundo factor de la Raíz (TOTP y códigos de recuperación ordinarios revocados), la deja en estado invitada con el registro del segundo factor pendiente (incluida la sesión que lo usó), cierra sus demás sesiones y envía el aviso por correo a cada Administrador activo después del *commit*. Los códigos de emergencia sin usar siguen vigentes; registrar un segundo factor nuevo reemite solo los códigos de recuperación ordinarios. No sustituye la contraseña | `auth.emergency_code_used` (crítico; con el número de destinatarios del aviso) y `auth.emergency_alert_incomplete` (si el correo falla o no hay destinatarios) |
+| Endpoint                                                | Regla                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Auditoría                                                                                                                                                      |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/passkey/options`                            | Tras la contraseña, entrega el desafío de ingreso. Desafío de 5 minutos, de un solo uso y ligado a la persona y al propósito. Pedirlo no cuenta como intento fallido. La respuesta del ingreso indica si la persona tiene passkeys                                                                                                                                                                                                                                                                                   | —                                                                                                                                                              |
+| `POST /auth/passkey/verify`                             | Verifica la firma; el contador de firmas debe avanzar. Los fallos comparten el límite de intentos de la persona                                                                                                                                                                                                                                                                                                                                                                                                      | `auth.passkey_login`                                                                                                                                           |
+| `GET /me/passkeys`                                      | Passkeys de quien consulta. Nunca devuelve claves                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                                              |
+| `POST /me/passkeys/registration/options`                | Sesión completa y reautenticación reciente. Máximo 10 por persona                                                                                                                                                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                                              |
+| `POST /me/passkeys/registration/verify`                 | Cuerpo con el nombre de la passkey. Sesión completa y reautenticación reciente                                                                                                                                                                                                                                                                                                                                                                                                                                       | `auth.passkey_registered`                                                                                                                                      |
+| `POST /me/passkeys/:id/revoke`                          | Sesión completa y reautenticación reciente                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `auth.passkey_revoked`                                                                                                                                         |
+| Paso de recuperación del ingreso (código de emergencia) | Solo después de la contraseña. Restablece el segundo factor de la Raíz (TOTP y códigos de recuperación ordinarios revocados), la deja en estado invitada con el registro del segundo factor pendiente (incluida la sesión que lo usó), cierra sus demás sesiones y envía el aviso por correo a cada Administrador activo después del _commit_. Los códigos de emergencia sin usar siguen vigentes; registrar un segundo factor nuevo reemite solo los códigos de recuperación ordinarios. No sustituye la contraseña | `auth.emergency_code_used` (crítico; con el número de destinatarios del aviso) y `auth.emergency_alert_incomplete` (si el correo falla o no hay destinatarios) |
 
 Decisión del dueño (2026-10-27): solo quienes custodian los códigos pueden restablecer la Raíz; ningún Administrador puede hacerlo, solo recibe la alerta. Limitación: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema; falta un procedimiento de operaciones.
 
 **Módulo `vault` (fase 1b, porción B1a: cuentas).** Cada acción pide dos llaves: el permiso del catálogo y el nivel efectivo sobre esa cuenta (vista `effective_access`, calculada en SQL; ADR 0010 y 0036). El rango nunca concede acceso a una cuenta. Sin acceso se responde `NOT_FOUND`, igual que si no existiera; con nivel insuficiente, `AUTHZ.SHARE` (403) y la negación se audita con el id de la cuenta. Editar y archivar bloquean primero la fila de la cuenta y después leen el nivel, para no decidir con un nivel vencido mientras se espera el bloqueo.
 
-| Endpoint | Permiso y nivel | Auditoría |
-| --- | --- | --- |
-| `GET /platforms` | Persona activa | — |
-| `GET /accounts` | Persona activa; solo cuentas con acceso efectivo | — |
-| `GET /accounts/inventory` | `vault.inventory.read`; solo metadatos, no concede acceso | — |
-| `GET /accounts/:id` | Cualquier nivel | — |
-| `POST /accounts` | `account.create`; quien crea recibe MANAGE directo en la misma transacción | `account.created` |
-| `PATCH /accounts/:id` | `account.update` y EDIT | `account.updated` (solo nombres de campos) |
+| Endpoint                     | Permiso y nivel                                                                                         | Auditoría                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `GET /platforms`             | Persona activa                                                                                          | —                                                              |
+| `GET /accounts`              | Persona activa; solo cuentas con acceso efectivo                                                        | —                                                              |
+| `GET /accounts/inventory`    | `vault.inventory.read`; solo metadatos, no concede acceso                                               | —                                                              |
+| `GET /accounts/:id`          | Cualquier nivel                                                                                         | —                                                              |
+| `POST /accounts`             | `account.create`; quien crea recibe MANAGE directo en la misma transacción                              | `account.created`                                              |
+| `PATCH /accounts/:id`        | `account.update` y EDIT                                                                                 | `account.updated` (solo nombres de campos)                     |
 | `POST /accounts/:id/archive` | `account.archive` y MANAGE; revoca todas las comparticiones vivas (las filas se conservan con su fecha) | `account.archived` (con el número de comparticiones revocadas) |
 
 Los listados usan paginación por cursor ordenada por nombre en minúsculas e id (índice de la migración 0016); un cursor alterado devuelve la primera página.
@@ -209,7 +209,7 @@ Ejemplo, el caso de uso de revelar una contraseña: recibe por constructor el mo
 - Esquemas de acceso a datos **por módulo**; ningún módulo importa el esquema de otro.
 - Migraciones SQL versionadas en `db/migrations`, con RLS por tabla. **Nunca se edita una migración aplicada**: se crea otra.
 - **Una tabla nueva** incluye en la misma migración la columna de organización, un índice compuesto que empieza por ella y la política RLS. Una prueba de CI lo verifica.
-- Patrón *expandir y contraer*: primero se agrega, luego se retira lo viejo en otra migración.
+- Patrón _expandir y contraer_: primero se agrega, luego se retira lo viejo en otra migración.
 - Dos roles: **aplicación** (sin saltarse RLS, no dueño de tablas; en la tabla de auditoría solo puede insertar y leer) y **migraciones**.
 - Bajas lógicas; nada del dominio se borra físicamente salvo datos efímeros con TTL.
 - Concurrencia optimista: cada agregado editable lleva un número de versión y las modificaciones por HTTP envían la versión esperada.
@@ -225,22 +225,22 @@ Ejemplo, el caso de uso de revelar una contraseña: recibe por constructor el mo
 - **KMS**: puerto de gestión de claves con adaptadores AWS y local. El local **se niega a arrancar** si el entorno es producción. En pruebas, un adaptador falso determinista.
 - **Redis**: contadores, límites y colas. **Nunca** material criptográfico.
 - **Correo y SMS**: detrás de puertos; el proveedor concreto es intercambiable.
-- **Outbox**: el worker publica y marca la fecha de publicación; reintentos con *backoff*.
+- **Outbox**: el worker publica y marca la fecha de publicación; reintentos con _backoff_.
 
 #### 6.3.1 Correo saliente (SMTP)
 
 El correo de invitación sale por el servidor SMTP del dominio propio de la organización (decisión del dueño, 2026-10-27: no Gmail ni Outlook). Se configura con variables de entorno, validadas al arrancar:
 
-| Variable | Valor |
-| --- | --- |
-| `MAIL_TRANSPORT` | `log` (desarrollo) o `smtp` (real). Producción EXIGE `smtp` |
-| `SMTP_HOST` | Servidor SMTP del dominio |
-| `SMTP_PORT` | 587 por defecto |
-| `SMTP_SECURITY` | `starttls` (por defecto), `tls` o `none`. `none` se rechaza en producción |
-| `SMTP_USER`, `SMTP_PASSWORD` | Se definen juntas |
-| `MAIL_FROM` | Remitente del dominio propio, p. ej. `IAM <no-reply@sudominio>` |
-| `APP_ORIGIN` | Origen de la aplicación; de él salen el identificador de la parte confiable y el origen de WebAuthn |
-| `WEBAUTHN_RP_NAME` | Opcional; nombre que ve la persona al registrar una passkey. Por defecto `IAM` |
+| Variable                     | Valor                                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `MAIL_TRANSPORT`             | `log` (desarrollo) o `smtp` (real). Producción EXIGE `smtp`                                         |
+| `SMTP_HOST`                  | Servidor SMTP del dominio                                                                           |
+| `SMTP_PORT`                  | 587 por defecto                                                                                     |
+| `SMTP_SECURITY`              | `starttls` (por defecto), `tls` o `none`. `none` se rechaza en producción                           |
+| `SMTP_USER`, `SMTP_PASSWORD` | Se definen juntas                                                                                   |
+| `MAIL_FROM`                  | Remitente del dominio propio, p. ej. `IAM <no-reply@sudominio>`                                     |
+| `APP_ORIGIN`                 | Origen de la aplicación; de él salen el identificador de la parte confiable y el origen de WebAuthn |
+| `WEBAUTHN_RP_NAME`           | Opcional; nombre que ve la persona al registrar una passkey. Por defecto `IAM`                      |
 
 Reglas del adaptador SMTP: STARTTLS obligatorio, certificado verificado, TLS 1.2 como mínimo y tiempos límite. Los errores del proveedor se sustituyen por uno genérico (pueden citar destinatario o contenido) y los errores de configuración nunca repiten valores. El correo se redacta en es-MX o en-US según la persona destinataria; el enlace lleva el token en el fragmento (`#token=`) y el vencimiento se indica en UTC. Probado contra un servidor SMTP de pruebas real en un contenedor. Para la entregabilidad, el dominio necesita registros SPF, DKIM y DMARC en el DNS (fuera del sistema).
 
@@ -248,32 +248,32 @@ Reglas del adaptador SMTP: STARTTLS obligatorio, certificado verificado, TLS 1.2
 
 Fuente de verdad: `apps/api/src/app/config.ts` (no existe `.env.example`). Las de correo, `APP_ORIGIN` y `WEBAUTHN_RP_NAME` están en §6.3.1.
 
-| Variable | Valor por defecto | Para qué |
-| --- | --- | --- |
-| `NODE_ENV` | `development` | `development`, `test` o `production`. En producción se exige `MAIL_TRANSPORT=smtp` y `KMS_ADAPTER=aws`: el adaptador de claves local se niega a arrancar |
-| `HOST` y `PORT` | `127.0.0.1` y `3000` | Dirección y puerto de escucha |
-| `LOG_LEVEL` | `info` | Nivel de `pino` |
-| `DATABASE_URL` | Ninguno | Conexión del rol de aplicación. Obligatoria para arrancar la API |
-| `DB_POOL_MAX` | `10` | Tamaño del pool de conexiones (1 a 100) |
-| `LOCAL_KMS_KEY_FILE` | `.local-kms/kek.key` | Archivo de la clave del adaptador de desarrollo; no sirve en producción |
-| `WEB_DIST_DIR` | Ninguno | Carpeta de la SPA compilada; si se omite, la API no sirve el frontend |
-| `KMS_ADAPTER` | `local` | Adaptador de gestión de claves: `local` (desarrollo) o `aws` (AWS KMS, [ADR 0020](adr/0020-reference-cloud-aws.md)). Con `NODE_ENV=production` solo se acepta `aws`; otro valor hace fallar la configuración al arrancar con un error sobre esta clave |
-| `AWS_KMS_KEY_ID` | Ninguno | Id, ARN o alias de la clave simétrica de AWS KMS. Obligatoria con `KMS_ADAPTER=aws` |
-| `AWS_REGION` | Ninguno | Región de esa clave. Obligatoria con `KMS_ADAPTER=aws`. Las credenciales de AWS las lee el SDK (variables estándar o rol IAM), no la aplicación |
-| `OUTBOX_WORKER_ENABLED` | `false` | `true` o `false` (se compara el texto). Activa el publicador del outbox dentro de la API ([ADR 0035](adr/0035-transactional-outbox-for-events.md)). Apagado salvo orden expresa; mientras no haya manejadores registrados, los eventos pendientes esperan (sin contar intentos) |
-| `OUTBOX_POLL_INTERVAL_MS` | `5000` | Pausa entre pasadas del publicador, de 500 a 60000 |
-| `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For`. Acepta `false`, `true`, un número de saltos o una lista de IP y rangos CIDR. Léelo completo en [§6.4](#64-trust_proxy-qué-proxies-son-de-confianza) |
+| Variable                  | Valor por defecto    | Para qué                                                                                                                                                                                                                                                                        |
+| ------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                | `development`        | `development`, `test` o `production`. En producción se exige `MAIL_TRANSPORT=smtp` y `KMS_ADAPTER=aws`: el adaptador de claves local se niega a arrancar                                                                                                                        |
+| `HOST` y `PORT`           | `127.0.0.1` y `3000` | Dirección y puerto de escucha                                                                                                                                                                                                                                                   |
+| `LOG_LEVEL`               | `info`               | Nivel de `pino`                                                                                                                                                                                                                                                                 |
+| `DATABASE_URL`            | Ninguno              | Conexión del rol de aplicación. Obligatoria para arrancar la API                                                                                                                                                                                                                |
+| `DB_POOL_MAX`             | `10`                 | Tamaño del pool de conexiones (1 a 100)                                                                                                                                                                                                                                         |
+| `LOCAL_KMS_KEY_FILE`      | `.local-kms/kek.key` | Archivo de la clave del adaptador de desarrollo; no sirve en producción                                                                                                                                                                                                         |
+| `WEB_DIST_DIR`            | Ninguno              | Carpeta de la SPA compilada; si se omite, la API no sirve el frontend                                                                                                                                                                                                           |
+| `KMS_ADAPTER`             | `local`              | Adaptador de gestión de claves: `local` (desarrollo) o `aws` (AWS KMS, [ADR 0020](adr/0020-reference-cloud-aws.md)). Con `NODE_ENV=production` solo se acepta `aws`; otro valor hace fallar la configuración al arrancar con un error sobre esta clave                          |
+| `AWS_KMS_KEY_ID`          | Ninguno              | Id, ARN o alias de la clave simétrica de AWS KMS. Obligatoria con `KMS_ADAPTER=aws`                                                                                                                                                                                             |
+| `AWS_REGION`              | Ninguno              | Región de esa clave. Obligatoria con `KMS_ADAPTER=aws`. Las credenciales de AWS las lee el SDK (variables estándar o rol IAM), no la aplicación                                                                                                                                 |
+| `OUTBOX_WORKER_ENABLED`   | `false`              | `true` o `false` (se compara el texto). Activa el publicador del outbox dentro de la API ([ADR 0035](adr/0035-transactional-outbox-for-events.md)). Apagado salvo orden expresa; mientras no haya manejadores registrados, los eventos pendientes esperan (sin contar intentos) |
+| `OUTBOX_POLL_INTERVAL_MS` | `5000`               | Pausa entre pasadas del publicador, de 500 a 60000                                                                                                                                                                                                                              |
+| `TRUST_PROXY`             | `false`              | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For`. Acepta `false`, `true`, un número de saltos o una lista de IP y rangos CIDR. Léelo completo en [§6.4](#64-trust_proxy-qué-proxies-son-de-confianza)                                    |
 
 ### 6.4 `TRUST_PROXY`: qué proxies son de confianza
 
 `TRUST_PROXY` acepta cuatro formas. Cualquier otro valor hace que la API **no arranque** (el error nombra la clave, nunca el valor):
 
-| Valor | Significado |
-|---|---|
-| `false` (por defecto) | No se confía en ningún proxy: la IP es la del par que se conecta |
-| Un número del 1 al 10 | Se confía en los últimos N saltos. `1` es un solo balanceador delante. **No valida al par directo**: quien llegue a la API sin pasar por el proxy puede falsear su IP |
-| Lista separada por comas de IP y rangos CIDR (`10.0.0.5,192.168.0.0/16`) | Solo se toma la cabecera si el par directo está en la lista, y se recorre la cadena hasta la primera dirección que no lo está |
-| `true` | Se confía en **toda** la cadena de `X-Forwarded-For`. Es la opción más peligrosa: úsala solo si el balanceador sobrescribe la cabecera |
+| Valor                                                                    | Significado                                                                                                                                                           |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `false` (por defecto)                                                    | No se confía en ningún proxy: la IP es la del par que se conecta                                                                                                      |
+| Un número del 1 al 10                                                    | Se confía en los últimos N saltos. `1` es un solo balanceador delante. **No valida al par directo**: quien llegue a la API sin pasar por el proxy puede falsear su IP |
+| Lista separada por comas de IP y rangos CIDR (`10.0.0.5,192.168.0.0/16`) | Solo se toma la cabecera si el par directo está en la lista, y se recorre la cadena hasta la primera dirección que no lo está                                         |
+| `true`                                                                   | Se confía en **toda** la cadena de `X-Forwarded-For`. Es la opción más peligrosa: úsala solo si el balanceador sobrescribe la cabecera                                |
 
 No se aceptan rangos demasiado amplios (prefijo menor a `/8` en IPv4 o a `/16` en IPv6, ni `::ffff:` con prefijo menor a `/104`), cero saltos ni nombres de máquina. Tampoco se aceptan `TRUE`, `yes` ni un valor vacío: la API no arranca. Ojo: `1` ya no significa «sí», sino un salto. Con `true` se mantienen los dos efectos opuestos de antes, y ambos son un riesgo:
 
@@ -299,18 +299,17 @@ Registrados una sola vez en el módulo raíz, en este orden de responsabilidad:
 
 1. Middleware del identificador de petición y creación del contexto de petición.
 2. Guard de sesión (cookie `__Host-session`) y protección CSRF (cabecera personalizada más verificación del origen).
-3. Guard de permisos. *Pendiente: en la fase 1a la autorización la hace el caso de uso con el motor.*
+3. Guard de permisos. _Pendiente: en la fase 1a la autorización la hace el caso de uso con el motor._
 4. Idempotencia (respuesta guardada 24 h) para las peticiones que crean recursos. **Implementada** (A7), ver §7.2.1.
 
-Orden efectivo en la fase 1a: límite por dirección de red, protección CSRF, guard de sesión y un interceptor que fija el contexto de la petición (ver §3.7).
-5. Filtro global de excepciones: traduce los errores de dominio y los errores conocidos a **detalles de problema (RFC 9457)**; cualquier otra excepción responde un `500` genérico con el identificador de petición, sin detalles internos.
+Orden efectivo en la fase 1a: límite por dirección de red, protección CSRF, guard de sesión y un interceptor que fija el contexto de la petición (ver §3.7). 5. Filtro global de excepciones: traduce los errores de dominio y los errores conocidos a **detalles de problema (RFC 9457)**; cualquier otra excepción responde un `500` genérico con el identificador de petición, sin detalles internos.
 
 #### 7.2.1 Idempotencia
 
 - Las peticiones `POST` que crean recursos exigen la cabecera `Idempotency-Key` (8 a 200 caracteres: letras, dígitos y `. _ : -`). Hoy se aplica a `POST /invitations`, `POST /invitations/:id/resend`, `POST /roles` y `PATCH /roles/:id`. El cliente web ya la envía.
 - La respuesta se guarda 24 horas por organización, actor y clave (tabla `idempotency_keys`). Un reintento con la misma clave y la misma petición devuelve la misma respuesta con la cabecera `Idempotent-Replayed: true` y sin crear nada de nuevo.
 - Errores: misma clave con otra petición, `422 IDEMPOTENCY.KEY_REUSED`; clave ausente o inválida, `422 IDEMPOTENCY.KEY_REQUIRED`; petición original aún en curso, `409 IDEMPOTENCY.IN_PROGRESS`.
-- La reserva dura 1 minuto, para que una petición caída no bloquee la clave durante un día. La toma de una reserva vencida es atómica y una petición original lenta no puede sobrescribir a un dueño más reciente. Si guardar la respuesta falla después del *commit*, la clave no se libera.
+- La reserva dura 1 minuto, para que una petición caída no bloquee la clave durante un día. La toma de una reserva vencida es atómica y una petición original lenta no puede sobrescribir a un dueño más reciente. Si guardar la respuesta falla después del _commit_, la clave no se libera.
 - Las respuestas de error no se guardan: el reintento se ejecuta de nuevo.
 - **Nunca** se usa en endpoints cuya respuesta lleve secretos, porque la respuesta se guarda tal cual.
 - Limitaciones conocidas: las filas vencidas se purgan con el comando `purge-expired` (falta programarlo en el despliegue) y el reintento no vuelve a comprobar permisos durante las 24 horas.
@@ -343,9 +342,11 @@ Cada error sigue el formato de detalles de problema (RFC 9457) y lleva cinco dat
 
 Módulo `modules/outbox` ([ADR 0035](adr/0035-transactional-outbox-for-events.md)). Corre dentro del proceso de la API con `OUTBOX_WORKER_ENABLED=true`, arranca después de `listen` y se detiene primero en el apagado ordenado (espera a la pasada en curso antes de cerrar los pools). Se asume una sola instancia; `FOR UPDATE SKIP LOCKED` evita el doble procesamiento aunque hubiera dos.
 
-- **Manejadores**: `container.outboxHandlers.register(type, handler)`, antes de arrancar. Deben ser idempotentes por `event.id` (la entrega es al menos una vez). No hay manejadores reales todavía.
+- **Manejadores**: `container.outboxHandlers.register(type, handler)`, antes de arrancar. Deben ser idempotentes por `event.id` (la entrega es al menos una vez). Manejador real: aviso a la Raíz por superar el tope de revelaciones (`NotifyRevealLimitExceeded`, módulo `vault`; [ADR 0031](adr/0031-reveal-rate-limit-per-user.md)). El caso de uso de revelado escribe el evento en la misma transacción que la negación y su auditoría, solo con ids y números; el manejador resuelve nombre y destinatario al enviar, usa el puerto `Mailer` existente (`sendRevealLimitAlert`, textos es-MX y en-US) y falla (para reintentar) si no hay Raíz activa o el correo no sale.
+- **Idempotencia con efectos externos**: `OutboxDeliveryReceipts` (tabla `outbox_deliveries`) guarda un acuse por evento, manejador y, si el efecto tiene varias destinatarias, por destinataria (`handler_key` = `vault.reveal-limit-notice:<id de la Raíz>`). Se consulta antes de cada efecto y se anota tras cada uno exitoso, en una transacción independiente que sobrevive al rollback del trabajador; si falla una destinataria, el reintento solo reenvía a la pendiente. Un duplicado solo es posible si el proceso cae entre el envío y la anotación de esa destinataria; en avisos de seguridad se prefiere eso a perder la alerta. Los acuses aún no se purgan (retención pendiente, G1).
 - **Aislamiento**: cada evento se procesa en su propia transacción con `app.org_id` fijado a la organización del evento (`TenantScope.runAs`, como la purga). No se usa un rol con BYPASSRLS: así un manejador no puede leer otros inquilinos.
 - **Fallos**: se revierte lo que escribió el manejador, se cuenta el intento y se reprograma con espera exponencial (30 s, doble en cada fallo, tope 1 h). Al octavo fallo el evento queda en cuarentena: `published_at is null and next_attempt_at = 'infinity'`. Cada manejador tiene un plazo de 30 s por evento; si vence cuenta como fallo (`OUTBOX.HANDLER_TIMEOUT`).
+- **Pendientes de decisión (abiertos)**: (a) un `payload` inválido consume los 8 reintentos, porque el trabajador no tiene una ruta "sin reintento" (error no reintentable que vaya directo a cuarentena); mejora del trabajador por decidir. (b) El plazo del manejador (30 s) frente a los tiempos del SMTP (10 + 10 + 20 s) deja una ventana de duplicado aceptada mientras haya una sola instancia.
 - **Tipo sin manejador**: espera. No cuenta intentos ni va a cuarentena; se reprograma al tope (1 h) y se avisa una vez por pasada y tipo (solo nombre y conteo). Así no se pierden eventos escritos antes de que exista su manejador.
 - **Defensa en profundidad**: tras reclamar, se comprueba que el evento sea de la organización del ámbito; si no, no se procesa, se registran solo los ids y la organización cuenta como fallida.
 - **Apagado**: la pasada se detiene entre eventos y entre organizaciones; `stop()` espera como máximo 35 s y, si se excede, lo registra y devuelve.
@@ -358,6 +359,7 @@ Módulo `modules/outbox` ([ADR 0035](adr/0035-transactional-outbox-for-events.md
   update outbox_events set next_attempt_at = now(), attempts = 0
    where published_at is null and next_attempt_at = 'infinity' and id = '<id del evento>';
   ```
+
 - **Registro**: solo id del evento, tipo, organización, intento, resultado y código de fallo. Nunca el `payload` ni el mensaje del error.
 - **Pendiente**: retención de eventos publicados ([ADR 0035](adr/0035-transactional-outbox-for-events.md)); separar en `main.worker.ts`.
 
@@ -373,8 +375,8 @@ Solo la acción dedicada (revelar, código 2FA, exportar) devuelve un secreto, c
 - **Inyección por constructor**, con símbolos para los puertos. Prohibida la inyección por propiedad y la obtención de dependencias "al vuelo" desde el módulo de referencia.
 - **Sin referencias circulares**: el uso de referencias diferidas es señal de que dos módulos están mal separados; se resuelve con un evento o moviendo la responsabilidad.
 - **Configuración**: variables de entorno validadas al arrancar con un esquema Zod propio; el servicio no arranca con configuración inválida. Los secretos de infraestructura vienen del gestor de secretos, nunca de archivos de entorno ni del repositorio.
-- **Ciclo de vida**: cierre ordenado (drenar peticiones, cerrar pool y colas). Las comprobaciones de salud distinguen vida (*liveness*) y disponibilidad (*readiness*).
-- **Workers**: los procesadores de BullMQ viven en la capa de interfaz del módulo, delegan en un caso de uso y son idempotentes, con reintentos y *backoff* acotados.
+- **Ciclo de vida**: cierre ordenado (drenar peticiones, cerrar pool y colas). Las comprobaciones de salud distinguen vida (_liveness_) y disponibilidad (_readiness_).
+- **Workers**: los procesadores de BullMQ viven en la capa de interfaz del módulo, delegan en un caso de uso y son idempotentes, con reintentos y _backoff_ acotados.
 - **Decoradores de Nest solo en la capa de interfaz y en el archivo de composición.** Si aparecen en `domain` o `application`, el lint falla.
 - **Sin estado global mutable** en servicios; la caché de claves de datos es la única excepción y vive en `crypto` (con TTL y límite de usos, ver plan).
 
@@ -402,7 +404,7 @@ Reglas que aplican a todo el backend:
 - **Comparaciones de secretos y hashes** en tiempo constante.
 - **JWT con `jose`**: lista blanca de algoritmos; nunca se confía en el algoritmo que declara el token.
 - **Cifrado**: AES-256-GCM, nonce aleatorio de 12 bytes por operación y datos asociados que ligan el texto cifrado a su organización, credencial, campo y versión. Solo el servicio de cifrado.
-- **Rate limiting** por usuario, IP y acción (`rate-limiter-flexible` sobre Redis); mensajes idénticos para usuario inexistente o contraseña incorrecta. *Estado en la fase 1a:* el límite por IP (60 por minuto en las rutas de autenticación e invitación) y los contadores de intentos fallidos por correo y por usuario viven en la memoria de cada instancia; el adaptador de Redis está pendiente ([ADR 0026](adr/0026-atomic-failed-attempt-counting.md)). La plataforma opera con una sola instancia ([ADR 0039](adr/0039-single-instance-until-redis.md)) y la API lo hace cumplir al arrancar con un candado consultivo de PostgreSQL (`single-instance-lock.ts`).
+- **Rate limiting** por usuario, IP y acción (`rate-limiter-flexible` sobre Redis); mensajes idénticos para usuario inexistente o contraseña incorrecta. _Estado en la fase 1a:_ el límite por IP (60 por minuto en las rutas de autenticación e invitación) y los contadores de intentos fallidos por correo y por usuario viven en la memoria de cada instancia; el adaptador de Redis está pendiente ([ADR 0026](adr/0026-atomic-failed-attempt-counting.md)). La plataforma opera con una sola instancia ([ADR 0039](adr/0039-single-instance-until-redis.md)) y la API lo hace cumplir al arrancar con un candado consultivo de PostgreSQL (`single-instance-lock.ts`).
 - **Auditoría**: append-only, encadenada por hash; sin secretos, ni parciales; los metadatos pasan por una lista blanca de campos.
 - El correo entrante (fase 4) y los datos externos son **entrada no confiable**: nunca se renderiza HTML, se ignoran adjuntos y hay límites de tamaño y tiempo.
 
@@ -416,16 +418,16 @@ Reglas que aplican a todo el backend:
 
 ## 12. Pruebas
 
-| Tipo | Herramienta | Qué cubre |
-| --- | --- | --- |
-| Unitarias de dominio | Vitest | Políticas, entidades, objetos de valor. 90 % de ramas en módulos protegidos |
-| Matriz de autorización | Vitest, tabla generada | Cada actor × rango × relación × acción. 100 % de combinaciones |
-| Mutación | Stryker | `access` y `crypto` (mínimo 80 %) |
-| Integración | Vitest + Testcontainers | Repositorios, RLS, transacciones, auditoría, colas (PostgreSQL y Redis reales) |
-| Aislamiento de tenants | Testcontainers | Dos organizaciones; ningún cruce |
-| Contrato | Zod + OpenAPI | La API cumple su contrato |
-| Arquitectura | `eslint-plugin-boundaries`, dependency-cruiser | Regla de dependencia |
-| Seguridad | Semgrep, gitleaks, osv-scanner, Trivy | SAST, secretos, dependencias, imágenes |
+| Tipo                   | Herramienta                                    | Qué cubre                                                                      |
+| ---------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| Unitarias de dominio   | Vitest                                         | Políticas, entidades, objetos de valor. 90 % de ramas en módulos protegidos    |
+| Matriz de autorización | Vitest, tabla generada                         | Cada actor × rango × relación × acción. 100 % de combinaciones                 |
+| Mutación               | Stryker                                        | `access` y `crypto` (mínimo 80 %)                                              |
+| Integración            | Vitest + Testcontainers                        | Repositorios, RLS, transacciones, auditoría, colas (PostgreSQL y Redis reales) |
+| Aislamiento de tenants | Testcontainers                                 | Dos organizaciones; ningún cruce                                               |
+| Contrato               | Zod + OpenAPI                                  | La API cumple su contrato                                                      |
+| Arquitectura           | `eslint-plugin-boundaries`, dependency-cruiser | Regla de dependencia                                                           |
+| Seguridad              | Semgrep, gitleaks, osv-scanner, Trivy          | SAST, secretos, dependencias, imágenes                                         |
 
 - **Casos de uso**: se prueban con puertos falsos en memoria (sin Nest ni base de datos). Los repositorios se prueban con PostgreSQL real.
 - **Controladores**: pruebas de integración HTTP con la inyección de peticiones de Fastify, contra una base de datos real.
@@ -453,17 +455,17 @@ Se puede apoyar el desarrollo del backend en los agentes de Claude Code disponib
 
 ### Agentes y para qué sirven
 
-| Agente | Úsalo para | Límites |
-| --- | --- | --- |
-| `general-purpose` | Implementar un caso de uso, repositorio o controlador con sus pruebas, cuando el alcance está acotado | Escribe código; necesita rutas permitidas explícitas |
-| `typescript-pro` | Tipos de marca, tipos genéricos del resultado, tipos derivados de `contracts`, utilidades tipadas | Solo tipos y utilidades; no decide arquitectura |
-| `Explore` | Mapear dónde vive algo o cómo fluye una petición, sin tocar nada | Solo lectura |
-| `Plan` | Diseñar la implementación de una funcionalidad antes de escribirla | No escribe archivos |
-| `review-risk` | Revisar seguridad, permisos, exposición de datos y dependencias | Revisión; no corrige |
-| `review-resilience` | Revisar reintentos, fallas parciales, transacciones, concurrencia | Revisión; no corrige |
-| `review-reliability` | Revisar valor y determinismo de las pruebas, bordes y regresiones | Revisión; no corrige |
-| `review-readability` | Revisar nombres, complejidad y tamaño del cambio | Revisión; no corrige |
-| `git` | Commits granulares con Conventional Commits | Pide confirmar el alcance antes de preparar archivos |
+| Agente               | Úsalo para                                                                                            | Límites                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `general-purpose`    | Implementar un caso de uso, repositorio o controlador con sus pruebas, cuando el alcance está acotado | Escribe código; necesita rutas permitidas explícitas |
+| `typescript-pro`     | Tipos de marca, tipos genéricos del resultado, tipos derivados de `contracts`, utilidades tipadas     | Solo tipos y utilidades; no decide arquitectura      |
+| `Explore`            | Mapear dónde vive algo o cómo fluye una petición, sin tocar nada                                      | Solo lectura                                         |
+| `Plan`               | Diseñar la implementación de una funcionalidad antes de escribirla                                    | No escribe archivos                                  |
+| `review-risk`        | Revisar seguridad, permisos, exposición de datos y dependencias                                       | Revisión; no corrige                                 |
+| `review-resilience`  | Revisar reintentos, fallas parciales, transacciones, concurrencia                                     | Revisión; no corrige                                 |
+| `review-reliability` | Revisar valor y determinismo de las pruebas, bordes y regresiones                                     | Revisión; no corrige                                 |
+| `review-readability` | Revisar nombres, complejidad y tamaño del cambio                                                      | Revisión; no corrige                                 |
+| `git`                | Commits granulares con Conventional Commits                                                           | Pide confirmar el alcance antes de preparar archivos |
 
 No hay un agente específico de backend: la implementación la hace `general-purpose` con un encargo preciso. La revisión (`review-*`) es independiente de quien escribió el código.
 
@@ -522,7 +524,7 @@ Pendientes de la fase 1a:
 - [x] **Trabajo de limpieza de datos temporales** (G1): hecho como comando `purge-expired` ([ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)), que recorre las organizaciones por el camino de `docs/database.md` §7.5. Falta programar su ejecución periódica en el despliegue.
 - [x] **Adaptador de KMS de proveedor** (L1): `AwsKeyManagement` (AWS KMS, [ADR 0020](adr/0020-reference-cloud-aws.md)). Sin probar contra AWS real y sin comprobación de permisos al arrancar.
 - [ ] **Worker**: no hay punto de entrada de worker (`apps/api/src` tiene API, migraciones, alta de organizaciones, recuperación de la Raíz, purga y recifrado).
-- [x] **Correo real** (A8, parte de correo): adaptador SMTP del dominio propio (§6.3.1). Avisos a la persona (G5, parcial): código de recuperación usado y llave de acceso agregada o quitada; salen después del *commit*, con tope de 5 s y de mejor esfuerzo, y su fallo se audita como `auth.security_notice_failed` (solo el tipo). Siguen pendientes dispositivo nuevo, baja del factor de aplicación y regeneración de códigos.
+- [x] **Correo real** (A8, parte de correo): adaptador SMTP del dominio propio (§6.3.1). Avisos a la persona (G5, parcial): código de recuperación usado y llave de acceso agregada o quitada; salen después del _commit_, con tope de 5 s y de mejor esfuerzo, y su fallo se audita como `auth.security_notice_failed` (solo el tipo). Siguen pendientes dispositivo nuevo, baja del factor de aplicación y regeneración de códigos.
 - [ ] **CI en GitHub y escáneres** (A9): despriorizada por el dueño (2026-10-27), no bloqueada; el repositorio ya tiene remoto y el flujo de `.github/workflows/ci.yml` nunca se ha ejecutado allí.
 - [x] **Idempotencia** de las peticiones que crean recursos (§7.2.1, A7): hecha. Limitaciones: la purga de filas vencidas (`purge-expired`) falta programarla y no hay nueva comprobación de permisos en el reintento.
 - [ ] **Guard de permisos** como primera barrera (§7.2).
@@ -532,10 +534,10 @@ Pendientes de la fase 1a:
 
 Pendientes de fases posteriores:
 
-- [ ] **Bloqueo de auditoría** (ADR 0023): el trigger mantiene el bloqueo por organización hasta el *commit*. Evaluar el impacto en transacciones largas.
+- [ ] **Bloqueo de auditoría** (ADR 0023): el trigger mantiene el bloqueo por organización hasta el _commit_. Evaluar el impacto en transacciones largas.
 - [ ] **Retención de auditoría** (ADR 0024) frente al borrado revocado: definir particionado o un rol de archivado.
 - [x] **Índice ciego derivado de la clave de datos**: el plan deriva el índice ciego y las huellas de contraseña de la clave de datos. Al rotarla cambian todos los valores, así que cada rotación obliga a recalcular los índices (y, mientras conviven versiones, a buscar con ambas). El servicio de cifrado ya informa la versión de clave usada. Decidido ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)): se mantiene derivado de la clave de datos; la clave estable por organización queda como plan B.
 - [ ] **Generador de OpenAPI** desde Zod: aprobar la dependencia.
 - [ ] **Versión de PostgreSQL**: decidido pasar a la 18 (2026-10-28); las pruebas aún usan 17. Falta subir la imagen y verificar las migraciones. Los UUIDv7 los sigue generando la función propia hasta que se decida usar la nativa.
-- [ ] **`oidc-provider` sobre Fastify** (fase 2): está basado en Koa; validar con un *spike* antes de comprometerse.
+- [ ] **`oidc-provider` sobre Fastify** (fase 2): está basado en Koa; validar con un _spike_ antes de comprometerse.
 - [ ] **Trabajos en segundo plano multi-organización**: se necesita un camino para listar organizaciones sin contexto (función de listado propuesta en `docs/database.md` §7.5).

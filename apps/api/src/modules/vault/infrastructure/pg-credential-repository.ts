@@ -18,6 +18,11 @@ import type {
   SecretField,
   SecretVersionRecord,
 } from '../application/ports/credential-repository.js';
+import {
+  REVEAL_LIMIT_NOTICE_AGGREGATE,
+  REVEAL_LIMIT_NOTICE_EVENT_TYPE,
+  serializeRevealLimitNotice,
+} from '../domain/reveal-limit-notice.js';
 
 interface CredentialRow {
   id: string;
@@ -49,10 +54,6 @@ interface PasswordVersionRow {
 }
 
 const CREDENTIAL_COLUMNS = `id, account_id, label, kind, last_rotated_at, created_by, created_at, archived_at`;
-
-/** Tipo del aviso que lee el trabajador de correo cuando exista (A8). */
-const REVEAL_LIMIT_NOTICE_TYPE = 'credential.reveal_limit_exceeded';
-const CREDENTIAL_AGGREGATE = 'credential';
 
 const toRecord = (row: CredentialRow): CredentialRecord => ({
   id: row.id,
@@ -215,9 +216,10 @@ export class PgVaultCredentialRepository implements CredentialRepository {
       `insert into outbox_events (organization_id, aggregate, type, payload)
        values (nullif(current_setting('app.org_id', true), '')::uuid, $1, $2, $3::jsonb)`,
       [
-        CREDENTIAL_AGGREGATE,
-        REVEAL_LIMIT_NOTICE_TYPE,
-        JSON.stringify({ actorId: notice.actorId, limitPerHour: notice.limitPerHour }),
+        REVEAL_LIMIT_NOTICE_AGGREGATE,
+        REVEAL_LIMIT_NOTICE_EVENT_TYPE,
+        // Solo ids y números: el manejador del outbox resuelve nombre y destinatario al enviar.
+        JSON.stringify(serializeRevealLimitNotice(notice)),
       ],
     );
   }

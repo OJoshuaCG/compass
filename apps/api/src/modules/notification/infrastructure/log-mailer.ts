@@ -4,6 +4,7 @@ import type {
   EmergencyAlertMessage,
   InvitationMessage,
   Mailer,
+  RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
 
@@ -33,6 +34,19 @@ export class LogMailer implements Mailer {
 
   sendEmergencyAlert(message: EmergencyAlertMessage): Promise<void> {
     this.logger.warn({ to: message.to, usedAt: message.usedAt }, 'emergency code used (dev)');
+    return Promise.resolve();
+  }
+
+  sendRevealLimitAlert(message: RevealLimitAlertMessage): Promise<void> {
+    // Sin destinatario ni nombre de la persona: son datos personales y aquí solo importan los conteos.
+    this.logger.warn(
+      {
+        limitPerHour: message.limitPerHour,
+        revealedInWindow: message.revealedInWindow,
+        occurredAt: message.occurredAt,
+      },
+      'reveal limit alert (dev)',
+    );
     return Promise.resolve();
   }
 

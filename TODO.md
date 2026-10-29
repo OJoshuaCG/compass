@@ -272,7 +272,7 @@ Dependen de los niveles anteriores. M, N, O, P y Q son independientes entre sí:
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [~] M1 | **B2 del plan, parte b:** revelar contraseña. Reautenticación, motivo, límite por hora, alerta al superarlo y ocultado a los 30 s | Código ⚠ | — | M | K1, K2, B2, B3, B6 | Hecha en parte (2026-10-28): reautenticación, motivo de 6 a 500 caracteres, límite de 30 por hora, ocultado a los 30 s y portapapeles limpiado, en b3fa673 (backend) y b7a5186 (pantalla). **Falta la entrega de la alerta a la Raíz:** `enqueueRevealLimitNotice` solo escribe en `outbox_events` y no existe consumidor ni proceso que la envíe (ADR 0035 sin implementar). Falta además la revisión humana de las pruebas y el e2e |
+| [~] M1 | **B2 del plan, parte b:** revelar contraseña. Reautenticación, motivo, límite por hora, alerta al superarlo y ocultado a los 30 s | Código ⚠ | — | M | K1, K2, B2, B3, B6 | Hecha en parte (2026-10-28): reautenticación, motivo de 6 a 500 caracteres, límite de 30 por hora, ocultado a los 30 s y portapapeles limpiado, en b3fa673 (backend) y b7a5186 (pantalla). **Alerta a la Raíz (R2a, 2026-10-28): implementada, pruebas escritas sin ejecutar.** El evento del outbox lleva solo ids y números y un manejador del trabajador (ADR 0035) envía el correo a la Raíz, idempotente por acuse en `outbox_deliveries` (migración 0019). Requiere `OUTBOX_WORKER_ENABLED=true` para que salga. Decisiones abiertas de R2a en `odd/tasks/phase-1b-worker.md`. Falta además la revisión humana de las pruebas y el e2e |
 | [ ] M2 | Restaurar una versión de la credencial (BO-7). Hoy no está asignada a ninguna porción del plan [V] | Código ⚠ | — | S | K1 | |
 
 ## N · Segundo factor

@@ -61,6 +61,11 @@ export interface PasswordVersionSummary {
 export interface RevealLimitNotice {
   readonly actorId: UserId;
   readonly limitPerHour: number;
+  /** Revelaciones exitosas contadas en la ventana al momento de negar. */
+  readonly revealedInWindow: number;
+  readonly windowSeconds: number;
+  /** Cuándo se superó el tope (hora del reloj de la aplicación, UTC). */
+  readonly raisedAt: Date;
 }
 
 /** Todo corre en la transacción en curso, con la organización fijada por RLS. */

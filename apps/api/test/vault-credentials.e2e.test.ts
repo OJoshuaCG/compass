@@ -411,6 +411,17 @@ describe('the reveal limit', () => {
       [await userId('limited@creds.test')],
     );
     expect(notices.rowCount).toBe(1);
+    // El aviso lleva el conteo y la ventana, y nada de la credencial ni del motivo (R2a).
+    const noticePayload = await env.db.admin.query<{ payload: Record<string, unknown> }>(
+      "select payload from outbox_events where type = 'credential.reveal_limit_exceeded' and payload->>'actorId' = $1",
+      [await userId('limited@creds.test')],
+    );
+    expect(noticePayload.rows[0]?.payload).toMatchObject({
+      limitPerHour: REVEAL_LIMIT,
+      revealedInWindow: REVEAL_LIMIT,
+      windowSeconds: 3600,
+    });
+    expect(JSON.stringify(noticePayload.rows[0]?.payload)).not.toContain(credential.id);
 
     env.clock.advance(LIMIT_WINDOW_MS);
     const client = await signIn(env, 'limited@creds.test', limited.secret);

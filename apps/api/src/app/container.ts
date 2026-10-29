@@ -26,6 +26,7 @@ import {
   OutboxHandlerRegistry,
   OutboxPoller,
   OutboxWorker,
+  PgOutboxDeliveryReceipts,
   PgOutboxRepository,
 } from '../modules/outbox/index.js';
 import {
@@ -69,11 +70,14 @@ import {
   ManageShares,
   ManageCredentials,
   ManageTotp,
+  NotifyRevealLimitExceeded,
   OtplibTotpGenerator,
   PgAccountRepository,
   PgTotpRepository,
   PgShareRepository,
   PgVaultCredentialRepository,
+  REVEAL_LIMIT_NOTICE_EVENT_TYPE,
+  revealLimitNoticeHandlerKey,
 } from '../modules/vault/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
 import type { Clock } from '../shared/kernel/index.js';
@@ -183,9 +187,25 @@ export function buildContainer(options: ContainerOptions) {
     clock,
   });
 
-  // outbox: sin manejadores reales todavía; cada módulo registrará los suyos en `outboxHandlers`
-  // antes de llamar a `outboxPoller.start()`. Un tipo sin manejador espera pendiente, sin gastar intentos, hasta que se registre.
+  // outbox: cada módulo registra sus manejadores en `outboxHandlers` antes de llamar a
+  // `outboxPoller.start()`. Un tipo sin manejador espera pendiente, sin gastar intentos, hasta que se registre.
   const outboxHandlers = new OutboxHandlerRegistry();
+  const outboxDeliveryReceipts = new PgOutboxDeliveryReceipts(uow, uow);
+  // Aviso a la Raíz por superar el tope de revelaciones (ADR 0031, R2a). Usa el puerto de correo existente.
+  const notifyRevealLimitExceeded = new NotifyRevealLimitExceeded({
+    directory,
+    mailer,
+    clock,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, revealLimitNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, revealLimitNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(REVEAL_LIMIT_NOTICE_EVENT_TYPE, (event) =>
+    notifyRevealLimitExceeded.handle({ eventId: event.id, payload: event.payload }),
+  );
   const outboxWorker = new OutboxWorker({
     organizations: new PgOrganizationLister(pool),
     repository: new PgOutboxRepository(uow),

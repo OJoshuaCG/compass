@@ -78,6 +78,17 @@ export interface UserDirectory {
   listAdministratorContacts(): Promise<
     readonly { readonly email: string; readonly locale: 'es-MX' | 'en-US' }[]
   >;
+  /**
+   * Id, correo e idioma de la Raíz activa (rango 0): destinataria de los avisos de abuso, como el tope de
+   * revelaciones. El id permite llevar un acuse de entrega por destinataria.
+   */
+  listRootContacts(): Promise<
+    readonly {
+      readonly id: UserId;
+      readonly email: string;
+      readonly locale: 'es-MX' | 'en-US';
+    }[]
+  >;
   /** Directorio visible: usuarios activos, solo nombre, correo y rango. */
   list(query: DirectoryQuery): Promise<DirectoryPage>;
 }

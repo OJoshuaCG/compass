@@ -129,6 +129,8 @@ Revelar es mostrar la contraseña en pantalla. Es la acción más sensible sobre
 
 Cada persona tiene un límite de revelaciones por hora (por defecto **30**, configurable). Si lo supera, el sistema **bloquea la acción y genera una alerta**. Superar el límite es un evento crítico y una alerta de severidad alta (ver [`governance.md`](governance.md)): una persona que revela decenas de contraseñas en una hora puede estar sacando información de forma masiva.
 
+La alerta llega por correo a la persona con rol Raíz de la organización, en su idioma, poco después del bloqueo (no en el mismo instante: sale por un proceso aparte que reintenta si el correo falla). El correo dice quién llegó al límite, cuántas revelaciones hizo y cuándo; no menciona cuentas, credenciales ni motivos, para que el propio aviso no filtre información. Se envía una sola vez por ventana de una hora aunque la persona siga intentando. Si la organización no tiene una Raíz activa, el aviso no se pierde: queda pendiente para revisión humana.
+
 ### 7.4 Ejemplo resuelto
 
 Sofía tiene VIEW sobre una cuenta y el permiso de revelar contraseñas. Necesita la contraseña para recuperar un acceso.

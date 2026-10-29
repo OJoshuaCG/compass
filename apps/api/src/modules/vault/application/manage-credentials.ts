@@ -65,6 +65,7 @@ export interface CreateCredentialInput {
 
 /** Ventana móvil del límite de revelaciones. */
 const REVEAL_WINDOW_MS = 60 * 60 * 1000;
+const MILLISECONDS_PER_SECOND = 1000;
 
 const FIRST_VERSION = 1;
 
@@ -315,7 +316,9 @@ export class ManageCredentials {
         since,
       });
       if (revealedInWindow >= REVEAL_LIMIT_PER_HOUR) {
-        return err(await this.denyRevealLimit(credential, actorId, since, permission));
+        return err(
+          await this.denyRevealLimit(credential, actorId, since, permission, revealedInWindow),
+        );
       }
 
       const password = await this.openSecret(credential, 'password');
@@ -358,8 +361,9 @@ export class ManageCredentials {
     actorId: UserId,
     since: Date,
     permission: Permission,
+    revealedInWindow: number,
   ): Promise<DomainError> {
-    const { context, authorizer, credentials, audit, auditCounter } = this.deps;
+    const { context, authorizer, credentials, audit, auditCounter, clock } = this.deps;
     await authorizer.auditDenial({
       code: 'CREDENTIAL.REVEAL_LIMIT',
       permission,
@@ -372,7 +376,15 @@ export class ManageCredentials {
       since,
     });
     if (alreadyFlagged === 0) {
-      await credentials.enqueueRevealLimitNotice({ actorId, limitPerHour: REVEAL_LIMIT_PER_HOUR });
+      // Misma transacción que la negación y su auditoría (ADR 0035). El payload no lleva secretos ni
+      // nombres de credenciales: solo el id de la persona, el tope, el conteo y la ventana.
+      await credentials.enqueueRevealLimitNotice({
+        actorId,
+        limitPerHour: REVEAL_LIMIT_PER_HOUR,
+        revealedInWindow,
+        windowSeconds: REVEAL_WINDOW_MS / MILLISECONDS_PER_SECOND,
+        raisedAt: clock.now(),
+      });
       await audit.record({
         action: 'credential.reveal_limit_exceeded',
         actorId,
