@@ -68,6 +68,7 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
   const [singleAccountLabel, setSingleAccountLabel] = useState<string | null>(null);
   const captureSupported = isDisplayCaptureSupported();
   const chooserHeadingRef = useRef<HTMLHeadingElement>(null);
+  const pasteFieldRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -144,11 +145,22 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
     // Las demás cuentas, con sus secretos, se olvidan en cuanto se elige una.
     setMigrationChoices(null);
     setSelectedIndex(undefined);
+    restoreFocusAfterChooser();
   }
 
   function handleCancelChoice() {
     discardMigrationChoices();
     setOutcomeKind(null);
+    restoreFocusAfterChooser();
+  }
+
+  // Al confirmar o cancelar, el selector (con el botón que tenía el foco) se desmonta y el foco
+  // caería a <body> (WCAG 2.4.3). Se devuelve al campo de pegado: es el único control de esta zona
+  // que sigue montado en ambos casos (el aviso de éxito no es enfocable) y es el punto de partida
+  // para leer otra imagen. Solo se mueve el foco, sin anunciar nada: el aviso de éxito ya informa
+  // y nunca se anuncian etiquetas de cuentas ni secretos.
+  function restoreFocusAfterChooser() {
+    pasteFieldRef.current?.focus();
   }
 
   function handleFileChosen(event: ChangeEvent<HTMLInputElement>) {
@@ -235,6 +247,7 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
           // pulsado. `inputMode="none"` evita que se abra el teclado en pantalla.
           <Input
             {...controlProps}
+            ref={pasteFieldRef}
             value=""
             onChange={ignoreTyping}
             inputMode="none"

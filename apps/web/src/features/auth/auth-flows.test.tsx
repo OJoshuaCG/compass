@@ -220,6 +220,16 @@ describe('TOTP enrollment', () => {
     const secretField = screen.getByRole('textbox', { name: es.auth['enroll.secretLabel'] });
     expect(secretField).toHaveValue(SECRET);
     expect(secretField).toHaveAttribute('readonly');
+    // Los gestores de contraseñas y la autocorrección no deben tocar la clave.
+    expect(secretField).toHaveAttribute('autocomplete', 'off');
+    expect(secretField).toHaveAttribute('autocorrect', 'off');
+    expect(secretField).toHaveAttribute('autocapitalize', 'off');
+    expect(secretField).toHaveAttribute('data-1p-ignore');
+    expect(secretField).toHaveAttribute('data-lpignore', 'true');
+    expect(secretField).toHaveAttribute('data-bwignore', 'true');
+    expect(secretField).toHaveAttribute('data-form-type', 'other');
+    expect(secretField.getAttribute('id') ?? '').not.toContain(SECRET);
+    expect(secretField.getAttribute('name') ?? '').not.toContain(SECRET);
     expect(await axeViolations(container)).toEqual([]);
 
     await user.click(screen.getByRole('button', { name: es.auth['enroll.copySecret'] }));

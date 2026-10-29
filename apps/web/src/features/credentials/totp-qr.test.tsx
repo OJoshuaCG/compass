@@ -498,6 +498,36 @@ describe('register from a QR image: Google Authenticator export', () => {
     expect(announcement).not.toHaveAttribute('title');
   });
 
+  // Al confirmar o cancelar el selector se desmonta: el foco debe ir al campo de pegado, no a <body>.
+  it('returns focus to the paste field after confirming an account', async () => {
+    const { user, dialog } = await uploadMigration([ANA, BOB]);
+
+    await user.click(await within(dialog).findByRole('radio', { name: /Globex/ }));
+    await user.click(within(dialog).getByRole('button', { name: migrationT('confirm') }));
+
+    const pasteField = within(dialog).getByRole('textbox', {
+      name: t['totp.register.image.pasteLabel'],
+    });
+    await waitFor(() => {
+      expect(pasteField).toHaveFocus();
+    });
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('returns focus to the paste field after cancelling the chooser', async () => {
+    const { user, dialog } = await uploadMigration([ANA, BOB]);
+
+    await user.click(await within(dialog).findByRole('button', { name: migrationT('cancel') }));
+
+    const pasteField = within(dialog).getByRole('textbox', {
+      name: t['totp.register.image.pasteLabel'],
+    });
+    await waitFor(() => {
+      expect(pasteField).toHaveFocus();
+    });
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it('caps the height of the account list and keeps confirm and cancel outside the scroll area', async () => {
     const { dialog } = await uploadMigration([ANA, BOB]);
 

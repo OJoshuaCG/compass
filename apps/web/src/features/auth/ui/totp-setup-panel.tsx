@@ -38,6 +38,15 @@ export function TotpSetupPanel({ qrSrc, secret }: TotpSetupPanelProps) {
               readOnly
               autoComplete="off"
               spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+              // Varios gestores de contraseñas ignoran autoComplete="off": estos atributos propios de
+              // cada uno evitan que ofrezcan guardar o autocompletar la clave. El id y el nombre
+              // vienen de FormField (neutros), nunca del secreto.
+              data-1p-ignore
+              data-lpignore="true"
+              data-bwignore="true"
+              data-form-type="other"
               className="font-mono"
             />
           )}
