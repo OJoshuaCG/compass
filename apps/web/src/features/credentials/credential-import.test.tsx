@@ -1,7 +1,7 @@
 import type { CredentialImportPreview, CredentialImportRow, Permission } from '@iam/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, problem, stubApi } from '../../test/fake-api';
@@ -91,6 +91,11 @@ async function chooseFile(file: File = csvFile()) {
 const confirmButton = () => screen.getByRole('button', { name: t['import.action.confirm'] });
 const summaryValue = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
 const findMessage = (text: string) => screen.findByText((content) => content.includes(text));
+const alertContaining = (element: HTMLElement): HTMLElement => {
+  const alert = element.closest<HTMLElement>('[role="alert"]');
+  if (alert === null) throw new Error('The element is not inside a role="alert" region');
+  return alert;
+};
 
 describe('credential import: preview', () => {
   it('shows the summary and one row per line with status and translated error codes', async () => {
@@ -186,6 +191,95 @@ describe('credential import: preview', () => {
   });
 });
 
+describe('credential import: preview errors and ordering', () => {
+  it('lists invalid rows first, before valid and duplicate ones, and says so', async () => {
+    setup({
+      [`POST ${PREVIEW_PATH}`]: jsonResponse(previewOf([VALID_ROW, DUPLICATE_ROW, INVALID_ROW])),
+    });
+    renderApp(PAGE);
+    await chooseFile();
+
+    const table = await screen.findByRole('table', { name: t['import.table.caption'] });
+    const dataRows = within(table).getAllByRole('row').slice(1);
+    expect(dataRows[0]).toHaveTextContent(t['import.status.invalid']);
+    expect(dataRows[1]).toHaveTextContent(t['import.status.valid']);
+    expect(dataRows[2]).toHaveTextContent(t['import.status.duplicate']);
+    expect(screen.getByText(t['import.table.invalidFirst'])).toBeInTheDocument();
+  });
+
+  it('does not show the invalid-first hint when every row is valid', async () => {
+    setup({ [`POST ${PREVIEW_PATH}`]: jsonResponse(previewOf([VALID_ROW])) });
+    renderApp(PAGE);
+    await chooseFile();
+
+    await screen.findByRole('table', { name: t['import.table.caption'] });
+    expect(screen.queryByText(t['import.table.invalidFirst'])).toBeNull();
+  });
+
+  it('repeats an error code of a row without duplicate React keys', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const repeatedRow: CredentialImportRow = {
+      ...INVALID_ROW,
+      errorCodes: ['PASSWORD_REQUIRED', 'PASSWORD_REQUIRED'],
+    };
+    setup({ [`POST ${PREVIEW_PATH}`]: jsonResponse(previewOf([repeatedRow])) });
+    renderApp(PAGE);
+    await chooseFile();
+
+    await screen.findByRole('table', { name: t['import.table.caption'] });
+    const keyWarnings = consoleError.mock.calls.filter((call) =>
+      String(call[0]).includes('same key'),
+    );
+    consoleError.mockRestore();
+    expect(keyWarnings).toHaveLength(0);
+  });
+
+  it('retries the preview after a server error with the same file, without picking it again', async () => {
+    let attempts = 0;
+    const api = setup({
+      [`POST ${PREVIEW_PATH}`]: () => {
+        attempts += 1;
+        return attempts === 1 ? problem(500, 'INTERNAL') : jsonResponse(previewOf([VALID_ROW]));
+      },
+    });
+    renderApp(PAGE);
+    const { user } = await chooseFile();
+
+    // El aviso de privacidad también es `role="alert"`: se localiza el del error por su contenido.
+    const alert = alertContaining(await findMessage('req-test-1'));
+    expect(alert).toHaveTextContent('req-test-1');
+    await user.click(screen.getByRole('button', { name: es.common['actions.retry'] }));
+
+    await screen.findByRole('table', { name: t['import.table.caption'] });
+    expect(api.callsTo('POST', PREVIEW_PATH)).toHaveLength(2);
+    expect(api.callsTo('POST', PREVIEW_PATH)[1]?.body).toEqual({ csv: CSV_TEXT });
+  });
+
+  it('tells the person to choose the file again, with no retry, on a non-retryable error', async () => {
+    setup({ [`POST ${PREVIEW_PATH}`]: problem(422, 'CREDENTIAL_IMPORT.HEADER_INVALID') });
+    renderApp(PAGE);
+    await chooseFile();
+
+    expect(await findMessage(es.errors['CREDENTIAL_IMPORT.HEADER_INVALID'])).toBeInTheDocument();
+    expect(screen.getByText(t['import.error.chooseAgain'])).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: es.common['actions.retry'] })).toBeNull();
+  });
+
+  it('shows the 429 countdown in a timer outside the alert and hides retry while waiting', async () => {
+    setup({
+      [`POST ${PREVIEW_PATH}`]: problem(429, 'RATE_LIMITED', { headers: { 'Retry-After': '7' } }),
+    });
+    renderApp(PAGE);
+    await chooseFile();
+
+    const alert = alertContaining(await findMessage(es.errors['RATE_LIMITED']));
+    expect(alert).toHaveTextContent(es.errors['RATE_LIMITED']);
+    expect(alert).not.toHaveTextContent(fill(es.errors['retryIn'], { seconds: 7 }));
+    expect(screen.getByRole('timer')).toHaveTextContent(fill(es.errors['retryIn'], { seconds: 7 }));
+    expect(screen.queryByRole('button', { name: es.common['actions.retry'] })).toBeNull();
+  });
+});
+
 describe('credential import: confirm', () => {
   it('disables Confirm while there are invalid rows and never calls the commit', async () => {
     const api = setup({
@@ -227,6 +321,17 @@ describe('credential import: confirm', () => {
     await user.click(confirmButton());
 
     expect(await findMessage(t['import.result.done'])).toBeInTheDocument();
+    // Un solo anuncio fijo en el `role="status"` (sin `role="alert"` que lo repita) y el foco en el resultado.
+    // Hay otras regiones `status` siempre montadas (avisos y anunciador de rutas): se filtra por el texto fijo.
+    const announcements = screen
+      .getAllByRole('status')
+      .filter((region) => region.textContent === t['import.result.done']);
+    expect(announcements).toHaveLength(1);
+    const repeatedInAlert = screen
+      .queryAllByRole('alert')
+      .some((region) => region.textContent.includes(t['import.result.done']));
+    expect(repeatedInAlert).toBe(false);
+    expect(screen.getByRole('heading', { name: t['import.result.title'] })).toHaveFocus();
     expect(summaryValue(t['import.result.accountsCreated'])).toBe('1');
     expect(summaryValue(t['import.result.credentialsCreated'])).toBe('1');
     expect(summaryValue(t['import.result.duplicatesSkipped'])).toBe('1');
@@ -260,6 +365,29 @@ describe('credential import: confirm', () => {
     // Sigue la vista previa: nada se importó.
     expect(screen.getByRole('table', { name: t['import.table.caption'] })).toBeInTheDocument();
     expect(screen.queryByText(t['import.result.done'])).toBeNull();
+  });
+
+  it('retries the commit after a server error using the same file', async () => {
+    let attempts = 0;
+    const api = setup({
+      [`POST ${PREVIEW_PATH}`]: jsonResponse(previewOf([VALID_ROW])),
+      [`POST ${COMMIT_PATH}`]: () => {
+        attempts += 1;
+        return attempts === 1
+          ? problem(500, 'INTERNAL')
+          : jsonResponse({ accountsCreated: 1, credentialsCreated: 1, duplicatesSkipped: 0 }, 201);
+      },
+    });
+    renderApp(PAGE);
+    const { user } = await chooseFile();
+    await screen.findByRole('table', { name: t['import.table.caption'] });
+    await user.click(confirmButton());
+
+    await user.click(await screen.findByRole('button', { name: es.common['actions.retry'] }));
+
+    expect(await findMessage(t['import.result.done'])).toBeInTheDocument();
+    expect(api.callsTo('POST', COMMIT_PATH)).toHaveLength(2);
+    expect(api.callsTo('POST', COMMIT_PATH)[1]?.body).toEqual({ csv: CSV_TEXT });
   });
 
   it('lists the rejected lines of a 422 and blocks resending the same file', async () => {
@@ -297,6 +425,7 @@ describe('credential import: confirm', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/NOT_A_ROW_CODE/)).toBeNull();
+    expect(screen.getByText(t['import.error.chooseAgain'])).toBeInTheDocument();
     expect(confirmButton()).toBeDisabled();
   });
 });
@@ -311,15 +440,20 @@ describe('credential import: secrets', () => {
     const { user, input } = await chooseFile();
 
     await screen.findByRole('table', { name: t['import.table.caption'] });
-    await user.click(screen.getByRole('button', { name: es.common['actions.cancel'] }));
+    const cancelButton = screen.getByRole('button', { name: es.common['actions.cancel'] });
+    await user.click(cancelButton);
 
-    expect(screen.queryByRole('table', { name: t['import.table.caption'] })).toBeNull();
-    expect(screen.queryByText(t['import.summary.title'])).toBeNull();
-    expect(screen.queryByRole('button', { name: t['import.action.confirm'] })).toBeNull();
+    // Con el clic el foco estaba en "Cancelar": que llegue al control solo ocurre si cancelar restablece el estado.
     await waitFor(() => {
       expect(input).toHaveFocus();
     });
+    expect(cancelButton).not.toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: t['import.table.caption'] })).toBeNull();
+    expect(screen.queryByText(t['import.summary.title'])).toBeNull();
+    expect(screen.queryByRole('button', { name: t['import.action.confirm'] })).toBeNull();
     expect((input as HTMLInputElement).value).toBe('');
+    // Solo hubo la vista previa original: ni confirmación ni una segunda vista previa.
+    expect(api.callsTo('POST', PREVIEW_PATH)).toHaveLength(1);
     expect(api.callsTo('POST', COMMIT_PATH)).toHaveLength(0);
     expect(document.body.textContent).not.toContain(PASSWORD);
     expectNoSecretsStored(queryClient, [PASSWORD, USERNAME, CSV_TEXT]);

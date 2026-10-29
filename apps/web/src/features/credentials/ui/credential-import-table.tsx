@@ -70,8 +70,9 @@ export function CredentialImportTable({
           <>
             {row.errorCodes.length > 0 ? (
               <ul className="list-disc ps-4">
-                {row.errorCodes.map((code) => (
-                  <li key={code}>{t(`import.rowError.${code}`)}</li>
+                {row.errorCodes.map((code, index) => (
+                  // El índice evita claves repetidas si el servidor repite un código en la fila.
+                  <li key={`${code}-${String(index)}`}>{t(`import.rowError.${code}`)}</li>
                 ))}
               </ul>
             ) : null}
