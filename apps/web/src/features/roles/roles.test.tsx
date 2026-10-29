@@ -339,6 +339,26 @@ describe('archive role', () => {
     );
   });
 
+  it('shows the wait time on a 429 and does not resend while it runs', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      [`POST /roles/${CUSTOM_ID}/archive`]: problem(429, 'RATE_LIMITED', {
+        headers: { 'Retry-After': '30' },
+      }),
+    });
+    renderApp('/roles');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: archiveLabel('Soporte') }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
+    expect(alert).toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+
+    await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
+    expect(api.callsTo('POST', `/roles/${CUSTOM_ID}/archive`)).toHaveLength(1);
+  });
+
   it('treats a 404 (already gone) as archived and refreshes', async () => {
     const user = userEvent.setup();
     const api = setup({ [`POST /roles/${CUSTOM_ID}/archive`]: problem(404, 'NOT_FOUND') });
@@ -468,6 +488,25 @@ describe('edit role', () => {
       es.errors['AUTHZ.ROLE_ESCALATION'],
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('disables the submit button during a 429 and shows the wait time', async () => {
+    const user = userEvent.setup();
+    setup(
+      {
+        [`PATCH /roles/${CUSTOM_ID}`]: problem(429, 'RATE_LIMITED', {
+          headers: { 'Retry-After': '30' },
+        }),
+      },
+      EDITOR,
+    );
+    renderApp('/roles');
+    const dialog = await openEdit(user);
+    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
+    expect(alert).toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(within(dialog).getByRole('button', { name: es.roles['edit.submit'] })).toBeDisabled();
   });
 
   it('warns and blocks saving when the role has permissions the editor lacks', async () => {

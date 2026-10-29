@@ -163,6 +163,24 @@ describe('invitations tab', () => {
     expect(screen.queryByText(/Se reenvió/)).toBeNull();
   });
 
+  it('shows the wait time on a 429 and does not resend while it runs', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      [`POST /invitations/${PENDING_ID}/resend`]: problem(429, 'RATE_LIMITED', {
+        headers: { 'Retry-After': '30' },
+      }),
+    });
+    renderApp('/users?view=invitations');
+    await rowText('ana@example.com');
+    await user.click(screen.getByRole('button', { name: resendLabel('ana@example.com') }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
+    expect(alert).toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+
+    await user.click(screen.getByRole('button', { name: resendLabel('ana@example.com') }));
+    expect(api.callsTo('POST', `/invitations/${PENDING_ID}/resend`)).toHaveLength(1);
+  });
+
   it('on INVITATION.INVALID shows the error and refreshes the list (it was accepted or revoked)', async () => {
     const user = userEvent.setup();
     let gone = false;

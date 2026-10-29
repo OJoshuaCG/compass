@@ -10,7 +10,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError, applyFieldErrors, useAsyncAction } from '../../../shared/api';
+import {
+  ApiError,
+  applyFieldErrors,
+  useAsyncAction,
+  useRateLimitCooldown,
+} from '../../../shared/api';
 import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
 import { updateRole } from '../api/roles-api';
 import { groupPermissions } from '../model/permission-groups';
@@ -28,6 +33,7 @@ function EditRoleForm({ role, available, onCancel, onUpdated }: EditRoleFormProp
   const { t } = useTranslation(['roles', 'common', 'errors']);
   const validationMessage = useValidationMessage();
   const action = useAsyncAction((body: UpdateRoleRequest) => updateRole(role.id, body));
+  const cooldown = useRateLimitCooldown(action.error);
 
   const {
     register,
@@ -93,7 +99,9 @@ function EditRoleForm({ role, available, onCancel, onUpdated }: EditRoleFormProp
       }}
       className="flex flex-col gap-4"
     >
-      {action.error !== undefined ? <ErrorAlert error={action.error} /> : null}
+      {action.error !== undefined ? (
+        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
       {canEdit ? null : (
         <p role="status" className="text-sm text-text-secondary">
           {t('edit.missingPermissions', { ns: 'roles' })}
@@ -136,7 +144,11 @@ function EditRoleForm({ role, available, onCancel, onUpdated }: EditRoleFormProp
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}
         </Button>
-        <Button type="submit" loading={action.pending} disabled={!canEdit}>
+        <Button
+          type="submit"
+          loading={action.pending}
+          disabled={!canEdit || cooldown.secondsLeft > 0}
+        >
           {t('edit.submit', { ns: 'roles' })}
         </Button>
       </div>

@@ -2,7 +2,7 @@ import type { ManagedUser } from '@iam/contracts';
 import { ConfirmDialog } from '@iam/ui';
 import { useTranslation } from 'react-i18next';
 
-import { useAsyncAction } from '../../../shared/api';
+import { useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
 import { ErrorAlert } from '../../../shared/i18n';
 import { teamApi } from '../api/team-api';
 
@@ -20,8 +20,10 @@ export type CloseSessionsDialogProps = {
 export function CloseSessionsDialog({ person, onClose, onDone }: CloseSessionsDialogProps) {
   const { t } = useTranslation(['sessions', 'common']);
   const action = useAsyncAction(() => teamApi.closeSessions(person.id));
+  const cooldown = useRateLimitCooldown(action.error);
 
   async function confirm() {
+    if (cooldown.secondsLeft > 0) return;
     const result = await action.run();
     if (result.ok) onDone(t('team.toast', { ns: 'sessions', name: person.displayName }));
   }
@@ -38,11 +40,14 @@ export function CloseSessionsDialog({ person, onClose, onDone }: CloseSessionsDi
       cancelLabel={t('actions.cancel', { ns: 'common' })}
       tone="danger"
       loading={action.pending}
+      confirmDisabled={cooldown.secondsLeft > 0}
       onConfirm={() => {
         void confirm();
       }}
     >
-      {action.error !== undefined ? <ErrorAlert error={action.error} /> : null}
+      {action.error !== undefined ? (
+        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
     </ConfirmDialog>
   );
 }

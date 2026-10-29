@@ -2,7 +2,7 @@ import type { Passkey } from '@iam/contracts';
 import { ConfirmDialog } from '@iam/ui';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError, useAsyncAction } from '../../../shared/api';
+import { ApiError, useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
 import { ErrorAlert } from '../../../shared/i18n';
 import { revokeMyPasskey } from '../api/passkeys-api';
 
@@ -20,8 +20,10 @@ export type RemovePasskeyDialogProps = {
 export function RemovePasskeyDialog({ passkey, onClose, onDone }: RemovePasskeyDialogProps) {
   const { t } = useTranslation(['security', 'common']);
   const action = useAsyncAction(() => revokeMyPasskey(passkey.id));
+  const cooldown = useRateLimitCooldown(action.error);
 
   async function confirm() {
+    if (cooldown.secondsLeft > 0) return;
     const result = await action.run();
     // 404: ya no existe (la quitaron en otro lado): el resultado buscado ya se dio.
     if (result.ok || (result.error instanceof ApiError && result.error.status === 404)) onDone();
@@ -39,11 +41,14 @@ export function RemovePasskeyDialog({ passkey, onClose, onDone }: RemovePasskeyD
       cancelLabel={t('actions.cancel', { ns: 'common' })}
       tone="danger"
       loading={action.pending}
+      confirmDisabled={cooldown.secondsLeft > 0}
       onConfirm={() => {
         void confirm();
       }}
     >
-      {action.error !== undefined ? <ErrorAlert error={action.error} /> : null}
+      {action.error !== undefined ? (
+        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
     </ConfirmDialog>
   );
 }

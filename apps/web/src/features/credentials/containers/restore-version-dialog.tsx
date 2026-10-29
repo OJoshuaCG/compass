@@ -48,8 +48,9 @@ export function RestoreVersionDialog({
       description={t('history.restore.description', { ns: 'credentials', version })}
       confirmLabel={t('history.restore.confirm', { ns: 'credentials' })}
       cancelLabel={t('actions.cancel', { ns: 'common' })}
-      // Durante la espera por 429 el botón se bloquea reutilizando `loading` (el diálogo no ofrece `disabled`).
-      loading={action.pending || isCoolingDown}
+      // Durante la espera por 429 solo se bloquea confirmar: `loading` impediría además cerrar el diálogo.
+      loading={action.pending}
+      confirmDisabled={isCoolingDown}
       onConfirm={() => {
         void confirm();
       }}

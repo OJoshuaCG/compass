@@ -3,7 +3,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError, useAsyncAction, useFixedOrderTable } from '../../../shared/api';
+import {
+  ApiError,
+  useAsyncAction,
+  useFixedOrderTable,
+  useRateLimitCooldown,
+} from '../../../shared/api';
 import { useMe } from '../../../shared/auth';
 import { ErrorAlert, useErrorMessage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/toast';
@@ -22,6 +27,7 @@ export function InvitationsPanel() {
   const timeZone = useMe()?.user.timezone;
   const [resendingId, setResendingId] = useState<string | null>(null);
   const resend = useAsyncAction((invitation: PendingInvitation) => resendInvitation(invitation.id));
+  const cooldown = useRateLimitCooldown(resend.error);
 
   // Otra persona (o la Raíz) puede haberla aceptado o reenviado: se recarga al volver.
   const table = useFixedOrderTable({
@@ -30,6 +36,8 @@ export function InvitationsPanel() {
   });
 
   async function onResend(invitation: PendingInvitation) {
+    // 429: no se reenvía mientras corre la espera que ya muestra el aviso.
+    if (cooldown.secondsLeft > 0) return;
     setResendingId(invitation.id);
     const result = await resend.run(invitation);
     setResendingId(null);
@@ -46,7 +54,9 @@ export function InvitationsPanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      {resend.error !== undefined ? <ErrorAlert error={resend.error} /> : null}
+      {resend.error !== undefined ? (
+        <ErrorAlert error={resend.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
       <InvitationsTable
         invitations={table.rows}
         status={table.status}
