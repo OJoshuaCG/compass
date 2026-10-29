@@ -32,8 +32,8 @@ Cada porción es vertical (casos de uso + API + pantalla + pruebas + documentaci
 | B1 Acceso efectivo y cuentas: catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo, pantalla de cuentas | S4 (motor), S5, S6, S8 (listado) | directa | backend y pantalla hechos (2026-10-28) |
 | B2 Credenciales: crear, cambiar contraseña con versiones y huella, historial sin contenido, copiar usuario; revelar contraseña con reautenticación, motivo, límite por hora y `no-store`; pantalla de detalle con ocultado a los 30 s | S1, S2, S3, S5, S7 | B2a backend y B2b pantalla hechos (2026-10-28) | hecho (falta revisión humana y e2e) |
 | B3 Compartición y grupos: compartir y revocar por persona y por grupo, caducidad, no compartir más de lo propio, tarea de rotación al revocar tras una revelación, pantalla de compartir | S4 | B3a backend y B3b pantalla hechos (2026-10-28) | hecho (falta revisión humana, selector de grupos y e2e) |
-| B4 2FA en servidor: `RegisterTotpSecret` (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen; pantallas | S9, S10, S12, S13 | B4a backend y B4b pantalla hechos (2026-10-28); falta aviso de 24 h y registro por imagen (B5) | B4a, B4b y B5 hechos (falta revisión humana y e2e) |
-| B5 Registro 2FA por captura de pestaña, importación de Google Authenticator y handoff con celular (SSE) | S9, S11 | pendiente | pendiente (requiere decisión sobre la biblioteca para leer QR) |
+| B4 2FA en servidor: `RegisterTotpSecret` (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen; pantallas | S9, S10, S12, S13 | B4a backend y B4b pantalla hechos (2026-10-28); registro por imagen hecho en B5 (570f301); falta el aviso de 24 h y el límite de intentos al confirmar | hecho en parte (falta aviso de 24 h, límite de intentos, revisión humana y e2e) |
+| B5 Registro 2FA por captura de pestaña, importación de Google Authenticator y handoff con celular (SSE) | S9, S11 | primera pasada hecha (570f301): imagen, portapapeles y captura de pestaña con `jsqr` 1.4.0 | hecho en parte (pendientes: importación de Google Authenticator y entrega por celular, ruta protegida sin encargo; falta revisión humana y e2e) |
 | B6 Búsqueda avanzada, índice ciego por usuario y vistas guardadas | S8 | pendiente | pendiente |
 | B7 Importación CSV | S14 | pendiente | pendiente |
 
@@ -90,7 +90,7 @@ Las cifras marcadas como **propuesta** son un punto de partida para que el equip
 
 ## Decisiones abiertas
 
-- Biblioteca para decodificar códigos QR en el navegador (B4 y B5): no hay ninguna aprobada. Propuesta: una biblioteca pequeña, mantenida y sin dependencias, con versión exacta y la espera de 7 días; la decisión es del equipo.
+- ~~Biblioteca para decodificar códigos QR~~ Resuelta: `jsqr` 1.4.0, aprobada por la persona responsable (B5).
 - Valor por defecto del límite de revelaciones por usuario y hora (el plan dice 30) y qué alerta se emite al superarlo (auditoría crítica; el canal de aviso depende del correo real, pendiente A8).
 - Motivo escrito en revelar: longitud mínima y si es texto libre o lista cerrada (el plan solo dice "motivo").
 

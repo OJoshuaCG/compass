@@ -31,7 +31,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | --- | --- | --- |
 | 0 · Fundaciones | Una base técnica segura, sin pantallas de negocio todavía | **Hecho** (con una observación, ver sección 3) |
 | 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Implementada en lo esencial, con pendientes** (el segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia; faltan los límites de intentos compartidos y otros pendientes; ver sección 4.1) |
-| 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **No iniciada.** Planificada en siete porciones (ver sección 4.2) |
+| 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **En curso.** Las cinco primeras porciones (cuentas, credenciales y revelado, compartición, segundo factor por clave manual y por imagen) ya funcionan; faltan búsqueda, importación y partes del segundo factor (ver sección 4.2) |
 | 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente |
 | Puerta de producción | Prueba de intrusión, simulacro de restauración y procedimientos ensayados | Pendiente |
 | 2 · Inicio de sesión único (OIDC) | Que las herramientas internas usen este sistema para iniciar sesión | Pendiente |
@@ -128,11 +128,11 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 
 **Conclusión.** La fase 1a funciona en lo esencial, pero no se da por cerrada: la entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados, y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y el procedimiento de caída total de los códigos de emergencia (la recuperación de una Raíz que pierde contraseña y factores ya existe), que deben resolverse antes de la puerta de producción. La fase 1b no ha empezado.
 
-### 4.2 Fase 1b: Bóveda y 2FA (no iniciada)
+### 4.2 Fase 1b: Bóveda y 2FA (en curso)
 
-**Estado.** Las tablas y el cifrado existen desde la fase 0, pero todavía no hay casos de uso, pantallas ni reglas de la bóveda en funcionamiento. El trabajo está planificado en siete porciones, en este orden: cuentas y acceso efectivo; credenciales y revelación; compartición y grupos; segundo factor en el servidor; registro del segundo factor por captura, importación y celular; búsqueda avanzada; importación por CSV. Sigue vigente que **no debe cargarse ninguna credencial real** hasta cerrar la fase 1 y pasar la prueba de intrusión externa.
+**Estado.** Las tablas y el cifrado existen desde la fase 0 y las cinco primeras de siete porciones ya tienen reglas y pantallas en funcionamiento: cuentas, credenciales con revelado auditado, compartición y segundo factor por clave manual o imagen del QR. Aún falta que la alerta por superar el límite de revelaciones llegue a la Raíz, el aviso de segundo factor sin confirmar, la importación de Google Authenticator, la entrega por celular, la búsqueda y la importación por CSV. Las porciones, en este orden: cuentas y acceso efectivo; credenciales y revelación; compartición y grupos; segundo factor en el servidor; registro del segundo factor por captura, importación y celular; búsqueda avanzada; importación por CSV. Sigue vigente que **no debe cargarse ninguna credencial real** hasta cerrar la fase 1 y pasar la prueba de intrusión externa.
 
-Decisiones abiertas de esta fase: qué biblioteca se aprobará para leer códigos QR en el navegador; el límite de revelaciones por persona y hora (el plan propone 30) y cómo se avisa al superarlo; y el largo mínimo y el formato del motivo escrito al revelar.
+Decisiones ya tomadas: la biblioteca para leer códigos QR en el navegador; el límite de 30 revelaciones por persona y hora, con aviso a la Raíz; y el motivo escrito al revelar, de texto libre entre 6 y 500 caracteres.
 
 | Qué entrega | Documento donde se explica |
 | --- | --- |

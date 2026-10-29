@@ -1,6 +1,6 @@
 # ADR 0031: Límite de revelaciones por usuario
 
-- **Estado**: Aceptada (2026-10-27). La implementación queda pendiente (ver "Pendiente")
+- **Estado**: Aceptada (2026-10-27). Límite implementado en b3fa673 (B2a); falta la entrega del aviso a la Raíz, que depende del trabajador del ADR 0035 (ver "Pendiente")
 - **Fecha**: 2026-10-27
 - **Referencias**: [`plan.md`](../../plan.md); [ADR 0022](0022-audit-of-denials-in-independent-transaction.md); [ADR 0023](0023-audit-advisory-lock-and-long-transactions.md); [ADR 0024](0024-audit-retention-vs-revoke-delete.md); `docs/handoff.md` §5 (límite de revelaciones).
 

@@ -6,9 +6,9 @@ Documento de continuidad. Responde a tres preguntas: **dónde estamos**, **cómo
 
 | Fase | Estado | Evidencia |
 | --- | --- | --- |
-| 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 al cierre de la fase 0 (hoy el índice llega al 0038; el 0023 se aceptó el 2026-10-27 y el 0024 sigue como propuesta) |
+| 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 al cierre de la fase 0 (hoy el índice llega al 0041; el 0023 se aceptó el 2026-10-27 y el 0024 sigue como propuesta) |
 | 1a · Identidad | **Funcionalmente completa; faltan piezas de cierre** (sección 4, pasos 2 a 6) | Invitación → contraseña → segundo factor obligatorio (TOTP en el alta; passkey opcional después) → sesión → reautenticación; matriz de jerarquía y 27 permisos; directorio; pantallas; pruebas de punta a punta incluso en navegador real. Cerradas en el bloque A: A1 (gestión de personas), A2 (passkeys), A3 (alta de organizaciones y códigos de emergencia de la Raíz), A4 (cambio obligatorio de la contraseña inicial de la Raíz), A5 (sesiones), A6 (roles e invitaciones), A7 (idempotencia) y A10 (reautenticación en navegador real). A8 en parte (correo SMTP del dominio propio hecho; Redis pendiente). A9 (CI en GitHub) despriorizada por el dueño |
-| 1b · Bóveda y 2FA | **No iniciada.** Planificada en `odd/tasks/phase-1b-vault.md` (porciones B1 a B7 y tres decisiones abiertas) | Diseño de datos y cifrado ya listos (tablas, cifrado de secretos); falta toda la lógica de negocio y las pantallas |
+| 1b · Bóveda y 2FA | **En curso: B1 a B5 implementadas** (la última subida al remoto es 570f301); faltan B6, B7 y los pendientes de B4 y B5. Plan en `odd/tasks/phase-1b-vault.md` | Hecho en backend y pantalla: cuentas (7998e76, feb19f7), credenciales y revelado (b3fa673, b7a5186), compartición (44fb5c2, 495c6cb) y segundo factor por clave manual e imagen del QR (9f5f573, 568a3d1, 570f301). Falta: entrega de la alerta de revelaciones a la Raíz (solo se escribe en `outbox_events`, sin consumidor), aviso de 24 h y límite de intentos al confirmar el segundo factor, importación de Google Authenticator, entrega por celular, búsqueda, CSV, pruebas e2e de navegador y revisión humana de las pruebas de autorización, aislamiento y criptografía |
 | 1c · Gobernanza | No iniciada | La auditoría en cadena ya existe; faltan bajas con rotación, salud, acceso temporal y alertas |
 | Puerta de producción | No iniciada | Exige prueba de penetración externa; **nada de esto debe cargar credenciales reales todavía** |
 | 2 a 7 | No iniciadas | Ver el plan técnico |
@@ -56,7 +56,7 @@ Tamaños relativos: **S** (días), **M** (una a dos semanas), **L** (varias sema
 
 ### Qué sigue, en orden
 
-1. **Fase 1b, porciones B1 a B7** (bloque B, abajo; especificaciones en `odd/tasks/phase-1b-vault.md`). Sus tres decisiones abiertas (sección 5) se resuelven antes de la porción que las usa: el límite de revelaciones por hora con su alerta y las reglas del motivo escrito antes de B2, y la biblioteca para leer códigos QR antes de B4 y B5. El ADR 0023 (bloqueo de auditoría en transacciones largas) ya se aceptó el 2026-10-27.
+1. **Fase 1b, lo que resta** (bloque B, abajo; especificaciones en `odd/tasks/phase-1b-vault.md`): B1 a B5 ya están implementadas; quedan B6 (búsqueda), B7 (CSV), la importación de Google Authenticator y la entrega por celular, y los pendientes anotados en el bloque. Sus decisiones (sección 5) ya se tomaron. El ADR 0023 (bloqueo de auditoría en transacciones largas) ya se aceptó el 2026-10-27.
 2. **Redis para los límites de intentos** (A8, parte pendiente). Hasta entonces, una sola instancia ([runbook](runbooks/single-instance-operation.md)).
 3. **Trabajo de purga** de las filas vencidas de `idempotency_keys` y `webauthn_challenges` (necesita el camino para recorrer organizaciones, `docs/database.md` §7.5, y un ADR).
 4. ~~Procedimiento de operaciones para la Raíz que olvida su contraseña y pierde sus factores~~ **Hecho (2026-10-27, [ADR 0037](adr/0037-root-recovery-dual-custody.md)).** Queda el runbook de caída total (códigos agotados), pendiente (TODO L3).
@@ -82,17 +82,17 @@ La bóveda depende de personas gestionables, de sesiones controlables y de un ac
 | A9 | **Ejecutar el CI en GitHub** y corregir lo que falle; añadir los escáneres de seguridad que pide el plan | S | **Despriorizada por el dueño (2026-10-27), no bloqueada.** El repositorio ya tiene remoto, pero el dueño la consideró "no primordial ni requerida por nosotros". El CI nunca ha corrido allí |
 | A10 | **Reautenticación en navegador real** y reautenticación con código de recuperación | S | **Hecha en lo esencial (2026-10-27).** La suite de Chrome (hoy 10 pruebas) cubre cambiar rango, el diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción. **No se soporta** la reautenticación con código de recuperación (solo TOTP); sigue como decisión abierta |
 
-### Bloque B: Fase 1b, bóveda y 2FA (no iniciada)
+### Bloque B: Fase 1b, bóveda y 2FA (B1 a B5 implementadas)
 
-Las porciones son verticales (casos de uso, API, pantalla, pruebas y documentación) y siguen el orden de dependencia de `odd/tasks/phase-1b-vault.md`, donde están sus especificaciones:
+Estado a 2026-10-28: B1 a B5 tienen backend y pantalla en `main` (revisión humana de pruebas y e2e pendientes en todas); B6 y B7 no empezaron. Las porciones son verticales (casos de uso, API, pantalla, pruebas y documentación) y siguen el orden de dependencia de `odd/tasks/phase-1b-vault.md`, donde están sus especificaciones:
 
 | Porción | Contenido |
 | --- | --- |
 | B1 | Acceso efectivo y cuentas: catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo y pantalla de cuentas |
 | B2 | Credenciales: crear, cambiar contraseña con versiones y huella, historial sin contenido, copiar usuario; revelar contraseña con reautenticación, motivo, límite por hora y ocultado a los 30 s |
 | B3 | Compartición y grupos: por persona y por grupo, caducidad, no compartir más de lo propio, tarea de rotación al revocar tras una revelación |
-| B4 | Segundo factor en el servidor: registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen |
-| B5 | Registro por captura de pestaña, importación de Google Authenticator y entrega por celular (requiere decidir la biblioteca para leer QR) |
+| B4 | Segundo factor en el servidor: registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen. Hecho salvo el aviso de 24 h y el límite de intentos al confirmar |
+| B5 | Registro por captura de pestaña, importación de Google Authenticator y entrega por celular. Hecho: imagen, portapapeles y captura de pestaña con `jsqr` 1.4.0 (570f301); pendientes: Google Authenticator y celular |
 | B6 | Búsqueda avanzada, índice ciego por usuario y vistas guardadas |
 | B7 | Importación por CSV |
 
@@ -133,15 +133,15 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | Índice ciego derivado de la clave de datos | **Decidido 2026-10-27 ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)):** se mantiene derivado de la DEK; el recálculo va en el job de recifrado | Clave estable por organización queda como plan B |
 | ADR 0023 (bloqueo de auditoría) | Aceptado el 2026-10-27; `lock_timeout` de 5 s con falla cerrada implementado (`AUDIT.LOCK_TIMEOUT`, 503). Faltan medir la latencia p95 y decidir la agrupación de negaciones | Medir p95 con escritores concurrentes; el evento de auditoría debe seguir siendo lo último de cada caso de uso |
 | ADR 0024 (retención de auditoría) | Propuesto; plazo decidido el 2026-10-28: 6 meses en línea y archivo de al menos 2 años (legal lo valida) | Falta elegir la opción de expiración y el particionado antes de la auditoría con retención (fase 1c) |
-| Versión de PostgreSQL | Pruebas con la 17 | **Decidido 2026-10-28:** pasar a la 18, la estable más reciente (la 19 sigue en candidata de versión, disponibilidad prevista el 19 de noviembre de 2026). Pendiente: subir la imagen de las pruebas y verificar las migraciones |
+| Versión de PostgreSQL | Pruebas con la 17 | **Decidido 2026-10-28:** pasar a la 18, la estable más reciente (la 19 sigue en candidata de versión, disponibilidad prevista el 19 de noviembre de 2026). Hecho: pruebas y entorno local en la 18 (baf24a2). No hay registro de una corrida completa de las migraciones sobre la 18 |
 | Proveedor de inicio de sesión único sobre Fastify | Sin probar | Hacer una prueba corta antes de la fase 2 |
 
-**Decisiones abiertas de la fase 1b** (de `odd/tasks/phase-1b-vault.md`; ninguna está resuelta):
+**Decisiones abiertas de la fase 1b** (de `odd/tasks/phase-1b-vault.md`; las cuatro están decididas):
 
 | Tema | Pregunta | Se necesita antes de |
 | --- | --- | --- |
-| Biblioteca para decodificar códigos QR en el navegador | **Propuesta 2026-10-27 (B7):** jsQR, versión exacta y espera de 7 días, cargada con import dinámico en la ruta de registro 2FA para respetar el presupuesto de JS inicial. Sin mantenimiento desde 2021 (riesgo aceptado). Los datos de versión no se han verificado: confirmarlos antes de aprobar la dependencia | B4 y B5 |
-| Límite de revelaciones por usuario y hora | **Decidido 2026-10-27 ([ADR 0031](adr/0031-reveal-rate-limit-per-user.md)):** 30 por hora; aviso por correo a la Raíz | B2 |
+| Biblioteca para decodificar códigos QR en el navegador | **Resuelta:** `jsqr` 1.4.0, versión exacta, aprobada por la persona responsable e integrada en 570f301. Sin mantenimiento desde 2021 (riesgo aceptado) | B4 y B5 |
+| Límite de revelaciones por usuario y hora | **Decidido 2026-10-27 ([ADR 0031](adr/0031-reveal-rate-limit-per-user.md)):** 30 por hora; aviso por correo a la Raíz. El límite está implementado (b3fa673); el aviso solo llega a `outbox_events`, sin consumidor (ADR 0035 pendiente) | B2 |
 | Motivo escrito al revelar | **Decidido 2026-10-28 (reemplaza la decisión B3 del 2026-10-27):** texto libre obligatorio de 6 a 500 caracteres, sin lista cerrada. La auditoría es append-only: el texto libre no se puede purgar, por eso el motivo se acota y la pantalla avisa de no pegar secretos | B2 |
 | Recorte de la primera entrega de 2FA | **Decidido 2026-10-27 (B8):** v1 con clave manual, imagen y captura de pestaña; importación de Google Authenticator y entrega por celular pasan a v1.1. Enmienda el ADR 0017. Una futura `Permissions-Policy` debe permitir `display-capture=(self)` | N3 |
 
@@ -189,7 +189,7 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 | --- | --- |
 | ¿Qué hace el producto y qué reglas aplica? | `docs/business/` |
 | ¿Cómo está construido? | `docs/architecture.md`, `docs/backend.md`, `docs/frontend.md`, `docs/database.md` |
-| ¿Por qué se decidió así? | `docs/adr/` (0001 a 0040) |
+| ¿Por qué se decidió así? | `docs/adr/` (0001 a 0041) |
 | ¿Qué amenazas se contemplan? | `docs/threat-model.md` |
 | ¿Cómo se opera el sistema y qué hacer ante un incidente? | `docs/runbooks/` (alta de organizaciones, código de emergencia, correo, una sola instancia e incidentes; borradores, sin ensayar) |
 | ¿Qué se hizo y qué se encontró en cada tarea? | `odd/tasks/` |
