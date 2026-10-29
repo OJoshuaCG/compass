@@ -7,7 +7,7 @@ Guarda secretos reales de una empresa: ante la duda, la seguridad gana a la velo
 - Verificar todo, en este orden: `pnpm format:check`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`.
 - Un solo paquete: `pnpm --filter <paquete> test`. En `@iam/api` hay `test:unit` (sin contenedores) y `test:integration`.
 - Las pruebas de integración y `pnpm e2e` necesitan Podman o Docker. Con Podman exporta `DOCKER_HOST` apuntando al socket de usuario y `TESTCONTAINERS_RYUK_DISABLED=true`.
-- `pnpm e2e` usa el Chrome instalado en el sistema. `pnpm stack` levanta la plataforma completa en local para probar a mano.
+- `pnpm e2e` usa el Chrome instalado en el sistema y arranca la pila desde `apps/api/dist` y `apps/web/dist`: ejecuta `pnpm build` antes, o probará una versión vieja. `pnpm stack` levanta la plataforma completa en local para probar a mano.
 
 ## Dónde está la verdad
 

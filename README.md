@@ -63,7 +63,7 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | --- | --- |
 | Verificar formato, tipos y reglas de estilo | `pnpm format:check`, `pnpm typecheck`, `pnpm lint` |
 | Ejecutar las pruebas del sistema | `pnpm test` |
-| Ejecutar las pruebas en navegador real | `pnpm e2e` |
+| Ejecutar las pruebas en navegador real | `pnpm build` y luego `pnpm e2e` |
 | Trabajar solo en la interfaz web con recarga en vivo | `pnpm --filter @iam/web dev` |
 | Dar de alta una organización con su Raíz (operaciones, con una conexión de administración a la base de datos); imprime una sola vez la contraseña inicial y los ocho códigos de emergencia, que hay que entregar a dos custodios. Pasos en el [runbook de alta](docs/runbooks/provision-organization.md) | `pnpm --filter @iam/api provision` |
 | Recuperar a la Raíz que perdió contraseña y factores (exige a los dos custodios). Pasos en el [runbook de recuperación](docs/runbooks/recover-root.md) | `pnpm --filter @iam/api recover-root` |
