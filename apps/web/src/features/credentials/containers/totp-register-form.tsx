@@ -1,5 +1,5 @@
 import { ErrorCode, type Credential } from '@iam/contracts';
-import { Alert, Button, FormField, Input, PasswordInput } from '@iam/ui';
+import { Alert, Button, FormField, Input, PasswordInput, Tabs } from '@iam/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,10 @@ import { ApiError, useAsyncAction, useRateLimitCooldown } from '../../../shared/
 import { ErrorAlert } from '../../../shared/i18n';
 import { registerTotp } from '../api/totp-api';
 import { buildOtpauthUri, TOTP_PREVIOUS_SECRET_RETENTION_DAYS } from '../model/totp-model';
+
+import { TotpQrReader } from './totp-qr-reader';
+
+type RegisterMethod = 'key' | 'image';
 
 export type TotpRegisterFormProps = {
   credential: Credential;
@@ -18,10 +22,11 @@ export type TotpRegisterFormProps = {
 };
 
 /**
- * Registro por clave manual: la persona pega el enlace `otpauth://` o la clave Base32 que la
- * plataforma muestra en "¿No puedes escanear el código?". No se lee ninguna imagen. La clave vive
- * solo en el estado de este formulario y se descarta al enviar o al desmontar; nunca pasa por
- * Query, la URL, el almacenamiento ni la consola.
+ * Registro del segundo factor por dos métodos que terminan en el mismo envío: la clave manual (la
+ * persona pega el enlace `otpauth://` o la clave Base32 que la plataforma muestra en "¿No puedes
+ * escanear el código?") o la imagen del QR, que se lee en el navegador. La clave o el enlace viven
+ * solo en el estado de este formulario y se descartan al enviar, al cambiar de método o al
+ * desmontar; nunca pasan por Query, la URL, el almacenamiento ni la consola.
  */
 export function TotpRegisterForm({
   credential,
@@ -33,24 +38,36 @@ export function TotpRegisterForm({
   const [secretOrUri, setSecretOrUri] = useState('');
   const [issuer, setIssuer] = useState('');
   const [account, setAccount] = useState('');
+  const [method, setMethod] = useState<RegisterMethod>('key');
+  // Enlace leído de la imagen. Se descarta al cambiar de método: el lector se desmonta y su aviso
+  // de "QR leído" desaparece, así que el enlace no puede quedar enviable sin que se vea.
+  const [qrUri, setQrUri] = useState<string | null>(null);
   // La validación empieza al enviar; después responde en vivo a cada cambio.
   const [submitted, setSubmitted] = useState(false);
   const action = useAsyncAction((otpauthUri: string) => registerTotp(credential.id, otpauthUri));
   const cooldown = useRateLimitCooldown(action.error);
 
+  const isImageMethod = method === 'image';
+  // El enlace del QR pasa por la misma validación del contrato que el pegado a mano.
   const candidateUri = buildOtpauthUri({
-    secretOrUri,
-    issuer,
-    account,
+    secretOrUri: isImageMethod ? (qrUri ?? '') : secretOrUri,
+    issuer: isImageMethod ? '' : issuer,
+    account: isImageMethod ? '' : account,
     fallbackLabel: credential.label,
   });
   const apiError = action.error instanceof ApiError ? action.error : undefined;
   const serverRejectedUri = apiError?.code === ErrorCode.CREDENTIAL_TOTP_URI_INVALID;
-  const clientRejectedUri = submitted && candidateUri === null;
+  // Con imagen no hay campo donde marcar el error: se muestra en el aviso general.
+  const fieldShowsUriError = !isImageMethod;
+  const clientRejectedUri = submitted && fieldShowsUriError && candidateUri === null;
   const secretError =
-    clientRejectedUri || serverRejectedUri
+    clientRejectedUri || (serverRejectedUri && fieldShowsUriError)
       ? t('CREDENTIAL.TOTP_URI_INVALID', { ns: 'errors' })
       : undefined;
+
+  function resetActionError() {
+    if (action.error !== undefined) action.reset();
+  }
 
   async function submit() {
     setSubmitted(true);
@@ -58,29 +75,12 @@ export function TotpRegisterForm({
     const result = await action.run(candidateUri);
     if (!result.ok) return;
     setSecretOrUri('');
+    setQrUri(null);
     onRegistered();
   }
 
-  return (
-    <form
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-      className="flex flex-col gap-4"
-    >
-      {isReRegistration ? (
-        <Alert tone="info">
-          {t('totp.register.reRegisterNote', {
-            ns: 'credentials',
-            days: TOTP_PREVIOUS_SECRET_RETENTION_DAYS,
-          })}
-        </Alert>
-      ) : null}
-      {action.error !== undefined && !serverRejectedUri ? (
-        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
-      ) : null}
+  const keyFields = (
+    <div className="flex flex-col gap-4">
       <FormField
         label={t('totp.register.secret', { ns: 'credentials' })}
         help={t('totp.register.secretHelp', { ns: 'credentials' })}
@@ -98,7 +98,7 @@ export function TotpRegisterForm({
             invalid={controlProps['aria-invalid'] === true}
             onChange={(event) => {
               setSecretOrUri(event.target.value);
-              if (action.error !== undefined) action.reset();
+              resetActionError();
             }}
           />
         )}
@@ -130,13 +130,65 @@ export function TotpRegisterForm({
           />
         )}
       </FormField>
+    </div>
+  );
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+      className="flex flex-col gap-4"
+    >
+      {isReRegistration ? (
+        <Alert tone="info">
+          {t('totp.register.reRegisterNote', {
+            ns: 'credentials',
+            days: TOTP_PREVIOUS_SECRET_RETENTION_DAYS,
+          })}
+        </Alert>
+      ) : null}
+      {action.error !== undefined && (!serverRejectedUri || isImageMethod) ? (
+        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
+      <Tabs
+        label={t('totp.register.method.label', { ns: 'credentials' })}
+        tabs={[
+          { id: 'key', label: t('totp.register.method.key', { ns: 'credentials' }) },
+          { id: 'image', label: t('totp.register.method.image', { ns: 'credentials' }) },
+        ]}
+        value={method}
+        onValueChange={(next) => {
+          setMethod(next === 'image' ? 'image' : 'key');
+          setQrUri(null);
+          setSubmitted(false);
+          resetActionError();
+        }}
+      >
+        {isImageMethod ? (
+          <TotpQrReader
+            onResult={(uri) => {
+              setQrUri(uri);
+              resetActionError();
+            }}
+          />
+        ) : (
+          keyFields
+        )}
+      </Tabs>
       <div className="flex justify-end gap-3">
         {onCancel === undefined ? null : (
           <Button variant="secondary" onClick={onCancel}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>
         )}
-        <Button type="submit" loading={action.pending} disabled={cooldown.secondsLeft > 0}>
+        <Button
+          type="submit"
+          loading={action.pending}
+          disabled={cooldown.secondsLeft > 0 || (isImageMethod && candidateUri === null)}
+        >
           {t('totp.register.submit', { ns: 'credentials' })}
         </Button>
       </div>
