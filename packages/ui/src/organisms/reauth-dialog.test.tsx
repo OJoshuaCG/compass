@@ -29,6 +29,28 @@ describe('ReauthDialog', () => {
     expect(onSubmit).toHaveBeenCalledWith('123456');
   });
 
+  it('offers a passkey only when the caller provides one', async () => {
+    const user = userEvent.setup();
+    const onUse = vi.fn();
+    const { rerender } = render(
+      <ReauthDialog open labels={labels} onSubmit={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(screen.queryByRole('button', { name: 'Use a passkey' })).not.toBeInTheDocument();
+
+    rerender(
+      <ReauthDialog
+        open
+        labels={labels}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        passkey={{ label: 'Use a passkey', onUse }}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Use a passkey' }));
+
+    expect(onUse).toHaveBeenCalledTimes(1);
+  });
+
   it('cancels with the button and with Escape', async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();

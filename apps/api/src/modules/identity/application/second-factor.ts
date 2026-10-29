@@ -6,6 +6,8 @@
  * - Un código TOTP no se puede reutilizar (se exige un paso de tiempo mayor al último aceptado).
  * - Los códigos de recuperación se guardan como SHA-256 y se consumen una sola vez.
  * - Intentos fallidos: retraso progresivo y bloqueo temporal por usuario.
+ * - Toda verificación que cambia el estado del segundo factor de la sesión rota su token en la misma
+ *   transacción y lo devuelve: quien conociera el token de antes de la elevación no lo conserva.
  */
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
 import type { Clock, RequestContextReader, Result, UserId } from '../../../shared/kernel/index.js';
@@ -48,6 +50,17 @@ export interface SecondFactorDeps {
   readonly passkeys: PasskeyRepository;
   readonly challenges: ChallengeStore;
   readonly webauthn: WebAuthnEngine;
+  /** Rota el token de la sesión al cumplir el segundo factor (fijación de sesión, TODO A2). */
+  readonly tokens: SessionTokenRotator;
+}
+
+export interface SessionTokenRotator {
+  rotateToken(sessionId: string): Promise<string>;
+}
+
+/** Valor de la cookie nueva: se muestra una sola vez, igual que al iniciar sesión. */
+export interface RotatedSession {
+  readonly sessionToken: string;
 }
 
 /** Vigencia del desafío de una ceremonia WebAuthn. */
@@ -59,6 +72,12 @@ const decoder = new TextDecoder();
 type AdminContact = { readonly email: string; readonly locale: 'es-MX' | 'en-US' };
 
 const mfaInvalid = (): DomainError => new DomainError('AUTH.MFA_INVALID', 'Invalid code');
+
+/** Un fallo al pedir o verificar la reautenticación no se confunde con uno de inicio de sesión. */
+const failureAction = (
+  purpose: 'authentication' | 'reauthentication',
+): 'auth.mfa_failed' | 'auth.reauth_failed' =>
+  purpose === 'reauthentication' ? 'auth.reauth_failed' : 'auth.mfa_failed';
 
 export class SecondFactor {
   constructor(private readonly deps: SecondFactorDeps) {}
@@ -93,8 +112,10 @@ export class SecondFactor {
    * verificado, el usuario pasa a activo, se emiten los códigos de recuperación (una sola vez) y
    * la sesión queda con el segundo factor cumplido.
    */
-  confirmTotpEnrollment(code: string): Promise<Result<{ recoveryCodes: string[] }, DomainError>> {
-    const { uow, directory, credentials, sessions, primitives, audit, clock } = this.deps;
+  confirmTotpEnrollment(
+    code: string,
+  ): Promise<Result<RotatedSession & { recoveryCodes: string[] }, DomainError>> {
+    const { uow, directory, credentials, sessions, tokens, primitives, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, organizationId, sessionId, requestId } = await this.currentUser();
       const blocked = await this.checkThrottle(user.id);
@@ -119,15 +140,16 @@ export class SecondFactor {
       );
       if (user.status === 'invited') await directory.setStatus(user.id, 'active');
       await sessions.setMfa(sessionId, now);
+      const sessionToken = await tokens.rotateToken(sessionId);
       await this.clearFailures(user.id);
       await audit.record(this.event('auth.totp_enrolled', 'success', user.id, requestId));
-      return ok({ recoveryCodes });
+      return ok({ recoveryCodes, sessionToken });
     });
   }
 
   /** Completa el inicio de sesión con el código del autenticador. */
-  verifyTotp(code: string): Promise<Result<void, DomainError>> {
-    const { uow, credentials, sessions, audit, clock } = this.deps;
+  verifyTotp(code: string): Promise<Result<RotatedSession, DomainError>> {
+    const { uow, credentials, sessions, tokens, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, organizationId, sessionId, requestId } = await this.currentUser();
       const blocked = await this.checkThrottle(user.id);
@@ -141,9 +163,10 @@ export class SecondFactor {
       if (checked.value === null) return this.failed(user.id, requestId);
 
       await sessions.setMfa(sessionId, clock.now());
+      const sessionToken = await tokens.rotateToken(sessionId);
       await this.clearFailures(user.id);
       await audit.record(this.event('auth.mfa_verified', 'success', user.id, requestId));
-      return ok(undefined);
+      return ok({ sessionToken });
     });
   }
 
@@ -155,25 +178,33 @@ export class SecondFactor {
    * evento crítico y avisa a los Administradores. No concede una sesión completa: hay que registrar
    * un factor nuevo. Sigue exigiendo la contraseña (esta ruta solo acepta una sesión a medias).
    */
-  async verifyRecoveryCode(code: string): Promise<Result<void, DomainError>> {
+  async verifyRecoveryCode(code: string): Promise<Result<RotatedSession, DomainError>> {
     const { uow } = this.deps;
     const outcome = await uow.run(() => this.consumeRecoveryCode(code));
     if (!outcome.ok) return err(outcome.error);
     // El aviso sale DESPUÉS de confirmar: no retiene la transacción ni anuncia un restablecimiento
     // que no llegó a ocurrir.
-    if (outcome.value !== null) await this.alertAdministrators(outcome.value);
-    return ok(undefined);
+    if (outcome.value.alert !== null) {
+      try {
+        await this.alertAdministrators(outcome.value.alert);
+      } catch {
+        // El token ya rotó y el restablecimiento ya se confirmó: si el aviso falla, la persona debe
+        // recibir igualmente su cookie nueva o quedaría fuera con el código ya consumido.
+      }
+    }
+    return ok({ sessionToken: outcome.value.sessionToken });
   }
 
-  private async consumeRecoveryCode(
-    code: string,
-  ): Promise<
+  private async consumeRecoveryCode(code: string): Promise<
     Result<
-      { requestId: string; usedAt: Date; recipients: readonly AdminContact[] } | null,
+      {
+        sessionToken: string;
+        alert: { requestId: string; usedAt: Date; recipients: readonly AdminContact[] } | null;
+      },
       DomainError
     >
   > {
-    const { directory, credentials, sessions, primitives, audit, clock } = this.deps;
+    const { directory, credentials, sessions, tokens, primitives, audit, clock } = this.deps;
     const { user, sessionId, requestId } = await this.currentUser();
     const blocked = await this.checkThrottle(user.id);
     if (blocked !== null) return err(blocked);
@@ -185,8 +216,9 @@ export class SecondFactor {
     await this.clearFailures(user.id);
     if (kind === 'recovery') {
       await sessions.setMfa(sessionId, now);
+      const sessionToken = await tokens.rotateToken(sessionId);
       await audit.record(this.event('auth.recovery_code_used', 'success', user.id, requestId));
-      return ok(null);
+      return ok({ sessionToken, alert: null });
     }
     // Código de emergencia: la persona queda sin factor y de vuelta en el alta del 2FA, también en la
     // sesión que lo usó (aunque ya estuviera completa).
@@ -194,12 +226,14 @@ export class SecondFactor {
     await directory.setStatus(user.id, 'invited');
     await sessions.revokeOthersOfUser(user.id, sessionId, now);
     await sessions.clearMfa(sessionId);
+    // También rota: la sesión cambia de estado de seguridad y el token anterior no debe sobrevivirlo.
+    const sessionToken = await tokens.rotateToken(sessionId);
     const recipients = await directory.listAdministratorContacts();
     await audit.record({
       ...this.event('auth.emergency_code_used', 'success', user.id, requestId),
       metadata: { alertRecipients: recipients.length },
     });
-    return ok({ requestId, usedAt: now, recipients });
+    return ok({ sessionToken, alert: { requestId, usedAt: now, recipients } });
   }
 
   /**
@@ -207,57 +241,50 @@ export class SecondFactor {
    * Sin llaves registradas responde igual que un fallo, para no revelar si las tiene.
    */
   beginPasskeyLogin(): Promise<Result<{ options: unknown }, DomainError>> {
-    const { uow, passkeys, challenges, webauthn, clock } = this.deps;
-    return uow.run(async () => {
-      const { user, sessionId, requestId } = await this.currentUser();
-      // Pedir el desafío no cuenta como intento (solo la verificación): el límite por IP ya acota
-      // cuántos se piden, y quien falla al verificar queda frenado por el contador de la persona.
-      const live = await passkeys.listLive(user.id);
-      if (live.length === 0) return this.failed(user.id, requestId);
-      const { options, challenge } = await webauthn.authenticationOptions({
-        allowed: live.map((p) => ({ id: p.credentialId, transports: p.transports })),
-      });
-      await challenges.issue({
-        userId: user.id,
-        sessionId,
-        purpose: 'authentication',
-        challenge,
-        expiresAt: new Date(clock.now().getTime() + PASSKEY_CHALLENGE_MS),
-      });
-      return ok({ options });
-    });
+    return this.beginPasskeyCeremony('authentication');
+  }
+
+  /** Reautenticación con llave de acceso, paso 1 (ADR 0033): desafío con su propia finalidad. */
+  beginPasskeyReauthentication(): Promise<Result<{ options: unknown }, DomainError>> {
+    return this.beginPasskeyCeremony('reauthentication');
   }
 
   /** Paso 2: verifica la firma de la llave (con verificación de la persona) y cumple el segundo factor. */
-  verifyPasskey(response: unknown): Promise<Result<void, DomainError>> {
-    const { uow, passkeys, challenges, webauthn, sessions, audit, clock } = this.deps;
+  verifyPasskey(response: unknown): Promise<Result<RotatedSession, DomainError>> {
+    const { uow, sessions, tokens, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, sessionId, requestId } = await this.currentUser();
       const blocked = await this.checkThrottle(user.id);
       if (blocked !== null) return err(blocked);
       const now = clock.now();
-      const expected = await challenges.consume(user.id, sessionId, 'authentication', now);
-      const presented = (response as { id?: unknown }).id;
-      const credential =
-        typeof presented === 'string'
-          ? (await passkeys.listLive(user.id)).find((p) => p.credentialId === presented)
-          : undefined;
-      if (expected === null || credential === undefined) return this.failed(user.id, requestId);
-      const verified = await webauthn.verifyAuthentication({
-        response,
-        expectedChallenge: expected,
-        credential,
-      });
-      // Un contador que no avanza indica un clon o una repetición: se rechaza como cualquier fallo.
-      if (
-        verified === null ||
-        !(await passkeys.recordUse(credential.id, verified.newCounter, now))
-      ) {
+      if (!(await this.verifyPasskeyAssertion(user.id, sessionId, 'authentication', response))) {
         return this.failed(user.id, requestId);
       }
       await sessions.setMfa(sessionId, now);
+      const sessionToken = await tokens.rotateToken(sessionId);
       await this.clearFailures(user.id);
       await audit.record(this.event('auth.passkey_login', 'success', user.id, requestId));
+      return ok({ sessionToken });
+    });
+  }
+
+  /**
+   * Reautenticación con llave de acceso, paso 2 (ADR 0033): misma verificación que el inicio de sesión
+   * (firma, verificación de la persona y contador) pero con desafío propio, y solo renueva la ventana
+   * de reautenticación. Nunca acepta códigos de recuperación ni de emergencia.
+   */
+  reauthenticateWithPasskey(response: unknown): Promise<Result<void, DomainError>> {
+    const { uow, sessions, audit, clock } = this.deps;
+    return uow.run(async () => {
+      const { user, sessionId, requestId } = await this.currentUser();
+      const blocked = await this.checkThrottle(user.id);
+      if (blocked !== null) return err(blocked);
+      if (!(await this.verifyPasskeyAssertion(user.id, sessionId, 'reauthentication', response))) {
+        return this.failed(user.id, requestId, 'auth.reauth_failed');
+      }
+      await sessions.setReauth(sessionId, clock.now());
+      await this.clearFailures(user.id);
+      await audit.record(this.event('auth.reauthenticated_passkey', 'success', user.id, requestId));
       return ok(undefined);
     });
   }
@@ -285,6 +312,62 @@ export class SecondFactor {
   }
 
   // ---------------------------------------------------------------------------------------------
+
+  /**
+   * Emite el desafío WebAuthn de una ceremonia de autenticación. Sin llaves registradas responde igual
+   * que un fallo, para no revelar si la persona las tiene.
+   */
+  private beginPasskeyCeremony(
+    purpose: 'authentication' | 'reauthentication',
+  ): Promise<Result<{ options: unknown }, DomainError>> {
+    const { uow, passkeys, challenges, webauthn, clock } = this.deps;
+    return uow.run(async () => {
+      const { user, sessionId, requestId } = await this.currentUser();
+      // Pedir el desafío no cuenta como intento (solo la verificación): el límite por IP ya acota
+      // cuántos se piden, y quien falla al verificar queda frenado por el contador de la persona.
+      const live = await passkeys.listLive(user.id);
+      if (live.length === 0) return this.failed(user.id, requestId, failureAction(purpose));
+      const { options, challenge } = await webauthn.authenticationOptions({
+        allowed: live.map((p) => ({ id: p.credentialId, transports: p.transports })),
+      });
+      await challenges.issue({
+        userId: user.id,
+        sessionId,
+        purpose,
+        challenge,
+        expiresAt: new Date(clock.now().getTime() + PASSKEY_CHALLENGE_MS),
+      });
+      return ok({ options });
+    });
+  }
+
+  /**
+   * Consume el desafío de esa finalidad y verifica la firma con verificación de la persona. Un contador
+   * que no avanza indica un clon o una repetición: se rechaza como cualquier otro fallo.
+   */
+  private async verifyPasskeyAssertion(
+    userId: UserId,
+    sessionId: string,
+    purpose: 'authentication' | 'reauthentication',
+    response: unknown,
+  ): Promise<boolean> {
+    const { passkeys, challenges, webauthn, clock } = this.deps;
+    const now = clock.now();
+    const expected = await challenges.consume(userId, sessionId, purpose, now);
+    const presented = (response as { id?: unknown }).id;
+    const credential =
+      typeof presented === 'string'
+        ? (await passkeys.listLive(userId)).find((p) => p.credentialId === presented)
+        : undefined;
+    if (expected === null || credential === undefined) return false;
+    const verified = await webauthn.verifyAuthentication({
+      response,
+      expectedChallenge: expected,
+      credential,
+    });
+    if (verified === null) return false;
+    return passkeys.recordUse(credential.id, verified.newCounter, now);
+  }
 
   /**
    * Mejor esfuerzo, ya confirmado el restablecimiento: un fallo del correo no debe dejar a la Raíz sin
@@ -389,12 +472,17 @@ export class SecondFactor {
     return this.deps.attempts.reset(`mfa:${userId}`);
   }
 
-  /** Código incorrecto: se cuenta el fallo, se audita y se responde lo mismo siempre. */
-  private async failed(userId: UserId, requestId: string): Promise<Result<never, DomainError>> {
+  /**
+   * Código incorrecto: se cuenta el fallo, se audita y se responde lo mismo siempre. La reautenticación
+   * con llave de acceso usa su propia acción para distinguirla de un fallo de inicio de sesión.
+   */
+  private async failed(
+    userId: UserId,
+    requestId: string,
+    action: 'auth.mfa_failed' | 'auth.reauth_failed' = 'auth.mfa_failed',
+  ): Promise<Result<never, DomainError>> {
     const { audit } = this.deps;
-    await audit.record(
-      this.event('auth.mfa_failed', 'failure', userId, requestId, 'AUTH.MFA_INVALID'),
-    );
+    await audit.record(this.event(action, 'failure', userId, requestId, 'AUTH.MFA_INVALID'));
     return err(mfaInvalid());
   }
 

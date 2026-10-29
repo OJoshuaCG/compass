@@ -376,3 +376,85 @@ describe('a person without passkeys, and revoking them', () => {
     ).toBe(401);
   });
 });
+
+describe('re-authenticating with a passkey (ADR 0033)', () => {
+  it('renews the re-authentication window with a verified signature and audits the method', async () => {
+    env.clock.advance(16 * 60 * 1000); // pasa el bloqueo temporal de las pruebas anteriores
+    expect((await root.client.get('/me')).status).toBe(200);
+    const second = new VirtualAuthenticator(APP_ORIGIN);
+    expect((await registerKey(second, 'Reauth key')).status).toBe(201);
+    env.clock.advance(6 * 60 * 1000); // vence la ventana de reautenticación
+    expect((await root.client.get('/me')).status).toBe(200);
+    const spare = (await root.client.get<{ data: Passkey[] }>('/me/passkeys')).body.data.find(
+      (p) => p.name === 'Reauth key',
+    );
+    const stale = await root.client.post<ProblemDetails>(`/me/passkeys/${spare?.id ?? ''}/revoke`);
+    expect(stale.status).toBe(403);
+
+    const options = await root.client.post<AuthenticationOptions>('/auth/reauth/passkey/options');
+    expect(options.status).toBe(200);
+    const verified = await root.client.post('/auth/reauth/passkey/verify', {
+      response: second.authenticate(options.body),
+    });
+
+    expect(verified.status).toBe(204);
+    expect((await root.client.post(`/me/passkeys/${spare?.id ?? ''}/revoke`)).status).toBe(204);
+    expect((await audit('auth.reauthenticated_passkey')).map((e) => e.outcome)).toEqual([
+      'success',
+    ]);
+  });
+
+  it('a sign-in challenge cannot be redeemed as a re-authentication (purpose is bound)', async () => {
+    env.clock.advance(6 * 60 * 1000);
+    expect((await root.client.get('/me')).status).toBe(200);
+    const signer = new VirtualAuthenticator(APP_ORIGIN);
+    expect((await registerKey(signer, 'Purpose key')).status).toBe(201);
+    env.clock.advance(6 * 60 * 1000);
+    expect((await root.client.get('/me')).status).toBe(200);
+
+    const loginChallenge = await loginOptions(root.client);
+    const forged = signer.authenticate(loginChallenge);
+
+    const response = await root.client.post('/auth/reauth/passkey/verify', { response: forged });
+    expect(response.status).toBe(401);
+  });
+
+  it('audits a failed attempt with its own action, apart from a failed sign-in', async () => {
+    const failures = await audit('auth.reauth_failed');
+
+    expect(failures.length).toBeGreaterThan(0);
+    expect(failures.every((e) => e.outcome === 'failure')).toBe(true);
+  });
+
+  it('a half session (password only) can neither ask for nor redeem a passkey re-authentication', async () => {
+    const { client } = await passwordLogin();
+
+    expect((await client.post('/auth/reauth/passkey/options')).status).toBe(403);
+    expect(
+      (
+        await client.post('/auth/reauth/passkey/verify', {
+          response: { id: 'AAAA', type: 'public-key' },
+        })
+      ).status,
+    ).toBe(403);
+  });
+
+  it('a challenge is consumed once: replaying the same assertion fails and is audited', async () => {
+    env.clock.advance(16 * 60 * 1000); // pasa el bloqueo temporal de las pruebas anteriores
+    expect((await root.client.get('/me')).status).toBe(200);
+    const replayer = new VirtualAuthenticator(APP_ORIGIN);
+    expect((await registerKey(replayer, 'Replay key')).status).toBe(201);
+    env.clock.advance(6 * 60 * 1000);
+    expect((await root.client.get('/me')).status).toBe(200);
+    const failuresBefore = (await audit('auth.reauth_failed')).length;
+
+    const options = await root.client.post<AuthenticationOptions>('/auth/reauth/passkey/options');
+    const assertion = replayer.authenticate(options.body);
+    const first = await root.client.post('/auth/reauth/passkey/verify', { response: assertion });
+    const second = await root.client.post('/auth/reauth/passkey/verify', { response: assertion });
+
+    expect(first.status).toBe(204);
+    expect(second.status).toBe(401);
+    expect((await audit('auth.reauth_failed')).length).toBe(failuresBefore + 1);
+  });
+});

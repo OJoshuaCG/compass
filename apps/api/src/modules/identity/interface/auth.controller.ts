@@ -5,6 +5,7 @@ import {
   registerPasskeyRequestSchema,
   mfaVerifyRequestSchema,
   recoveryCodeRequestSchema,
+  reauthPasskeyRequestSchema,
   reauthRequestSchema,
   totpConfirmRequestSchema,
 } from '@iam/contracts';
@@ -17,6 +18,7 @@ import type {
   LoginRequest,
   LoginResponse,
   MfaVerifyRequest,
+  ReauthPasskeyRequest,
   ReauthRequest,
   RecoveryCodeRequest,
   TotpConfirmRequest,
@@ -46,6 +48,22 @@ import { SecondFactor } from '../application/second-factor.js';
 import type { MeResponse } from '@iam/contracts';
 import { DomainError } from '../../../shared/kernel/index.js';
 
+/**
+ * Reemplaza la cookie de sesión por la del token rotado. La caducidad absoluta no cambia: la sesión es
+ * la misma fila, solo cambia su token.
+ */
+function setRotatedSessionCookie(
+  reply: FastifyReply,
+  request: FastifyRequest,
+  sessionToken: string,
+): void {
+  const principal = request.principal;
+  if (principal === undefined) {
+    throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
+  }
+  setSessionCookie(reply, sessionToken, principal.expiresAt);
+}
+
 @RateLimited()
 @Controller('auth')
 export class AuthController {
@@ -69,8 +87,11 @@ export class AuthController {
   @HttpCode(204)
   async passkeyVerify(
     @Body(new ZodValidationPipe(passkeyLoginRequestSchema)) body: PasskeyLoginRequest,
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<void> {
-    unwrap(await this.secondFactor.verifyPasskey(body.response));
+    const rotated = unwrap(await this.secondFactor.verifyPasskey(body.response));
+    setRotatedSessionCookie(reply, request, rotated.sessionToken);
   }
 
   @Public()
@@ -117,8 +138,11 @@ export class AuthController {
   @HttpCode(204)
   async verifyTotp(
     @Body(new ZodValidationPipe(mfaVerifyRequestSchema)) body: MfaVerifyRequest,
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<void> {
-    unwrap(await this.secondFactor.verifyTotp(body.code));
+    const rotated = unwrap(await this.secondFactor.verifyTotp(body.code));
+    setRotatedSessionCookie(reply, request, rotated.sessionToken);
   }
 
   @PartialSession()
@@ -126,8 +150,11 @@ export class AuthController {
   @HttpCode(204)
   async verifyRecovery(
     @Body(new ZodValidationPipe(recoveryCodeRequestSchema)) body: RecoveryCodeRequest,
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<void> {
-    unwrap(await this.secondFactor.verifyRecoveryCode(body.code));
+    const rotated = unwrap(await this.secondFactor.verifyRecoveryCode(body.code));
+    setRotatedSessionCookie(reply, request, rotated.sessionToken);
   }
 
   @PartialSession()
@@ -143,8 +170,11 @@ export class AuthController {
   @HttpCode(200)
   async confirmEnrollment(
     @Body(new ZodValidationPipe(totpConfirmRequestSchema)) body: TotpConfirmRequest,
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<TotpConfirmResponse> {
     const result = unwrap(await this.secondFactor.confirmTotpEnrollment(body.code));
+    setRotatedSessionCookie(reply, request, result.sessionToken);
     return { recoveryCodes: result.recoveryCodes };
   }
 
@@ -154,6 +184,21 @@ export class AuthController {
     @Body(new ZodValidationPipe(reauthRequestSchema)) body: ReauthRequest,
   ): Promise<void> {
     unwrap(await this.secondFactor.reauthenticate(body.code));
+  }
+
+  /** Paso 1 de la reautenticación con llave de acceso (sesión completa, ADR 0033). */
+  @Post('reauth/passkey/options')
+  @HttpCode(200)
+  async reauthPasskeyOptions(): Promise<unknown> {
+    return unwrap(await this.secondFactor.beginPasskeyReauthentication()).options;
+  }
+
+  @Post('reauth/passkey/verify')
+  @HttpCode(204)
+  async reauthPasskeyVerify(
+    @Body(new ZodValidationPipe(reauthPasskeyRequestSchema)) body: ReauthPasskeyRequest,
+  ): Promise<void> {
+    unwrap(await this.secondFactor.reauthenticateWithPasskey(body.response));
   }
 
   @PartialSession()

@@ -242,7 +242,17 @@ Fuente de verdad: `apps/api/src/app/config.ts` (no existe `.env.example`). Las d
 | `DB_POOL_MAX` | `10` | Tamaño del pool de conexiones (1 a 100) |
 | `LOCAL_KMS_KEY_FILE` | `.local-kms/kek.key` | Archivo de la clave del adaptador de desarrollo; no sirve en producción |
 | `WEB_DIST_DIR` | Ninguno | Carpeta de la SPA compilada; si se omite, la API no sirve el frontend |
-| `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For` |
+| `KMS_ADAPTER` | `local` | Adaptador de gestión de claves. Hoy solo existe `local`; con `NODE_ENV=production` la configuración falla al arrancar con un error sobre esta clave |
+| `TRUST_PROXY` | `false` | Solo detrás de un balanceador de confianza: toma la IP del cliente de `X-Forwarded-For`. Léelo completo en [§6.4](#64-trust_proxy-todo-o-nada) |
+
+### 6.4 `TRUST_PROXY`: todo o nada
+
+`TRUST_PROXY` es un booleano: con `true`, Fastify confía en **toda** la cadena de `X-Forwarded-For`, no solo en el último salto. Dos efectos opuestos, y ambos son un riesgo:
+
+- **Sin activarlo detrás de un balanceador**: todas las peticiones llegan con la IP del balanceador. El límite de 60 peticiones por minuto por IP se comparte entre todas las personas y un solo cliente ruidoso bloquea a los demás.
+- **Activado sin que el balanceador sobrescriba la cabecera**: quien llama puede enviar su propio `X-Forwarded-For` y la API lo toma como su IP. Cada petición con una IP distinta evita el límite por IP (los contadores por correo y por usuario del segundo factor no dependen de la IP y siguen aplicando).
+
+Para activarlo con seguridad, el balanceador debe **reemplazar** la cabecera (no añadirle) y la API solo debe ser alcanzable a través de él. Si el puerto de la API se puede alcanzar directo, déjalo en `false`. Una lista de proxies de confianza (rangos CIDR o número de saltos) queda como mejora pendiente: tocaría la configuración de cabeceras, que es una ruta protegida.
 
 El comando de alta de organizaciones usa sus propias variables (`PROVISION_DATABASE_URL`, `ORG_NAME`, `ORG_SLUG`, `ROOT_EMAIL` y `ROOT_NAME`; ver §3.6) y las migraciones usan `DATABASE_URL` con el rol de migraciones ([`database.md`](database.md) §1).
 
@@ -444,7 +454,7 @@ No hay un agente específico de backend: la implementación la hace `general-pur
 
 ## 16. Decisiones pendientes
 
-Hallazgos del análisis del plan y pendientes tras la fase 1a. Los ADR 0021 y 0022 se aceptaron e implementaron en la fase 1a; los ADR 0023 y 0024 (`docs/adr/`) siguen en estado **Propuesta** y se deciden antes de implementar el módulo afectado.
+Hallazgos del análisis del plan y pendientes tras la fase 1a. Los ADR 0021 y 0022 se aceptaron e implementaron en la fase 1a; el ADR 0023 se aceptó el 2026-10-27 y el 0024 (`docs/adr/`) sigue en estado **Propuesta**; se decide antes de implementar el módulo afectado.
 
 Resueltas en la fase 1a:
 
@@ -472,7 +482,7 @@ Pendientes de fases posteriores:
 
 - [ ] **Bloqueo de auditoría** (ADR 0023): el trigger mantiene el bloqueo por organización hasta el *commit*. Evaluar el impacto en transacciones largas.
 - [ ] **Retención de auditoría** (ADR 0024) frente al borrado revocado: definir particionado o un rol de archivado.
-- [ ] **Índice ciego derivado de la clave de datos**: el plan deriva el índice ciego y las huellas de contraseña de la clave de datos. Al rotarla cambian todos los valores, así que cada rotación obliga a recalcular los índices (y, mientras conviven versiones, a buscar con ambas). El servicio de cifrado ya informa la versión de clave usada. Decidir si se deriva de una clave por organización estable en lugar de la clave de datos.
+- [x] **Índice ciego derivado de la clave de datos**: el plan deriva el índice ciego y las huellas de contraseña de la clave de datos. Al rotarla cambian todos los valores, así que cada rotación obliga a recalcular los índices (y, mientras conviven versiones, a buscar con ambas). El servicio de cifrado ya informa la versión de clave usada. Decidido ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)): se mantiene derivado de la clave de datos; la clave estable por organización queda como plan B.
 - [ ] **Generador de OpenAPI** desde Zod: aprobar la dependencia.
 - [ ] **Versión de PostgreSQL**: las pruebas usan 17; evaluar 18 si ya está disponible en el proveedor (UUIDv7 nativo).
 - [ ] **`oidc-provider` sobre Fastify** (fase 2): está basado en Koa; validar con un *spike* antes de comprometerse.

@@ -15,10 +15,9 @@ Tipo de documento: how-to (guías de tarea para operadores con experiencia).
 | [Transferir la Raíz](transfer-root.md) | Cambio planeado de dueño de la organización | Borrador |
 | [Dar de alta una organización](provision-organization.md) | Organización nueva: comando de alta, contraseña inicial y custodia de los códigos de emergencia | Borrador |
 | [Usar un código de emergencia](use-emergency-code.md) | La Raíz perdió su segundo factor y conserva su contraseña | Borrador |
+| [Recuperar a la Raíz sin contraseña ni factores](recover-root.md) | La Raíz perdió contraseña y factores: control dual de los dos custodios y códigos de emergencia nuevos | Borrador |
 | [Configurar y comprobar el correo](configure-mail.md) | Primer despliegue, cambio de servidor SMTP o invitaciones que no llegan | Borrador |
 | [Operar con una sola instancia](single-instance-operation.md) | Todo despliegue, hasta que los contadores de intentos pasen a Redis | Borrador |
-
-Falta, además, un procedimiento para la Raíz que olvida su contraseña y pierde sus factores: el sistema no ofrece recuperación y es una decisión pendiente de operaciones (ver [`../handoff.md`](../handoff.md)).
 
 El plan menciona además un runbook de **caída total** (procedimiento de contingencia con los sobres sellados de recuperación). Aún no está redactado; se añade antes del gate de producción.
 

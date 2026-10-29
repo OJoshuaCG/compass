@@ -24,6 +24,7 @@
   "AUDIT.METADATA_FIELD_NOT_ALLOWED": "The audit event contains a disallowed field.",
   "AUDIT.CHAIN_BROKEN": "An inconsistency was detected in the audit chain.",
   "AUDIT.REASON_CODE_REQUIRED": "A denial must be recorded with a reason code.",
+  "AUDIT.LOCK_TIMEOUT": "The audit log is busy and the action was not performed. Try again in a few seconds.",
   "AUTHZ.CREATION_NOT_ALLOWED": "Your rank does not allow creating users of that rank.",
   "AUTHZ.ROLE_ESCALATION": "You cannot grant permissions you do not have.",
   "AUTH.INVALID_CREDENTIALS": "Incorrect email or password.",

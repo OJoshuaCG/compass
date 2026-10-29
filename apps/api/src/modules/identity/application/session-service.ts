@@ -4,7 +4,9 @@
  * - Una sesión inválida (revocada, vencida, inactiva) o de un usuario suspendido o dado de baja
  *   nunca autentica; la causa no se distingue hacia afuera.
  * - Una sesión sin segundo factor verificado (`mfaVerified: false`) solo sirve para completarlo.
+ * - Al cumplir el segundo factor el token se rota: el que se usó antes de elevar la sesión deja de valer.
  */
+import { DomainError } from '../../../shared/kernel/index.js';
 import type { Clock, IdGenerator, OrganizationId, UserId } from '../../../shared/kernel/index.js';
 import type { CryptoPrimitives } from '../../crypto/index.js';
 import type { TenantScope } from '../../organization/index.js';
@@ -75,6 +77,20 @@ export class SessionService {
       expiresAt,
     });
     return { token, sessionId, expiresAt };
+  }
+
+  /**
+   * Cambia el token de una sesión ya existente (misma fila, mismo `sessionId`) y devuelve el nuevo.
+   * Se usa al elevar la sesión con el segundo factor: así un token que alguien más conociera desde
+   * antes (fijación de sesión) deja de valer justo cuando la sesión gana privilegios.
+   * Corre en la transacción en curso; si esta falla, el token anterior sigue siendo el vigente.
+   */
+  async rotateToken(sessionId: string): Promise<string> {
+    const { sessions, primitives } = this.deps;
+    const token = toBase64Url(primitives.randomBytes(TOKEN_BYTES));
+    const rotated = await sessions.rotateToken(sessionId, this.hashToken(token));
+    if (!rotated) throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
+    return token;
   }
 
   /** Valida el token de la cookie. Antes de conocer la organización: usa la consulta previa mínima. */

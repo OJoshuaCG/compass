@@ -11,7 +11,7 @@ Devolver el acceso a la Raíz que perdió su segundo factor (aplicación autenti
 ## Cuándo usarlo
 
 - La Raíz perdió su teléfono, su aplicación autenticadora o sus passkeys y no tiene sus códigos de recuperación ordinarios.
-- **No sirve** si la Raíz olvidó su contraseña: el código no la sustituye. Hoy no existe un procedimiento del sistema para olvidar la contraseña y perder los factores; es una decisión pendiente de operaciones (ver [`docs/handoff.md`](../handoff.md), sección 4).
+- **No sirve** si la Raíz olvidó su contraseña: el código no la sustituye. Si además perdió los factores, usa [Recuperar a la Raíz sin contraseña ni factores](recover-root.md).
 - **Ningún Administrador puede restablecer a la Raíz** (decisión del dueño, 2026-10-27). Solo las personas que custodian los códigos.
 
 ## Precondiciones
@@ -41,8 +41,8 @@ Devolver el acceso a la Raíz que perdió su segundo factor (aplicación autenti
 ## Rollback y recuperación
 
 - Un código usado no se puede devolver. Si el procedimiento se interrumpe antes del paso 3, la Raíz puede volver a entrar con su contraseña y completar el registro del segundo factor nuevo.
-- Hoy no hay forma de emitir códigos de emergencia nuevos; el último de los ocho es el último recurso. Cuando queden pocos, escala al equipo antes de agotarlos: regenerarlos es una necesidad pendiente (ver [Transferir la Raíz](transfer-root.md), paso 6).
-- Si olvidó la contraseña y perdió los factores, no hay recuperación en el sistema: escala a operaciones.
+- Los códigos de emergencia nuevos solo se emiten al recuperar a la Raíz con [su procedimiento](recover-root.md), que exige a los dos custodios. Usar un código aquí no emite más: cuando queden pocos, escala al equipo antes de agotarlos.
+- Si olvidó la contraseña y perdió los factores, usa [Recuperar a la Raíz sin contraseña ni factores](recover-root.md).
 
 ## Responsables
 

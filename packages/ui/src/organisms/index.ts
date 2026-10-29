@@ -8,4 +8,9 @@ export {
   type TableSort,
 } from './data-table';
 export { PageHeader, type PageHeaderProps } from './page-header';
-export { ReauthDialog, type ReauthDialogLabels, type ReauthDialogProps } from './reauth-dialog';
+export {
+  ReauthDialog,
+  type ReauthDialogLabels,
+  type ReauthDialogPasskey,
+  type ReauthDialogProps,
+} from './reauth-dialog';

@@ -58,6 +58,16 @@ export class PgSessionRepository implements SessionRepository {
       );
   }
 
+  async rotateToken(sessionId: string, newTokenHash: Uint8Array): Promise<boolean> {
+    const result = await this.transactions
+      .current()
+      .query('update sessions set token_hash = $2 where id = $1 and revoked_at is null', [
+        sessionId,
+        Buffer.from(newTokenHash),
+      ]);
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async touch(sessionId: string, at: Date): Promise<void> {
     await this.transactions
       .current()

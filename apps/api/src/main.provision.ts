@@ -47,6 +47,11 @@ try {
     rootDisplayName: input.ROOT_NAME,
   });
 
+  const codesOf = (group: 'A' | 'B'): string[] =>
+    result.emergencyCodes
+      .filter((_code, index) => result.emergencyCodeGroups[index] === group)
+      .map((code) => `  ${code}`);
+
   process.stdout.write(
     [
       '',
@@ -57,12 +62,18 @@ try {
       '',
       'Entrégala por un canal seguro. Se muestra solo esta vez y debe cambiarse en el primer ingreso.',
       '',
-      'Códigos de emergencia de la Raíz (de un solo uso):',
-      ...result.emergencyCodes.map((code) => `  ${code}`),
+      'Códigos de emergencia de la Raíz (de un solo uso). Cada custodio recibe SOLO los de su grupo:',
+      '',
+      'Custodio A:',
+      ...codesOf('A'),
+      '',
+      'Custodio B:',
+      ...codesOf('B'),
       '',
       'Imprímelos AHORA y repártelos entre las dos personas custodias, fuera del sistema. Se muestran',
       'solo esta vez. Usar uno restablece el segundo factor de la Raíz, queda como evento crítico y',
       'avisa a todos los Administradores. Ningún Administrador puede restablecer a la Raíz por sí mismo.',
+      'Si la Raíz pierde contraseña y factores, la recupera Operaciones con un código de CADA custodio.',
       '',
     ].join('\n'),
   );

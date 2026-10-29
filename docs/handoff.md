@@ -6,7 +6,7 @@ Documento de continuidad. Responde a tres preguntas: **dónde estamos**, **cómo
 
 | Fase | Estado | Evidencia |
 | --- | --- | --- |
-| 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 (el 0023 y el 0024 siguen como propuesta) |
+| 0 · Fundaciones | Hecha | Monorepo, base de datos con aislamiento por organización, criptografía, auditoría, esqueleto de interfaz oscura bilingüe, ADR 0001 a 0024 (el 0023 se aceptó el 2026-10-27 y el 0024 sigue como propuesta) |
 | 1a · Identidad | **Funcionalmente completa; faltan piezas de cierre** (sección 4, pasos 2 a 6) | Invitación → contraseña → segundo factor obligatorio (TOTP en el alta; passkey opcional después) → sesión → reautenticación; matriz de jerarquía y 27 permisos; directorio; pantallas; pruebas de punta a punta incluso en navegador real. Cerradas en el bloque A: A1 (gestión de personas), A2 (passkeys), A3 (alta de organizaciones y códigos de emergencia de la Raíz), A4 (cambio obligatorio de la contraseña inicial de la Raíz), A5 (sesiones), A6 (roles e invitaciones), A7 (idempotencia) y A10 (reautenticación en navegador real). A8 en parte (correo SMTP del dominio propio hecho; Redis pendiente). A9 (CI en GitHub) despriorizada por el dueño |
 | 1b · Bóveda y 2FA | **No iniciada.** Planificada en `odd/tasks/phase-1b-vault.md` (porciones B1 a B7 y tres decisiones abiertas) | Diseño de datos y cifrado ya listos (tablas, cifrado de secretos); falta toda la lógica de negocio y las pantallas |
 | 1c · Gobernanza | No iniciada | La auditoría en cadena ya existe; faltan bajas con rotación, salud, acceso temporal y alertas |
@@ -56,10 +56,10 @@ Tamaños relativos: **S** (días), **M** (una a dos semanas), **L** (varias sema
 
 ### Qué sigue, en orden
 
-1. **Fase 1b, porciones B1 a B7** (bloque B, abajo; especificaciones en `odd/tasks/phase-1b-vault.md`). Sus tres decisiones abiertas (sección 5) se resuelven antes de la porción que las usa: el límite de revelaciones por hora con su alerta y las reglas del motivo escrito antes de B2, y la biblioteca para leer códigos QR antes de B4 y B5. Además, el ADR 0023 (bloqueo de auditoría en transacciones largas) se decide antes de abrir la fase.
+1. **Fase 1b, porciones B1 a B7** (bloque B, abajo; especificaciones en `odd/tasks/phase-1b-vault.md`). Sus tres decisiones abiertas (sección 5) se resuelven antes de la porción que las usa: el límite de revelaciones por hora con su alerta y las reglas del motivo escrito antes de B2, y la biblioteca para leer códigos QR antes de B4 y B5. El ADR 0023 (bloqueo de auditoría en transacciones largas) ya se aceptó el 2026-10-27.
 2. **Redis para los límites de intentos** (A8, parte pendiente). Hasta entonces, una sola instancia ([runbook](runbooks/single-instance-operation.md)).
 3. **Trabajo de purga** de las filas vencidas de `idempotency_keys` y `webauthn_challenges` (necesita el camino para recorrer organizaciones, `docs/database.md` §7.5, y un ADR).
-4. **Procedimiento de operaciones para la Raíz que olvida su contraseña y pierde sus factores**, y una forma de emitir códigos de emergencia nuevos.
+4. ~~Procedimiento de operaciones para la Raíz que olvida su contraseña y pierde sus factores~~ **Hecho (2026-10-27, [ADR 0037](adr/0037-root-recovery-dual-custody.md)).** Queda el runbook de caída total (códigos agotados), pendiente (TODO L3).
 5. **Exigir passkeys como configuración de la organización**, cuando exista la pantalla de configuración (opcional hoy; decisión del dueño). Incluye decidir si la reautenticación admite passkey.
 6. **Primera ejecución del CI en GitHub** (A9, despriorizada por el dueño).
 
@@ -125,13 +125,14 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 
 | Tema | Hoy | Pregunta |
 | --- | --- | --- |
-| Permisos por defecto de Líder y Operador | El plan no los define; se asumió "todo lo que su rango puede tener" | Con eso un Operador puede revelar contraseñas y compartir por defecto. ¿Es lo deseado? |
+| Permisos por defecto de Líder y Operador | **Decidido 2026-10-27 (B5):** el Operador pierde `credential.reveal_password` por defecto (defensa en profundidad: revelar exige además una compartición VIEW); compartir ya exige nivel MANAGE. Los roles personalizados pueden volver a otorgarlo | **Aplicado en código** (`system-roles.ts`, `SYSTEM_ROLES_VERSION = 2`). Falta sincronizar el rol Operador de las organizaciones ya creadas: nada compara la versión y la tabla `roles` tiene RLS forzado, así que requiere una vía de aislamiento con encargo humano |
 | Responsable de la persona invitada | Siempre quien invita | El plan sugiere que quien invita lo define |
-| Reautenticación | Solo acepta el código del autenticador (no se soporta el de recuperación ni la passkey) | ¿Debe aceptar también un código de recuperación y la passkey? |
+| Reautenticación | **Decidido 2026-10-27 ([ADR 0033](adr/0033-reauthentication-totp-and-passkey.md)):** TOTP o passkey; nunca el código de recuperación | **Implementado** (`POST /auth/reauth/passkey/options` y `/verify`, migración 0012; fallos auditados como `auth.reauth_failed`; el diálogo de reautenticación ofrece la passkey si la persona tiene una). Sin pruebas e2e de navegador |
 | Archivar un rol personalizado | Un rol archivado deja de otorgar sus permisos y no sirve en invitaciones nuevas | ¿Es el efecto deseado sobre quien ya lo tenía asignado? |
 | Directorio visible | Muestra nombre, correo y rango; solo personas activas | ¿Rango visible o solo nombre y correo? |
-| Índice ciego derivado de la clave de datos | Cada rotación de clave obliga a recalcular los índices | ¿Derivarlo de una clave estable por organización? |
-| ADR 0023 y 0024 (bloqueo de auditoría y retención) | Propuestos, sin decidir | Decidir el 0023 antes de la bóveda (fase 1b) y el 0024 antes de la auditoría con retención (fase 1c) |
+| Índice ciego derivado de la clave de datos | **Decidido 2026-10-27 ([ADR 0032](adr/0032-blind-index-derived-from-dek.md)):** se mantiene derivado de la DEK; el recálculo va en el job de recifrado | Clave estable por organización queda como plan B |
+| ADR 0023 (bloqueo de auditoría) | Aceptado el 2026-10-27; `lock_timeout` de 5 s con falla cerrada implementado (`AUDIT.LOCK_TIMEOUT`, 503). Faltan medir la latencia p95 y decidir la agrupación de negaciones | Medir p95 con escritores concurrentes; el evento de auditoría debe seguir siendo lo último de cada caso de uso |
+| ADR 0024 (retención de auditoría) | Propuesto, sin decidir | Decidir antes de la auditoría con retención (fase 1c) |
 | Versión de PostgreSQL | Pruebas con la 17 | ¿Pasar a la 18 (identificadores ordenables nativos)? |
 | Proveedor de inicio de sesión único sobre Fastify | Sin probar | Hacer una prueba corta antes de la fase 2 |
 
@@ -139,9 +140,10 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 
 | Tema | Pregunta | Se necesita antes de |
 | --- | --- | --- |
-| Biblioteca para decodificar códigos QR en el navegador | No hay ninguna aprobada. Propuesta: una pequeña, mantenida y sin dependencias, con versión exacta y la espera de 7 días; decide el equipo | B4 y B5 |
-| Límite de revelaciones por usuario y hora | El plan dice 30 por defecto. ¿Qué alerta se emite al superarlo? (auditoría crítica; el canal de aviso depende del correo real) | B2 |
-| Motivo escrito al revelar | ¿Longitud mínima y texto libre o lista cerrada? El plan solo dice "motivo" | B2 |
+| Biblioteca para decodificar códigos QR en el navegador | **Propuesta 2026-10-27 (B7):** jsQR, versión exacta y espera de 7 días, cargada con import dinámico en la ruta de registro 2FA para respetar el presupuesto de JS inicial. Sin mantenimiento desde 2021 (riesgo aceptado). Los datos de versión no se han verificado: confirmarlos antes de aprobar la dependencia | B4 y B5 |
+| Límite de revelaciones por usuario y hora | **Decidido 2026-10-27 ([ADR 0031](adr/0031-reveal-rate-limit-per-user.md)):** 30 por hora; aviso por correo a la Raíz | B2 |
+| Motivo escrito al revelar | **Decidido 2026-10-27 (B3):** categoría de lista cerrada obligatoria más texto corto (10 a 200 caracteres) con aviso "no pegues secretos". La auditoría es append-only: el texto libre no se puede purgar | B2 |
+| Recorte de la primera entrega de 2FA | **Decidido 2026-10-27 (B8):** v1 con clave manual, imagen y captura de pestaña; importación de Google Authenticator y entrega por celular pasan a v1.1. Enmienda el ADR 0017. Una futura `Permissions-Policy` debe permitir `display-capture=(self)` | N3 |
 
 ## 6. Cómo se trabaja aquí (convenciones)
 
@@ -174,7 +176,7 @@ Fases 2 a 7 según `plan.md` (proveedor de inicio de sesión único, SAML, corre
 - El bloqueo de intentos y el límite por IP son por instancia y viven en memoria hasta incorporar Redis (pendiente): el sistema debe operar con una sola instancia ([runbook](runbooks/single-instance-operation.md)).
 - Las filas vencidas de `idempotency_keys` y `webauthn_challenges` no se purgan, y el reintento idempotente no vuelve a comprobar permisos durante las 24 horas. La idempotencia nunca se aplica a endpoints cuya respuesta lleve secretos.
 - Las opciones de ingreso con passkey devuelven los identificadores de las credenciales de quien ya verificó la contraseña.
-- Recuperación de la Raíz: olvidar la contraseña Y perder los factores no tiene recuperación en el sistema; falta un procedimiento de operaciones. Con los códigos de emergencia se recupera quien conserva la contraseña. Tampoco hay forma de emitir códigos de emergencia nuevos.
+- Recuperación de la Raíz: con los códigos de emergencia se recupera quien conserva la contraseña. Quien pierde contraseña y factores se recupera con el comando `recover-root` (control dual de dos custodios, ADR 0037, aceptada con confirmación pendiente del dueño; runbook [recover-root](runbooks/recover-root.md)), que emite además códigos nuevos. Siguen sin cobertura: reemitir códigos sin recuperar a la Raíz y haber agotado los códigos de un custodio (caída total).
 - Las passkeys no se exigen a nadie, y la reautenticación solo acepta el código TOTP (ni passkey ni código de recuperación).
 - Correo: el de invitación y el aviso de uso de un código de emergencia salen por SMTP del dominio propio ([runbook](runbooks/configure-mail.md)); siguen sin existir los demás avisos (dispositivo nuevo, uso de un código de recuperación, cambios de factores). El dominio necesita SPF, DKIM y DMARC en el DNS.
 - Producción: no existe el adaptador de KMS del proveedor (el local se niega a arrancar con `NODE_ENV=production`, así que la API no arranca así) ni el punto de entrada del worker. Dependen de la decisión de nube.

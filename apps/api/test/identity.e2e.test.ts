@@ -172,6 +172,38 @@ describe('2. Signing in again, TOTP replay, recovery codes and logout', () => {
     expect(replay.body.code).toBe('AUTH.MFA_INVALID');
   });
 
+  it('rotates the session token when the second factor is met, so the earlier token stops working', async () => {
+    const victim = new TestClient(env, '203.0.113.52');
+    await victim.post('/auth/login', { email: 'root@acme.test', password: STRONG_PASSWORD });
+    const tokenBeforeElevation = victim.cookie;
+    expect(tokenBeforeElevation).not.toBeNull();
+
+    // Alguien que ya conocía el token de la sesión a medias (fijación de sesión).
+    const observer = new TestClient(env, '203.0.113.53');
+    observer.cookie = tokenBeforeElevation;
+    expect((await observer.get<ProblemDetails>('/me')).body.code).toBe('AUTH.MFA_REQUIRED');
+
+    const code = freshTotp(root.secret, env.clock);
+    expect((await victim.post('/auth/mfa/verify', { code })).status).toBe(204);
+
+    expect(victim.cookie).not.toBeNull();
+    expect(victim.cookie).not.toBe(tokenBeforeElevation);
+    expect((await victim.get('/me')).status).toBe(200);
+    expect((await observer.get<ProblemDetails>('/me')).status).toBe(401);
+  });
+
+  it('keeps the earlier token and issues no cookie when the second factor fails', async () => {
+    const client = new TestClient(env, '203.0.113.54');
+    await client.post('/auth/login', { email: 'root@acme.test', password: STRONG_PASSWORD });
+    const tokenBefore = client.cookie;
+
+    const wrong = await client.post<ProblemDetails>('/auth/mfa/verify', { code: '000000' });
+
+    expect(wrong.status).toBe(401);
+    expect(client.cookie).toBe(tokenBefore);
+    expect((await client.get<ProblemDetails>('/me')).body.code).toBe('AUTH.MFA_REQUIRED');
+  });
+
   it('accepts a recovery code once and refuses it the second time', async () => {
     const recovery = root.recoveryCodes[0] ?? '';
     const first = new TestClient(env, '203.0.113.60');

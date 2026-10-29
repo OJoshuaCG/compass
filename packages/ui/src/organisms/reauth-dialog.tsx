@@ -15,6 +15,13 @@ export type ReauthDialogLabels = {
   close: string;
 };
 
+/** Alternativa al código: reautenticar con una llave de acceso (ADR 0033). */
+export type ReauthDialogPasskey = {
+  label: string;
+  onUse: () => void;
+  loading?: boolean;
+};
+
 export type ReauthDialogProps = {
   open: boolean;
   labels: ReauthDialogLabels;
@@ -28,6 +35,8 @@ export type ReauthDialogProps = {
   /** Segundos de espera tras un 429: mantiene el envío deshabilitado. */
   cooldownLabel?: string | undefined;
   disabled?: boolean;
+  /** Si se indica, ofrece la llave de acceso además del código; la ceremonia la gestiona el llamador. */
+  passkey?: ReauthDialogPasskey | undefined;
 };
 
 const CODE_LENGTH = 6;
@@ -40,6 +49,7 @@ function ReauthForm({
   errorMessage,
   cooldownLabel,
   disabled,
+  passkey,
 }: Omit<ReauthDialogProps, 'open'>) {
   // El código vive solo aquí y se descarta al cerrar: Radix desmonta el contenido.
   const [code, setCode] = useState('');
@@ -75,12 +85,22 @@ function ReauthForm({
           {labels.submit}
         </Button>
       </div>
+      {passkey !== undefined ? (
+        <Button
+          variant="secondary"
+          onClick={passkey.onUse}
+          loading={passkey.loading === true}
+          disabled={disabled === true}
+        >
+          {passkey.label}
+        </Button>
+      ) : null}
     </form>
   );
 }
 
 /**
- * Diálogo de reautenticación (step-up): pide un código TOTP. Presentacional: no llama a la
+ * Diálogo de reautenticación (step-up): pide un código TOTP o, si se ofrece, una llave de acceso. Presentacional: no llama a la
  * API; quien lo usa envía el código, reintenta la operación y cierra (docs/frontend.md §7.2).
  */
 export function ReauthDialog({ open, labels, onCancel, ...form }: ReauthDialogProps) {

@@ -12,10 +12,20 @@ export interface SystemRole {
 }
 
 /** Versión de las plantillas: se incrementa al cambiarlas, para poder migrar organizaciones existentes. */
-export const SYSTEM_ROLES_VERSION = 1;
+export const SYSTEM_ROLES_VERSION = 2;
 
 const withCeilingAtLeast = (minimum: number): Permission[] =>
   PERMISSIONS.filter((permission) => PERMISSION_CEILING[permission] >= minimum);
+
+/**
+ * Revelar contraseñas no es parte del trabajo diario del Operador (decisión B5, docs/handoff.md §5):
+ * se quita por defecto como defensa en profundidad, porque revelar exige además una compartición
+ * VIEW. Un rol personalizado puede volver a otorgarlo.
+ */
+const OPERATOR_EXCLUDED_PERMISSIONS: readonly Permission[] = ['credential.reveal_password'];
+
+const operatorPermissions = (): Permission[] =>
+  withCeilingAtLeast(3).filter((permission) => !OPERATOR_EXCLUDED_PERMISSIONS.includes(permission));
 
 /**
  * Plantillas del sistema (no editables). Raíz: todo. Administrador: todo salvo la configuración de
@@ -31,7 +41,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
     permissions: PERMISSIONS.filter((permission) => permission !== 'org.settings'),
   },
   { key: 'leader', name: 'Leader', permissions: withCeilingAtLeast(2) },
-  { key: 'operator', name: 'Operator', permissions: withCeilingAtLeast(3) },
+  { key: 'operator', name: 'Operator', permissions: operatorPermissions() },
 ];
 
 export const systemRole = (key: SystemRoleKey): SystemRole => {

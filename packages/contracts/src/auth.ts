@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { ceremonyResponseSchema } from './passkeys.js';
 import { PERMISSIONS } from './permissions.js';
 import { emailSchema } from './text.js';
 
@@ -69,6 +70,10 @@ export type TotpConfirmResponse = z.infer<typeof totpConfirmResponseSchema>;
 
 export const reauthRequestSchema = z.object({ code: totpCodeSchema });
 export type ReauthRequest = z.infer<typeof reauthRequestSchema>;
+
+/** Reautenticación con llave de acceso (ADR 0033): la respuesta de la ceremonia WebAuthn. */
+export const reauthPasskeyRequestSchema = z.object({ response: ceremonyResponseSchema });
+export type ReauthPasskeyRequest = z.infer<typeof reauthPasskeyRequestSchema>;
 
 export const meResponseSchema = z.object({
   user: z.object({

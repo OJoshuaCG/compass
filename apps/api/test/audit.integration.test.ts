@@ -101,6 +101,32 @@ describe('audit chain on PostgreSQL', () => {
     expect(await inOrg(orgB, () => verify.execute())).toEqual({ valid: true });
   });
 
+  it('fails closed with AUDIT.LOCK_TIMEOUT when the chain lock is held too long (ADR 0023)', async () => {
+    const shortTimeoutAudit = new RecordAuditEvent({
+      repository: new PgAuditEventRepository(uow, 200),
+      context: requestContext,
+      ids: new UuidV7Generator(),
+    });
+    const holder = await db.appPool.connect();
+    try {
+      await holder.query('begin');
+      // Otra transacción de la misma organización retiene el bloqueo de la cadena.
+      await holder.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [
+        `audit_events:${orgA}`,
+      ]);
+
+      const attempt = inOrg(orgA, () => shortTimeoutAudit.record(input()));
+
+      await expect(attempt).rejects.toMatchObject({ code: 'AUDIT.LOCK_TIMEOUT' });
+    } finally {
+      await holder.query('rollback');
+      holder.release();
+    }
+    // Sin el bloqueo retenido, la cadena sigue intacta y se puede volver a auditar.
+    await record(orgA);
+    expect(await inOrg(orgA, () => verify.execute())).toEqual({ valid: true });
+  });
+
   it('detects a tampered event when someone with database access rewrites history', async () => {
     const target = await record(orgA);
     // Un administrador desactiva el trigger de solo-adición y reescribe el resultado.

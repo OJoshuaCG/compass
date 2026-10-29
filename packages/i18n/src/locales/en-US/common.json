@@ -88,6 +88,7 @@
   "reauth.description": "This action is sensitive. Enter the code from your authenticator app to continue.",
   "reauth.code": "Verification code",
   "reauth.submit": "Confirm",
+  "reauth.passkey": "Use a passkey",
   "actions.logoutFailed": "Could not sign out. Try again.",
   "validation.recoveryCode": "The recovery code is not in a valid format.",
   "nav.roles": "Roles",

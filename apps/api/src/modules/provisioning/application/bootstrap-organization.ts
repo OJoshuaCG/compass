@@ -8,20 +8,12 @@
  * - Las plantillas de roles del sistema se siembran desde el código (versionadas), no a mano.
  */
 import { SYSTEM_ROLES, SYSTEM_ROLES_VERSION } from '../../access/index.js';
-import {
-  EMERGENCY_CODE_COUNT,
-  evaluatePassword,
-  formatRecoveryCode,
-  normalizeRecoveryCode,
-  personalTokens,
-  RECOVERY_CODE_RANDOM_BYTES,
-} from '../../identity/index.js';
+import { evaluatePassword, personalTokens } from '../../identity/index.js';
 import type { PasswordHasher, PasswordStrength } from '../../identity/index.js';
 import type { IdGenerator } from '../../../shared/kernel/index.js';
-
-const ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-/** Mayor múltiplo de la longitud del alfabeto que cabe en un byte: descarta el resto (muestreo sin sesgo). */
-const LIMIT = 256 - (256 % ALPHABET.length);
+import { issueEmergencyCodes } from './emergency-codes.js';
+import type { CustodyGroup } from './emergency-codes.js';
+import { generateInitialPassword } from './initial-password.js';
 
 export interface BootstrapInput {
   readonly name: string;
@@ -42,8 +34,11 @@ export interface OrganizationSeeder {
     readonly rootEmail: string;
     readonly rootDisplayName: string;
     readonly rootPasswordHash: string;
-    /** SHA-256 de los códigos de emergencia de la Raíz (nunca el código). */
-    readonly emergencyCodeHashes: readonly Uint8Array[];
+    /** SHA-256 de los códigos de emergencia de la Raíz (nunca el código) y el custodio que los conserva. */
+    readonly emergencyCodes: readonly {
+      readonly hash: Uint8Array;
+      readonly custodyGroup: CustodyGroup;
+    }[];
     readonly roles: readonly { readonly name: string; readonly permissions: readonly string[] }[];
   }): Promise<void>;
 }
@@ -56,6 +51,8 @@ export interface BootstrapResult {
   readonly initialPassword: string | null;
   /** Se muestran UNA vez: se imprimen y los custodian dos personas fuera del sistema. */
   readonly emergencyCodes: readonly string[];
+  /** Custodio de cada código de `emergencyCodes`, en el mismo orden (ADR 0037). */
+  readonly emergencyCodeGroups: readonly CustodyGroup[];
 }
 
 export class BootstrapOrganization {
@@ -75,7 +72,9 @@ export class BootstrapOrganization {
     const { seeder, hasher, strength, ids } = this.deps;
     const tokens = personalTokens(input.rootEmail.trim().toLowerCase(), input.rootDisplayName);
     const generated = input.rootPassword === undefined;
-    const rootPassword = input.rootPassword ?? this.generatePassword(tokens);
+    const rootPassword =
+      input.rootPassword ??
+      generateInitialPassword({ strength, randomBytes: this.deps.randomBytes }, tokens);
     const email = input.rootEmail.trim().toLowerCase();
     const problem = evaluatePassword({
       password: rootPassword,
@@ -84,9 +83,7 @@ export class BootstrapOrganization {
     });
     if (problem !== null) throw new Error(`The root password is not acceptable: ${problem}`);
 
-    const emergencyCodes = Array.from({ length: EMERGENCY_CODE_COUNT }, () =>
-      formatRecoveryCode(this.deps.randomBytes(RECOVERY_CODE_RANDOM_BYTES)),
-    );
+    const emergencyCodes = issueEmergencyCodes(this.deps);
     const organizationId = ids.next();
     const rootUserId = ids.next();
     await seeder.seed({
@@ -97,9 +94,7 @@ export class BootstrapOrganization {
       rootEmail: email,
       rootDisplayName: input.rootDisplayName.trim(),
       rootPasswordHash: await hasher.hash(rootPassword),
-      emergencyCodeHashes: emergencyCodes.map((code) =>
-        this.deps.sha256(new TextEncoder().encode(normalizeRecoveryCode(code))),
-      ),
+      emergencyCodes: emergencyCodes.map(({ hash, custodyGroup }) => ({ hash, custodyGroup })),
       roles: SYSTEM_ROLES.map((role) => ({ name: role.name, permissions: role.permissions })),
     });
     return {
@@ -107,31 +102,8 @@ export class BootstrapOrganization {
       rootUserId,
       systemRolesVersion: SYSTEM_ROLES_VERSION,
       initialPassword: generated ? rootPassword : null,
-      emergencyCodes,
+      emergencyCodes: emergencyCodes.map((issued) => issued.code),
+      emergencyCodeGroups: emergencyCodes.map((issued) => issued.custodyGroup),
     };
-  }
-
-  /**
-   * Contraseña inicial aleatoria de 24 caracteres sin símbolos ambiguos (0/O, 1/l/I), en grupos de
-   * seis para dictarla o copiarla sin errores. Muestreo con rechazo: sin sesgo hacia ningún símbolo.
-   */
-  private generatePassword(tokens: readonly string[]): string {
-    const { strength, randomBytes } = this.deps;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      let raw = '';
-      while (raw.length < 24) {
-        for (const byte of randomBytes(48)) {
-          if (byte < LIMIT && raw.length < 24) raw += ALPHABET.charAt(byte % ALPHABET.length);
-        }
-      }
-      const candidate = (raw.match(/.{6}/g) ?? []).join('-');
-      const problem = evaluatePassword({
-        password: candidate,
-        score: strength.score(candidate, tokens),
-        personalTokens: tokens,
-      });
-      if (problem === null) return candidate;
-    }
-    throw new Error('Could not generate an acceptable initial password');
   }
 }
