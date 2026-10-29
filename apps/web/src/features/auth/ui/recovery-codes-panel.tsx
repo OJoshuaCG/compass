@@ -1,5 +1,6 @@
-import { Button, Checkbox, CopyButton } from '@iam/ui';
-import { useId, useState } from 'react';
+import { Button, Checkbox, ConfirmDialog, CopyButton } from '@iam/ui';
+import { useBlocker } from '@tanstack/react-router';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const CLIPBOARD_CLEAR_MS = 30_000;
@@ -19,6 +20,28 @@ export function RecoveryCodesPanel({ codes, onContinue }: RecoveryCodesPanelProp
   const [saved, setSaved] = useState(false);
   const checkboxId = useId();
   const headingId = useId();
+
+  // Mientras los códigos están visibles y no se confirmó que se guardaron, salir los pierde para
+  // siempre. Al marcar "Ya los guardé" el bloqueo se deshabilita y no aparece ningún aviso.
+  useEffect(() => {
+    if (saved) return;
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', warnBeforeUnload);
+    };
+  }, [saved]);
+
+  // `enableBeforeUnload: false`: el listener de arriba ya cubre cerrar/recargar la pestaña y solo
+  // existe mientras aplica; el del historial del navegador es permanente.
+  const blocker = useBlocker({
+    shouldBlockFn: () => true,
+    disabled: saved,
+    enableBeforeUnload: false,
+    withResolver: true,
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -63,6 +86,20 @@ export function RecoveryCodesPanel({ codes, onContinue }: RecoveryCodesPanelProp
       <Button disabled={!saved} onClick={onContinue}>
         {t('enroll.recovery.continue', { ns: 'auth' })}
       </Button>
+      <ConfirmDialog
+        open={blocker.status === 'blocked'}
+        onOpenChange={(open) => {
+          if (!open) blocker.reset?.();
+        }}
+        title={t('enroll.recovery.leave.title', { ns: 'auth' })}
+        description={t('enroll.recovery.leave.description', { ns: 'auth' })}
+        confirmLabel={t('enroll.recovery.leave.confirm', { ns: 'auth' })}
+        cancelLabel={t('enroll.recovery.leave.stay', { ns: 'auth' })}
+        tone="danger"
+        onConfirm={() => {
+          blocker.proceed?.();
+        }}
+      />
     </div>
   );
 }
