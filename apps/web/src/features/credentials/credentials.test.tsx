@@ -424,6 +424,54 @@ describe('reveal password', () => {
     expect(document.body.textContent).not.toContain(PASSWORD);
   });
 
+  // SENSIBLE (revisión humana): al revelar el foco va al aviso de ocultado (no al campo del secreto) y
+  // la región de estado solo recibe mensajes fijos, nunca la contraseña.
+  it('moves focus to the auto-hide notice and announces a fixed message without the password', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    const passwordField = await screen.findByDisplayValue(PASSWORD);
+    const autoHide = fill(es.credentials['reveal.autoHide'], { seconds: 30 });
+    await waitFor(() => {
+      expect(document.activeElement).toHaveTextContent(autoHide);
+    });
+    expect(document.activeElement).not.toBe(passwordField);
+    expect(document.activeElement).not.toHaveTextContent(PASSWORD);
+    const announcement = within(dialog).getByText(
+      fill(es.credentials['reveal.status.shown'], { seconds: 30 }),
+    );
+    expect(announcement).toHaveAttribute('role', 'status');
+    expect(announcement).toHaveAttribute('aria-live', 'polite');
+    expect(announcement).not.toHaveTextContent(PASSWORD);
+    expect(announcement).not.toHaveAttribute('aria-label');
+    expect(announcement).not.toHaveAttribute('title');
+  });
+
+  // SENSIBLE (revisión humana): al ocultar el foco va al aviso de oculto y se anuncia el mensaje fijo.
+  it('moves focus to the hidden notice and announces it when the password is hidden', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    renderApp(PAGE);
+    const dialog = await openReveal(user);
+    await user.type(field(es.credentials['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await screen.findByDisplayValue(PASSWORD);
+    await user.click(screen.getByRole('button', { name: es.credentials['reveal.hideNow'] }));
+    await waitFor(() => {
+      expect(document.activeElement).toHaveTextContent(es.credentials['reveal.hidden']);
+    });
+    const announcement = within(dialog).getByText(es.credentials['reveal.status.hidden']);
+    expect(announcement).toHaveAttribute('role', 'status');
+    expect(announcement).not.toHaveTextContent(PASSWORD);
+    // El aviso visible ya no es un role="alert": no repite el anuncio de la región de estado.
+    expect(within(dialog).queryByRole('alert')).toBeNull();
+    await user.click(screen.getByRole('button', { name: es.credentials['reveal.again'] }));
+    expect(field(es.credentials['reveal.reason'])).toHaveFocus();
+  });
+
   it('asks for a new reason to reveal again', async () => {
     const user = userEvent.setup();
     const api = setup({

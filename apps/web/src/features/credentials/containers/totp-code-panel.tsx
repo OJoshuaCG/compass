@@ -1,6 +1,6 @@
 import type { Credential } from '@iam/contracts';
-import { Alert, Button, CodeInput, CopyButton, FormField } from '@iam/ui';
-import { useEffect, useId, useState } from 'react';
+import { Button, CodeInput, CopyButton, FormField } from '@iam/ui';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
@@ -22,7 +22,10 @@ import {
 type Phase =
   | { kind: 'idle' }
   | { kind: 'shown'; issued: IssuedCode; secondsLeft: number }
-  | { kind: 'expired' };
+  | { kind: 'expired' }
+  // Ocultado por la persona con «Ocultar ahora». Se pinta igual que `idle`; existe aparte para
+  // poder anunciarlo sin anunciar nada al abrir el panel.
+  | { kind: 'hidden' };
 
 export type TotpCodePanelProps = {
   credential: Credential;
@@ -41,6 +44,32 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const action = useAsyncAction(() => issueTotpCode(credential.id));
   const cooldown = useRateLimitCooldown(action.error);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const previousPhaseKind = useRef<Phase['kind']>('idle');
+
+  // Tras cada cambio de fase el botón pulsado se desmontó: el foco va al encabezado, que es estable
+  // y no contiene el código (WCAG 2.4.3). Sin cambio de fase (apertura del panel) no se toca.
+  const phaseKind = phase.kind;
+  useEffect(() => {
+    if (previousPhaseKind.current === phaseKind) return;
+    previousPhaseKind.current = phaseKind;
+    headingRef.current?.focus();
+  }, [phaseKind]);
+
+  // Un error deja el botón en carga o deshabilitado; el aviso ya se anuncia con role="alert".
+  useEffect(() => {
+    if (action.error !== undefined) headingRef.current?.focus();
+  }, [action.error]);
+
+  // Mensajes fijos de i18n: la región NUNCA recibe el código ni nada derivado de él.
+  let announcement = '';
+  if (phaseKind === 'shown') {
+    announcement = t('totp.code.status.shown', { ns: 'credentials' });
+  } else if (phaseKind === 'hidden') {
+    announcement = t('totp.code.status.hidden', { ns: 'credentials' });
+  } else if (phaseKind === 'expired') {
+    announcement = t('totp.code.status.expired', { ns: 'credentials' });
+  }
 
   const isShown = phase.kind === 'shown';
   useEffect(() => {
@@ -74,9 +103,12 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h3 id={headingId} className="text-base text-text">
+      <h3 id={headingId} ref={headingRef} tabIndex={-1} className="text-base text-text">
         {t('totp.code.heading', { ns: 'credentials' })}
       </h3>
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       {action.error !== undefined ? (
         <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
       ) : null}
@@ -125,7 +157,7 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
             />
             <Button
               onClick={() => {
-                setPhase({ kind: 'idle' });
+                setPhase({ kind: 'hidden' });
               }}
             >
               {t('totp.code.hideNow', { ns: 'credentials' })}
@@ -135,7 +167,10 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
       ) : (
         <>
           {phase.kind === 'expired' ? (
-            <Alert tone="info">{t('totp.code.expired', { ns: 'credentials' })}</Alert>
+            // Párrafo y no Alert: el Alert (role="alert") repetiría lo que ya anuncia la región de estado.
+            <p className="rounded-md border border-border-strong px-4 py-3 text-sm text-text">
+              {t('totp.code.expired', { ns: 'credentials' })}
+            </p>
           ) : (
             <p className="text-sm text-text-secondary">
               {t('totp.code.description', { ns: 'credentials' })}

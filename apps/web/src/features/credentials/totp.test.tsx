@@ -519,6 +519,47 @@ describe('get a code', () => {
     expect(within(dialog).getByRole('button', { name: t['totp.code.get'] })).toBeVisible();
   });
 
+  // SENSIBLE (revisión humana): tras obtener el código el foco va al encabezado (no al código) y la
+  // región de estado solo recibe mensajes fijos, nunca el código.
+  it('moves focus to the heading and announces a fixed message without the code', async () => {
+    const user = userEvent.setup();
+    const { routes } = totpRoutes(totpFixture());
+    setup({ extra: { ...routes, [codePath]: jsonResponse({ code: CODE, expiresIn: 25 }) } });
+    renderApp(PAGE);
+    const dialog = await requestCode(user);
+    const codeField = await screen.findByDisplayValue(CODE);
+    const heading = within(dialog).getByRole('heading', { name: t['totp.code.heading'] });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+    expect(document.activeElement).not.toBe(codeField);
+    const announcement = within(dialog).getByText(t['totp.code.status.shown']);
+    expect(announcement).toHaveAttribute('role', 'status');
+    expect(announcement).toHaveAttribute('aria-live', 'polite');
+    expect(announcement).not.toHaveTextContent(CODE);
+    expect(announcement).not.toHaveAttribute('title');
+    expect(announcement).not.toHaveAttribute('aria-label');
+  });
+
+  // SENSIBLE (revisión humana): al ocultar el código el foco vuelve al encabezado y se anuncia el
+  // mensaje fijo de oculto.
+  it('announces that the code was hidden and keeps focus on the heading', async () => {
+    const user = userEvent.setup();
+    const { routes } = totpRoutes(totpFixture());
+    setup({ extra: { ...routes, [codePath]: jsonResponse({ code: CODE, expiresIn: 25 }) } });
+    renderApp(PAGE);
+    const dialog = await requestCode(user);
+    await screen.findByDisplayValue(CODE);
+    await user.click(within(dialog).getByRole('button', { name: t['totp.code.hideNow'] }));
+    const heading = within(dialog).getByRole('heading', { name: t['totp.code.heading'] });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+    const announcement = within(dialog).getByText(t['totp.code.status.hidden']);
+    expect(announcement).toHaveAttribute('role', 'status');
+    expect(announcement).not.toHaveTextContent(CODE);
+  });
+
   it('drops the code when the dialog is closed', async () => {
     const user = userEvent.setup();
     const { routes } = totpRoutes(totpFixture());
@@ -698,6 +739,56 @@ describe('export the key', () => {
     await user.click(within(dialog).getByRole('button', { name: t['totp.export.again'] }));
     expect(field(t['reveal.reason'])).toHaveValue('');
     expect(api.callsTo('POST', `${TOTP_PATH}/export`)).toHaveLength(1);
+  });
+
+  // SENSIBLE (revisión humana): tras exportar el foco va al encabezado (no a la clave) y la región de
+  // estado solo recibe mensajes fijos, nunca la clave ni el enlace.
+  it('moves focus to the heading and announces a fixed message without the key or link', async () => {
+    const user = userEvent.setup();
+    const { routes } = totpRoutes(totpFixture());
+    setup({ extra: { ...routes, [exportPath]: jsonResponse(exported) } });
+    renderApp(PAGE);
+    const dialog = await openExport(user);
+    await user.type(field(t['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: t['totp.export.submit'] }));
+    const keyField = await screen.findByDisplayValue(SECRET_KEY);
+    const heading = within(dialog).getByRole('heading', { name: t['totp.export.heading'] });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+    expect(document.activeElement).not.toBe(keyField);
+    const announcement = within(dialog).getByText(
+      fill(t['totp.export.status.shown'], { seconds: 30 }),
+    );
+    expect(announcement).toHaveAttribute('role', 'status');
+    expect(announcement).toHaveAttribute('aria-live', 'polite');
+    expect(announcement).not.toHaveTextContent(SECRET_KEY);
+    expect(announcement).not.toHaveTextContent(SECRET_URI);
+    expect(announcement).not.toHaveAttribute('title');
+    expect(announcement).not.toHaveAttribute('aria-label');
+  });
+
+  // SENSIBLE (revisión humana): al ocultar la clave el foco vuelve al encabezado y se anuncia el
+  // mensaje fijo de oculto, sin repetirlo en un role="alert".
+  it('announces that the key was hidden and keeps focus on the heading', async () => {
+    const user = userEvent.setup();
+    const { routes } = totpRoutes(totpFixture());
+    setup({ extra: { ...routes, [exportPath]: jsonResponse(exported) } });
+    renderApp(PAGE);
+    const dialog = await openExport(user);
+    await user.type(field(t['reveal.reason']), REASON);
+    await user.click(within(dialog).getByRole('button', { name: t['totp.export.submit'] }));
+    await screen.findByDisplayValue(SECRET_KEY);
+    await user.click(within(dialog).getByRole('button', { name: t['totp.export.hideNow'] }));
+    const heading = within(dialog).getByRole('heading', { name: t['totp.export.heading'] });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+    const announcement = within(dialog).getByText(t['totp.export.status.hidden']);
+    expect(announcement).toHaveAttribute('role', 'status');
+    expect(announcement).not.toHaveTextContent(SECRET_KEY);
+    expect(announcement).not.toHaveTextContent(SECRET_URI);
+    expect(within(dialog).queryByRole('alert')).toBeNull();
   });
 
   it('copies the key and clears the clipboard after 30 s', async () => {

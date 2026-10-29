@@ -1,6 +1,6 @@
 import { ErrorCode, type Credential, type ExportedTotp } from '@iam/contracts';
 import { Alert, Button, CopyButton, FormField, Input, PasswordInput } from '@iam/ui';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError, useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
@@ -42,6 +42,13 @@ function ExportReasonForm({ credential, onCancel, onExported }: ReasonFormProps)
     exportTotpSecret(credential.id, trimmedReason),
   );
   const cooldown = useRateLimitCooldown(action.error);
+  const reasonRef = useRef<HTMLInputElement>(null);
+
+  // Tras un error el botón de envío quedó deshabilitado o en carga y el foco pudo perderse. El
+  // aviso ya se anuncia solo (role="alert"); aquí solo se devuelve el foco al motivo, que no es un secreto.
+  useEffect(() => {
+    if (action.error !== undefined) reasonRef.current?.focus();
+  }, [action.error]);
 
   const apiError = action.error instanceof ApiError ? action.error : undefined;
   const serverRejectedReason = apiError?.code === ErrorCode.CREDENTIAL_REASON_INVALID;
@@ -86,6 +93,7 @@ function ExportReasonForm({ credential, onCancel, onExported }: ReasonFormProps)
         {(controlProps) => (
           <Input
             {...controlProps}
+            ref={reasonRef}
             value={reason}
             maxLength={REVEAL_REASON_MAX_LENGTH}
             autoComplete="off"
@@ -189,6 +197,28 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
   const { t } = useTranslation(['credentials', 'common']);
   const headingId = useId();
   const [phase, setPhase] = useState<Phase>({ kind: 'closed' });
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const previousPhaseKind = useRef<Phase['kind']>('closed');
+
+  // Tras cada cambio de fase el botón pulsado se desmontó: el foco va al encabezado, que es estable
+  // y no contiene el secreto (WCAG 2.4.3). Sin cambio de fase (apertura del panel) no se toca.
+  const phaseKind = phase.kind;
+  useEffect(() => {
+    if (previousPhaseKind.current === phaseKind) return;
+    previousPhaseKind.current = phaseKind;
+    headingRef.current?.focus();
+  }, [phaseKind]);
+
+  // Mensajes fijos de i18n: la región NUNCA recibe la clave, el enlace ni nada derivado de ellos.
+  let announcement = '';
+  if (phaseKind === 'shown') {
+    announcement = t('totp.export.status.shown', {
+      ns: 'credentials',
+      seconds: REVEALED_PASSWORD_VISIBLE_SECONDS,
+    });
+  } else if (phaseKind === 'hidden') {
+    announcement = t('totp.export.status.hidden', { ns: 'credentials' });
+  }
 
   // Oculta a los 30 s. Al desmontar se cancela el temporizador y el estado se descarta con el
   // componente, así que cerrar el diálogo también borra la clave.
@@ -204,9 +234,12 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h3 id={headingId} className="text-base text-text">
+      <h3 id={headingId} ref={headingRef} tabIndex={-1} className="text-base text-text">
         {t('totp.export.heading', { ns: 'credentials' })}
       </h3>
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       {phase.kind === 'closed' ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-text-secondary">
@@ -246,7 +279,10 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
       ) : null}
       {phase.kind === 'hidden' ? (
         <div className="flex flex-col gap-3">
-          <Alert tone="info">{t('totp.export.hidden', { ns: 'credentials' })}</Alert>
+          {/* Párrafo y no Alert: el Alert (role="alert") repetiría lo que ya anuncia la región de estado. */}
+          <p className="rounded-md border border-border-strong px-4 py-3 text-sm text-text">
+            {t('totp.export.hidden', { ns: 'credentials' })}
+          </p>
           <div className="flex justify-end">
             <Button
               variant="secondary"
