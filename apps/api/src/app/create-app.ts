@@ -35,6 +35,23 @@ export const CONTENT_SECURITY_POLICY = {
   requireTrustedTypesFor: ["'script'"],
 } as const;
 
+/**
+ * Permissions-Policy: la plataforma solo necesita capturar una pestaña (método de alta de TOTP por
+ * captura, ADR 0017), así que `display-capture` se limita al propio origen y el resto de funciones
+ * sensibles del navegador se niega. Si el alta con cámara (v1.1) se construye, `camera` se abre aquí
+ * a `(self)` y no antes. Helmet no emite esta cabecera.
+ */
+export const PERMISSIONS_POLICY = [
+  'display-capture=(self)',
+  'camera=()',
+  'microphone=()',
+  'geolocation=()',
+  'payment=()',
+  'usb=()',
+  'serial=()',
+  'bluetooth=()',
+].join(', ');
+
 export interface CreateAppOptions {
   readonly logger: Logger;
   /** Sin contenedor solo se monta la comprobación de vida (útil para probar cabeceras sin base de datos). */
@@ -71,6 +88,7 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
     .getInstance()
     .addHook('onSend', (request, reply, _payload, done) => {
       void reply.header('x-request-id', request.id);
+      void reply.header('permissions-policy', PERMISSIONS_POLICY);
       done();
     });
   return app;

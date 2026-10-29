@@ -316,6 +316,7 @@ Un solo cliente en `shared/api`:
 Todo lo del plan, convertido en reglas verificables:
 
 - **CSP estricta** definida por el backend: sin ejecución de código en línea ni evaluación dinámica; scripts solo del propio origen; sin incrustación en otros sitios; conexiones solo al propio origen. Por eso los estilos son clases de Tailwind (sin estilos en línea) y las fuentes se autoalojan.
+- **`Permissions-Policy`** definida por el backend junto a la CSP (HDR-1): solo `display-capture=(self)` (alta de TOTP por captura de pestaña, ADR 0017); cámara, micrófono, geolocalización, pagos, USB, serie y Bluetooth se niegan. El alta con cámara (v1.1) abrirá `camera=(self)` en el mismo cambio que la construya.
 - **Trusted Types activado.** Prohibido insertar HTML a mano y evaluar código dinámico (lint como error). Si alguna vez hace falta HTML, solo con una política de Trusted Types revisada.
 - **Nada sensible en `localStorage`, `sessionStorage` ni IndexedDB.** Preferencias no sensibles (por ejemplo, filas por página) sí pueden usar `localStorage`, siempre con manejo de fallos.
 - **Secretos revelados**: viven en el estado local del revelador de secretos, **nunca** en la caché de TanStack Query, en un contexto global ni en la URL. Se descartan al ocultar (30 s), al desmontar o al cerrar sesión. Las peticiones de revelación van con la cabecera de no almacenamiento en caché (backend) y la mutación se configura para no conservar resultados.
