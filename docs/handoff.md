@@ -94,7 +94,7 @@ Estado a 2026-10-28: B1 a B5 tienen backend y pantalla en `main` (revisión huma
 | B4 | Segundo factor en el servidor: registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen. Hecho salvo el límite de intentos al confirmar. La purga de las versiones TOTP reemplazadas a los 30 días (H1b) vive en `purge-expired` (ADR 0038), con pruebas escritas sin ejecutar y el cron del anfitrión aún sin programar; la retención de versiones de contraseña sigue pendiente (C9). El aviso de 24 h (N1a) está implementado con pruebas escritas sin ejecutar: barrido en el sondeo del outbox, correo solo a quien registró, requiere `OUTBOX_WORKER_ENABLED` |
 | B5 | Registro por captura de pestaña, importación de Google Authenticator y entrega por celular. Hecho: imagen, portapapeles y captura de pestaña con `jsqr` 1.4.0 (570f301); Google Authenticator hecho el 2026-10-29 (N3b, pruebas sin ejecutar); pendiente: celular |
 | B6 | Búsqueda avanzada, índice ciego por usuario y vistas guardadas |
-| B7 | Importación por CSV |
+| B7 | Importación por CSV (backend O2a hecho 2026-10-29, pruebas sin ejecutar; falta la pantalla O2b) |
 
 El plan técnico estima la fase en conjunto (cuentas, secretos y compartición, M cada una; los cinco métodos del segundo factor, L; importación, búsqueda y vistas, S).
 

@@ -295,7 +295,7 @@ Las tres se hacen en orden: N2 depende de N1 y N3 de N2.
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] O1 | **B6 del plan:** búsqueda avanzada, índice ciego por usuario y vistas guardadas | Código ⚠ | — | M | K1, B4 | |
-| [ ] O2 | **B7 del plan:** importación por CSV | Código | — | S | K1 | |
+| [~] O2 | **B7 del plan:** importación por CSV | Código | — | S | K1 | Backend (O2a) hecho el 2026-10-29: vista previa y confirmación todo o nada, un evento `credential.imported`; pruebas escritas sin ejecutar y revisión humana pendiente. Falta la pantalla (O2b) |
 
 ## P · Gobernanza base
 

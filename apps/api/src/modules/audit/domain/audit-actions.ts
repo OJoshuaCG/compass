@@ -33,6 +33,9 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   // Restaurar crea una versión nueva con el contenido de una anterior: se anotan solo los dos números.
   'credential.version_restored': ['restoredVersion', 'newVersion'],
   'credential.username_copied': [],
+  // Importación por CSV (O2a): un solo evento por importación, solo conteos; nunca nombres, usuarios,
+  // contraseñas ni contenido del archivo.
+  'credential.imported': ['accountsCreated', 'credentialsCreated', 'duplicatesSkipped'],
   'credential.revealed': ['reason'],
   // Evento crítico: la persona superó el tope de revelaciones por hora (ADR 0031); `limit` es el tope vigente.
   'credential.reveal_limit_exceeded': ['limit'],

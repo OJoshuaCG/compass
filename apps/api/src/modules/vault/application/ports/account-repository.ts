@@ -23,6 +23,12 @@ export interface AccountRecord {
   readonly createdAt: Date;
 }
 
+/** Identidad de negocio de una cuenta existente para detectar duplicados al importar. */
+export interface ExistingAccountKey {
+  readonly platformId: string;
+  readonly displayName: string;
+}
+
 /** Una cuenta con el nivel de acceso de quien la consulta; `null` en el inventario, que no concede acceso. */
 export interface AccountView extends AccountRecord {
   readonly myLevel: ShareLevel | null;
@@ -80,6 +86,15 @@ export interface AccountRepository {
   }): Promise<{ readonly revokedShares: number }>;
   /** Cuentas activas a las que la persona accede, por nombre. */
   listVisiblePage(userId: UserId, page: KeysetRequest): Promise<KeysetPage<AccountView>>;
+  /**
+   * Claves (plataforma y nombre visible) de las cuentas activas a las que la persona accede y cuyo nombre
+   * coincide, sin distinguir mayúsculas, con alguno de `displayNames`. Solo cuentas con acceso efectivo:
+   * la importación no debe revelar que existe una cuenta ajena.
+   */
+  findVisibleKeysByNames(
+    userId: UserId,
+    displayNames: readonly string[],
+  ): Promise<readonly ExistingAccountKey[]>;
   /** Todas las cuentas activas de la organización (solo metadatos), por nombre. */
   listInventoryPage(page: KeysetRequest): Promise<KeysetPage<AccountView>>;
 }

@@ -128,6 +128,31 @@ export type {
   RevealedPassword,
 } from './credentials.js';
 export {
+  CREDENTIAL_IMPORT_DUPLICATE_REASONS,
+  CREDENTIAL_IMPORT_MAX_BYTES,
+  CREDENTIAL_IMPORT_MAX_ROWS,
+  CREDENTIAL_IMPORT_OPTIONAL_COLUMNS,
+  CREDENTIAL_IMPORT_REQUIRED_COLUMNS,
+  CREDENTIAL_IMPORT_ROW_ERROR_CODES,
+  CREDENTIAL_IMPORT_ROW_STATUSES,
+  credentialImportDuplicateReasonSchema,
+  credentialImportPreviewSchema,
+  credentialImportResultSchema,
+  credentialImportRowErrorCodeSchema,
+  credentialImportRowSchema,
+  credentialImportRowStatusSchema,
+  importCredentialsRequestSchema,
+} from './credential-import.js';
+export type {
+  CredentialImportDuplicateReason,
+  CredentialImportPreview,
+  CredentialImportResult,
+  CredentialImportRow,
+  CredentialImportRowErrorCode,
+  CredentialImportRowStatus,
+  ImportCredentialsRequest,
+} from './credential-import.js';
+export {
   SHARE_GRANTEE_TYPES,
   createShareRequestSchema,
   shareGranteeTypeSchema,

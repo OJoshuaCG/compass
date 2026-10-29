@@ -12,6 +12,11 @@ export type {
   CreateCredentialInput,
   ManageCredentialsDeps,
 } from './application/manage-credentials.js';
+export { ImportCredentials } from './application/import-credentials.js';
+export type {
+  ImportCommitOutcome,
+  ImportCredentialsDeps,
+} from './application/import-credentials.js';
 export { NotifyRevealLimitExceeded } from './application/notify-reveal-limit-exceeded.js';
 export type {
   NotifyRevealLimitExceededDeps,
@@ -69,6 +74,7 @@ export type {
   AccountRecord,
   AccountRepository,
   AccountView,
+  ExistingAccountKey,
   PlatformRecord,
 } from './application/ports/account-repository.js';
 export type {

@@ -20,6 +20,7 @@ import type {
   AccountRecord,
   AccountRepository,
   AccountView,
+  ExistingAccountKey,
   NewAccount,
   PlatformRecord,
 } from '../application/ports/account-repository.js';
@@ -218,6 +219,31 @@ export class PgAccountRepository implements AccountRepository {
       params,
     );
     return this.toPage(result.rows, page.limit);
+  }
+
+  async findVisibleKeysByNames(
+    userId: UserId,
+    displayNames: readonly string[],
+  ): Promise<readonly ExistingAccountKey[]> {
+    if (displayNames.length === 0) return [];
+    const result = await this.transactions
+      .current()
+      .query<{ platform_id: string; display_name: string }>(
+        `select a.platform_id, a.display_name
+           from accounts a
+           join effective_access ea
+             on ea.organization_id = a.organization_id
+            and ea.resource_type = 'account'
+            and ea.resource_id = a.id
+            and ea.user_id = $1
+          where a.status = 'active'
+            and lower(a.display_name) = any($2::text[])`,
+        [userId, displayNames.map((name) => name.toLowerCase())],
+      );
+    return result.rows.map((row) => ({
+      platformId: row.platform_id,
+      displayName: row.display_name,
+    }));
   }
 
   async listInventoryPage(page: KeysetRequest): Promise<KeysetPage<AccountView>> {
