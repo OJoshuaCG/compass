@@ -4,12 +4,14 @@ import {
   renderEmergencyAlertEmail,
   renderInvitationEmail,
 } from '../application/render-invitation-email.js';
+import { renderPendingTotpEmail } from '../application/render-pending-totp-email.js';
 import { renderRevealLimitEmail } from '../application/render-reveal-limit-email.js';
 import { renderSecurityNoticeEmail } from '../application/render-security-notice-email.js';
 import type {
   EmergencyAlertMessage,
   InvitationMessage,
   Mailer,
+  PendingTotpNoticeMessage,
   RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
@@ -101,6 +103,15 @@ export class SmtpMailer implements Mailer {
 
   async sendRevealLimitAlert(message: RevealLimitAlertMessage): Promise<void> {
     const email = renderRevealLimitEmail(message);
+    try {
+      await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
+    } catch {
+      throw new Error('Mail delivery failed');
+    }
+  }
+
+  async sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void> {
+    const email = renderPendingTotpEmail(message);
     try {
       await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
     } catch {

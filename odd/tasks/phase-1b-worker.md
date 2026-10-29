@@ -17,7 +17,7 @@ Objetivo: implementar el [ADR 0035](../../docs/adr/0035-transactional-outbox-for
 | H1a-2 | Configuración validada y arranque/apagado en `main.http.ts`                                                  | Hecha                                |
 | H1a-3 | Pruebas unitarias e de integración (SKIP LOCKED, aislamiento, rollback)                                      | Escritas, sin ejecutar               |
 | H1a-4 | Documentación (ADR 0035, `docs/backend.md` §6.5, `docs/deployment.md`)                                       | Hecha                                |
-| H1b   | Manejadores reales: aviso de 24 h del segundo factor                                                         | Pendiente                            |
+| H1b   | Manejadores reales: aviso de 24 h del segundo factor (N1a)                                                   | Hecha, pruebas escritas sin ejecutar |
 | R2a   | Manejador del aviso de revelaciones a la Raíz (ADR 0031) con acuses de entrega idempotentes (migración 0019) | Hecha, pruebas escritas sin ejecutar |
 | G1    | Retención de publicados: propuesta de 7 días NO definitiva, decide el dueño                                  | Pendiente                            |
 
@@ -41,3 +41,23 @@ Objetivo: implementar el [ADR 0035](../../docs/adr/0035-transactional-outbox-for
 6. **Requiere `OUTBOX_WORKER_ENABLED=true`.** Apagado por defecto: sin él el aviso espera en `outbox_events` (el tipo ya tiene manejador, así que sale en cuanto se active).
 7. **Payload inválido consume los 8 reintentos.** El trabajador no tiene una ruta "sin reintento": un error no reintentable (p. ej. un `payload` que no cumple el esquema) pasa por la misma espera exponencial y tarda horas en llegar a cuarentena aunque nunca pueda tener éxito. Decisión abierta de mejora del trabajador: distinguir un error no reintentable y mandar el evento a cuarentena de inmediato.
 8. **Plazo del manejador frente a los tiempos del SMTP.** El plazo del manejador es de 30 s y los tiempos de espera del transporte SMTP suman 10 + 10 + 20 s. Si el plazo vence con el envío en curso, el trabajador revierte y reintenta mientras el correo aún puede salir, lo que deja una ventana de duplicado. Se acepta con instancia única (un duplicado antes que una alerta perdida); revisar si se sube el plazo o se bajan los tiempos del SMTP.
+
+- 2026-10-28 (N1a): aviso por correo a quien registró un segundo factor y lo dejó sin confirmar más de 24 h. Ruta protegida, con autorización de la persona. Sin migración: `credential_totp.pending_notice_at` y el índice parcial ya existían (0018).
+  - Barrido `EnqueuePendingTotpNotices` (módulo `vault`), ejecutado desde el sondeo del outbox como máximo cada 5 minutos. Por organización (`PgOrganizationLister` y `TenantScope.runAs`), reclama con `FOR UPDATE SKIP LOCKED` los registros `pending` con 24 h o más y sin `pending_notice_at`, marca la columna y escribe el evento en la misma transacción. Un fallo en una organización no detiene a las demás ni al trabajador.
+  - Manejador `NotifyPendingTotpUnconfirmed` (tipo `credential.totp_pending_unconfirmed`): comprueba que el registro siga pendiente con la misma fecha de registro, resuelve a quien registró, envía con `Mailer.sendPendingTotpNotice` y anota el acuse (`vault.pending-totp-notice:<id>`).
+  - Payload solo con ids y la fecha de registro. Textos es-MX y en-US con el nombre saneado (el saneador de R2a se extrajo a `sanitize-display-name.ts`).
+  - Sin variable nueva: se activa con `OUTBOX_WORKER_ENABLED`.
+  - Verificado solo en estático: `tsc`, `eslint`, `prettier` y `depcruise`. NO ejecutadas las pruebas: `src/modules/vault/domain/pending-totp-notice.test.ts`, `src/modules/vault/application/notify-pending-totp-unconfirmed.test.ts`, `src/modules/vault/application/enqueue-pending-totp-notices.test.ts`, `src/modules/notification/application/render-pending-totp-email.test.ts`, `src/modules/notification/infrastructure/smtp-mailer.test.ts`, `test/pending-totp-notice.integration.test.ts`; regresión: `render-reveal-limit-email.test.ts`, `test/reveal-limit-notice.integration.test.ts`, `test/outbox.integration.test.ts`, `test/vault-totp.e2e.test.ts`.
+  - Ajuste tras la revisión adversarial (dos jueces ciegos): el barrido excluía las credenciales archivadas, pero el manejador solo revalidaba el segundo factor, así que una credencial archivada entre el barrido y la entrega aún disparaba el correo. Ahora el manejador lee la credencial con el puerto existente `CredentialRepository.findById` (`PgVaultCredentialRepository`, bajo RLS; sin puerto nuevo ni migración) y, si está archivada o ya no existe, omite el envío sin error ni acuse (el evento se cierra, igual que cuando el registro ya no está pendiente). Pruebas añadidas y NO ejecutadas: caso de credencial archivada o inexistente en `notify-pending-totp-unconfirmed.test.ts` y caso de archivado tras el barrido en `test/pending-totp-notice.integration.test.ts`.
+
+### Decisiones abiertas de N1a (se aplicó la opción conservadora; decide el dueño)
+
+1. **Destinataria.** S10 / DF-6 no dice a quién avisar ni si la dueña de la credencial debe enterarse. Se avisa solo a quien registró.
+2. **Quien registró está suspendida o ya no existe.** No se envía nada ni se reintenta. Alternativa: avisar a la dueña o a la Raíz.
+3. **Contenido.** El correo omite nombre de cuenta y credencial y no lleva enlaces, así que la persona no sabe cuál es. Alternativa: incluir el nombre de la credencial.
+4. **Auditoría.** El barrido no audita (es mantenimiento del sistema sin actor, como la purga). Alternativa: auditar con actor nulo, si el motor de autorización lo exige para acciones del sistema.
+5. **Cadencia.** Barrido cada 5 minutos como mínimo y lotes de 100 por organización.
+6. **Requiere `OUTBOX_WORKER_ENABLED=true`.** Sin él, nada se barre ni se envía.
+7. **Duplicado entre envío y acuse.** Si el proceso cae entre ambos, el correo puede repetirse (mismo criterio que R2a).
+8. **Retención de acuses.** Crece un acuse por aviso hasta decidir G1.
+9. **Después del aviso no pasa nada.** No se cancela el secreto pendiente (pregunta abierta 2 de `docs/business/two-factor.md`).

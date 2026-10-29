@@ -1,5 +1,6 @@
 import type { RevealLimitAlertMessage } from './ports/mailer.js';
 import type { RenderedEmail } from './render-invitation-email.js';
+import { escapeHtml, sanitizeDisplayName } from './sanitize-display-name.js';
 
 type Locale = RevealLimitAlertMessage['locale'];
 
@@ -31,34 +32,6 @@ const COPY = {
       'Review the organization audit trail to confirm whether the activity is legitimate. If it is not, suspend the person and rotate the credentials they revealed. For safety, this email does not include account or credential names.',
   },
 } as const;
-
-/** Largo máximo del nombre visible en el correo: acota el espacio que un nombre hostil puede ocupar. */
-const MAX_DISPLAY_NAME_LENGTH = 80;
-
-/**
- * Caracteres de control Unicode (`Cc`: saltos de línea, tabuladores, NUL...). Se sustituyen por un espacio
- * para que dos palabras separadas por un salto no se peguen.
- */
-const CONTROL_CHARACTERS = /\p{Cc}/gu;
-
-/**
- * Caracteres de formato Unicode (`Cf`), que incluyen los invisibles y bidireccionales (U+200B–200F,
- * U+202A–202E, U+2066–2069). Se eliminan sin dejar espacio: no se ven y, en un correo de seguridad, permitirían
- * invertir el sentido visual del nombre u ocultar texto.
- */
-const FORMAT_CHARACTERS = /\p{Cf}/gu;
-
-/** Deja el nombre en una sola línea visible: sin control ni bidi, espacios colapsados y largo acotado. */
-function sanitizeDisplayName(rawName: string): string {
-  const withoutControl = rawName.replace(CONTROL_CHARACTERS, ' ');
-  const withoutFormat = withoutControl.replace(FORMAT_CHARACTERS, '');
-  const collapsed = withoutFormat.replace(/\s+/g, ' ').trim();
-  // `Array.from` cuenta puntos de código, no unidades UTF-16: no parte un emoji por la mitad.
-  return Array.from(collapsed).slice(0, MAX_DISPLAY_NAME_LENGTH).join('').trim();
-}
-
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (char) => `&#${String(char.charCodeAt(0))};`);
 
 /**
  * Aviso a la Raíz del tope de revelaciones. Solo lleva el nombre de la persona (que es dato del directorio

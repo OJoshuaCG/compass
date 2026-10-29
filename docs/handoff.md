@@ -91,7 +91,7 @@ Estado a 2026-10-28: B1 a B5 tienen backend y pantalla en `main` (revisión huma
 | B1 | Acceso efectivo y cuentas: catálogo de plataformas (lectura), crear, editar y archivar cuentas, listado filtrado por acceso efectivo y pantalla de cuentas |
 | B2 | Credenciales: crear, cambiar contraseña con versiones y huella, historial sin contenido, copiar usuario; revelar contraseña con reautenticación, motivo, límite por hora y ocultado a los 30 s |
 | B3 | Compartición y grupos: por persona y por grupo, caducidad, no compartir más de lo propio, tarea de rotación al revocar tras una revelación |
-| B4 | Segundo factor en el servidor: registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen. Hecho salvo el aviso de 24 h y el límite de intentos al confirmar |
+| B4 | Segundo factor en el servidor: registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual y por imagen. Hecho salvo el límite de intentos al confirmar. El aviso de 24 h (N1a) está implementado con pruebas escritas sin ejecutar: barrido en el sondeo del outbox, correo solo a quien registró, requiere `OUTBOX_WORKER_ENABLED` |
 | B5 | Registro por captura de pestaña, importación de Google Authenticator y entrega por celular. Hecho: imagen, portapapeles y captura de pestaña con `jsqr` 1.4.0 (570f301); pendientes: Google Authenticator y celular |
 | B6 | Búsqueda avanzada, índice ciego por usuario y vistas guardadas |
 | B7 | Importación por CSV |

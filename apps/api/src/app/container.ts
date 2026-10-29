@@ -29,6 +29,7 @@ import {
   PgOutboxDeliveryReceipts,
   PgOutboxRepository,
 } from '../modules/outbox/index.js';
+import type { OutboxRunOptions } from '../modules/outbox/index.js';
 import {
   CreateUser,
   ListDirectory,
@@ -69,13 +70,18 @@ import {
   ManageAccounts,
   ManageShares,
   ManageCredentials,
+  EnqueuePendingTotpNotices,
   ManageTotp,
+  NotifyPendingTotpUnconfirmed,
   NotifyRevealLimitExceeded,
   OtplibTotpGenerator,
+  PENDING_TOTP_NOTICE_EVENT_TYPE,
   PgAccountRepository,
+  PgPendingTotpNoticeStore,
   PgTotpRepository,
   PgShareRepository,
   PgVaultCredentialRepository,
+  pendingTotpNoticeHandlerKey,
   REVEAL_LIMIT_NOTICE_EVENT_TYPE,
   revealLimitNoticeHandlerKey,
 } from '../modules/vault/index.js';
@@ -206,8 +212,25 @@ export function buildContainer(options: ContainerOptions) {
   outboxHandlers.register(REVEAL_LIMIT_NOTICE_EVENT_TYPE, (event) =>
     notifyRevealLimitExceeded.handle({ eventId: event.id, payload: event.payload }),
   );
+  // Aviso a quien registró un segundo factor que lleva 24 h sin confirmar (S10). Solo a quien lo registró.
+  const notifyPendingTotpUnconfirmed = new NotifyPendingTotpUnconfirmed({
+    directory,
+    totps: new PgTotpRepository(uow),
+    credentials: new PgVaultCredentialRepository(uow),
+    mailer,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, pendingTotpNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, pendingTotpNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(PENDING_TOTP_NOTICE_EVENT_TYPE, (event) =>
+    notifyPendingTotpUnconfirmed.handle({ eventId: event.id, payload: event.payload }),
+  );
+  const organizationLister = new PgOrganizationLister(pool);
   const outboxWorker = new OutboxWorker({
-    organizations: new PgOrganizationLister(pool),
+    organizations: organizationLister,
     repository: new PgOutboxRepository(uow),
     scope,
     handlers: outboxHandlers,
@@ -215,8 +238,52 @@ export function buildContainer(options: ContainerOptions) {
     clock,
     logger,
   });
+  // Barrido de segundos factores pendientes: encola los avisos vencidos (misma transacción que la marca
+  // `pending_notice_at`) ANTES de cada pasada del trabajador, que los entrega. Corre solo con el sondeo
+  // (`OUTBOX_WORKER_ENABLED`) y, aunque falle, no impide que el trabajador publique lo ya encolado.
+  const enqueuePendingTotpNotices = new EnqueuePendingTotpNotices({
+    organizations: organizationLister,
+    store: new PgPendingTotpNoticeStore(uow),
+    scope,
+    ids,
+    clock,
+  });
+  const outboxPassRunner = {
+    async runOnce(runOptions: OutboxRunOptions = {}) {
+      try {
+        const sweep = await enqueuePendingTotpNotices.executeIfDue(
+          runOptions.isStopping === undefined ? {} : { isStopping: runOptions.isStopping },
+        );
+        if (sweep !== null && sweep.enqueued > 0) {
+          logger.info(
+            { enqueued: sweep.enqueued, outcome: 'pending_totp_notices_enqueued' },
+            'pending totp notices enqueued',
+          );
+        }
+        if (sweep !== null && sweep.failedOrganizations > 0) {
+          logger.error(
+            {
+              failedOrganizations: sweep.failedOrganizations,
+              outcome: 'pending_totp_sweep_organization_failed',
+            },
+            'pending totp sweep failed for some organizations',
+          );
+        }
+      } catch (error) {
+        // Solo el nombre del error: el mensaje puede arrastrar datos.
+        logger.error(
+          {
+            outcome: 'pending_totp_sweep_failed',
+            errorName: error instanceof Error ? error.name : 'UnknownError',
+          },
+          'pending totp sweep failed',
+        );
+      }
+      return outboxWorker.runOnce(runOptions);
+    },
+  };
   const outboxPoller = new OutboxPoller({
-    worker: outboxWorker,
+    worker: outboxPassRunner,
     logger,
     intervalMs: options.outboxPollIntervalMs ?? DEFAULT_OUTBOX_POLL_INTERVAL_MS,
   });

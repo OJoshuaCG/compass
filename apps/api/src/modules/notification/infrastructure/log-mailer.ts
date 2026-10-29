@@ -4,6 +4,7 @@ import type {
   EmergencyAlertMessage,
   InvitationMessage,
   Mailer,
+  PendingTotpNoticeMessage,
   RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
@@ -47,6 +48,12 @@ export class LogMailer implements Mailer {
       },
       'reveal limit alert (dev)',
     );
+    return Promise.resolve();
+  }
+
+  sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void> {
+    // Sin destinatario ni nombre: son datos personales y aquí solo importa cuándo se registró el factor.
+    this.logger.info({ registeredAt: message.registeredAt }, 'pending totp notice (dev)');
     return Promise.resolve();
   }
 

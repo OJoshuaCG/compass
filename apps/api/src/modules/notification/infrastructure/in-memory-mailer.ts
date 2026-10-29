@@ -2,6 +2,7 @@ import type {
   EmergencyAlertMessage,
   InvitationMessage,
   Mailer,
+  PendingTotpNoticeMessage,
   RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
@@ -50,6 +51,17 @@ export class InMemoryMailer implements Mailer {
       return Promise.reject(new Error('mail provider unavailable'));
     }
     this.revealLimitAlerts.push(message);
+    return Promise.resolve();
+  }
+
+  readonly pendingTotpNotices: PendingTotpNoticeMessage[] = [];
+
+  sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.pendingTotpNotices.push(message);
     return Promise.resolve();
   }
 

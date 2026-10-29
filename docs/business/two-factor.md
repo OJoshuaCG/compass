@@ -61,7 +61,7 @@ Registrar la clave no basta. Hay un paso de comprobación para evitar que la cue
 3. La persona confirma en el sistema que la plataforma lo aceptó.
 4. Solo entonces el secreto pasa a estar **verificado**.
 
-Mientras no se confirma, el secreto está **pendiente**. Si pasan **24 horas** sin verificarse, el sistema genera un aviso: puede ser una cuenta a punto de quedar bloqueada.
+Mientras no se confirma, el secreto está **pendiente**. Si pasan **24 horas** sin verificarse, el sistema genera un aviso: puede ser una cuenta a punto de quedar bloqueada. El aviso llega por correo, en su idioma, a la persona que registró el segundo factor, una sola vez por registro (si lo vuelve a registrar, empieza un plazo nuevo de 24 horas). No sale en el mismo instante: un proceso aparte lo revisa cada pocos minutos y lo reintenta si el correo falla. El correo solo dice cuándo se registró y pide confirmar o retirar el segundo factor; no menciona la cuenta ni la credencial, para que el propio aviso no filtre información. Si entre el aviso y el envío la persona lo confirma o lo retira, no se envía. Si quien lo registró ya no está activa, no se avisa a nadie más (ver pregunta abierta 2 y la 7).
 
 **Ejemplo.** Luis activa el segundo factor de la cuenta de Instagram. Registra la clave, el sistema muestra el código 482 913, él lo introduce en Instagram y esta lo acepta. Luis confirma en el sistema y el secreto queda verificado. Si se hubiera ido a comer antes de confirmar y no regresara, a las 24 horas saltaría un aviso.
 
@@ -143,3 +143,4 @@ Exportar es mostrar la clave misma del segundo factor, que permite generar códi
 | 4 | Qué formatos de otros autenticadores se admiten además de la exportación de Google Authenticator | El plan menciona "archivo de otros autenticadores" sin lista |
 | 5 | Qué límite de frecuencia exacto aplica a la emisión de códigos | El plan indica el límite, no su valor |
 | 6 | Si se podrán admitir códigos basados en contador en una versión posterior | El plan solo dice que se rechazan en la primera versión |
+| 7 | A quién más avisa el aviso de 24 h además de quien registró (el responsable de la cuenta, la Raíz) y qué pasa si quien registró ya no está activa. Hoy solo se avisa a quien registró y, si no puede recibirlo, no se avisa a nadie | El plan dice "genera un aviso" sin decir a quién; se aplicó la opción más conservadora |

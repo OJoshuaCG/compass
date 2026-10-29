@@ -207,7 +207,7 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] H1 | Punto de entrada del worker (no existe) [V]: purga de versiones a los 30 días y aviso de 24 h de un segundo factor pendiente | Código | Equipo | M | C1 | |
+| [~] H1 | Punto de entrada del worker (no existe) [V]: purga de versiones a los 30 días y aviso de 24 h de un segundo factor pendiente (el aviso de 24 h quedó hecho en N1a; falta la purga de versiones) | Código | Equipo | M | C1 | |
 | [ ] H2 | Primera ejecución del CI en GitHub, corregir lo que falle y añadir los escáneres de seguridad. El dueño lo despriorizó; la puerta de producción lo vuelve necesario. Subir al remoto es decisión del equipo | Código | Equipo | S | A8 | |
 | [x] H3 | Guía de `trustProxy`: detrás de un balanceador todos comparten la IP; mal activado, se falsifica [S] | Doc | Ing. | S | A6 | `docs/backend.md` §6.4 y el runbook de instancia única |
 
@@ -283,7 +283,7 @@ Las tres se hacen en orden: N2 depende de N1 y N3 de N2.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [~] N1 | **B4 del plan, parte a:** segundo factor en el servidor. Registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual | Código ⚠ | — | L | K1, B8, B9 | Hecho en B4a (2026-10-28, ver `odd/tasks/phase-1b-vault.md`); falta el aviso de 24 h sin confirmar (la columna `pending_notice_at` existe, pero nada genera el aviso; ver 9f5f573), un límite de intentos al confirmar (hoy solo se audita cada fallo) y la revisión humana de sus pruebas |
+| [~] N1 | **B4 del plan, parte a:** segundo factor en el servidor. Registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual | Código ⚠ | — | L | K1, B8, B9 | Hecho en B4a (2026-10-28, ver `odd/tasks/phase-1b-vault.md`); el aviso de 24 h sin confirmar quedó hecho en N1a (2026-10-28, barrido más manejador del outbox, solo a quien registró; pruebas escritas sin ejecutar; ver `odd/tasks/phase-1b-worker.md`); falta un límite de intentos al confirmar (hoy solo se audita cada fallo) y la revisión humana de sus pruebas |
 | [~] N2 | **B4 del plan, parte b:** registro del segundo factor por imagen del QR | Código ⚠ | — | M | N1, B7 | Hecho el registro por imagen, portapapeles y captura de pestaña en la pantalla (570f301, B5, `jsqr` 1.4.0); falta la importación de Google Authenticator y la entrega por celular |
 | [ ] N3 | **B5 del plan:** captura de pestaña, importación de Google Authenticator y entrega por celular (según el recorte de B8) | Código ⚠ | — | M | N2, B8 | |
 | [ ] N4 | Aislar el generador de TOTP en un proceso propio antes de la puerta de producción (ADR 0034) | Código ⚠ | — | M | N1, B9 | |

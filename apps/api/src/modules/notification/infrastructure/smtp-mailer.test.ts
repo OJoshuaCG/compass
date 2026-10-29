@@ -101,6 +101,31 @@ describe('SmtpMailer', () => {
     expect(String(failure)).toBe('Error: Mail delivery failed');
   });
 
+  it('sends the pending second factor notice to the registrant and hides the provider error', async () => {
+    const notice = {
+      to: 'luis@example.com',
+      locale: 'es-MX' as const,
+      recipientDisplayName: 'Luis',
+      registeredAt: new Date('2026-03-04T15:30:00Z'),
+    };
+    const sendMail = vi.fn<MailTransport['sendMail']>().mockResolvedValue(undefined);
+    await new SmtpMailer(options, 'production', { sendMail }).sendPendingTotpNotice(notice);
+
+    expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
+      from: 'IAM <no-reply@example.com>',
+      to: 'luis@example.com',
+      subject: 'Tu segundo factor sigue sin confirmarse',
+    });
+
+    const failingSend = vi
+      .fn<MailTransport['sendMail']>()
+      .mockRejectedValue(new Error('550 rejected luis@example.com'));
+    const failure = await new SmtpMailer(options, 'production', { sendMail: failingSend })
+      .sendPendingTotpNotice(notice)
+      .catch((error: unknown) => error);
+    expect(String(failure)).toBe('Error: Mail delivery failed');
+  });
+
   it('refuses to run without TLS in production, and allows it only for local tests', () => {
     const plain = { ...options, security: 'none' as const };
     expect(() => new SmtpMailer(plain, 'production')).toThrow(/TLS/);

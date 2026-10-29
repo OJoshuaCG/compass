@@ -44,6 +44,20 @@ export interface RevealLimitAlertMessage {
   readonly occurredAt: Date;
 }
 
+/**
+ * Aviso a quien registró un segundo factor (TOTP) de que lleva más de 24 horas sin confirmarse. Solo dice
+ * que hay un registro pendiente y desde cuándo: NO incluye el nombre de la cuenta ni de la credencial, ni
+ * enlaces, ni la clave ni ningún código.
+ */
+export interface PendingTotpNoticeMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  /** Nombre visible de la destinataria; `null` si no se puede resolver (el aviso sale igual, sin saludo con nombre). */
+  readonly recipientDisplayName: string | null;
+  /** Momento en que se registró el segundo factor (UTC). */
+  readonly registeredAt: Date;
+}
+
 /** Correo saliente detrás de un puerto (SES en producción; el proveedor es intercambiable). */
 export interface Mailer {
   sendInvitation(message: InvitationMessage): Promise<void>;
@@ -53,4 +67,6 @@ export interface Mailer {
   sendSecurityNotice(message: SecurityNoticeMessage): Promise<void>;
   /** Avisa a la Raíz de que una persona alcanzó el tope de revelaciones por hora (sin secretos ni credenciales). */
   sendRevealLimitAlert(message: RevealLimitAlertMessage): Promise<void>;
+  /** Avisa a quien registró un segundo factor de que sigue sin confirmarse pasadas 24 horas (sin secretos ni nombres). */
+  sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void>;
 }
