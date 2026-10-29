@@ -63,5 +63,8 @@
   "invitations.empty.title": "No hay invitaciones pendientes",
   "invitations.empty.description": "Las invitaciones que envíes y no se hayan aceptado aparecerán aquí.",
   "invite.roles": "Roles",
-  "invite.rolesHelp": "Opcional. La persona recibirá los permisos de los roles que elijas."
+  "invite.rolesHelp": "Opcional. La persona recibirá los permisos de los roles que elijas.",
+  "invite.manager": "Responsable",
+  "invite.managerHelp": "Opcional. Si no eliges a nadie, serás tú. Solo aparecen personas activas de tu equipo con un rango superior al de la persona invitada.",
+  "invite.managerSelf": "Yo (quien invita)"
 }

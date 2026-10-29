@@ -13,10 +13,13 @@ import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
 
 import { ApiError, applyFieldErrors, useRateLimitCooldown } from '../../../shared/api';
+import { useMe } from '../../../shared/auth';
 import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/toast';
 import { directoryKeys, fetchInvitableRoles, inviteUser } from '../api/directory-api';
+import { fetchInvitableManagers } from '../api/team-api';
 import { creatableRanks } from '../model/creatable-ranks';
+import { invitableManagers } from '../model/invitable-managers';
 import { RoleChoices } from '../ui/role-choices';
 
 type FormInput = z.input<typeof createInvitationRequestSchema>;
@@ -54,6 +57,16 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
   });
   const roles = rolesQuery.data ?? [];
 
+  // Posibles responsables (el subárbol de quien invita). Es opcional: si la consulta falla o no hay
+  // nadie elegible, el campo no se muestra y el servidor deja como responsable a quien invita.
+  const actorId = useMe()?.user.id;
+  const managersQuery = useQuery({
+    queryKey: directoryKeys.invitableManagers(),
+    queryFn: ({ signal }) => fetchInvitableManagers(signal),
+    // Un traspaso o una baja pueden cambiar el subárbol en cualquier momento.
+    staleTime: 0,
+  });
+
   const mutation = useMutation({
     mutationFn: (body: CreateInvitationRequest) => inviteUser(body, keyFor(body)),
   });
@@ -69,16 +82,29 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
   } = useForm<FormInput, unknown, CreateInvitationRequest>({
     resolver: zodResolver(createInvitationRequestSchema),
     // Por defecto, el rango de menor autoridad: el privilegio mínimo es la opción segura.
+    // Sin `managerId`: el servidor asigna como responsable a quien invita.
     defaultValues: { email: '', rank: options.at(-1) ?? 3, roleIds: [] },
   });
   const email = useWatch({ control, name: 'email' });
   const roleIds = useWatch({ control, name: 'roleIds' }) ?? [];
+  const rank = useWatch({ control, name: 'rank' });
+  const managerId = useWatch({ control, name: 'managerId' });
+  // Al subir el rango del invitado, un responsable elegido antes puede dejar de ser elegible: en
+  // ese caso se vuelve a mostrar la opción por defecto y no se envía.
+  const managers = invitableManagers(managersQuery.data ?? [], actorId, rank);
+  const selectedManagerId = managers.some((manager) => manager.id === managerId)
+    ? managerId
+    : undefined;
 
   function submit(values: CreateInvitationRequest) {
     // Un rol archivado entre tanto (la lista se recargó) ya no se envía.
-    const body = {
-      ...values,
+    // El responsable solo se envía si sigue siendo elegible; si no, se omite y el servidor usa a
+    // quien invita.
+    const body: CreateInvitationRequest = {
+      email: values.email,
+      rank: values.rank,
       roleIds: values.roleIds.filter((id) => roles.some((r) => r.id === id)),
+      ...(selectedManagerId === undefined ? {} : { managerId: selectedManagerId }),
     };
     mutation.mutate(body, {
       onSuccess: (invitation) => {
@@ -99,6 +125,19 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
           // Respuesta definitiva del servidor: la próxima petición es nueva.
           attempt.current = null;
         }
+        // Reglas de responsable (fuera del subárbol o rango insuficiente): se muestran junto al campo
+        // y la lista se recarga porque el subárbol pudo cambiar desde que se abrió el diálogo.
+        if (
+          error instanceof ApiError &&
+          (error.code === ErrorCode.USER_MANAGER_RANK_INVALID ||
+            error.code === ErrorCode.AUTHZ_HIERARCHY_NOT_IN_SUBTREE)
+        ) {
+          attempt.current = null;
+          void queryClient.invalidateQueries({ queryKey: directoryKeys.invitableManagers() });
+          setError('managerId', { type: 'server', message: t(error.code, { ns: 'errors' }) });
+          mutation.reset();
+          return;
+        }
         if (error instanceof ApiError && error.code === ErrorCode.INVITATION_CONFLICT) {
           setError('email', {
             type: 'server',
@@ -111,7 +150,7 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
           applyFieldErrors(
             error,
             setError,
-            ['email', 'rank'],
+            ['email', 'rank', 'managerId'],
             t('VALIDATION.FAILED', { ns: 'errors' }),
           )
         ) {
@@ -166,6 +205,32 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
           </NativeSelect>
         )}
       </FormField>
+      {managers.length > 0 ? (
+        <FormField
+          label={t('invite.manager', { ns: 'directory' })}
+          help={t('invite.managerHelp', { ns: 'directory' })}
+          error={validationMessage(errors.managerId, { field: 'managerId' })}
+        >
+          {(field) => (
+            <NativeSelect
+              {...field}
+              value={selectedManagerId ?? ''}
+              onChange={(event) => {
+                const chosen = event.target.value;
+                setValue('managerId', chosen === '' ? undefined : chosen);
+              }}
+              invalid={field['aria-invalid'] === true}
+            >
+              <option value="">{t('invite.managerSelf', { ns: 'directory' })}</option>
+              {managers.map((manager) => (
+                <option key={manager.id} value={manager.id}>
+                  {`${manager.displayName} · ${manager.email} · ${t(`rank.${String(manager.rank)}`, { ns: 'common' })}`}
+                </option>
+              ))}
+            </NativeSelect>
+          )}
+        </FormField>
+      ) : null}
       {roles.length > 0 ? (
         <RoleChoices
           legend={t('invite.roles', { ns: 'directory' })}

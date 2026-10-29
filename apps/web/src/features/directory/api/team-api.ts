@@ -1,4 +1,4 @@
-import { managedUserSchema, type Rank } from '@iam/contracts';
+import { managedUserSchema, MAX_PAGE_LIMIT, type ManagedUser, type Rank } from '@iam/contracts';
 
 import { apiClient, createListFetcher, noContentSchema, type ApiClient } from '../../../shared/api';
 
@@ -13,6 +13,30 @@ export const fetchManagedPage = createListFetcher(apiClient, '/users/managed', m
  */
 export function fetchManagerCandidates(q: string, signal: AbortSignal) {
   return fetchUsersPage({ q, limit: 25, sort: 'rank', dir: 'asc' }, signal);
+}
+
+/** Tope de páginas al reunir el subárbol: evita un ciclo si el servidor repitiera el cursor. */
+const MAX_MANAGER_PAGES = 10;
+
+/**
+ * Posibles responsables de una persona invitada: el subárbol de quien invita (`/users/managed`), que
+ * es exactamente el alcance que el servidor exige y no pide permisos de gestión. Se ordena por
+ * rango para que, si el subárbol excediera el tope, se pierdan los de menos autoridad (los que
+ * menos probablemente sean elegibles). El servidor valida de todos modos.
+ */
+export async function fetchInvitableManagers(signal: AbortSignal) {
+  const people: ManagedUser[] = [];
+  let cursor: string | undefined;
+  for (let pageNumber = 0; pageNumber < MAX_MANAGER_PAGES; pageNumber += 1) {
+    const page = await fetchManagedPage(
+      { limit: MAX_PAGE_LIMIT, sort: 'rank', dir: 'asc', cursor },
+      signal,
+    );
+    people.push(...page.data);
+    if (page.page.nextCursor === null) break;
+    cursor = page.page.nextCursor;
+  }
+  return people;
 }
 
 /**

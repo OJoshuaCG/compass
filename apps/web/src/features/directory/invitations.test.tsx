@@ -1,4 +1,4 @@
-import type { PendingInvitation, Permission, Role } from '@iam/contracts';
+import type { ManagedUser, PendingInvitation, Permission, Role } from '@iam/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -308,4 +308,165 @@ describe('invite dialog roles', () => {
       es.errors['AUTHZ.ROLE_ESCALATION'],
     );
   });
+});
+
+describe('invite dialog manager', () => {
+  const MANAGER_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const managed = (overrides: Partial<ManagedUser>): ManagedUser => ({
+    id: MANAGER_ID,
+    displayName: 'Beto Ruiz',
+    email: 'beto@example.com',
+    rank: 2,
+    status: 'active',
+    managedBy: null,
+    ...overrides,
+  });
+  const managedHandler = jsonResponse({
+    data: [
+      managed({}),
+      managed({ id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', displayName: 'Carla Soto', rank: 3 }),
+      managed({
+        id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+        displayName: 'Dani Lara',
+        status: 'suspended',
+      }),
+    ],
+    page: { nextCursor: null, limit: 100 },
+  });
+  const created = () =>
+    jsonResponse(
+      { id: NEW_ID, email: 'nuevo@example.com', rank: 3, expiresAt: '2030-01-04T12:00:00.000Z' },
+      201,
+    );
+  const betoLabel = `Beto Ruiz · beto@example.com · ${es.common['rank.2']}`;
+
+  async function open(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: es.directory['users.invite'] }));
+    return screen.findByRole('dialog', { name: es.directory['invite.title'] });
+  }
+  const submit = (user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement) =>
+    user.click(within(dialog).getByRole('button', { name: es.directory['invite.submit'] }));
+
+  it('offers an optional labelled select with help, defaulting to the inviter, listing only eligible people', async () => {
+    const user = userEvent.setup();
+    const api = setup({ 'GET /users/managed': managedHandler });
+    renderApp('/users');
+    const dialog = await open(user);
+    const select = await within(dialog).findByRole('combobox', {
+      name: es.directory['invite.manager'],
+    });
+    expect(select).toHaveValue('');
+    expect(select).not.toBeRequired();
+    expect(select).toHaveAccessibleDescription(es.directory['invite.managerHelp']);
+    const options = within(select)
+      .getAllByRole('option')
+      .map((option) => option.textContent);
+    // Invitado de rango 3 por defecto: solo Beto (rango 2, activo); Carla tiene el mismo rango y
+    // Dani está suspendida.
+    expect(options).toEqual([es.directory['invite.managerSelf'], betoLabel]);
+    expect(api.callsTo('GET', '/users/managed')[0]?.search.get('sort')).toBe('rank');
+    expect(await axeViolations(dialog)).toEqual([]);
+  });
+
+  it('omits managerId when the default is kept', async () => {
+    const user = userEvent.setup();
+    const api = setup({ 'GET /users/managed': managedHandler, 'POST /invitations': created });
+    renderApp('/users');
+    const dialog = await open(user);
+    await within(dialog).findByRole('combobox', { name: es.directory['invite.manager'] });
+    await user.type(field(es.directory['invite.email']), 'nuevo@example.com');
+    await submit(user, dialog);
+    await waitFor(() => {
+      expect(api.callsTo('POST', '/invitations')).toHaveLength(1);
+    });
+    const body = api.callsTo('POST', '/invitations')[0]?.body;
+    expect(body).toEqual({ email: 'nuevo@example.com', rank: 3, roleIds: [] });
+    expect(body).not.toHaveProperty('managerId');
+  });
+
+  it('sends the chosen person as managerId, selectable by keyboard', async () => {
+    const user = userEvent.setup();
+    const api = setup({ 'GET /users/managed': managedHandler, 'POST /invitations': created });
+    renderApp('/users');
+    const dialog = await open(user);
+    const select = await within(dialog).findByRole('combobox', {
+      name: es.directory['invite.manager'],
+    });
+    await user.selectOptions(select, betoLabel);
+    expect(select).toHaveValue(MANAGER_ID);
+    await user.type(field(es.directory['invite.email']), 'nuevo@example.com');
+    await submit(user, dialog);
+    await waitFor(() => {
+      expect(api.callsTo('POST', '/invitations')).toHaveLength(1);
+    });
+    expect(api.callsTo('POST', '/invitations')[0]?.body).toEqual({
+      email: 'nuevo@example.com',
+      rank: 3,
+      roleIds: [],
+      managerId: MANAGER_ID,
+    });
+  });
+
+  it('drops a chosen manager that stops being eligible when the invitee rank goes up', async () => {
+    const user = userEvent.setup();
+    const api = setup({ 'GET /users/managed': managedHandler, 'POST /invitations': created });
+    renderApp('/users');
+    const dialog = await open(user);
+    const select = await within(dialog).findByRole('combobox', {
+      name: es.directory['invite.manager'],
+    });
+    await user.selectOptions(select, betoLabel);
+    // Rango 2: Beto ya no tiene rango superior y el campo desaparece.
+    await user.selectOptions(field(es.directory['invite.rank']), es.common['rank.2']);
+    await waitFor(() => {
+      expect(
+        within(dialog).queryByRole('combobox', { name: es.directory['invite.manager'] }),
+      ).toBeNull();
+    });
+    await user.type(field(es.directory['invite.email']), 'nuevo@example.com');
+    await submit(user, dialog);
+    await waitFor(() => {
+      expect(api.callsTo('POST', '/invitations')).toHaveLength(1);
+    });
+    expect(api.callsTo('POST', '/invitations')[0]?.body).not.toHaveProperty('managerId');
+  });
+
+  it('hides the field when nobody is eligible and keeps the form usable when the request fails', async () => {
+    const user = userEvent.setup();
+    setup({ 'GET /users/managed': problem(500, 'INTERNAL') });
+    renderApp('/users');
+    const dialog = await open(user);
+    expect(
+      await within(dialog).findByRole('button', { name: es.directory['invite.submit'] }),
+    ).toBeVisible();
+    expect(
+      within(dialog).queryByRole('combobox', { name: es.directory['invite.manager'] }),
+    ).toBeNull();
+  });
+
+  it.each([
+    [403, 'AUTHZ.HIERARCHY.NOT_IN_SUBTREE'],
+    [422, 'USER.MANAGER_RANK_INVALID'],
+  ] as const)(
+    'announces %i %s next to the field and keeps the dialog open',
+    async (status, code) => {
+      const user = userEvent.setup();
+      setup({
+        'GET /users/managed': managedHandler,
+        'POST /invitations': problem(status, code),
+      });
+      renderApp('/users');
+      const dialog = await open(user);
+      const select = await within(dialog).findByRole('combobox', {
+        name: es.directory['invite.manager'],
+      });
+      await user.selectOptions(select, betoLabel);
+      await user.type(field(es.directory['invite.email']), 'nuevo@example.com');
+      await submit(user, dialog);
+      const alert = await within(dialog).findByRole('alert');
+      expect(alert).toHaveTextContent(es.errors[code]);
+      expect(select).toHaveAttribute('aria-invalid', 'true');
+      expect(select).toHaveAccessibleDescription(expect.stringContaining(es.errors[code]));
+    },
+  );
 });

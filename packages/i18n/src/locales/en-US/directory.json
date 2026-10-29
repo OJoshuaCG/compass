@@ -63,5 +63,8 @@
   "invitations.empty.title": "There are no pending invitations",
   "invitations.empty.description": "Invitations you send that have not been accepted will appear here.",
   "invite.roles": "Roles",
-  "invite.rolesHelp": "Optional. The person will receive the permissions of the roles you choose."
+  "invite.rolesHelp": "Optional. The person will receive the permissions of the roles you choose.",
+  "invite.manager": "Manager",
+  "invite.managerHelp": "Optional. If you choose no one, it will be you. Only active people in your team with a higher rank than the invitee are listed.",
+  "invite.managerSelf": "Me (the inviter)"
 }

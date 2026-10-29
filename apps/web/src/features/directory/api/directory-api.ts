@@ -17,6 +17,7 @@ export const directoryKeys = {
   managed: () => [...directoryKeys.all, 'managed'] as const,
   invitations: () => [...directoryKeys.all, 'invitations'] as const,
   invitableRoles: () => [...directoryKeys.all, 'invitable-roles'] as const,
+  invitableManagers: () => [...directoryKeys.all, 'invitable-managers'] as const,
   managerCandidates: (q: string) => [...directoryKeys.all, 'manager-candidates', q] as const,
 };
 
