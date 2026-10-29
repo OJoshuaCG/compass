@@ -5,6 +5,7 @@ import {
   loadRolesCatalog,
   loadSecurityCatalog,
   loadSessionsCatalog,
+  loadSharesCatalog,
   resources,
 } from '@iam/i18n';
 import type { QueryClient } from '@tanstack/react-query';
@@ -22,6 +23,7 @@ export const es = {
   security: (await loadSecurityCatalog())['es-MX'],
   accounts: (await loadAccountsCatalog())['es-MX'],
   credentials: (await loadCredentialsCatalog())['es-MX'],
+  shares: (await loadSharesCatalog())['es-MX'],
 };
 
 /**
@@ -29,7 +31,9 @@ export const es = {
  * `<label>`, así que se busca por prefijo en vez de por texto exacto.
  */
 export function field(label: string): HTMLElement {
-  return screen.getByLabelText(new RegExp(`^${label}`));
+  // Se escapan los metacaracteres: una etiqueta como "Caduca el (opcional)" no es un grupo de regex.
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return screen.getByLabelText(new RegExp(`^${escapedLabel}`));
 }
 
 /**

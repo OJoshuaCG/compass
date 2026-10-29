@@ -127,6 +127,12 @@ const credentialsRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/credentials-route'), 'CredentialsRoute'),
 });
 
+const sharesRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/accounts/$accountId/shares',
+  component: lazyRouteComponent(() => import('../routes/shares-route'), 'SharesRoute'),
+});
+
 // El catálogo solo existe en desarrollo: en producción el `import()` queda como código muerto
 // (se elimina del bundle) y la ruta responde 404.
 const loadCatalog = import.meta.env.DEV
@@ -162,6 +168,7 @@ const routeTree = rootRoute.addChildren([
     rolesRoute,
     accountsRoute,
     credentialsRoute,
+    sharesRoute,
     catalogRoute,
   ]),
 ]);

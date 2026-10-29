@@ -128,6 +128,16 @@ export function AccountsTable({
                 >
                   {t('action.credentials')}
                 </Link>
+                {/* Solo quien administra la cuenta puede compartirla, pero aquí no se oculta: el
+                    servidor decide y la pantalla de compartir explica la negativa. */}
+                <Link
+                  to="/accounts/$accountId/shares"
+                  params={{ accountId: row.id }}
+                  className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+                  aria-label={t('action.shareLabel', { name: row.displayName })}
+                >
+                  {t('action.share')}
+                </Link>
                 {canEdit(row) ? (
                   <Button
                     variant="secondary"
