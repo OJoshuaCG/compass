@@ -59,7 +59,7 @@ Los **respaldos de datos** dentro de una migración deben recordar que el aislam
 
 - Datos efímeros con TTL: `sessions`, `invitations`, `totp_handoffs`, `idempotency_keys`, `webauthn_challenges`, `outbox_events` (publicados).
 - Filas de relación cuya historia vive en la auditoría: `group_memberships`, `user_roles`.
-- Versiones antiguas de secretos (`credential_secrets` con `is_current = false`), que un job destruye a los 30 días. Una política RLS de `DELETE` impide borrar la versión vigente.
+- Versiones antiguas de secretos (`credential_secrets` con `is_current = false`), que un job destruye a los 30 días. Una política RLS de `DELETE` impide borrar la versión vigente. Hoy `purge-expired` ya destruye así las del campo `totp_uri` (H1b, [ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)): la fecha de reemplazo es la de creación de la versión posterior, porque la tabla no guarda otra. Las de contraseña y demás campos siguen sin purga (C9, decisión pendiente del dueño).
 
 `users`, `groups`, `roles`, `accounts`, `credentials`, `shares`, `audit_events` y `data_keys` no admiten `DELETE` para `iam_app`.
 
@@ -594,7 +594,7 @@ Cuatro funciones de lectura mínimas, que se ejecutan con los privilegios de su 
 
 ### 7.5 Trabajos de fondo
 
-Los jobs transversales corren fuera de una petición y deben recorrer organizaciones. Se resuelve con `auth.list_organization_ids()` (migración `0014`, mismo molde que las funciones de preautenticación: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y el job fija `app.org_id` por organización con `TenantScope.runAs`, de modo que el aislamiento por filas sigue vigente ([ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)). Ya lo usa la purga de `idempotency_keys` y `webauthn_challenges` (`purge-expired`). Pendientes sobre el mismo recorrido: verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del _outbox_ y rotación de DEK.
+Los jobs transversales corren fuera de una petición y deben recorrer organizaciones. Se resuelve con `auth.list_organization_ids()` (migración `0014`, mismo molde que las funciones de preautenticación: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y el job fija `app.org_id` por organización con `TenantScope.runAs`, de modo que el aislamiento por filas sigue vigente ([ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)). Ya lo usa la purga de `idempotency_keys`, `webauthn_challenges` y de las versiones reemplazadas del secreto TOTP (`purge-expired`). Pendientes sobre el mismo recorrido: verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del _outbox_ y rotación de DEK.
 
 ## 8. Auditoría
 

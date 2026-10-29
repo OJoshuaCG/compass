@@ -207,7 +207,7 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [~] H1 | Punto de entrada del worker (no existe) [V]: purga de versiones a los 30 días y aviso de 24 h de un segundo factor pendiente (el aviso de 24 h quedó hecho en N1a; falta la purga de versiones) | Código | Equipo | M | C1 | |
+| [~] H1 | Punto de entrada del worker (no existe) [V]: purga de versiones a los 30 días y aviso de 24 h de un segundo factor pendiente (el aviso de 24 h quedó hecho en N1a; la purga de versiones TOTP reemplazadas quedó hecha en H1b dentro de `purge-expired`, ADR 0038; falta la retención general de versiones de contraseña, C9, bloqueada por decisión del dueño) | Código | Equipo | M | C1 | Pruebas escritas sin ejecutar |
 | [ ] H2 | Primera ejecución del CI en GitHub, corregir lo que falle y añadir los escáneres de seguridad. El dueño lo despriorizó; la puerta de producción lo vuelve necesario. Subir al remoto es decisión del equipo | Código | Equipo | S | A8 | |
 | [x] H3 | Guía de `trustProxy`: detrás de un balanceador todos comparten la IP; mal activado, se falsifica [S] | Doc | Ing. | S | A6 | `docs/backend.md` §6.4 y el runbook de instancia única |
 

@@ -13,3 +13,13 @@ export interface ExpiredEphemeralStore {
   purgeIdempotencyKeys(expiredBefore: Date, limit: number): Promise<number>;
   purgeWebauthnChallenges(expiredBefore: Date, limit: number): Promise<number>;
 }
+
+/**
+ * Destruye físicamente, en la organización en curso, las versiones de secreto del segundo factor
+ * (`credential_secrets.field = 'totp_uri'`) que fueron reemplazadas por un re-registro hace más de
+ * `replacedBefore`. Nunca toca la versión vigente. Cada llamada borra como máximo `limit` filas y
+ * devuelve cuántas borró. No descifra nada: solo borra filas.
+ */
+export interface ReplacedTotpSecretStore {
+  purgeReplacedTotpSecrets(replacedBefore: Date, limit: number): Promise<number>;
+}

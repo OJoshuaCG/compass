@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import {
   PgExpiredEphemeralStore,
   PgOrganizationLister,
+  PgReplacedTotpSecretStore,
   PurgeExpiredEphemeral,
 } from '../src/modules/maintenance/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../src/modules/organization/index.js';
@@ -78,6 +79,7 @@ beforeAll(async () => {
   purge = new PurgeExpiredEphemeral({
     organizations: new PgOrganizationLister(db.appPool),
     store: new PgExpiredEphemeralStore(uow),
+    replacedTotpSecrets: new PgReplacedTotpSecretStore(uow),
     scope: new PgTenantScope(requestContext, uow),
     ids: new UuidV7Generator(),
     clock: { now: () => NOW },
@@ -154,5 +156,177 @@ describe('PurgeExpiredEphemeral', () => {
     // La tabla sigue protegida: sin organización fijada, el rol no ve ninguna fila.
     const direct = await db.appPool.query('select id from organizations');
     expect(direct.rowCount).toBe(0);
+  });
+});
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const daysAgo = (days: number): Date => new Date(NOW.getTime() - days * MILLISECONDS_PER_DAY);
+const TOTP_FIELD = 'totp_uri';
+
+interface SecretVersionSeed {
+  readonly field: string;
+  readonly version: number;
+  readonly isCurrent: boolean;
+  readonly createdAt: Date;
+}
+
+interface TotpOrganizationSeed {
+  readonly organizationId: string;
+  readonly rootId: string;
+  readonly accountId: string;
+}
+
+async function seedTotpOrganization(slug: string): Promise<TotpOrganizationSeed> {
+  const organizationId = await db.seedOrganization(slug);
+  const rootId = await seedUser(organizationId, `root@${slug}.test`);
+  await db.admin.query(
+    "insert into data_keys (organization_id, version, wrapped_dek, kms_key_ref) values ($1, 1, '\\x0102', 'local/test')",
+    [organizationId],
+  );
+  const account = await db.admin.query<{ id: string }>(
+    `insert into accounts (organization_id, platform_id, display_name, created_by)
+     values ($1, (select id from platforms where slug = 'custom' and organization_id is null), 'Cuenta de prueba', $2)
+     returning id`,
+    [organizationId, rootId],
+  );
+  const accountId = account.rows[0]?.id;
+  if (accountId === undefined) throw new Error('seed failed');
+  return { organizationId, rootId, accountId };
+}
+
+/** Crea una credencial con las versiones de secreto pedidas; el contenido es relleno sin significado. */
+async function seedCredentialWithVersions(
+  organization: TotpOrganizationSeed,
+  versions: readonly SecretVersionSeed[],
+): Promise<string> {
+  const credential = await db.admin.query<{ id: string }>(
+    `insert into credentials (organization_id, account_id, label, kind, created_by)
+     values ($1, $2, 'Credencial de prueba', 'password_totp', $3) returning id`,
+    [organization.organizationId, organization.accountId, organization.rootId],
+  );
+  const credentialId = credential.rows[0]?.id;
+  if (credentialId === undefined) throw new Error('seed failed');
+  for (const version of versions) {
+    await db.admin.query(
+      `insert into credential_secrets
+         (organization_id, credential_id, field, version, ciphertext, nonce, dek_version, is_current,
+          created_by, created_at)
+       values ($1, $2, $3, $4, '\\x00112233445566778899aabbccddeeff00', '\\x000000000000000000000000', 1,
+               $5, $6, $7)`,
+      [
+        organization.organizationId,
+        credentialId,
+        version.field,
+        version.version,
+        version.isCurrent,
+        organization.rootId,
+        version.createdAt,
+      ],
+    );
+  }
+  return credentialId;
+}
+
+async function versionsOf(credentialId: string, field: string): Promise<number[]> {
+  const result = await db.admin.query<{ version: number }>(
+    'select version from credential_secrets where credential_id = $1 and field = $2 order by version',
+    [credentialId, field],
+  );
+  return result.rows.map((row) => row.version);
+}
+
+describe('PurgeExpiredEphemeral: replaced TOTP secret versions (H1b)', () => {
+  let totpOrgA: TotpOrganizationSeed;
+  let totpOrgB: TotpOrganizationSeed;
+  const credentialsA: Record<string, string> = {};
+  let credentialB: string;
+
+  beforeAll(async () => {
+    totpOrgA = await seedTotpOrganization('purge-totp-a');
+    totpOrgB = await seedTotpOrganization('purge-totp-b');
+
+    // Reemplazada hace 35 días: se borra la v1; la v2 vigente se queda.
+    credentialsA['old'] = await seedCredentialWithVersions(totpOrgA, [
+      { field: TOTP_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(40) },
+      { field: TOTP_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(35) },
+    ]);
+    // Reemplazada hace 5 días: aún dentro de los 30 días de retención.
+    credentialsA['recent'] = await seedCredentialWithVersions(totpOrgA, [
+      { field: TOTP_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(40) },
+      { field: TOTP_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(5) },
+    ]);
+    // Cadena: la v1 se reemplazó hace 40 días (se borra); la v2 hace 1 día (se queda).
+    credentialsA['chain'] = await seedCredentialWithVersions(totpOrgA, [
+      { field: TOTP_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(60) },
+      { field: TOTP_FIELD, version: 2, isCurrent: false, createdAt: daysAgo(40) },
+      { field: TOTP_FIELD, version: 3, isCurrent: true, createdAt: daysAgo(1) },
+    ]);
+    // Versión vigente muy antigua y sin reemplazo: nunca se borra.
+    credentialsA['onlyCurrent'] = await seedCredentialWithVersions(totpOrgA, [
+      { field: TOTP_FIELD, version: 1, isCurrent: true, createdAt: daysAgo(400) },
+    ]);
+    // Contraseñas reemplazadas hace mucho: fuera del alcance de esta purga.
+    credentialsA['password'] = await seedCredentialWithVersions(totpOrgA, [
+      { field: 'password', version: 1, isCurrent: false, createdAt: daysAgo(400) },
+      { field: 'password', version: 2, isCurrent: true, createdAt: daysAgo(390) },
+    ]);
+    credentialB = await seedCredentialWithVersions(totpOrgB, [
+      { field: TOTP_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(40) },
+      { field: TOTP_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(35) },
+    ]);
+  });
+
+  it('deletes only superseded TOTP versions replaced more than 30 days ago, in every organization', async () => {
+    const summary = await purge.execute();
+
+    expect(summary.failedOrganizations).toEqual([]);
+    // Organización A: v1 de "old" y v1 de "chain". Organización B: v1 de su credencial.
+    expect(summary.replacedTotpSecrets).toBe(3);
+    expect(await versionsOf(credentialsA['old'] ?? '', TOTP_FIELD)).toEqual([2]);
+    expect(await versionsOf(credentialsA['recent'] ?? '', TOTP_FIELD)).toEqual([1, 2]);
+    expect(await versionsOf(credentialsA['chain'] ?? '', TOTP_FIELD)).toEqual([2, 3]);
+    expect(await versionsOf(credentialsA['onlyCurrent'] ?? '', TOTP_FIELD)).toEqual([1]);
+    expect(await versionsOf(credentialsA['password'] ?? '', 'password')).toEqual([1, 2]);
+    expect(await versionsOf(credentialB, TOTP_FIELD)).toEqual([2]);
+  });
+
+  it('is idempotent: a second run deletes nothing', async () => {
+    const summary = await purge.execute();
+
+    expect(summary.replacedTotpSecrets).toBe(0);
+  });
+
+  it('cannot delete the current version or another organization even with a far-future cutoff', async () => {
+    const requestContext = new AsyncLocalRequestContext();
+    const uow = new PgUnitOfWork(db.appPool, requestContext, db.independentPool);
+    const scope = new PgTenantScope(requestContext, uow);
+    const store = new PgReplacedTotpSecretStore(uow);
+    const FAR_FUTURE = new Date('2100-01-01T00:00:00.000Z');
+    const credentialRecent = credentialsA['recent'] ?? '';
+    const credentialOnlyCurrent = credentialsA['onlyCurrent'] ?? '';
+
+    // Hace falta una v1 de B no vigente y reemplazada para comprobar el aislamiento.
+    const isolatedB = await seedCredentialWithVersions(totpOrgB, [
+      { field: TOTP_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(10) },
+      { field: TOTP_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(9) },
+    ]);
+
+    const deletedAsA = await scope.runAs(
+      {
+        organizationId: asOrganizationId(totpOrgA.organizationId),
+        actorId: null,
+        requestId: 'req-isolation-totp',
+      },
+      () => store.purgeReplacedTotpSecrets(FAR_FUTURE, 1000),
+    );
+
+    // Con el corte en el futuro caen las versiones no vigentes que tienen sucesora: la v1 de
+    // "recent" y la v2 de "chain" (la primera prueba ya había borrado la v1 de "chain"). Las
+    // vigentes y las de otra organización permanecen.
+    expect(deletedAsA).toBe(2);
+    expect(await versionsOf(credentialRecent, TOTP_FIELD)).toEqual([2]);
+    expect(await versionsOf(credentialsA['chain'] ?? '', TOTP_FIELD)).toEqual([3]);
+    expect(await versionsOf(credentialOnlyCurrent, TOTP_FIELD)).toEqual([1]);
+    expect(await versionsOf(isolatedB, TOTP_FIELD)).toEqual([1, 2]);
   });
 });
