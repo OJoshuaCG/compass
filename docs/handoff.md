@@ -56,7 +56,7 @@ Tamaños relativos: **S** (días), **M** (una a dos semanas), **L** (varias sema
 
 ### Qué sigue, en orden
 
-1. **Fase 1b, lo que resta** (bloque B, abajo; especificaciones en `odd/tasks/phase-1b-vault.md`): B1 a B5 ya están implementadas; quedan B6 (búsqueda), la entrega por celular (B7, el CSV, ya tiene backend y pantalla desde 2026-10-29) (la importación de Google Authenticator quedó hecha el 2026-10-29), y los pendientes anotados en el bloque. Sus decisiones (sección 5) ya se tomaron. El ADR 0023 (bloqueo de auditoría en transacciones largas) ya se aceptó el 2026-10-27.
+1. **Fase 1b, lo que resta** (bloque B, abajo; especificaciones en `odd/tasks/phase-1b-vault.md`): B1 a B5 ya están implementadas; quedan B6 (búsqueda), la entrega por celular y los pendientes anotados en el bloque. B7 (importación por CSV, backend y pantalla) y la importación de Google Authenticator quedaron hechas el 2026-10-29. Sus decisiones (sección 5) ya se tomaron. El ADR 0023 (bloqueo de auditoría en transacciones largas) ya se aceptó el 2026-10-27.
 2. **Redis para los límites de intentos** (A8, parte pendiente). Hasta entonces, una sola instancia ([runbook](runbooks/single-instance-operation.md)).
 3. **Trabajo de purga** de las filas vencidas de `idempotency_keys` y `webauthn_challenges` (necesita el camino para recorrer organizaciones, `docs/database.md` §7.5, y un ADR).
 4. ~~Procedimiento de operaciones para la Raíz que olvida su contraseña y pierde sus factores~~ **Hecho (2026-10-27, [ADR 0037](adr/0037-root-recovery-dual-custody.md)).** Queda el runbook de caída total (códigos agotados), pendiente (TODO L3).
