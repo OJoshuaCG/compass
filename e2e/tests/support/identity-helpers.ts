@@ -94,12 +94,10 @@ export async function completeEnrollment(
 ): Promise<{ secret: string; recoveryCodes: string[] }> {
   await expect(page.getByRole('heading', { name: 'Set up your second factor' })).toBeVisible();
   await expect(page.getByAltText('QR code to register the authenticator app')).toBeVisible();
-  const secret = (
-    await page
-      .getByText(/^[A-Z2-7]{32}$/)
-      .first()
-      .innerText()
-  ).trim();
+  // La clave se muestra en un campo de solo lectura (así los gestores de contraseñas no la capturan),
+  // por eso se lee su valor y no su texto.
+  const secret = (await page.getByLabel('Setup key').inputValue()).trim();
+  expect(secret).toMatch(/^[A-Z2-7]{32}$/);
   await page.getByLabel('6-digit code').fill(await freshCode(secret));
   await page.getByRole('button', { name: 'Confirm' }).click();
 
