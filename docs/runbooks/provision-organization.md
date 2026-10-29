@@ -45,6 +45,10 @@ Crear una organización con su persona Raíz, sus roles del sistema y los códig
 - Si se perdió la salida antes de copiarla, no hay manera de recuperar la contraseña ni los códigos. Los códigos de emergencia se reemiten solo con [la recuperación de la Raíz](recover-root.md), que exige dos códigos vigentes; la contraseña inicial extraviada no tiene comando. La organización recién creada, sin uso, se descarta con una intervención directa de administración de la base de datos (por definir) y se repite el alta con otro identificador.
 - Si un código o la contraseña pudo verse por alguien no autorizado, trátalo como un compromiso y sigue [Usuario o servidor comprometido](compromised-user-or-server-response.md).
 
+## Después de desplegar una versión que cambia las plantillas de roles
+
+Las organizaciones ya creadas conservan los permisos que tenían sus roles de sistema (Root, Administrator, Leader, Operator); una versión nueva solo cambia las plantillas de las organizaciones futuras. Tras desplegar una versión que cambie `SYSTEM_ROLES`, ejecuta una vez el comando de mantenimiento `sync-system-roles` (`pnpm --filter @iam/api sync-system-roles`, o `node dist/main.sync-system-roles.js` en el despliegue, con `DATABASE_URL` del rol de la aplicación). Es idempotente: una segunda ejecución no cambia nada. Solo toca roles de sistema con plantilla del mismo nombre, nunca los personalizados, y deja un evento de auditoría `role.system_synced` por rol modificado. Imprime solo conteos y sale con código 1 si alguna organización falló.
+
 ## Responsables
 
 | Rol (propuesto) | Responsabilidad |

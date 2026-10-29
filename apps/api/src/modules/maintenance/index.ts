@@ -20,3 +20,7 @@ export type {
 } from './application/ports/reencryption-ports.js';
 export { RotateDataKey } from './application/rotate-data-key.js';
 export type { DataKeyRotation, RotationReason } from './application/rotate-data-key.js';
+export { SyncSystemRoles } from './application/sync-system-roles.js';
+export type { SyncSystemRolesSummary } from './application/sync-system-roles.js';
+export type { StoredSystemRole, SystemRoleStore } from './application/ports/system-role-ports.js';
+export { PgSystemRoleStore } from './infrastructure/pg-system-role-store.js';

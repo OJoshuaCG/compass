@@ -14,6 +14,7 @@
     "provision": "node dist/main.provision.js",
     "recover-root": "node dist/main.recover-root.js",
     "purge-expired": "node dist/main.purge-expired.js",
+    "sync-system-roles": "node dist/main.sync-system-roles.js",
     "reencrypt": "node dist/main.reencrypt.js"
   },
   "dependencies": {
