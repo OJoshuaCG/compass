@@ -114,12 +114,19 @@ function ShareAccountForm({ accountId, onCancel, onShared }: ShareAccountFormPro
           }}
         />
       ) : null}
-      {candidates.isPending ? (
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <Spinner label={t('share.searchLoading', { ns: 'shares' })} />
-          <span aria-hidden="true">{t('share.searchLoading', { ns: 'shares' })}</span>
-        </div>
-      ) : null}
+      {/* Región siempre montada: un `role="status"` que aparece ya con su texto no se anuncia.
+          El icono es decorativo para no duplicar el anuncio. */}
+      <div
+        role="status"
+        className="flex items-center gap-2 text-sm text-text-secondary empty:hidden"
+      >
+        {candidates.isPending ? (
+          <>
+            <Spinner />
+            {t('share.searchLoading', { ns: 'shares' })}
+          </>
+        ) : null}
+      </div>
       {candidates.data !== undefined && eligible.length === 0 ? (
         <p className="text-sm text-text-secondary">{t('share.searchEmpty', { ns: 'shares' })}</p>
       ) : null}

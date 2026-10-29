@@ -397,12 +397,14 @@ describe('confirm', () => {
     const api = setup({ extra: totpRoutes(pending()).routes });
     renderApp(PAGE);
     const dialog = await openDialog(user);
-    await user.type(await screen.findByLabelText(new RegExp(`^${t['totp.confirm.code']}`)), '123');
+    const input = await screen.findByLabelText(new RegExp(`^${t['totp.confirm.code']}`));
+    await user.type(input, '123');
     await user.click(within(dialog).getByRole('button', { name: t['totp.confirm.submit'] }));
     expect(
       await within(dialog).findByText(fill(t['totp.confirm.format'], { digits: 6 })),
     ).toBeVisible();
     expect(api.callsTo('POST', `${TOTP_PATH}/confirm`)).toHaveLength(0);
+    expect(input).toHaveFocus();
   });
 
   it('maps CREDENTIAL.TOTP_CODE_INVALID to the code field and stays pending', async () => {
@@ -424,6 +426,29 @@ describe('confirm', () => {
     ).toBeVisible();
     expect(input).toHaveAttribute('aria-invalid', 'true');
     expect(within(dialog).getByText(t['totp.status.pending'])).toBeVisible();
+    expect(input).toHaveFocus();
+  });
+
+  it('returns focus to the code field after a server error that is not a wrong code', async () => {
+    const user = userEvent.setup();
+    const { routes } = totpRoutes(pending());
+    const api = setup({
+      extra: {
+        ...routes,
+        [`POST ${TOTP_PATH}/confirm`]: problem(403, 'AUTHZ.SHARE'),
+      },
+    });
+    renderApp(PAGE);
+    const dialog = await openDialog(user);
+    const input = await screen.findByLabelText(new RegExp(`^${t['totp.confirm.code']}`));
+    await user.type(input, CODE);
+    await user.click(within(dialog).getByRole('button', { name: t['totp.confirm.submit'] }));
+    await waitFor(() => {
+      expect(api.callsTo('POST', `${TOTP_PATH}/confirm`)).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(input).toHaveFocus();
+    });
   });
 
   it('only people who can edit see the form; the rest see a notice', async () => {

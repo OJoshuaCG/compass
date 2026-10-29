@@ -1,6 +1,6 @@
 import { confirmTotpRequestSchema, ErrorCode, type Credential } from '@iam/contracts';
 import { Alert, Button, CodeInput, FormField } from '@iam/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError, useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
@@ -23,6 +23,7 @@ export function TotpConfirmForm({ credential, digits, onConfirmed }: TotpConfirm
   const { t } = useTranslation(['credentials', 'errors']);
   const [code, setCode] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const codeInputRef = useRef<HTMLInputElement>(null);
   const action = useAsyncAction((confirmedCode: string) =>
     confirmTotp(credential.id, confirmedCode),
   );
@@ -40,9 +41,17 @@ export function TotpConfirmForm({ credential, digits, onConfirmed }: TotpConfirm
 
   async function submit() {
     setSubmitted(true);
-    if (!isFormatValid) return;
+    // Tras un rechazo el foco vuelve al campo para corregir el código sin recorrer la página; el
+    // mensaje ya está enlazado al campo por FormField.
+    if (!isFormatValid) {
+      codeInputRef.current?.focus();
+      return;
+    }
     const result = await action.run(code);
-    if (!result.ok) return;
+    if (!result.ok) {
+      codeInputRef.current?.focus();
+      return;
+    }
     setCode('');
     onConfirmed();
   }
@@ -69,6 +78,7 @@ export function TotpConfirmForm({ credential, digits, onConfirmed }: TotpConfirm
         {(controlProps) => (
           <CodeInput
             {...controlProps}
+            ref={codeInputRef}
             value={code}
             length={digits}
             invalid={controlProps['aria-invalid'] === true}

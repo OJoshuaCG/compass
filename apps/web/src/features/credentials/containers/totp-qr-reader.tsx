@@ -260,9 +260,14 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
       {/* Región siempre montada para que el cambio se anuncie. Mensaje FIJO: nunca etiquetas de
           cuentas ni nada derivado de los secretos. */}
       <p role="status" aria-live="polite" className="sr-only">
-        {isChoosing ? t('totp.register.image.migration.status') : ''}
+        {reading
+          ? t('totp.register.image.reading')
+          : isChoosing
+            ? t('totp.register.image.migration.status')
+            : ''}
       </p>
-      {reading ? <Spinner label={t('totp.register.image.reading')} /> : null}
+      {/* Decorativo: un Spinner con etiqueta montaría un segundo `role="status"` ya con su texto (no se anuncia). */}
+      {reading ? <Spinner /> : null}
       {outcomeKind === 'found' ? (
         <Alert tone="success">
           {singleAccountLabel === null

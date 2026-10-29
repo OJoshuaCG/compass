@@ -77,6 +77,7 @@ export function CredentialImportPage() {
   const previewCooldown = useRateLimitCooldown(previewAction.error);
   const resetPreview = previewAction.reset;
   const resetCommit = commitAction.reset;
+  const busy = reading || previewAction.pending;
 
   useEffect(() => {
     // Al desmontar se suelta el texto y se invalida cualquier lectura o petición en vuelo.
@@ -87,8 +88,10 @@ export function CredentialImportPage() {
   }, []);
 
   useEffect(() => {
-    if (focusRequests > 0) fileInputRef.current?.focus();
-  }, [focusRequests]);
+    // Con `busy` el campo está deshabilitado y `focus()` no haría nada: al terminar la lectura o la
+    // vista previa el efecto corre de nuevo (cambia `busy`) y el foco vuelve al campo.
+    if (focusRequests > 0 && !busy) fileInputRef.current?.focus();
+  }, [focusRequests, busy]);
 
   const hasResult = result !== null;
   useEffect(() => {
@@ -145,6 +148,7 @@ export function CredentialImportPage() {
       if (generation !== generationRef.current) return;
       setReading(false);
       setFileProblem('read_failed');
+      setFocusRequests((requests) => requests + 1);
       return;
     }
     if (generation !== generationRef.current) return;
@@ -156,6 +160,8 @@ export function CredentialImportPage() {
     const outcome = await previewAction.run(csvText);
     if (generation !== generationRef.current) return;
     setReading(false);
+    // Deshabilitar el campo durante la vista previa le quitó el foco: se devuelve al terminar, con éxito o error.
+    setFocusRequests((requests) => requests + 1);
     if (outcome.ok) {
       setPreview(outcome.value);
     } else if (!isRetryableError(outcome.error)) {
@@ -212,11 +218,22 @@ export function CredentialImportPage() {
     </>
   );
 
-  // Región siempre montada: un `role="status"` que aparece ya con su texto no se anuncia. El mensaje es
-  // fijo; nunca incluye contenido del archivo.
+  // Región siempre montada: un `role="status"` que aparece ya con su texto no se anuncia. Anuncia tanto
+  // el progreso como el final; el icono de carga es decorativo para no duplicar el anuncio. Los mensajes
+  // son fijos; nunca incluyen contenido del archivo.
   const statusRegion = (
-    <p role="status" className="text-sm text-success empty:hidden">
-      {result === null ? '' : t('import.result.done', { ns: 'credentials' })}
+    <p
+      role="status"
+      className={`text-sm empty:hidden ${result === null ? 'text-text-secondary' : 'text-success'}`}
+    >
+      {result !== null ? (
+        t('import.result.done', { ns: 'credentials' })
+      ) : busy ? (
+        <span className="inline-flex items-center gap-2">
+          <Spinner />
+          {t('import.working', { ns: 'credentials' })}
+        </span>
+      ) : null}
     </p>
   );
 
@@ -264,7 +281,6 @@ export function CredentialImportPage() {
     );
   }
 
-  const busy = reading || previewAction.pending;
   const commitError = commitAction.error;
   const rejectedLines =
     commitError instanceof ApiError && commitError.status === 422
@@ -304,7 +320,6 @@ export function CredentialImportPage() {
           />
         )}
       </FormField>
-      {busy ? <Spinner label={t('import.working', { ns: 'credentials' })} /> : null}
       {previewAction.error !== undefined ? (
         <div className="flex flex-col gap-2">
           <ErrorAlert

@@ -280,6 +280,30 @@ describe('credential import: preview errors and ordering', () => {
   });
 });
 
+describe('credential import: focus after the preview', () => {
+  it('returns focus to the file input once the preview is shown', async () => {
+    setup({ [`POST ${PREVIEW_PATH}`]: jsonResponse(previewOf([VALID_ROW])) });
+    renderApp(PAGE);
+    const { input } = await chooseFile();
+    await screen.findByRole('table', { name: t['import.table.caption'] });
+    await waitFor(() => {
+      expect(input).toBeEnabled();
+      expect(input).toHaveFocus();
+    });
+  });
+
+  it('returns focus to the file input when the preview fails', async () => {
+    setup({ [`POST ${PREVIEW_PATH}`]: problem(422, 'CREDENTIAL_IMPORT.HEADER_INVALID') });
+    renderApp(PAGE);
+    const { input } = await chooseFile();
+    await findMessage(es.errors['CREDENTIAL_IMPORT.HEADER_INVALID']);
+    await waitFor(() => {
+      expect(input).toBeEnabled();
+      expect(input).toHaveFocus();
+    });
+  });
+});
+
 describe('credential import: confirm', () => {
   it('disables Confirm while there are invalid rows and never calls the commit', async () => {
     const api = setup({
