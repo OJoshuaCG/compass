@@ -285,7 +285,7 @@ Orden efectivo en la fase 1a: límite por dirección de red, protección CSRF, g
 - La reserva dura 1 minuto, para que una petición caída no bloquee la clave durante un día. La toma de una reserva vencida es atómica y una petición original lenta no puede sobrescribir a un dueño más reciente. Si guardar la respuesta falla después del *commit*, la clave no se libera.
 - Las respuestas de error no se guardan: el reintento se ejecuta de nuevo.
 - **Nunca** se usa en endpoints cuya respuesta lleve secretos, porque la respuesta se guarda tal cual.
-- Limitaciones conocidas: las filas vencidas aún no se purgan (falta un trabajo de limpieza) y el reintento no vuelve a comprobar permisos durante las 24 horas.
+- Limitación conocida: el reintento no vuelve a comprobar permisos durante las 24 horas. Las filas vencidas hace más de una hora las borra la purga programada (ADR 0038).
 
 ### 7.3 Errores
 

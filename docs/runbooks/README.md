@@ -18,6 +18,7 @@ Tipo de documento: how-to (guías de tarea para operadores con experiencia).
 | [Recuperar a la Raíz sin contraseña ni factores](recover-root.md) | La Raíz perdió contraseña y factores: control dual de los dos custodios y códigos de emergencia nuevos | Borrador |
 | [Configurar y comprobar el correo](configure-mail.md) | Primer despliegue, cambio de servidor SMTP o invitaciones que no llegan | Borrador |
 | [Operar con una sola instancia](single-instance-operation.md) | Todo despliegue, hasta que los contadores de intentos pasen a Redis | Borrador |
+| [Programar la purga de datos efímeros vencidos](purge-expired-rows.md) | Todo despliegue, cada hora, hasta que exista el proceso de fondo (H1) | Borrador |
 
 El plan menciona además un runbook de **caída total** (procedimiento de contingencia con los sobres sellados de recuperación). Aún no está redactado; se añade antes del gate de producción.
 

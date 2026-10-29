@@ -189,7 +189,7 @@ Solo dependen del nivel 1. F, G, H e I son independientes entre sí.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] G1 | Purga de filas vencidas de `idempotency_keys` y `webauthn_challenges` (incluye un ADR corto sobre el recorrido de organizaciones, `docs/database.md` §7.5) [V] | Código ⚠ + ADR | Ing. | M | B10 | |
+| [x] G1 | Purga de filas vencidas de `idempotency_keys` y `webauthn_challenges` (incluye un ADR corto sobre el recorrido de organizaciones, `docs/database.md` §7.5) [V] | Código ⚠ + ADR | Ing. | M | B10 | Hecha (2026-10-28): ADR 0038 (confirmación de Ingeniería pendiente), migración 0014 con `auth.list_organization_ids()`, módulo `maintenance` y comando `purge` (runbook `purge-expired-rows.md`, programarlo cada hora); `odd/tasks/purge-ephemeral.md` |
 | [x] G2 | Recuperar a la Raíz sin factores y emitir códigos de emergencia nuevos (mecanismo y runbook) | Código ⚠ | Ing. | M | C3 | Hecha (2026-10-27): comando `recover-root`, migración 0013, runbook `recover-root.md` (borrador sin ensayar); queda L3 para la caída total |
 | [x] G3 | Reautenticación con código de recuperación y passkey, según la decisión B6 | Código ⚠ | Ing. | M | B6 | Hecha (2026-10-27): endpoints `auth/reauth/passkey/*`, migración 0012, acción de auditoría propia `auth.reauth_failed`, diálogo del frontend con la opción de passkey y pruebas de denegación y de repetición del desafío (6 archivos de prueba, 109 pruebas en verde). Sin ejecutar: la prueba de navegador (`pnpm e2e`) |
 | [ ] G4 | Editar roles personalizados ya creados (A6 del cierre de 1a lo dejó pendiente) | Código ⚠ | Ing. | M | B5 | |

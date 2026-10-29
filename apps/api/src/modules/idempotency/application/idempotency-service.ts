@@ -84,9 +84,13 @@ export class IdempotencyService {
           now,
           expiresAt,
         });
-        // Si otra petición la tomó primero, esta no continúa.
-        if (!won) throw inProgress();
-        return { kind: 'proceed', reservedUntil: expiresAt };
+        if (won) return { kind: 'proceed', reservedUntil: expiresAt };
+        // La purga de vencidas (ADR 0038) pudo borrar la fila entre `find` y `takeOver`: se intenta
+        // reservar una vez más. Si otra petición la tomó primero, la reserva falla y esta no continúa.
+        if (await store.reserve({ actorId: call.actorId, key: call.key, requestHash, expiresAt })) {
+          return { kind: 'proceed', reservedUntil: expiresAt };
+        }
+        throw inProgress();
       }
       if (existing.requestHash !== requestHash) {
         throw new DomainError('IDEMPOTENCY.KEY_REUSED', 'Key already used by another request');

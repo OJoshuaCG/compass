@@ -47,6 +47,7 @@ Plantilla: [`template.md`](template.md).
 | [0035](0035-transactional-outbox-for-events.md) | Eventos mediante bandeja de salida transaccional | Aceptada (implementación pendiente) |
 | [0036](0036-effective-access-computed-on-the-fly.md) | Acceso efectivo calculado al vuelo | Aceptada |
 | [0037](0037-root-recovery-dual-custody.md) | Recuperación de la Raíz por operaciones con control dual de los custodios | Aceptada |
+| [0038](0038-background-jobs-traverse-organizations.md) | Los trabajos de fondo recorren las organizaciones con una función `auth` y purgan bajo RLS | Aceptada con confirmación pendiente (Ingeniería) |
 
 ## Propuestas (huecos detectados, sin decidir)
 

@@ -156,6 +156,8 @@ describe('auth.* pre-authentication functions (no app.org_id set)', () => {
       'find_invitation_by_token_hash',
       'find_login_by_email',
       'find_session_by_token_hash',
+      // ADR 0038: listado para los trabajos de fondo, con el mismo molde que las demás.
+      'list_organization_ids',
     ]);
     for (const r of rows) {
       expect(r.prosecdef, r.proname).toBe(true);

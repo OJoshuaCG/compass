@@ -12,7 +12,8 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "provision": "node dist/main.provision.js",
-    "recover-root": "node dist/main.recover-root.js"
+    "recover-root": "node dist/main.recover-root.js",
+    "purge": "node dist/main.purge.js"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",

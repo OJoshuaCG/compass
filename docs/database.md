@@ -24,6 +24,7 @@ Diseño de la base de datos de la plataforma (PostgreSQL 17). Este documento des
 | `0009_totp_replay_protection.sql` | Columna `last_used_step` en `user_totp_factors`: un código TOTP solo se acepta si su paso es mayor al último aceptado |
 | `0010_emergency_codes.sql` | Columna `kind` (`recovery` por defecto, o `emergency`) en `user_recovery_codes`, para los códigos de emergencia de la Raíz |
 | `0011_webauthn_challenges.sql` | Tabla `webauthn_challenges` (desafíos de las ceremonias de passkey) con aislamiento por fila |
+| `0014_background_jobs_purge.sql` | Función `auth.list_organization_ids()` para los trabajos de fondo, `DELETE` de `webauthn_challenges` para `iam_app` e índice por vencimiento (ADR 0038) |
 
 ### Cómo se ejecuta
 
@@ -450,7 +451,7 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`user_recovery_codes`**: `user_id` FK(c), `code_hash bytea(32)`, `used_at`, `kind text not null default 'recovery'` (`recovery` \| `emergency`, migración 0010), `custody_group text` (`A` \| `B` o nulo, migración 0013; solo los códigos de `emergency` pueden tenerlo y reparte los ocho entre los dos custodios para el control dual de la [recuperación de la Raíz](adr/0037-root-recovery-dual-custody.md); los códigos anteriores a la migración quedan con valor nulo y no sirven para ese control). **UK** `(organization_id, user_id, code_hash)`. Los códigos de emergencia (8, solo de la Raíz, emitidos al crear la organización) usan el mismo hash y el mismo uso único; al registrar un segundo factor nuevo solo se reemiten los de `recovery`, y los de `emergency` sin usar siguen vigentes.
 
-**`webauthn_challenges`** (efímera, migración 0011): `user_id` (FK compuesta con `organization_id` a `users`), `session_id`, `purpose` (`registration` \| `authentication`), `challenge text` (16 a 512 caracteres), `expires_at`, `used_at`. Un desafío es aleatorio, de un solo uso, de 5 minutos y ligado a la persona, al propósito y a la sesión que lo pidió: el emitido para una ceremonia no valida otra, otra sesión de la misma persona no puede gastarlo y solo hay uno vigente por sesión y propósito ([ADR 0030](adr/0030-session-bound-webauthn-challenges.md)). Índice parcial `(organization_id, user_id, session_id, purpose, created_at) where used_at is null`. *Limitación conocida: los desafíos vencidos aún no se purgan.* `ENABLE + FORCE RLS` con la política de aislamiento por organización en la misma migración.
+**`webauthn_challenges`** (efímera, migración 0011): `user_id` (FK compuesta con `organization_id` a `users`), `session_id`, `purpose` (`registration` \| `authentication`), `challenge text` (16 a 512 caracteres), `expires_at`, `used_at`. Un desafío es aleatorio, de un solo uso, de 5 minutos y ligado a la persona, al propósito y a la sesión que lo pidió: el emitido para una ceremonia no valida otra, otra sesión de la misma persona no puede gastarlo y solo hay uno vigente por sesión y propósito ([ADR 0030](adr/0030-session-bound-webauthn-challenges.md)). Índice parcial `(organization_id, user_id, session_id, purpose, created_at) where used_at is null`. Los vencidos hace más de una hora los borra la purga programada (ADR 0038; índice `(organization_id, expires_at)` de la migración 0014). `ENABLE + FORCE RLS` con la política de aislamiento por organización en la misma migración.
 
 **`sessions`** (efímera): `user_id` FK(c), `token_hash bytea(32)` **UK**, `ip inet`, `user_agent`, `mfa_at`, `reauth_at`, `last_seen_at +` (caducidad por inactividad de 30 min), `expires_at not null`, `revoked_at`. Índices `(organization_id, user_id) where revoked_at is null`, `(organization_id, expires_at)`.
 
@@ -509,7 +510,7 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`outbox_events`**: `aggregate`, `type`, `payload jsonb`, `published_at`, `attempts int +`, `next_attempt_at +` (reintentos con *backoff*). Índice parcial de pendientes `(organization_id, next_attempt_at) where published_at is null`.
 
-**`idempotency_keys`**: `key` (8 a 200), `actor_id`, `request_hash bytea(32)`, `response jsonb`, `status_code smallint +`, `expires_at`. **UK** `(organization_id, actor_id, key)`. La respuesta se conserva 24 horas; mientras la petición original corre, la fila es una reserva de 1 minuto que otra petición puede tomar de forma atómica al vencer (ver [`backend.md`](backend.md) §7.2.1). *Limitación conocida: las filas vencidas aún no se purgan; falta un trabajo de limpieza.*
+**`idempotency_keys`**: `key` (8 a 200), `actor_id`, `request_hash bytea(32)`, `response jsonb`, `status_code smallint +`, `expires_at`. **UK** `(organization_id, actor_id, key)`. La respuesta se conserva 24 horas; mientras la petición original corre, la fila es una reserva de 1 minuto que otra petición puede tomar de forma atómica al vencer (ver [`backend.md`](backend.md) §7.2.1). Las filas vencidas hace más de una hora las borra la purga programada (ADR 0038, §7.5).
 
 ### 5.6 Vista `effective_access`
 
@@ -570,10 +571,12 @@ Cuatro funciones de lectura mínimas, que se ejecutan con los privilegios de su 
 | `auth.find_invitation_by_token_hash(bytea)` | SHA-256 | `invitation_id, organization_id, email, rank, expires_at, accepted_at, revoked_at` |
 | `auth.find_handoff_by_token_hash(bytea)` | SHA-256 | `handoff_id, organization_id, user_id, credential_id, status, expires_at` |
 
+Una quinta función, de la migración `0014`, no es de acceso previo a la autenticación sino para los trabajos de fondo (ADR 0038): `auth.list_organization_ids()`, sin entrada, devuelve solo el `id` de cada organización. Sigue el mismo molde (dueño, `search_path`, privilegios); ver §7.5.
+
 ### 7.3 Por qué es seguro
 
 - **Dueño sin `BYPASSRLS`.** Las funciones pertenecen a `iam_auth_reader` (`NOLOGIN`, sin `BYPASSRLS`). Ve filas solo mediante una política `to iam_auth_reader using (true)` por tabla, y solo tiene `SELECT` **por columnas** (no lee `user_agent`, `payload_ciphertext`, `credential_secrets`, etc.). Comprometer una función no da acceso a otras columnas. No se usó `BYPASSRLS` porque crear ese rol exige superusuario y porque un rol así lee todo.
-- **Una clave exacta de entrada**, nunca un patrón ni una lista; ninguna función recibe un `organization_id`. No hay forma de enumerar organizaciones ni filas ajenas (una prueba lo intenta con `%`, comillas, cadena vacía y `NULL`).
+- **Una clave exacta de entrada**, nunca un patrón ni una lista; ninguna función recibe un `organization_id`. No hay forma de enumerar filas ajenas (una prueba lo intenta con `%`, comillas, cadena vacía y `NULL`). La única excepción deliberada es `auth.list_organization_ids()` (ADR 0038): enumera los `id` de las organizaciones, y nada más, para los trabajos de fondo; los datos de cada una siguen protegidos por RLS.
 - **`search_path` fijo** a `pg_catalog` y todas las tablas calificadas con esquema (clase CVE-2018-1058).
 - **`EXECUTE` revocado a `PUBLIC`**, concedido solo a `iam_app`. `iam_app` no puede hacer `SET ROLE iam_auth_reader`.
 - **Solo lectura** (`STABLE`). Las escrituras posteriores (marcar la invitación aceptada, el handoff recibido) ocurren bajo RLS con el contexto ya fijado.
@@ -586,9 +589,11 @@ Cuatro funciones de lectura mínimas, que se ejecutan con los privilegios de su 
 - El correo se normaliza a minúsculas (la función también lo hace; el índice es sobre el valor ya en minúsculas).
 - Toda función nueva en `auth` requiere ADR: es la superficie que rompe el aislamiento por diseño.
 
-### 7.5 Pendiente propuesto: trabajos de fondo
+### 7.5 Trabajos de fondo (ADR 0038)
 
-Los jobs transversales (verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del *outbox*, rotación de DEK y, desde la fase 1a, la purga de las filas vencidas de `idempotency_keys` y `webauthn_challenges`) corren fuera de una petición y deben recorrer organizaciones. Recomendación: una función `auth.list_organization_ids()` (mismo molde: `SECURITY DEFINER`, solo `id`, solo `iam_app`) y que el job fije `app.org_id` por organización. No se ha implementado: la fase 0 no lo necesitaba y, desde la fase 1a, la purga de esas dos tablas efímeras está pendiente por esa razón (sus filas vencidas se acumulan). Requiere ADR antes de la fase 1b.
+Los jobs transversales (verificación diaria de la cadena de auditoría, vencimiento de comparticiones y handoffs, publicación del *outbox*, rotación de DEK y la purga de filas vencidas) corren fuera de una petición y deben recorrer organizaciones. Decisión (ADR 0038, migración `0014`): la función `auth.list_organization_ids()` (mismo molde: `SECURITY DEFINER`, solo `id`, solo `iam_app`) lista las organizaciones y el job fija `app.org_id` de una a la vez; todo lo demás ocurre bajo RLS normal.
+
+Primer job implementado: la purga de `idempotency_keys` y `webauthn_challenges` vencidas hace más de una hora, en lotes de 1000 filas por transacción (comando `purge`, módulo `maintenance`; ver [`runbooks/purge-expired-rows.md`](runbooks/purge-expired-rows.md)). Para ello `iam_app` recibe `DELETE` sobre `webauthn_challenges` (`idempotency_keys` ya lo tenía) y la tabla gana el índice `(organization_id, expires_at)`. La retención de los eventos publicados del *outbox* (7 días) queda fijada en el ADR y se implementa con su publicador.
 
 ## 8. Auditoría
 
@@ -744,4 +749,5 @@ erDiagram
 | `rls.test.ts` | Estructura de RLS para toda tabla con `organization_id`, falla cerrada, aislamiento A/B, referencias cruzadas, catálogo global |
 | `audit.test.ts` | Append-only, cadena de hashes, concurrencia sin bifurcación, detección de manipulación |
 | `auth-functions.test.ts` | Mínimo devuelto, sin enumeración, `SECURITY DEFINER`, `search_path`, privilegios |
+| `background-jobs.test.ts` | `auth.list_organization_ids()` devuelve solo `id`; la purga borra solo filas vencidas de la organización en contexto (ADR 0038) |
 | `constraints.test.ts` | Raíz única, rango 0..3, estados, `effective_access`, UUIDv7, secretos |

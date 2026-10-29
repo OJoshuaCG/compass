@@ -17,6 +17,7 @@ export {
 } from './domain/recovery-codes.js';
 export { Passkeys } from './application/passkeys.js';
 export { PgChallengeStore } from './infrastructure/pg-challenge-store.js';
+export { PgExpiredChallengesPurger } from './infrastructure/pg-expired-challenges-purger.js';
 export { PgPasskeyRepository } from './infrastructure/pg-passkey-repository.js';
 export { SimpleWebAuthnEngine } from './infrastructure/simplewebauthn-engine.js';
 export type { WebAuthnConfig } from './infrastructure/simplewebauthn-engine.js';
