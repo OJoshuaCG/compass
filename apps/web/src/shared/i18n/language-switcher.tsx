@@ -23,8 +23,10 @@ export function LanguageSwitcher() {
         }}
       >
         {LOCALES.map((locale) => (
-          <option key={locale} value={locale}>
-            {t(`language.${locale}`)}
+          // Cada nombre de idioma se pinta en su propio idioma (no en el de la interfaz); el atributo
+          // lang evita que el lector de pantalla lo pronuncie con la voz del idioma activo (WCAG 3.1.2).
+          <option key={locale} value={locale} lang={locale}>
+            {t(`language.${locale}`, { lng: locale })}
           </option>
         ))}
       </NativeSelect>

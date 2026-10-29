@@ -12,6 +12,9 @@ export type InvitationSummaryProps = {
 /** Datos de la vista previa de la invitación: a quién y con qué rango se invita. */
 export function InvitationSummary({ email, rank, expiresAt }: InvitationSummaryProps) {
   const { t, i18n } = useTranslation(['auth', 'common']);
+  // La columna de etiquetas se ajusta a su contenido (`auto`) y los valores toman el resto (`1fr`):
+  // las etiquetas cambian de longitud entre es-MX y en-US, así que un ancho fijo las cortaría o
+  // dejaría huecos. El sistema de diseño no tiene una utilidad equivalente para listas de definición.
   return (
     <dl
       aria-label={t('invitation.summary', { ns: 'auth' })}

@@ -43,6 +43,15 @@ describe('app shell and routing', () => {
     expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('en-US');
   });
 
+  it('marks each language option with its own lang so screen readers pronounce it correctly', async () => {
+    renderApp('/');
+    await screen.findByRole('heading', { level: 1, name: es['home.title'] });
+    const spanishOption = screen.getByRole('option', { name: es['language.es-MX'] });
+    const englishOption = screen.getByRole('option', { name: es['language.en-US'] });
+    expect(spanishOption).toHaveAttribute('lang', 'es-MX');
+    expect(englishOption).toHaveAttribute('lang', 'en-US');
+  });
+
   it('shows the not-found page for unknown routes', async () => {
     renderApp('/nope');
     expect(await screen.findByText(resources['es-MX'].errors.NOT_FOUND)).toBeInTheDocument();
