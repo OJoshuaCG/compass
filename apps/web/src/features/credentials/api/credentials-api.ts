@@ -82,6 +82,22 @@ export async function fetchCredentialHistory(
 }
 
 /**
+ * `POST /credentials/:id/versions/:version/restore` (exige `credential.update` y nivel EDIT). Sin
+ * cuerpo: el servidor crea una versión nueva con la contraseña de la elegida y devuelve solo los
+ * metadatos de la credencial, nunca el contenido.
+ */
+export function restoreCredentialVersion(
+  credentialId: string,
+  version: number,
+  client: ApiClient = apiClient,
+) {
+  return client.post(
+    `/credentials/${credentialId}/versions/${String(version)}/restore`,
+    credentialSchema,
+  );
+}
+
+/**
  * `POST /credentials/:id/username` (nivel USE, auditado). Devuelve el usuario al llamador y nada
  * más: quien lo use debe copiarlo y soltarlo, sin guardarlo en estado ni en la caché.
  */

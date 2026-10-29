@@ -1,13 +1,14 @@
 import { DEFAULT_PAGE_LIMIT, type Credential, type PasswordVersion } from '@iam/contracts';
-import { Dialog, EmptyState, StatusBadge, DataTable, type Column } from '@iam/ui';
-import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { Alert, Button, Dialog, EmptyState, StatusBadge, DataTable, type Column } from '@iam/ui';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useMe } from '../../../shared/auth';
 import { useDataTableLabels, useErrorMessage } from '../../../shared/i18n';
 import { formatDateTime } from '../../../shared/lib';
 import { credentialsKeys, fetchCredentialHistory } from '../api/credentials-api';
+import { RestoreVersionDialog } from './restore-version-dialog';
 
 const NO_OP = () => undefined;
 
@@ -16,12 +17,19 @@ export type HistoryDialogProps = {
   onClose: () => void;
 };
 
-/** Historial de versiones de la contraseña: número, vigencia y fecha, nunca el contenido. */
+/**
+ * Historial de versiones de la contraseña: número, vigencia y fecha, nunca el contenido. Cada
+ * versión anterior ofrece "Restaurar"; la vigente no, porque el servidor la rechazaría.
+ */
 export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
   const { t, i18n } = useTranslation(['credentials', 'common']);
   const errorMessage = useErrorMessage();
   const labels = useDataTableLabels();
   const timeZone = useMe()?.user.timezone;
+  const queryClient = useQueryClient();
+  // Solo el número de versión: la contraseña nunca llega al navegador en este flujo.
+  const [versionToRestore, setVersionToRestore] = useState<number | null>(null);
+  const [restoredVersion, setRestoredVersion] = useState<number | null>(null);
 
   // Puede cambiar desde otra pestaña o persona: siempre se recarga al abrir.
   const query = useQuery({
@@ -56,6 +64,15 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
     [i18n.language, t, timeZone],
   );
 
+  function handleRestoreDone() {
+    const restored = versionToRestore;
+    setVersionToRestore(null);
+    setRestoredVersion(restored);
+    // Restaurar crea una versión nueva: cambian el historial y la fecha de última rotación del listado.
+    void queryClient.invalidateQueries({ queryKey: credentialsKeys.history(credential.id) });
+    void queryClient.invalidateQueries({ queryKey: credentialsKeys.list(credential.accountId) });
+  }
+
   const status = query.isPending ? 'loading' : query.isError ? 'error' : 'success';
 
   return (
@@ -68,6 +85,11 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
       description={t('history.description', { ns: 'credentials' })}
       closeLabel={t('dialog.close', { ns: 'common' })}
     >
+      {restoredVersion !== null ? (
+        <Alert tone="success">
+          {t('history.restore.done', { ns: 'credentials', version: restoredVersion })}
+        </Alert>
+      ) : null}
       <DataTable<PasswordVersion>
         caption={t('history.caption', { ns: 'credentials' })}
         columns={columns}
@@ -80,6 +102,21 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
         pagination={{ hasPrevious: false, hasNext: false, onPrevious: NO_OP, onNext: NO_OP }}
         hidePagination
         labels={labels}
+        rowActions={(row) =>
+          row.isCurrent ? null : (
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={t('history.restore.label', { ns: 'credentials', version: row.version })}
+              onClick={() => {
+                setRestoredVersion(null);
+                setVersionToRestore(row.version);
+              }}
+            >
+              {t('history.restore.action', { ns: 'credentials' })}
+            </Button>
+          )
+        }
         emptyState={
           <EmptyState
             title={t('history.empty.title', { ns: 'credentials' })}
@@ -93,6 +130,16 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
           },
         }}
       />
+      {versionToRestore !== null ? (
+        <RestoreVersionDialog
+          credential={credential}
+          version={versionToRestore}
+          onClose={() => {
+            setVersionToRestore(null);
+          }}
+          onDone={handleRestoreDone}
+        />
+      ) : null}
     </Dialog>
   );
 }

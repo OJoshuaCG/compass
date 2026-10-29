@@ -672,6 +672,160 @@ describe('history', () => {
   });
 });
 
+describe('restore a password version', () => {
+  const HISTORY_PATH = `/credentials/${CREDENTIAL_ID}/history`;
+  const RESTORE_PATH = `/credentials/${CREDENTIAL_ID}/versions/1/restore`;
+  const historyRoute = jsonResponse({
+    data: [
+      { version: 2, isCurrent: true, createdAt: '2026-03-01T12:00:00.000Z', createdBy: CREATOR_ID },
+      {
+        version: 1,
+        isCurrent: false,
+        createdAt: '2026-01-01T12:00:00.000Z',
+        createdBy: CREATOR_ID,
+      },
+    ],
+  });
+  const restoreLabel = (version: number) =>
+    fill(es.credentials['history.restore.label'], { version });
+
+  async function openHistory(user: ReturnType<typeof userEvent.setup>) {
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: historyLabel('Portal de nómina') }));
+    const dialog = await screen.findByRole('dialog', {
+      name: fill(es.credentials['history.title'], { label: 'Portal de nómina' }),
+    });
+    await within(dialog).findByText(es.credentials['history.current']);
+    return dialog;
+  }
+
+  async function openRestoreConfirmation(user: ReturnType<typeof userEvent.setup>) {
+    const history = await openHistory(user);
+    await user.click(within(history).getByRole('button', { name: restoreLabel(1) }));
+    return screen.findByRole('dialog', {
+      name: fill(es.credentials['history.restore.title'], { version: 1 }),
+    });
+  }
+
+  it('offers restore only on previous versions, never on the current one', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'EDIT', extra: { [`GET ${HISTORY_PATH}`]: historyRoute } });
+    renderApp(PAGE);
+    const dialog = await openHistory(user);
+    expect(within(dialog).getByRole('button', { name: restoreLabel(1) })).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: restoreLabel(2) })).toBeNull();
+    expect(within(dialog).getAllByRole('button', { name: /^Restaurar la versión/ })).toHaveLength(
+      1,
+    );
+  });
+
+  it('restores the chosen version, reloads the queries and confirms without storing the password', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      level: 'EDIT',
+      extra: {
+        [`GET ${HISTORY_PATH}`]: historyRoute,
+        [`POST ${RESTORE_PATH}`]: jsonResponse({
+          ...ROTATED,
+          lastRotatedAt: '2026-10-28T12:00:00.000Z',
+        }),
+      },
+    });
+    const { queryClient } = renderApp(PAGE);
+    const confirmation = await openRestoreConfirmation(user);
+    expect(
+      within(confirmation).getByText(
+        fill(es.credentials['history.restore.description'], { version: 1 }),
+      ),
+    ).toBeVisible();
+    const historyCallsBefore = api.callsTo('GET', HISTORY_PATH).length;
+    const listCallsBefore = api.callsTo('GET', `/accounts/${ACCOUNT_ID}/credentials`).length;
+
+    await user.click(
+      within(confirmation).getByRole('button', { name: es.credentials['history.restore.confirm'] }),
+    );
+
+    expect(
+      await screen.findByText(fill(es.credentials['history.restore.done'], { version: 1 })),
+    ).toBeVisible();
+    expect(api.callsTo('POST', RESTORE_PATH)).toHaveLength(1);
+    await waitFor(() => {
+      expect(api.callsTo('GET', HISTORY_PATH).length).toBeGreaterThan(historyCallsBefore);
+      expect(api.callsTo('GET', `/accounts/${ACCOUNT_ID}/credentials`).length).toBeGreaterThan(
+        listCallsBefore,
+      );
+    });
+    expectNoSecretsStored(queryClient, [PASSWORD]);
+  });
+
+  // SENSIBLE (revisión humana): sin permiso o nivel el servidor niega y la pantalla lo muestra traducido.
+  it('shows a translated error when restoring is denied (403)', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      level: 'EDIT',
+      extra: {
+        [`GET ${HISTORY_PATH}`]: historyRoute,
+        [`POST ${RESTORE_PATH}`]: problem(403, 'AUTHZ.SHARE'),
+      },
+    });
+    renderApp(PAGE);
+    const confirmation = await openRestoreConfirmation(user);
+    await user.click(
+      within(confirmation).getByRole('button', { name: es.credentials['history.restore.confirm'] }),
+    );
+    expect(await within(confirmation).findByRole('alert')).toHaveTextContent(
+      es.errors['AUTHZ.SHARE'],
+    );
+    expect(api.callsTo('POST', RESTORE_PATH)).toHaveLength(1);
+    expect(
+      screen.queryByText(fill(es.credentials['history.restore.done'], { version: 1 })),
+    ).toBeNull();
+  });
+
+  // SENSIBLE (revisión humana): restaurar la versión que ya es la vigente se rechaza con 409.
+  it('shows a translated error when the version is already current (409)', async () => {
+    const user = userEvent.setup();
+    setup({
+      level: 'EDIT',
+      extra: {
+        [`GET ${HISTORY_PATH}`]: historyRoute,
+        [`POST ${RESTORE_PATH}`]: problem(409, 'CREDENTIAL.VERSION_ALREADY_CURRENT'),
+      },
+    });
+    renderApp(PAGE);
+    const confirmation = await openRestoreConfirmation(user);
+    await user.click(
+      within(confirmation).getByRole('button', { name: es.credentials['history.restore.confirm'] }),
+    );
+    expect(await within(confirmation).findByRole('alert')).toHaveTextContent(
+      es.errors['CREDENTIAL.VERSION_ALREADY_CURRENT'],
+    );
+  });
+
+  it('disables the confirm button during a 429 and sends nothing more', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      level: 'EDIT',
+      extra: {
+        [`GET ${HISTORY_PATH}`]: historyRoute,
+        [`POST ${RESTORE_PATH}`]: problem(429, 'RATE_LIMITED', { headers: { 'Retry-After': '7' } }),
+      },
+    });
+    renderApp(PAGE);
+    const confirmation = await openRestoreConfirmation(user);
+    await user.click(
+      within(confirmation).getByRole('button', { name: es.credentials['history.restore.confirm'] }),
+    );
+    expect(await within(confirmation).findByRole('alert')).toHaveTextContent(
+      es.errors['RATE_LIMITED'],
+    );
+    expect(
+      within(confirmation).getByRole('button', { name: es.credentials['history.restore.confirm'] }),
+    ).toBeDisabled();
+    expect(api.callsTo('POST', RESTORE_PATH)).toHaveLength(1);
+  });
+});
+
 describe('credentials screen in English', () => {
   it('renders in English too', async () => {
     const { loadCredentialsCatalog } = await import('@iam/i18n');

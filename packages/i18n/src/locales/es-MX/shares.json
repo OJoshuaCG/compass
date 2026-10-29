@@ -14,7 +14,7 @@
   "level.VIEW": "Ver",
   "level.EDIT": "Editar",
   "level.MANAGE": "Administrar",
-  "levelOption.USE": "Usar: copiar el usuario de las credenciales",
+  "levelOption.USE": "Usar: copiar el usuario y obtener los códigos del segundo factor",
   "levelOption.VIEW": "Ver: además, revelar contraseñas",
   "levelOption.EDIT": "Editar: además, agregar credenciales y cambiar contraseñas",
   "levelOption.MANAGE": "Administrar: además, compartir la cuenta y revocar accesos",

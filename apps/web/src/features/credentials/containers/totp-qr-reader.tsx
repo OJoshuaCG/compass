@@ -64,6 +64,8 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
   const [migrationChoices, setMigrationChoices] = useState<readonly MigrationEntry[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<string | undefined>(undefined);
   const [skipped, setSkipped] = useState<SkippedCounts>(NO_SKIPPED);
+  // Solo la etiqueta (texto para identificar la cuenta), nunca el secreto ni el enlace otpauth.
+  const [singleAccountLabel, setSingleAccountLabel] = useState<string | null>(null);
   const captureSupported = isDisplayCaptureSupported();
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
     setMigrationChoices(null);
     setSelectedIndex(undefined);
     setSkipped(NO_SKIPPED);
+    setSingleAccountLabel(null);
   }
 
   function applyMigration(entries: readonly MigrationEntry[], skippedCounts: SkippedCounts) {
@@ -109,6 +112,12 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
     if (entries.length === 1) {
       // Una sola cuenta importable se usa igual que un QR normal: sin pedir elegir.
       setOutcomeKind('found');
+      // Se muestra la etiqueta para que la persona confirme que la cuenta leída es la correcta.
+      setSingleAccountLabel(
+        onlyEntry.label === ''
+          ? t('totp.register.image.migration.unnamed', { position: 1 })
+          : onlyEntry.label,
+      );
       onResult(onlyEntry.otpauthUri);
       return;
     }
@@ -214,7 +223,11 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
       </FormField>
       {reading ? <Spinner label={t('totp.register.image.reading')} /> : null}
       {outcomeKind === 'found' ? (
-        <Alert tone="success">{t('totp.register.image.found')}</Alert>
+        <Alert tone="success">
+          {singleAccountLabel === null
+            ? t('totp.register.image.found')
+            : t('totp.register.image.migration.foundAccount', { label: singleAccountLabel })}
+        </Alert>
       ) : null}
       {outcomeKind === 'migration_choose' ? (
         <div className="flex flex-col gap-3">

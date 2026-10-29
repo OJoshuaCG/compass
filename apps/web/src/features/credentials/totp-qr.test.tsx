@@ -342,7 +342,12 @@ describe('register from a QR image: Google Authenticator export', () => {
   it('imports a single TOTP account directly, like a plain QR, and reports what was skipped', async () => {
     const { user, api, queryClient, dialog } = await uploadMigration([ANA, HOTP_ENTRY]);
 
-    expect(await within(dialog).findByText(t['totp.register.image.found'])).toBeVisible();
+    // El aviso nombra la cuenta leída para que la persona confirme que es la correcta.
+    expect(
+      await within(dialog).findByText(
+        fill(migrationT('foundAccount'), { label: 'Acme: ana@example.com' }),
+      ),
+    ).toBeVisible();
     expect(
       within(dialog).getByText(fill(migrationT('skippedHotp_one'), { count: 1 })),
     ).toBeVisible();
@@ -356,6 +361,17 @@ describe('register from a QR image: Google Authenticator export', () => {
     expect(registerCalls).toHaveLength(1);
     expect(registerCalls[0]?.body).toEqual({ otpauthUri: ANA_URI });
     expectNothingLeaked(queryClient);
+  });
+
+  it('names an unlabeled single account with the existing unnamed text', async () => {
+    const { dialog } = await uploadMigration([{ ...ANA, name: '', issuer: '' }]);
+
+    expect(
+      await within(dialog).findByText(
+        fill(migrationT('foundAccount'), { label: fill(migrationT('unnamed'), { position: 1 }) }),
+      ),
+    ).toBeVisible();
+    expect(document.body.textContent).not.toContain(MIGRATION_SECRET_BASE32);
   });
 
   // SENSIBLE (revisión humana): el selector no muestra secretos y descarta los de las cuentas no elegidas.
