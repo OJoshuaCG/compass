@@ -33,4 +33,4 @@ Se mantiene la unicidad global del correo y **no se revela a quien invita** que 
 
 - **Positivas**: no hay filtración entre organizaciones ni consultas que salten el aislamiento; no se cambia el modelo.
 - **Negativas o costos**: quien invita ve una invitación pendiente que nunca se completa y no sabe por qué; hay que explicárselo en la guía de operación y, si el caso se repite, decidir la alternativa del aviso por correo.
-- **Verificación**: prueba de integración que invita desde la organización A a un correo de la B y comprueba que la invitación se crea, la aceptación devuelve conflicto y no queda ningún usuario nuevo. Esa prueba **no existe aún**: queda como tarea de implementación si se acepta el ADR.
+- **Verificación**: prueba de integración que invita desde la organización A a un correo de la B y comprueba que la invitación se crea, la aceptación devuelve conflicto y no queda ningún usuario nuevo. La prueba está escrita en `apps/api/test/invitation-cross-org-email.e2e.test.ts` (TODO.md C4a); falta confirmarla en verde.
