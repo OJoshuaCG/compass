@@ -283,7 +283,7 @@ Las tres se hacen en orden: N2 depende de N1 y N3 de N2.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] N1 | **B4 del plan, parte a:** segundo factor en el servidor. Registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual | Código ⚠ | — | L | K1, B8, B9 | |
+| [~] N1 | **B4 del plan, parte a:** segundo factor en el servidor. Registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual | Código ⚠ | — | L | K1, B8, B9 | Hecho en B4a (2026-10-28, ver `odd/tasks/phase-1b-vault.md`); falta el aviso de 24 h sin confirmar y la revisión humana de sus pruebas |
 | [ ] N2 | **B4 del plan, parte b:** registro del segundo factor por imagen del QR | Código ⚠ | — | M | N1, B7 | |
 | [ ] N3 | **B5 del plan:** captura de pestaña, importación de Google Authenticator y entrega por celular (según el recorte de B8) | Código ⚠ | — | M | N2, B8 | |
 | [ ] N4 | Aislar el generador de TOTP en un proceso propio antes de la puerta de producción (ADR 0034) | Código ⚠ | — | M | N1, B9 | |

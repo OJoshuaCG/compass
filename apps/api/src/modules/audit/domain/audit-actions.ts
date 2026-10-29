@@ -31,6 +31,12 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'credential.revealed': ['reason'],
   // Evento crítico: la persona superó el tope de revelaciones por hora (ADR 0031); `limit` es el tope vigente.
   'credential.reveal_limit_exceeded': ['limit'],
+  // Segundo factor: nunca el secreto ni el código. `algorithm`, `digits` y `period` son los parámetros públicos
+  // del URI; `previousVersion` es la versión del secreto que queda retenida al re-registrar.
+  'credential.totp_registered': ['algorithm', 'digits', 'period'],
+  'credential.totp_confirmed': [],
+  'credential.totp_reregistered': ['algorithm', 'digits', 'period', 'previousVersion'],
+  'credential.totp_retired': [],
   'credential.totp_code_issued': [],
   'credential.totp_exported': ['reason'],
   'access.emergency_granted': ['reason', 'expiresInMinutes'],

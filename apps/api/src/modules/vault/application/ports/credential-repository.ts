@@ -2,8 +2,8 @@ import type { CredentialKind } from '@iam/contracts';
 
 import type { UserId } from '../../../../shared/kernel/index.js';
 
-/** Campos cifrados que guarda esta porción; los de segundo factor llegan con B4. */
-export type SecretField = 'username' | 'password';
+/** Campos cifrados que guarda esta porción. `totp_uri` es el URI otpauth del segundo factor. */
+export type SecretField = 'username' | 'password' | 'totp_uri';
 
 export interface CredentialRecord {
   readonly id: string;

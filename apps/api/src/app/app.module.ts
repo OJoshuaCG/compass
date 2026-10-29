@@ -27,7 +27,12 @@ import {
 } from '../modules/identity/index.js';
 import { AuthController, MeController } from '../modules/identity/interface/auth.controller.js';
 import { InvitationsController } from '../modules/identity/interface/invitations.controller.js';
-import { ManageAccounts, ManageCredentials, ManageShares } from '../modules/vault/index.js';
+import {
+  ManageAccounts,
+  ManageCredentials,
+  ManageShares,
+  ManageTotp,
+} from '../modules/vault/index.js';
 import {
   AccountsController,
   PlatformsController,
@@ -37,6 +42,7 @@ import {
   AccountCredentialsController,
   CredentialsController,
 } from '../modules/vault/interface/credentials.controller.js';
+import { TotpController } from '../modules/vault/interface/totp.controller.js';
 import { CsrfGuard } from '../shared/http/csrf.guard.js';
 import { RateLimitGuard } from '../shared/http/rate-limit.guard.js';
 import {
@@ -84,6 +90,7 @@ export class AppModule {
       { provide: ManageAccounts, useValue: container.manageAccounts },
       { provide: ManageCredentials, useValue: container.manageCredentials },
       { provide: ManageShares, useValue: container.manageShares },
+      { provide: ManageTotp, useValue: container.manageTotp },
       { provide: IdempotencyService, useValue: container.idempotency },
       { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
@@ -103,6 +110,7 @@ export class AppModule {
         AccountCredentialsController,
         AccountSharesController,
         CredentialsController,
+        TotpController,
       ],
       providers,
     };

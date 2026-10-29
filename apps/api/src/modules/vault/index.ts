@@ -12,6 +12,18 @@ export type {
   CreateCredentialInput,
   ManageCredentialsDeps,
 } from './application/manage-credentials.js';
+export { ManageTotp } from './application/manage-totp.js';
+export type {
+  ExportedTotpSecret,
+  IssuedTotpCode,
+  ManageTotpDeps,
+} from './application/manage-totp.js';
+export type { TotpGenerator } from './application/ports/totp-generator.js';
+export type { TotpRecord, TotpRepository } from './application/ports/totp-repository.js';
+export { OtplibTotpGenerator } from './infrastructure/otplib-totp-generator.js';
+export { PgTotpRepository } from './infrastructure/pg-totp-repository.js';
+export { parseOtpauthUri } from './domain/otpauth-uri.js';
+export type { ParsedOtpauthUri, TotpParameters } from './domain/otpauth-uri.js';
 export type {
   CredentialRecord,
   CredentialRepository,

@@ -20,6 +20,7 @@ const PHASE1_TENANT_TABLES = [
   'accounts',
   'credentials',
   'credential_secrets',
+  'credential_totp',
   'shares',
   'password_fingerprints',
   'access_requests',

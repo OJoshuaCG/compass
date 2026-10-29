@@ -7,6 +7,8 @@ export interface AuditEventCountQuery {
   readonly outcome: AuditOutcome;
   /** Solo cuentan los eventos posteriores a este instante (ventana móvil). */
   readonly since: Date;
+  /** Si viaja, solo cuentan los eventos sobre ese objetivo (por ejemplo, una credencial concreta). */
+  readonly targetId?: string;
 }
 
 /**

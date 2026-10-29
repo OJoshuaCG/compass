@@ -113,8 +113,9 @@ export class PgAuditEventRepository implements AuditEventRepository, AuditEventC
         where actor_id = $1
           and action = $2
           and outcome = $3
-          and created_at > $4`,
-      [query.actorId, query.action, query.outcome, query.since],
+          and created_at > $4
+          and ($5::uuid is null or target_id = $5::uuid)`,
+      [query.actorId, query.action, query.outcome, query.since, query.targetId ?? null],
     );
     return Number(result.rows[0]?.total ?? 0);
   }

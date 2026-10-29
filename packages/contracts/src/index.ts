@@ -135,6 +135,31 @@ export {
 } from './shares.js';
 export type { CreateShareRequest, Share, ShareGranteeType } from './shares.js';
 export {
+  OTPAUTH_URI_MAX_LENGTH,
+  TOTP_ALGORITHMS,
+  TOTP_CODES_PER_MINUTE,
+  TOTP_NEXT_CODE_THRESHOLD_SECONDS,
+  TOTP_STATUSES,
+  confirmTotpRequestSchema,
+  credentialTotpSchema,
+  exportTotpRequestSchema,
+  exportedTotpSchema,
+  registerTotpRequestSchema,
+  totpAlgorithmSchema,
+  totpCodeSchema,
+  totpStatusSchema,
+} from './totp.js';
+export type {
+  ConfirmTotpRequest,
+  CredentialTotp,
+  ExportTotpRequest,
+  ExportedTotp,
+  RegisterTotpRequest,
+  TotpAlgorithm,
+  TotpCode,
+  TotpStatus,
+} from './totp.js';
+export {
   dataKeyRotationReasonSchema,
   dataKeyRotationSchema,
   rotateDataKeyRequestSchema,
