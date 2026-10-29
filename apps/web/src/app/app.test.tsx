@@ -6,8 +6,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { LOCALE_STORAGE_KEY, detectInitialLocale } from '../shared/i18n';
 import { axeViolations } from '../test/axe';
 
-import { meFixture, jsonResponse, stubApi } from '../test/fake-api';
+import { meFixture, jsonResponse, problem, stubApi } from '../test/fake-api';
 import { renderApp } from '../test/render-app';
+
+const MAIN_CONTENT_ID = 'main-content';
 
 const es = resources['es-MX'].common;
 const en = resources['en-US'].common;
@@ -53,12 +55,52 @@ describe('app shell and routing', () => {
   });
 });
 
+/**
+ * La región del anunciador de rutas es un `<p role="status">`. Hay otra región `status` siempre
+ * montada (la de avisos, un `<div>`), por eso no se puede consultar solo por rol.
+ */
+function routeAnnouncer(): HTMLElement {
+  const announcer = screen
+    .getAllByRole('status', { hidden: true })
+    .find((region) => region.tagName === 'P');
+  if (announcer === undefined) throw new Error('The route announcer region is not mounted');
+  return announcer;
+}
+
 describe('route announcements', () => {
   it('gives the not-found page a level-1 heading', async () => {
     renderApp('/nope');
     expect(
       await screen.findByRole('heading', { level: 1, name: resources['es-MX'].errors.NOT_FOUND }),
     ).toBeInTheDocument();
+  });
+
+  it('titles the not-found screen in both languages', async () => {
+    renderApp('/nope', 'en-US');
+    await screen.findByRole('heading', { level: 1, name: resources['en-US'].errors.NOT_FOUND });
+    await waitFor(() => {
+      expect(document.title).toBe(`${resources['en-US'].errors.NOT_FOUND} · ${en['app.name']}`);
+    });
+  });
+
+  it('offers a skip link to the main content on the not-found screen', async () => {
+    renderApp('/nope');
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.getByRole('link', { name: es['nav.skipToContent'] })).toHaveAttribute(
+      'href',
+      `#${MAIN_CONTENT_ID}`,
+    );
+  });
+
+  it('offers a skip link in the public layout that targets its main', async () => {
+    stubApi({ 'GET /me': problem(401, 'AUTH.UNAUTHENTICATED') });
+    renderApp('/login');
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.getByRole('link', { name: es['nav.skipToContent'] })).toHaveAttribute(
+      'href',
+      `#${MAIN_CONTENT_ID}`,
+    );
+    expect(screen.getByRole('main')).toHaveAttribute('id', MAIN_CONTENT_ID);
   });
 
   it('sets the document title from the page heading without stealing focus on first load', async () => {
@@ -78,11 +120,34 @@ describe('route announcements', () => {
       await router.navigate({ to: '/catalog' });
     });
 
-    const heading = await screen.findByRole('heading', { level: 1, name: es['catalog.title'] });
+    await screen.findByRole('heading', { level: 1, name: es['catalog.title'] });
     await waitFor(() => {
-      expect(heading).toHaveFocus();
+      expect(screen.getByRole('main')).toHaveFocus();
     });
+    expect(screen.getByRole('main')).toHaveAttribute('id', MAIN_CONTENT_ID);
     expect(document.title).toBe(`${es['catalog.title']} · ${es['app.name']}`);
+    // La región de estado anuncia el título nuevo.
+    expect(routeAnnouncer()).toHaveTextContent(`${es['catalog.title']} · ${es['app.name']}`);
+  });
+
+  it('does not move focus nor announce when only the search params of the same route change', async () => {
+    const { router } = renderApp('/catalog');
+    await screen.findByRole('heading', { level: 1, name: es['catalog.title'] });
+    const table = await screen.findByRole('table', { name: es['catalog.table.caption'] });
+    const sortButton = within(table).getByRole('button', { name: es['catalog.table.col.name'] });
+    sortButton.focus();
+    expect(sortButton).toHaveFocus();
+
+    await act(async () => {
+      await router.navigate({ to: '/catalog', search: { limit: 10 } });
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.search).toMatchObject({ limit: 10 });
+    });
+    expect(screen.getByRole('main')).not.toHaveFocus();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(routeAnnouncer()).toBeEmptyDOMElement();
   });
 
   it('follows a language change in the title and leaves the focus where it was', async () => {

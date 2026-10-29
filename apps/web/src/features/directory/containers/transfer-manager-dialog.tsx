@@ -86,7 +86,11 @@ function TransferManagerForm({ person, onClose, onDone }: TransferManagerDialogP
           options={eligible.map((candidate) => ({
             value: candidate.id,
             label: candidate.displayName,
-            description: `${candidate.email} · ${t(`rank.${String(candidate.rank)}`, { ns: 'common' })}`,
+            description: t('transfer.candidateDescription', {
+              ns: 'directory',
+              email: candidate.email,
+              rank: t(`rank.${String(candidate.rank)}`, { ns: 'common' }),
+            }),
           }))}
           value={selected}
           onValueChange={setSelected}

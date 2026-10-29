@@ -49,6 +49,7 @@
   "transfer.legend": "Nuevo responsable",
   "transfer.loading": "Buscando personas",
   "transfer.empty": "Ninguna persona disponible coincide con la búsqueda.",
+  "transfer.candidateDescription": "{{email}} · {{rank}}",
   "transfer.submit": "Transferir",
   "users.tabs.invitations": "Invitaciones",
   "invitations.caption": "Invitaciones pendientes",

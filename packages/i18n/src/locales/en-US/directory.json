@@ -49,6 +49,7 @@
   "transfer.legend": "New manager",
   "transfer.loading": "Searching people",
   "transfer.empty": "No available person matches the search.",
+  "transfer.candidateDescription": "{{email}} · {{rank}}",
   "transfer.submit": "Transfer",
   "users.tabs.invitations": "Invitations",
   "invitations.caption": "Pending invitations",
