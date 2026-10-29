@@ -90,7 +90,9 @@ export function Tabs({ label, tabs, value, onValueChange, children }: TabsProps)
           );
         })}
       </div>
-      <div role="tabpanel" id={panelId} aria-labelledby={tabId(value)}>
+      {/* `tabIndex={0}`: si el panel no tiene un elemento enfocable, el teclado no llegaría a su
+          contenido (patrón WAI-ARIA de pestañas). */}
+      <div role="tabpanel" id={panelId} aria-labelledby={tabId(value)} tabIndex={0}>
         {children}
       </div>
     </div>

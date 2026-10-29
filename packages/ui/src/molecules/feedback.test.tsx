@@ -66,4 +66,19 @@ describe('Dialog', () => {
     await user.keyboard('{Escape}');
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('breaks long titles without spaces instead of overflowing', () => {
+    render(
+      <Dialog
+        open
+        onOpenChange={vi.fn()}
+        title="Averyveryverylonglabelwithoutanyspaces"
+        description="Desc"
+        closeLabel="Close"
+      >
+        <p>Body</p>
+      </Dialog>,
+    );
+    expect(screen.getByRole('heading', { name: /^Averyvery/ })).toHaveClass('break-words');
+  });
 });

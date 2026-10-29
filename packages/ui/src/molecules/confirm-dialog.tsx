@@ -53,7 +53,9 @@ export function ConfirmDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-canvas/80" />
         <Dialog.Content className="fixed inset-x-4 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto rounded-lg border border-border-strong bg-overlay p-6 shadow-overlay">
-          <Dialog.Title className="font-heading text-lg text-text">{title}</Dialog.Title>
+          <Dialog.Title className="font-heading text-lg break-words text-text">
+            {title}
+          </Dialog.Title>
           <Dialog.Description className="mt-2 text-sm text-text-secondary">
             {description}
           </Dialog.Description>

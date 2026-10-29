@@ -353,7 +353,10 @@ describe('archive role', () => {
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
     const alert = await within(dialog).findByRole('alert');
     expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
-    expect(alert).toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(alert).not.toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(within(dialog).getByRole('timer')).toHaveTextContent(
+      es.errors.retryIn.replace('{{seconds}}', '30'),
+    );
 
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
     expect(api.callsTo('POST', `/roles/${CUSTOM_ID}/archive`)).toHaveLength(1);
@@ -505,7 +508,10 @@ describe('edit role', () => {
     await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
     const alert = await within(dialog).findByRole('alert');
     expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
-    expect(alert).toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(alert).not.toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(within(dialog).getByRole('timer')).toHaveTextContent(
+      es.errors.retryIn.replace('{{seconds}}', '30'),
+    );
     expect(within(dialog).getByRole('button', { name: es.roles['edit.submit'] })).toBeDisabled();
   });
 

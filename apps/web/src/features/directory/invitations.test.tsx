@@ -175,7 +175,10 @@ describe('invitations tab', () => {
     await user.click(screen.getByRole('button', { name: resendLabel('ana@example.com') }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
-    expect(alert).toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(alert).not.toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(screen.getByRole('timer')).toHaveTextContent(
+      es.errors.retryIn.replace('{{seconds}}', '30'),
+    );
 
     await user.click(screen.getByRole('button', { name: resendLabel('ana@example.com') }));
     expect(api.callsTo('POST', `/invitations/${PENDING_ID}/resend`)).toHaveLength(1);

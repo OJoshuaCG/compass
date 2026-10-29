@@ -98,6 +98,17 @@ export function CopyButton({
         )}
         {label}
       </Button>
+      {/* Texto visible para quien ve la pantalla (el ícono solo no basta, WCAG 1.4.1). Va oculto
+          al lector de pantalla porque la región `status` de abajo ya lo anuncia; mostrarlo en
+          ambos lados lo leería dos veces. Dura lo mismo que el estado (`announceResetMs`). */}
+      {state === 'idle' ? null : (
+        <span
+          aria-hidden="true"
+          className={state === 'copied' ? 'text-sm text-success' : 'text-sm text-danger'}
+        >
+          {state === 'copied' ? copiedLabel : failedLabel}
+        </span>
+      )}
       <span role="status" className="sr-only">
         {state === 'idle'
           ? ''

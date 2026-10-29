@@ -121,7 +121,8 @@ describe('login -> MFA', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(es.errors['RATE_LIMITED']);
-    expect(alert).toHaveTextContent('Reintenta en 7 s.');
+    expect(alert).not.toHaveTextContent('Reintenta en 7 s.');
+    expect(screen.getByRole('timer')).toHaveTextContent('Reintenta en 7 s.');
     expect(screen.getByRole('button', { name: es.auth['login.submit'] })).toBeDisabled();
   });
 
@@ -220,7 +221,10 @@ describe('TOTP enrollment', () => {
 
     await user.click(screen.getByRole('button', { name: es.auth['enroll.copySecret'] }));
     expect(await navigator.clipboard.readText()).toBe(SECRET);
-    expect(screen.getByText(es.common['clipboard.copied'])).toBeInTheDocument();
+    // El texto aparece dos veces a propósito: la región `status` (lectores) y el texto visible.
+    expect(
+      screen.getByText(es.common['clipboard.copied'], { selector: '[role="status"]' }),
+    ).toBeInTheDocument();
 
     await user.type(field(es.auth['enroll.code']), '654321');
     await user.click(screen.getByRole('button', { name: es.auth['enroll.confirm'] }));

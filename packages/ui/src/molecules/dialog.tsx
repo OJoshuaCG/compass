@@ -30,7 +30,7 @@ export function Dialog({
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 bg-canvas/80" />
         <RadixDialog.Content className="fixed inset-x-4 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto rounded-lg border border-border-strong bg-overlay p-6 shadow-overlay">
-          <RadixDialog.Title className="pe-8 font-heading text-lg text-text">
+          <RadixDialog.Title className="pe-8 font-heading text-lg break-words text-text">
             {title}
           </RadixDialog.Title>
           <RadixDialog.Description className="mt-2 text-sm text-text-secondary">
