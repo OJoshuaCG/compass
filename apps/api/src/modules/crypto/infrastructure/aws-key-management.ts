@@ -9,6 +9,8 @@
  *   no debe llegar a los registros de la petición ni a un cliente.
  * - Cada llamada a KMS tiene un tiempo máximo: una respuesta que no llega no debe colgar la petición.
  */
+import { timingSafeEqual } from 'node:crypto';
+
 import { DecryptCommand, GenerateDataKeyCommand, KMSClient } from '@aws-sdk/client-kms';
 
 import type {
@@ -18,6 +20,8 @@ import type {
 
 const DATA_KEY_LENGTH = 32;
 const ENCRYPTION_CONTEXT_ORGANIZATION = 'organization_id';
+/** Valor que nunca coincide con una organización real: la DEK de la sonda no sirve para abrir datos. */
+const STARTUP_PROBE_CONTEXT = 'startup-probe';
 
 /** KMS responde en decenas de milisegundos; 5 s cubre un reintento interno sin colgar la petición. */
 export const AWS_KMS_REQUEST_TIMEOUT_MS = 5_000;
@@ -123,6 +127,30 @@ export class AwsKeyManagement implements KeyManagementPort {
       throw new Error('Data key could not be unwrapped');
     }
     return plaintext;
+  }
+
+  /**
+   * Sonda de arranque: genera una DEK desechable y la abre de vuelta. Así una política IAM sin
+   * `kms:GenerateDataKey` o sin `kms:Decrypt`, una clave deshabilitada o una región equivocada fallan al
+   * arrancar y no con la primera petición de un usuario. La DEK de la sonda se borra de memoria y su
+   * contexto de cifrado no pertenece a ninguna organización.
+   */
+  async verifyAccess(): Promise<void> {
+    const generated = await this.generateDataKey({ organizationId: STARTUP_PROBE_CONTEXT });
+    let opened: Uint8Array | undefined;
+    try {
+      opened = await this.decryptDataKey({
+        organizationId: STARTUP_PROBE_CONTEXT,
+        wrapped: generated.wrapped,
+        keyRef: generated.keyRef,
+      });
+      if (!timingSafeEqual(opened, generated.plaintext)) {
+        throw new Error('Data key round trip does not match');
+      }
+    } finally {
+      generated.plaintext.fill(0);
+      opened?.fill(0);
+    }
   }
 
   private encryptionContext(organizationId: string): Readonly<Record<string, string>> {

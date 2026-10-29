@@ -19,3 +19,17 @@ export function createKeyManagement(config: Config): KeyManagementPort {
     nodeEnv: config.NODE_ENV,
   });
 }
+
+/**
+ * Comprueba al arrancar que el KMS de producción responde y que la identidad de la API tiene permiso
+ * de generar y abrir DEK. El adaptador local no tiene permisos que verificar: su clave se lee del
+ * archivo al construirlo. Lanza un error genérico: el detalle de AWS no debe llegar a los registros.
+ */
+export async function verifyKeyManagementAccess(kms: KeyManagementPort): Promise<void> {
+  if (!(kms instanceof AwsKeyManagement)) return;
+  try {
+    await kms.verifyAccess();
+  } catch {
+    throw new Error('KMS access check failed');
+  }
+}

@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { loadConfig } from './app/config.js';
 import { buildContainer } from './app/container.js';
 import { createApp } from './app/create-app.js';
-import { createKeyManagement } from './app/key-management.js';
+import { createKeyManagement, verifyKeyManagementAccess } from './app/key-management.js';
 import { LogMailer, SmtpMailer } from './modules/notification/index.js';
 import { createLogger } from './shared/infrastructure/logger.js';
 import {
@@ -34,6 +34,13 @@ const singleInstanceLock = await acquireSingleInstanceLock({
   process.exit(1);
 });
 
+const kms = createKeyManagement(config);
+// Falla rápido si la identidad de la API no puede usar la clave: mejor no arrancar que fallar al primer secreto.
+await verifyKeyManagementAccess(kms).catch(() => {
+  logger.fatal('KMS access check failed, verify the key, the region and the IAM permissions');
+  process.exit(1);
+});
+
 const appOrigin = new URL(config.APP_ORIGIN);
 
 const container = buildContainer({
@@ -45,7 +52,7 @@ const container = buildContainer({
   pool: new Pool({ connectionString: config.DATABASE_URL, max: config.DB_POOL_MAX }),
   independentPool: new Pool({ connectionString: config.DATABASE_URL, max: 2 }),
   // El adaptador local es solo de desarrollo; en producción la configuración exige AWS KMS (ADR 0020).
-  kms: createKeyManagement(config),
+  kms,
   mailer:
     config.MAIL_TRANSPORT === 'smtp'
       ? new SmtpMailer(

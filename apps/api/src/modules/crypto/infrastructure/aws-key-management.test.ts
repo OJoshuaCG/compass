@@ -210,6 +210,53 @@ describe('AwsKeyManagement.decryptDataKey', () => {
   });
 });
 
+describe('AwsKeyManagement.verifyAccess (startup probe)', () => {
+  it('generates and opens a throwaway data key outside any organization context', async () => {
+    const { keyManagement, generateCalls, decryptCalls } = setup();
+
+    await expect(keyManagement.verifyAccess()).resolves.toBeUndefined();
+
+    expect(generateCalls).toHaveLength(1);
+    expect(decryptCalls).toHaveLength(1);
+    expect(generateCalls[0]?.encryptionContext).toEqual({ organization_id: 'startup-probe' });
+    expect(decryptCalls[0]?.encryptionContext).toEqual({ organization_id: 'startup-probe' });
+    expect(decryptCalls[0]?.keyId).toBe(RESOLVED_KEY_ARN);
+  });
+
+  it('fails when KMS refuses to generate (missing kms:GenerateDataKey)', async () => {
+    const { keyManagement } = setup({ failWith: new Error('AccessDeniedException arn:aws:...') });
+
+    await expect(keyManagement.verifyAccess()).rejects.toThrow('Data key could not be generated');
+  });
+
+  it('fails when KMS generates but refuses to open (missing kms:Decrypt)', async () => {
+    const { keyManagement, decryptCalls } = setup({ decrypted: undefined });
+
+    await expect(keyManagement.verifyAccess()).rejects.toThrow('Data key could not be unwrapped');
+    expect(decryptCalls).toHaveLength(1);
+  });
+
+  it('fails when the opened key does not match the generated one', async () => {
+    const { keyManagement } = setup({ decrypted: new Uint8Array(32).fill(9) });
+
+    await expect(keyManagement.verifyAccess()).rejects.toThrow('does not match');
+  });
+
+  it('wipes the plaintext of both keys once the probe finishes', async () => {
+    const generatedPlaintext = dataKeyOf(32);
+    const openedPlaintext = dataKeyOf(32);
+    const { keyManagement } = setup({
+      generated: { plaintext: generatedPlaintext },
+      decrypted: openedPlaintext,
+    });
+
+    await keyManagement.verifyAccess();
+
+    expect(generatedPlaintext.every((byte) => byte === 0)).toBe(true);
+    expect(openedPlaintext.every((byte) => byte === 0)).toBe(true);
+  });
+});
+
 describe('AwsKeyManagement construction', () => {
   it('refuses an empty key id', () => {
     const unusedOperations: AwsKmsOperations = {
