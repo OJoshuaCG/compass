@@ -35,7 +35,7 @@ Notas:
 | --- | --- | --- |
 | API + web (una imagen, un contenedor) | Dokploy, construida con el `Dockerfile` de la raíz | `Dockerfile` escrito, **sin construir ni probar** |
 | PostgreSQL | Servidor dedicado, fuera de Dokploy | Por provisionar |
-| Claves (KEK) | AWS KMS (`KMS_ADAPTER=aws`, [ADR 0020](adr/0020-reference-cloud-aws.md)) | Adaptador listo; **no probado contra AWS real** |
+| Claves (KEK) | AWS KMS (`KMS_ADAPTER=aws`, [ADR 0020](adr/0020-reference-cloud-aws.md)) | Adaptador listo; **no probado contra AWS real**. La API comprueba el acceso a la clave al arrancar y no arranca si falla (ver la sonda de arranque en [`backend.md`](backend.md) §6) |
 | Correo | SMTP del dominio de la organización | Ver [configurar correo](runbooks/configure-mail.md) |
 | Respaldos de la base | Servidor dedicado | **Por definir** (decisión pendiente) |
 

@@ -450,9 +450,9 @@ Las reglas que un agente debe respetar al trabajar en `apps/web` son estas. Si s
 
 Definición de terminado: pruebas de componente y de accesibilidad en verde; paridad de claves i18n, contraste de tokens y límites de arquitectura en verde.
 
-## 18. Estado de la fase 1a (identidad)
+## 18. Estado de las pantallas (fase 1a y bóveda de la fase 1b)
 
-La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y `apps/web/src/features/directory`, con las rutas definidas en `apps/web/src/app/router.tsx`:
+La web implementa las pantallas de la fase 1a (identidad) en `apps/web/src/features/auth`, `directory`, `security`, `sessions` y `roles`, y las de la bóveda (fase 1b, en curso) en `accounts`, `credentials` y `shares`, con las rutas definidas en `apps/web/src/app/router.tsx`:
 
 | Pantalla o pieza | Dónde vive | Estado |
 | --- | --- | --- |
@@ -461,7 +461,7 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Registro del segundo factor (código QR y clave) y entrega única de los 10 códigos de recuperación | `features/auth` | Funciona |
 | Aceptación de invitación (contraseña con indicador de fortaleza) | `features/auth` | Funciona |
 | Directorio de personas con búsqueda, orden y paginación por cursor, y diálogo para invitar | `features/directory` | Funciona. Solo ofrece los rangos que quien invita puede crear; el diálogo incluye la elección opcional de "Responsable" (lista del subárbol de quien invita, activos y de rango superior al del invitado; por defecto, quien invita, y entonces no se envía `managerId`) y de "Roles" (roles personalizados). Una pestaña "Invitaciones" lista las pendientes (con las vencidas señaladas) y permite reenviar |
-| Diálogo de reautenticación (abre ante el error de reautenticación requerida y reintenta la acción una vez) | `shared/auth` y `shared/api` | Funciona con el código de la aplicación; no admite código de recuperación. La suite de Chrome cubre el flujo completo (cambiar rango, diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción) |
+| Diálogo de reautenticación (abre ante el error de reautenticación requerida y reintenta la acción una vez) | `shared/auth` y `shared/api` | Funciona con el código de la aplicación o, si la persona tiene passkeys, con una passkey (`shared/auth/passkey-reauth.ts`; el diálogo la ofrece solo si la persona tiene alguna); no admite código de recuperación. La suite de Chrome cubre el flujo completo (cambiar rango, diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción) |
 | Cambio de contraseña (ruta `/password/change`; es obligatorio para la Raíz tras su primer ingreso con la contraseña inicial: mientras no se cambia, el ingreso lleva a esta pantalla y el registro del segundo factor se rechaza con `AUTH.PASSWORD_CHANGE_REQUIRED`) | `features/auth` | Funciona |
 | Gestión de equipo (pestaña en la página de Usuarios, junto al directorio) con acciones por fila: suspender, reactivar, cambiar rango (con reautenticación), transferir responsable y desactivar (con diálogo de confirmación) | `features/directory` | Funciona. Lista el subárbol de quien consulta (la Raíz ve a todos) con su estado y su responsable |
 | Cierre de sesión | `shared/auth` | Funciona |
@@ -472,7 +472,15 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Sincronización entre pestañas (`BroadcastChannel`; el único mensaje es el nombre de un evento, nunca datos) | `shared/auth` | Funciona. Tras cerrar sesión o perderla, las otras pestañas del mismo navegador pasan al ingreso en cerca de un segundo |
 | Pantalla de roles (ruta `/roles`: crear solo con los permisos propios de quien crea; editar nombre y permisos de un rol personalizado, con aviso y sin poder guardar si el rol incluye permisos que quien edita no tiene; archivar con confirmación) | `features/roles` | Funciona |
 | Restablecer factores de otra persona | Sin implementar | Pendiente |
+| Cuentas (ruta `/accounts`, ruta diferida): inventario y «Mis cuentas» en la tabla estándar; crear, editar y archivar cuentas con diálogo | `features/accounts` | Funciona |
+| Credenciales de una cuenta (ruta `/accounts/$accountId/credentials`): tabla, alta, cambio de contraseña, revelado con motivo y reautenticación, y historial de versiones con «Restaurar» en las versiones anteriores (la vigente no lo ofrece) | `features/credentials` | Funciona |
+| Segundo factor de una credencial: registro por clave manual o por imagen del QR (archivo, portapapeles o captura de pestaña), confirmación, código bajo demanda, exportar y retirar; admite la importación desde Google Authenticator | `features/credentials` | Funciona. Falta la entrega por celular |
+| Compartición (ruta `/accounts/$accountId/shares`): tabla de accesos, diálogo para compartir y revocación con confirmación | `features/shares` | Funciona |
 | Importación de credenciales por CSV (ruta `/credentials/import`, ruta diferida; enlace «Importar desde CSV» en Cuentas para quien tiene `account.create` y `credential.create`): elegir el archivo, previsualizar en la tabla estándar, confirmar y ver los conteos | `features/credentials` | Funciona (O2b, pruebas escritas sin ejecutar). Ver §9 para el manejo del texto del archivo |
+
+**Diálogos de confirmación.** `ConfirmDialog` (`packages/ui/src/molecules/confirm-dialog.tsx`) tiene dos estados distintos: `loading` mientras la mutación corre (el botón de confirmar queda en carga, Cancelar se deshabilita y el diálogo **no se cierra** con Escape ni al hacer clic fuera) y `confirmDisabled`, que solo inhabilita la confirmación y deja Cancelar y Escape disponibles; se usa, por ejemplo, durante la espera por límite de peticiones.
+
+**Espera por límite de peticiones (429).** Los diálogos de confirmación y los formularios de la bóveda y la gestión de personas usan `useRateLimitCooldown` (`shared/api`) con el error de la acción: mientras `secondsLeft > 0` no se reenvía y la alerta de error muestra la cuenta regresiva. Referencia: `features/shares/containers/revoke-share-dialog.tsx` (el controlador ignora la confirmación durante la espera); `features/credentials/containers/restore-version-dialog.tsx` y `features/sessions/containers/close-session-dialog.tsx` además pasan `confirmDisabled`.
 
 El cliente HTTP envía una clave de idempotencia en las peticiones que crean recursos y el backend ya la aplica (ver [`backend.md`](backend.md) §7.2.1).
 

@@ -49,3 +49,5 @@ Desactivar la entrada del cron. No hay nada que deshacer: lo borrado era efímer
 ## Historial de ensayos
 
 _Sin ensayos todavía._
+
+> **Pendiente (OPS-1):** la programación en producción descrita en este runbook (cada hora) está pendiente de ratificación por Operaciones.

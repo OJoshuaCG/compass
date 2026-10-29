@@ -4,7 +4,7 @@ Backlog único, ordenado para que cualquier persona (o agente de IA) pueda **tom
 
 ## Veredicto
 
-El proyecto es viable y está bien cimentado: capas impuestas por lint, aislamiento por filas forzado en las 26 tablas, auditoría transaccional con negaciones, cookies y cabeceras sólidas. La fase 1b (la bóveda) concentra el riesgo: sus porciones B1 a B5 ya están implementadas en `main` (la última subida al remoto es 570f301: cuentas, credenciales con revelado, compartición, segundo factor por clave manual y por imagen del QR), pero faltan la entrega de la alerta de revelaciones a la Raíz, el aviso de 24 h del segundo factor, la importación de Google Authenticator, la entrega por celular, la búsqueda avanzada, la revisión humana de sus pruebas (la importación por CSV ya tiene backend y pantalla desde el 2026-10-29); ninguna credencial real se carga hasta cerrar la fase 1. Sobra alcance y ceremonia para un equipo de unas 3 personas; faltan decisiones de operación (nube, instancia única, anclaje de la auditoría) que no tienen ADR.
+El proyecto es viable y está bien cimentado: capas impuestas por lint, aislamiento por filas forzado en las 26 tablas, auditoría transaccional con negaciones, cookies y cabeceras sólidas. La fase 1b (la bóveda) concentra el riesgo: sus porciones B1 a B5 ya están implementadas en `main` (la última subida al remoto es badc398: cuentas, credenciales con revelado, compartición, segundo factor por clave manual y por imagen del QR), y ya se entregaron la alerta de revelaciones a la Raíz (R2a), el aviso de 24 h del segundo factor (N1a) y la importación de Google Authenticator; faltan la entrega por celular, la búsqueda avanzada y la revisión humana de sus pruebas (la importación por CSV ya tiene backend y pantalla desde el 2026-10-29); ninguna credencial real se carga hasta cerrar la fase 1. Sobra alcance y ceremonia para un equipo de unas 3 personas; faltan decisiones de operación (nube, instancia única, anclaje de la auditoría) que no tienen ADR.
 
 ## Cómo se organiza (léelo una vez)
 
@@ -313,7 +313,7 @@ Las tres se hacen en orden: N2 depende de N1 y N3 de N2.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] Q1 | Ensayar todos los runbooks (hoy los 14 están como borrador "sin ensayar") [V] | Ops | Equipo | M | L2, L3 | En espera (2026-10-28, ClickUp `1dfm34xz0dr`): lo ensaya el equipo y lo registra en el historial de cada runbook; depende de L2. |
+| [ ] Q1 | Ensayar todos los runbooks (hoy los 15 están como borrador "sin ensayar") [V] | Ops | Equipo | M | L2, L3 | En espera (2026-10-28, ClickUp `1dfm34xz0dr`): lo ensaya el equipo y lo registra en el historial de cada runbook; depende de L2. |
 | [ ] Q2 | Simulacro de restauración completo, incluida la apertura de secretos con las claves | Ops | Equipo | M | L1, L2 | En espera (2026-10-28, ClickUp `1dfm34xz0dr`): depende de L1 y L2; lo hace el equipo. |
 
 ---
