@@ -7,11 +7,19 @@ import {
   QR_MAX_IMAGE_SIDE_PX,
   scaledDimensions,
 } from './qr-decoder';
+import { buildMigrationUri } from './migration-test-fixture';
 import { renderQrPixels } from './qr-test-fixture';
 
 const TOTP_URI =
   'otpauth://totp/Acme:ana%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Acme';
-const MIGRATION_URI = 'otpauth-migration://offline?data=CjEKCkhlbGxvId6tvu8SGAoJYWNtZTpkZW1v';
+// Exportación truncada (un secreto de 10 bytes y una entrada cortada): no es válida.
+const MALFORMED_MIGRATION_URI =
+  'otpauth-migration://offline?data=CjEKCkhlbGxvId6tvu8SGAoJYWNtZTpkZW1v';
+const MIGRATION_SECRET_TEXT = 'migration-secret-0123456789';
+const MIGRATION_URI = buildMigrationUri([
+  { secretText: MIGRATION_SECRET_TEXT, name: 'ana@example.com', issuer: 'Acme' },
+  { secretText: MIGRATION_SECRET_TEXT, name: 'counter', issuer: 'Old', type: 1 },
+]);
 
 describe('decodeQrFromPixels with a real generated QR', () => {
   it('finds the otpauth TOTP link', () => {
@@ -28,10 +36,23 @@ describe('decodeQrFromPixels with a real generated QR', () => {
     });
   });
 
-  it('reports a Google Authenticator export without echoing it', () => {
+  it('reads a Google Authenticator export into importable entries and a skipped count', () => {
     const result = decodeQrFromPixels(renderQrPixels(MIGRATION_URI));
-    expect(result).toEqual({ kind: 'migration_uri' });
+
+    expect(result.kind).toBe('migration');
+    if (result.kind !== 'migration') return;
+    expect(result.entries.map((entry) => entry.label)).toEqual(['Acme: ana@example.com']);
+    expect(result.skippedHotp).toBe(1);
+    expect(result.skippedUnsupported).toBe(0);
+    // El texto del enlace de migración no se arrastra al resultado.
     expect(JSON.stringify(result)).not.toContain('offline');
+  });
+
+  it('reports a malformed Google Authenticator export as invalid without echoing it', () => {
+    const result = decodeQrFromPixels(renderQrPixels(MALFORMED_MIGRATION_URI));
+    expect(result).toEqual({ kind: 'migration_invalid' });
+    expect(JSON.stringify(result)).not.toContain('offline');
+    expect(JSON.stringify(result)).not.toContain('CjEK');
   });
 
   it('reports a QR that is not an otpauth link without echoing it', () => {
@@ -81,6 +102,14 @@ describe('classifyDecodedText', () => {
 
   it('treats free text as not a TOTP link', () => {
     expect(classifyDecodedText('hello')).toEqual({ kind: 'not_totp_uri' });
+  });
+});
+
+describe('classifyDecodedText with a migration link', () => {
+  it('never puts decoded content in the invalid variant', () => {
+    expect(classifyDecodedText('otpauth-migration://offline?data=%%%')).toEqual({
+      kind: 'migration_invalid',
+    });
   });
 });
 

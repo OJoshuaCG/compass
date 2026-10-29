@@ -1,5 +1,10 @@
 import jsQR from 'jsqr';
 
+import {
+  parseGoogleAuthenticatorMigration,
+  type MigrationEntry,
+} from './google-authenticator-migration';
+
 /** Lado máximo aceptado. Por encima, decodificar costaría memoria y segundos sin ganar nada. */
 export const QR_MAX_IMAGE_SIDE_PX = 4096;
 
@@ -22,8 +27,18 @@ export type QrDecodeResult =
   | { kind: 'no_qr' }
   /** Hay un QR, pero no es un enlace `otpauth://totp/` (un sitio web, un HOTP, texto libre...). */
   | { kind: 'not_totp_uri' }
-  /** Exportación de Google Authenticator (`otpauth-migration://`): aún no se importa. */
-  | { kind: 'migration_uri' }
+  /**
+   * Exportación de Google Authenticator (`otpauth-migration://`) leída. Las entradas llevan secretos,
+   * igual que `found` lleva el enlace; los contadores no llevan nada del contenido.
+   */
+  | {
+      kind: 'migration';
+      entries: readonly MigrationEntry[];
+      skippedHotp: number;
+      skippedUnsupported: number;
+    }
+  /** Es una exportación de Google Authenticator, pero está mal formada, vacía o rebasa los límites. */
+  | { kind: 'migration_invalid' }
   | { kind: 'image_too_large' }
   | { kind: 'unreadable' };
 
@@ -45,11 +60,22 @@ export function isWithinSizeLimit(width: number, height: number): boolean {
   );
 }
 
+function classifyMigrationUri(migrationUri: string): QrDecodeResult {
+  const parsed = parseGoogleAuthenticatorMigration(migrationUri);
+  if (parsed.kind === 'invalid') return { kind: 'migration_invalid' };
+  return {
+    kind: 'migration',
+    entries: parsed.entries,
+    skippedHotp: parsed.skippedHotp,
+    skippedUnsupported: parsed.skippedUnsupported,
+  };
+}
+
 /** Decide qué hacer con el texto de un QR sin devolverlo salvo cuando es un TOTP válido de forma. */
 export function classifyDecodedText(decodedText: string): QrDecodeResult {
   const trimmed = decodedText.trim();
   const lowered = trimmed.toLowerCase();
-  if (lowered.startsWith(OTPAUTH_MIGRATION_PREFIX)) return { kind: 'migration_uri' };
+  if (lowered.startsWith(OTPAUTH_MIGRATION_PREFIX)) return classifyMigrationUri(trimmed);
   if (lowered.startsWith(OTPAUTH_TOTP_PREFIX)) return { kind: 'found', otpauthUri: trimmed };
   return { kind: 'not_totp_uri' };
 }

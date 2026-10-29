@@ -284,8 +284,8 @@ Las tres se hacen en orden: N2 depende de N1 y N3 de N2.
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
 | [~] N1 | **B4 del plan, parte a:** segundo factor en el servidor. Registro (validación, confirmación, pendiente 24 h), código bajo demanda, exportar, re-registrar y retirar; registro por clave manual | Código ⚠ | — | L | K1, B8, B9 | Hecho en B4a (2026-10-28, ver `odd/tasks/phase-1b-vault.md`); el aviso de 24 h sin confirmar quedó hecho en N1a (2026-10-28, barrido más manejador del outbox, solo a quien registró; pruebas escritas sin ejecutar; ver `odd/tasks/phase-1b-worker.md`); falta un límite de intentos al confirmar (hoy solo se audita cada fallo) y la revisión humana de sus pruebas |
-| [~] N2 | **B4 del plan, parte b:** registro del segundo factor por imagen del QR | Código ⚠ | — | M | N1, B7 | Hecho el registro por imagen, portapapeles y captura de pestaña en la pantalla (570f301, B5, `jsqr` 1.4.0); falta la importación de Google Authenticator y la entrega por celular |
-| [ ] N3 | **B5 del plan:** captura de pestaña, importación de Google Authenticator y entrega por celular (según el recorte de B8) | Código ⚠ | — | M | N2, B8 | |
+| [~] N2 | **B4 del plan, parte b:** registro del segundo factor por imagen del QR | Código ⚠ | — | M | N1, B7 | Hecho el registro por imagen, portapapeles y captura de pestaña en la pantalla (570f301, B5, `jsqr` 1.4.0); importación de Google Authenticator hecha el 2026-10-29 (N3b); falta la entrega por celular (N3a) |
+| [~] N3 | **B5 del plan:** captura de pestaña, importación de Google Authenticator y entrega por celular (según el recorte de B8) | Código ⚠ | — | M | N2, B8 | N3b (importación de Google Authenticator) hecha el 2026-10-29: protobuf decodificado a mano, una cuenta por credencial; pruebas escritas sin ejecutar y pendiente la revisión humana de las pruebas de secretos. N3a (entrega por celular) pendiente |
 | [ ] N4 | Aislar el generador de TOTP en un proceso propio antes de la puerta de producción (ADR 0034) | Código ⚠ | — | M | N1, B9 | |
 
 ## O · Búsqueda e importación

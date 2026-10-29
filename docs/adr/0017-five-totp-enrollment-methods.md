@@ -34,3 +34,7 @@ El QR se decodifica en el cliente y al servidor solo llega la URI por TLS. La co
 ## Enmienda (2026-10-27)
 
 La primera entrega (v1) cubre tres métodos: clave manual, imagen del QR y captura de pestaña. La importación de Google Authenticator y la entrega por celular pasan a v1.1. Los cinco métodos siguen siendo el objetivo; solo cambia el orden de entrega. Una futura cabecera `Permissions-Policy` debe permitir `display-capture=(self)` (y `camera` cuando llegue el celular).
+
+## Nota (2026-10-29)
+
+La importación de Google Authenticator (método 5, `otpauth-migration://`) queda implementada en el cliente: el protobuf se decodifica a mano, sin dependencias, y al servidor sigue llegando solo un URI `otpauth://totp/` por el mismo registro. Se importa una cuenta por credencial; las HOTP y las que el servidor rechazaría (MD5, clave menor de 128 bits) se omiten y se avisan. Sigue pendiente la entrega por celular.
