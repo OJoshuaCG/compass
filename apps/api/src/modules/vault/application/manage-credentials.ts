@@ -4,7 +4,8 @@
  *
  * Invariantes de seguridad
  * - Dos llaves, como en las cuentas: el permiso del catálogo y el nivel de acceso efectivo a la cuenta.
- *   Sin acceso a la cuenta se responde `NOT_FOUND`; con nivel insuficiente, `AUTHZ.SHARE` auditado.
+ *   Sin acceso a la cuenta se responde `NOT_FOUND` y con nivel insuficiente, `AUTHZ.SHARE`; las dos
+ *   negaciones se auditan (`authz.denied`) en crear, cambiar la contraseña, historial, copiar y revelar.
  *   El inventario (`vault.inventory.read`) no concede ningún nivel: no revela, no copia, no ve el historial.
  * - Solo el módulo de criptografía cifra y descifra. Aquí el texto en claro vive dentro de una llamada y
  *   se borra de memoria al terminar; nunca se registra, se audita ni viaja en un error.
@@ -500,8 +501,10 @@ export class ManageCredentials {
   }
 
   /**
-   * Segunda llave: el nivel de acceso a la cuenta. Sin acceso no se distingue de que no exista; con
-   * menos nivel del requerido se niega con `AUTHZ.SHARE` y se audita la negación.
+   * Segunda llave: el nivel de acceso a la cuenta. Sin acceso se responde igual que si no existiera,
+   * pero el intento se audita (igual que al revelar y en el segundo factor: apuntar a una credencial
+   * ajena es una señal de abuso); con menos nivel del requerido se niega con `AUTHZ.SHARE` y también
+   * se audita. Ambas negaciones usan la acción `authz.denied` del motor, sin metadatos nuevos.
    */
   private async levelOrNotFound(
     accountId: string,
@@ -511,7 +514,10 @@ export class ManageCredentials {
   ): Promise<Result<ShareLevel, DomainError>> {
     const { authorizer, accounts } = this.deps;
     const level = await accounts.effectiveLevel(accountId, actorId);
-    if (level === null) return err(notFound());
+    if (level === null) {
+      await authorizer.auditDenial({ code: 'AUTHZ.SHARE', permission, targetAccountId: accountId });
+      return err(notFound());
+    }
     if (!levelSatisfies(level, required)) {
       await authorizer.auditDenial({ code: 'AUTHZ.SHARE', permission, targetAccountId: accountId });
       return err(new DomainError('AUTHZ.SHARE', 'Insufficient access to this account'));

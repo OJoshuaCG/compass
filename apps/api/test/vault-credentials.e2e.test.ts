@@ -96,6 +96,32 @@ const auditRows = async (action: string, actorEmail?: string) =>
     )
   ).rows;
 
+const secretVersionCount = async (credentialId: string): Promise<number> => {
+  const result = await env.db.admin.query<{ total: string }>(
+    'select count(*)::text as total from credential_secrets where credential_id = $1',
+    [credentialId],
+  );
+  return Number(result.rows[0]?.total ?? '0');
+};
+
+/**
+ * Ejecuta una petición que debe negarse y comprueba que dejó exactamente una negación auditada
+ * (`AUTHZ.SHARE`) de esa persona. Sale de la ventana de agrupación para que la negación no se colapse.
+ */
+const deniedAndAudited = async <T extends { status: number }>(
+  actorEmail: string,
+  request: () => Promise<T>,
+): Promise<T> => {
+  env.clock.advance(DENIAL_GROUPING_WINDOW_MS);
+  const before = (await auditRows('authz.denied', actorEmail)).length;
+  const response = await request();
+  const after = await auditRows('authz.denied', actorEmail);
+  expect(after).toHaveLength(before + 1);
+  expect(after.at(-1)?.outcome).toBe('denied');
+  expect(after.at(-1)?.reason_code).toBe('AUTHZ.SHARE');
+  return response;
+};
+
 const newCredential = async (label: string): Promise<Credential> => {
   const response = await owner.client.post<Credential>(`/accounts/${account.id}/credentials`, {
     label,
@@ -200,18 +226,23 @@ describe('creating credentials', () => {
   });
 
   it('requires the EDIT level: VIEW is denied (audited) and no access looks like not found', async () => {
-    const asViewer = await viewer.client.post<ProblemDetails>(
-      `/accounts/${account.id}/credentials`,
-      { label: 'x', username: 'u', password: 'p' },
+    const asViewer = await deniedAndAudited('viewer@creds.test', () =>
+      viewer.client.post<ProblemDetails>(`/accounts/${account.id}/credentials`, {
+        label: 'x',
+        username: 'u',
+        password: 'p',
+      }),
     );
     expect(asViewer.status).toBe(403);
     expect(asViewer.body.code).toBe('AUTHZ.SHARE');
 
-    const asStranger = await stranger.client.post(`/accounts/${account.id}/credentials`, {
-      label: 'x',
-      username: 'u',
-      password: 'p',
-    });
+    const asStranger = await deniedAndAudited('stranger@creds.test', () =>
+      stranger.client.post(`/accounts/${account.id}/credentials`, {
+        label: 'x',
+        username: 'u',
+        password: 'p',
+      }),
+    );
     expect(asStranger.status).toBe(404);
   });
 });
@@ -254,12 +285,75 @@ describe('changing the password and the history', () => {
     expect(events.map((row) => row.metadata)).toEqual([{ version: 2 }]);
   });
 
-  it('denies the history below EDIT', async () => {
-    const asViewer = await viewer.client.get<ProblemDetails>(
-      `/credentials/${credential.id}/history`,
+  it('denies the history below EDIT and audits the denial', async () => {
+    const asViewer = await deniedAndAudited('viewer@creds.test', () =>
+      viewer.client.get<ProblemDetails>(`/credentials/${credential.id}/history`),
     );
     expect(asViewer.status).toBe(403);
     expect(asViewer.body.code).toBe('AUTHZ.SHARE');
+
+    const asStranger = await deniedAndAudited('stranger@creds.test', () =>
+      stranger.client.get<ProblemDetails>(`/credentials/${credential.id}/history`),
+    );
+    expect(asStranger.status).toBe(404);
+  });
+
+  it('denies changing the password below EDIT or without access, audits it and changes nothing', async () => {
+    const own = await newCredential('Protected login');
+    const versionsBefore = await secretVersionCount(own.id);
+
+    const asViewer = await deniedAndAudited('viewer@creds.test', () =>
+      viewer.client.post<ProblemDetails>(`/credentials/${own.id}/password`, {
+        password: NEW_PASSWORD_CANARY,
+      }),
+    );
+    expect(asViewer.status).toBe(403);
+    expect(asViewer.body.code).toBe('AUTHZ.SHARE');
+
+    const asStranger = await deniedAndAudited('stranger@creds.test', () =>
+      stranger.client.post<ProblemDetails>(`/credentials/${own.id}/password`, {
+        password: NEW_PASSWORD_CANARY,
+      }),
+    );
+    expect(asStranger.status).toBe(404);
+
+    expect(await secretVersionCount(own.id)).toBe(versionsBefore);
+    expect(JSON.stringify(await auditRows('authz.denied'))).not.toContain(NEW_PASSWORD_CANARY);
+  });
+
+  it('serializes concurrent password changes: versions stay consecutive and only one is current', async () => {
+    // Sin el bloqueo de la fila de la credencial, dos cambios leerían la misma versión vigente y
+    // chocarían con la restricción única de versión o con la de "una sola vigente" (error 500).
+    const own = await newCredential('Contended login');
+    const concurrentChanges = 8;
+    const responses = await Promise.all(
+      Array.from({ length: concurrentChanges }, (_unused, index) =>
+        editor.client.post<Credential & ProblemDetails>(`/credentials/${own.id}/password`, {
+          password: `${NEW_PASSWORD_CANARY}-${String(index)}`,
+        }),
+      ),
+    );
+    expect(responses.map((response) => response.status)).toEqual(
+      Array.from({ length: concurrentChanges }, () => 201),
+    );
+
+    const versions = await env.db.admin.query<{ version: number; is_current: boolean }>(
+      `select version, is_current from credential_secrets
+        where credential_id = $1 and field = 'password' order by version`,
+      [own.id],
+    );
+    expect(versions.rows.map((row) => row.version)).toEqual(
+      Array.from({ length: concurrentChanges + 1 }, (_unused, index) => index + 1),
+    );
+    expect(versions.rows.filter((row) => row.is_current)).toHaveLength(1);
+    expect(versions.rows.at(-1)?.is_current).toBe(true);
+
+    const events = (await auditRows('credential.password_changed')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(events.map((row) => row.metadata.version).sort()).toEqual(
+      Array.from({ length: concurrentChanges }, (_unused, index) => index + 2).sort(),
+    );
   });
 });
 
@@ -276,8 +370,11 @@ describe('copying the username', () => {
     expect(JSON.stringify(events)).not.toContain(USERNAME_CANARY);
   });
 
-  it('answers as not found without access', async () => {
-    expect((await stranger.client.post(`/credentials/${credential.id}/username`)).status).toBe(404);
+  it('answers as not found without access and audits the attempt', async () => {
+    const response = await deniedAndAudited('stranger@creds.test', () =>
+      stranger.client.post(`/credentials/${credential.id}/username`),
+    );
+    expect(response.status).toBe(404);
   });
 });
 
