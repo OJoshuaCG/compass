@@ -1,4 +1,4 @@
-# Límite de intentos al confirmar el segundo factor (T5, B4)
+# Límite de intentos al confirmar el segundo factor (T5, B4; T5b: bloqueo escalonado)
 
 Tarea tomada por la IA con permiso delegado del dueño. Ruta protegida (revelación e identidad): las pruebas de bloqueo y autorización necesitan revisión humana.
 
@@ -15,10 +15,12 @@ Lectura de la especificación: `TODO.md` (N1), `docs/handoff.md` y `odd/tasks/ph
 | Decisión | Elegido | Motivo |
 | --- | --- | --- |
 | Número de fallos | 10 (`TOTP_CONFIRM_MAX_FAILURES`, `@iam/contracts`) | Igual al umbral de bloqueo del segundo factor de identidad |
-| Consecuencia | Bloqueo del registro pendiente hasta registrar de nuevo; sin expiración | Conservadora; un re-registro sube `secretVersion` y reinicia la cuenta |
-| Contador | En memoria (`InMemoryTotpConfirmAttemptStore`), llave `credencial:versión` | Imita `InMemoryLoginAttemptStore`. Se descartó contar desde la auditoría: `created_at` es del reloj de la base y `registeredAt` del de la aplicación, y mezclarlos subcuenta con desfase |
+| Consecuencia | ~~Bloqueo permanente hasta registrar de nuevo~~ (T5) reemplazado en T5b por bloqueo POR TIEMPO escalonado: 1ª vez 5 min, 2ª 15 min, 3ª y siguientes 60 min (`TOTP_CONFIRM_LOCK_MINUTES_BY_LEVEL`) | Decisión del dueño: un bloqueo permanente deja a cualquiera dejar inservible el registro de otra persona. Un re-registro sube `secretVersion` y reinicia todo |
+| Contador y escalamiento | En memoria (`InMemoryTotpConfirmAttemptStore`, estado: fallos, nivel y fin del bloqueo), llave `credencial:versión`; la política es pura en `vault/domain/totp-confirm-lock.ts` y usa el `Clock` inyectado | Imita `InMemoryLoginAttemptStore`. Se descartó contar desde la auditoría: `created_at` es del reloj de la base y `registeredAt` del de la aplicación, y mezclarlos subcuenta con desfase |
 | Código de error | `CREDENTIAL.TOTP_CONFIRM_LOCKED`, 429 | Vecinos `CREDENTIAL.TOTP_*`; 423 no se usa en ningún lado, `TOTP_CODE_LIMIT` ya es 429 |
-| Orden de las comprobaciones | Tras bloqueo de fila, nivel EDIT y estado `pending`; antes de comparar el código | Un registro agotado no sirve de oráculo; el correcto tampoco confirma |
+| Orden de las comprobaciones | Tras bloqueo de fila, nivel EDIT y estado `pending`; antes de comparar el código | Un registro bloqueado no sirve de oráculo; el correcto tampoco confirma mientras dure el bloqueo. Un intento rechazado por bloqueo no cuenta como fallo |
+| Reglas del escalonado (T5b) | Los fallos se cuentan por registro; al llegar a 10 se bloquea y el contador vuelve a 0; el nivel se conserva al expirar y solo lo limpia un acierto o un re-registro; el acierto durante el bloqueo no existe (no se compara) | Decisión del dueño |
+| `Retry-After` / `retryAfterSeconds` (T5b) | NO se añadió | El filtro de Problem Details solo emite `Retry-After` para `RATE_LIMITED` y `CREDENTIAL.TOTP_CODE_LIMIT` no lo lleva: no hay patrón para este código y se pidió no inventarlo. Si se quiere, es un cambio chico al filtro (extenderlo a este código con `meta.retryAfterSeconds`) |
 | Auditoría | Fallos: `credential.totp_confirmed` failure (ya existía). Bloqueo: `authz.denied` vía `authorizer.auditDenial` | Sin cambios a la lista blanca ni migración |
 
 Limitaciones: la cuenta es por registro, no por persona; se pierde al reiniciar la API; con varias instancias cada una cuenta aparte (se resuelve con Redis).
@@ -32,8 +34,17 @@ Limitaciones: la cuenta es por registro, no por persona; se pierde al reiniciar 
 | T5-3 | Comprobación en `ManageTotp.confirm` | Hecha |
 | T5-4 | Pruebas unitarias (`manage-totp.confirm-limit.test.ts`, almacén) y e2e (`vault-totp.e2e.test.ts`) | Escritas, sin ejecutar |
 | T5-5 | Documentación (`docs/business/two-factor.md`, `docs/backend.md`) | Hecha |
+| T5b-1 | Política escalonada pura (`totp-confirm-lock.ts`), puerto y almacén con estado, `ManageTotp.confirm` con `Clock`, constantes en contratos, textos es-MX/en-US, docs | Hecha |
+| T5b-2 | Pruebas: unitarias del caso de uso (escalonado, reloj, acierto, re-registro), de la política y del almacén; e2e con reloj avanzado | Escritas, sin ejecutar |
+| T5b-3 | Desbloqueo anticipado por un superior | Pendiente (paso siguiente, no existe) |
 | T5-6 | Revisión humana de las pruebas de bloqueo (marcadas `SENSIBLE`) y confirmación del número | Pendiente |
 
 ## Bitácora
 
 - 2026-10-29: implementado. Verificado: `format:check`, `typecheck` y `lint` de `@iam/api`, `@iam/contracts` e `@iam/i18n`. NO ejecutadas las pruebas (las corre otro agente). Sin migración, sin dependencias nuevas. Sin cambios en la pantalla: el error nuevo se muestra con el texto genérico de `errors`.
+- 2026-10-30 (T5b): el bloqueo permanente pasa a bloqueo por tiempo escalonado (5, 15, 60 minutos) por decisión del dueño. Textos de `CREDENTIAL.TOTP_CONFIRM_LOCKED` reescritos (es-MX y en-US, mismas claves) porque decían "registra de nuevo"; la pantalla no cambia (usa el texto genérico de `errors`). Sin migración, sin dependencias, sin cambios a la lista blanca de auditoría. Pruebas ajustadas y su porqué:
+  - `manage-totp.confirm-limit.test.ts`: las pruebas existentes de T5 se conservan sin cambios de aserciones (siguen siendo ciertas: 10 fallos y el 11.º bloquea, el correcto no confirma bloqueado, re-registro reinicia). Solo cambió el armado: el reloj ahora es mutable para poder avanzarlo y se añadió `correctCodeNow` porque el código correcto depende del reloj. Se añadió la suite "escalating time lock" (5→15→60→60 con el límite exacto, recuento de 10 al expirar, correcto durante el bloqueo no confirma, insistir bloqueado no escala, acierto limpia, re-registro reinicia nivel, misma respuesta en cualquier nivel).
+  - `in-memory-totp-confirm-attempt-store.test.ts`: reescrita porque el puerto cambió de `failures/recordFailure/clear` a `state/save/clear`; conserva la intención (aislamiento por llave y limpieza) y añade que `clear` olvida también nivel y bloqueo.
+  - `totp-confirm-lock.test.ts` (nueva): duraciones, umbral, fin exacto del bloqueo y escalamiento.
+  - `vault-totp.e2e.test.ts`: la prueba de bloqueo existente queda igual (el re-registro sigue desbloqueando); se añadió una que avanza el reloj de la prueba, libera por tiempo y comprueba que el 2.º bloqueo dura más.
+  - NO ejecutadas (las corre otro agente). Limitación nueva: al descartar llaves por el tope de 10 000 registros se libera un bloqueo vigente; mismo riesgo que ya existía con los contadores, aceptado hasta Redis.
