@@ -36,7 +36,7 @@ Limitaciones: la cuenta es por registro, no por persona; se pierde al reiniciar 
 | T5-5 | Documentación (`docs/business/two-factor.md`, `docs/backend.md`) | Hecha |
 | T5b-1 | Política escalonada pura (`totp-confirm-lock.ts`), puerto y almacén con estado, `ManageTotp.confirm` con `Clock`, constantes en contratos, textos es-MX/en-US, docs | Hecha |
 | T5b-2 | Pruebas: unitarias del caso de uso (escalonado, reloj, acierto, re-registro), de la política y del almacén; e2e con reloj avanzado | Escritas, sin ejecutar |
-| T5b-3 | Desbloqueo anticipado por un superior | Pendiente (paso siguiente, no existe) |
+| T5b-3 | Desbloqueo anticipado por un superior (`unlockConfirmation`, `POST /credentials/:id/totp/unlock`, `credential.totp_unlocked`, botón en el diálogo web) | Hecha, pruebas escritas sin ejecutar |
 | T5-6 | Revisión humana de las pruebas de bloqueo (marcadas `SENSIBLE`) y confirmación del número | Pendiente |
 
 ## Bitácora
@@ -48,3 +48,14 @@ Limitaciones: la cuenta es por registro, no por persona; se pierde al reiniciar 
   - `totp-confirm-lock.test.ts` (nueva): duraciones, umbral, fin exacto del bloqueo y escalamiento.
   - `vault-totp.e2e.test.ts`: la prueba de bloqueo existente queda igual (el re-registro sigue desbloqueando); se añadió una que avanza el reloj de la prueba, libera por tiempo y comprueba que el 2.º bloqueo dura más.
   - NO ejecutadas (las corre otro agente). Limitación nueva: al descartar llaves por el tope de 10 000 registros se libera un bloqueo vigente; mismo riesgo que ya existía con los contadores, aceptado hasta Redis.
+- 2026-10-30 (T5b-3, ruta protegida delegada por el dueño; revisión humana pendiente de lo marcado `SENSIBLE`): desbloqueo anticipado por un superior, sin enlace por correo. Decisiones y su porqué:
+  - Permiso: se reutiliza `credential.export_totp` (administrar el segundo factor; es el que ya usa exportar y trae la reautenticación de 5 minutos del motor). Sin permiso nuevo ni migración. Consecuencia: el techo de rango 2 de ese permiso aplica, y quien es solo responsable de rango 3 no puede desbloquear aunque tenga MANAGE. No se exige motivo escrito (no se pidió, aunque ese permiso lo marca en el catálogo).
+  - Nivel MANAGE sobre la cuenta (`AUTHZ.SHARE` auditado; sin acceso, `NOT_FOUND`).
+  - Otra persona: si `actorId` es `registeredBy` del registro pendiente, `403 CREDENTIAL.TOTP_UNLOCK_SELF` con negación auditada. Si no está pendiente o bloqueado: `409 CREDENTIAL.TOTP_NOT_LOCKED` (un factor verificado o retirado también cuenta como "no bloqueado"). Esta comprobación va antes que la de la misma persona: no se audita como negación por autoría algo que ni siquiera estaba bloqueado.
+  - Conserva el escalón: `afterUnlock` (dominio) deja fallos en cero y sin fin de bloqueo y mantiene `lockCount`. No hizo falta ampliar el puerto: se usa `save`.
+  - Auditoría: acción nueva `credential.totp_unlocked` con metadatos `lockLevel` y `registeredBy` (lista blanca de auditoría, ruta protegida). Se escribe antes de tocar la memoria para que, si falla, la transacción se revierta y el bloqueo siga vigente.
+  - Estado: `GET /credentials/:id/totp` expone `confirmLockedUntil` (opcional, nulo si no hay bloqueo vigente). Cambio de contrato aditivo.
+  - Web: se añadió el botón "Desbloquear confirmación" con diálogo de confirmación en el diálogo del segundo factor (visible con la capacidad de exportar y el estado pendiente y bloqueado), textos es-MX y en-US con las mismas claves. Sin pruebas web nuevas.
+  - Matriz de autorización: se añadió `POST /credentials/:id/totp/unlock` al manifiesto de `authorization-matrix.e2e.test.ts`.
+  - Pruebas: `manage-totp.unlock.test.ts`, `totp-confirm-lock.test.ts` (`afterUnlock`) y e2e en `vault-totp.e2e.test.ts` dentro de `confirmation timed lock` (avanza el reloj; el describe de logs que sigue no avanza el reloj).
+  - Verificado: `format:check`, `typecheck` y `lint`. NO ejecutadas las pruebas.
