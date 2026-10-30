@@ -2,7 +2,7 @@
 
 - **Estado**: Aceptada (2026-10-27)
 - **Fecha**: 2026-10-27
-- **Referencias**: `db/migrations/0014_*`, `db/migrations/0005_vault.sql` (política de borrado de versiones no vigentes); `docs/database.md` §7.5; [ADR 0035](0035-transactional-outbox-events.md) (retención del outbox, pendiente); tarea G1.
+- **Referencias**: `db/migrations/0014_*`, `db/migrations/0005_vault.sql` (política de borrado de versiones no vigentes); `docs/database.md` §7.5; [ADR 0035](0035-transactional-outbox-events.md) (retención del outbox, ampliación D6); tarea G1.
 
 ## Contexto
 
@@ -42,4 +42,4 @@ El mismo comando destruye las versiones del secreto del segundo factor que un re
 - **Positivas**: las tablas dejan de crecer; el recorrido de organizaciones queda reutilizable para los demás trabajos de fondo (§7.5).
 - **Negativas**: hay que programar el comando; una función más con `SECURITY DEFINER` que revisar (expone solo ids).
 - **Riesgo aceptado**: cualquier sesión de `iam_app` (incluida la API que atiende peticiones) puede listar los ids de todas las organizaciones. Son UUIDv7 sin nombre ni datos, y quien ya controla el rol de la aplicación puede, además, fijar `app.org_id` a cualquier valor que conozca; no se amplía el alcance real de un compromiso, solo se facilita enumerar.
-- **Pendiente**: programar el cron en el despliegue real (la purga de versiones TOTP depende de él); retención del outbox (ADR 0035).
+- **Pendiente**: programar el cron en el despliegue real (la purga de versiones TOTP depende de él); el cron también ejecuta la retención del outbox (D6, ADR 0035). Ampliación D6 (2026-10-30): `purge-expired` borra además los eventos del outbox publicados hace más de 7 días y sus acuses, por organización y bajo el mismo aislamiento por filas; ver la adenda del ADR 0035.

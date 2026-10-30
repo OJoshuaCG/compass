@@ -44,7 +44,7 @@ Plantilla: [`template.md`](template.md).
 | [0032](0032-blind-index-derived-from-dek.md) | Índice ciego derivado de la clave de datos | Aceptada |
 | [0033](0033-reauthentication-totp-and-passkey.md) | Reautenticación con TOTP o passkey (amplía el 0028) | Aceptada (implementada; falta la prueba de navegador) |
 | [0034](0034-totp-generator-in-api-process.md) | Generador de TOTP en el proceso de la API, aislado antes de producción | Aceptada (aislamiento pendiente, N4) |
-| [0035](0035-transactional-outbox-for-events.md) | Eventos mediante bandeja de salida transaccional | Aceptada (trabajador implementado; retención pendiente) |
+| [0035](0035-transactional-outbox-for-events.md) | Eventos mediante bandeja de salida transaccional | Aceptada (trabajador implementado; retención de publicados a 7 días) |
 | [0036](0036-effective-access-computed-on-the-fly.md) | Acceso efectivo calculado al vuelo | Aceptada |
 | [0037](0037-root-recovery-dual-custody.md) | Recuperación de la Raíz por operaciones con control dual de los custodios | Aceptada |
 | [0038](0038-purge-expired-ephemeral-rows.md) | Purga de filas efímeras vencidas y recorrido de organizaciones | Aceptada |

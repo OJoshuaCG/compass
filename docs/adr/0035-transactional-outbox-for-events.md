@@ -1,6 +1,6 @@
 # ADR 0035: Eventos mediante bandeja de salida transaccional
 
-- **Estado**: Aceptada (2026-10-27). Trabajador implementado dentro de la API (2026-10-28, tarea H1a); primer manejador real (aviso de revelaciones a la Raíz, R2a) con acuses de entrega; retención de publicados pendiente
+- **Estado**: Aceptada (2026-10-27). Trabajador implementado dentro de la API (2026-10-28, tarea H1a); primer manejador real (aviso de revelaciones a la Raíz, R2a) con acuses de entrega; retención de publicados a 7 días (adenda D6, 2026-10-30)
 - **Fecha**: 2026-10-27
 - **Referencias**: `db/migrations/0003_*` (tabla `outbox_events`, hoy sin escritor ni publicador); [ADR 0023](0023-audit-advisory-lock-and-long-transactions.md); tarea H1.
 
@@ -43,4 +43,4 @@ La tabla `outbox_events` existe pero ningún código la escribe ni la consume. H
    where published_at is null and next_attempt_at = 'infinity' and id = '<id del evento>';
   ```
 
-- **Pendiente**: política de retención de eventos publicados y de sus acuses en `outbox_deliveries` (G1; los acuses no se pueden borrar con el rol de la aplicación hasta decidirlo). Propuesta NO definitiva, para decisión del dueño: borrar los publicados a los **7 días** y conservar siempre los que están en cuarentena hasta revisión humana.
+- **Adenda (2026-10-30, tarea D6): retención decidida por el dueño.** Se borran los eventos publicados hace más de **7 días** y sus acuses de `outbox_deliveries`; los eventos sin publicar y los de cuarentena no se borran nunca (revisión humana). La purga vive en `purge-expired` ([ADR 0038](0038-purge-expired-ephemeral-rows.md)): recorre las organizaciones con `app.org_id` fijado, por lotes de 1000 eventos y una transacción por lote; en cada lote borra primero los acuses y luego los eventos, solo con `published_at` no nulo y anterior al corte, sin leer el contenido y sin auditoría. La migración `0022` solo añade `grant delete on outbox_deliveries to iam_app` (`outbox_events` ya lo tenía desde la 0003); la política de aislamiento `for all` de la 0019 ya cubre el borrado. Los 7 días son la constante `OUTBOX_RETENTION_DAYS`, a la espera de la tabla de ajustes del sistema. Queda pendiente programar el cron en el despliegue real (el mismo de `purge-expired`).

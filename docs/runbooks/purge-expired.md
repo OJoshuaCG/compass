@@ -11,7 +11,7 @@ Que `purge-expired` corra solo, cada hora, para que las tablas efímeras no crez
 - Claves de idempotencia y desafíos de WebAuthn vencidos hace más de una hora.
 - Versiones del secreto del segundo factor que un re-registro reemplazó hace 30 días o más. Nunca toca la versión vigente, contraseñas ni otros campos.
 
-**No incluye** el outbox: los eventos publicados y sus acuses (`outbox_deliveries`) todavía no se purgan. Borrarlos exige un permiso `delete` para `iam_app` mediante una migración (ruta protegida); está documentado como omitido en `odd/tasks/outbox-hardening.md`. Cuando se implemente, se agendará aquí con el mismo cron (propuesta: una vez al día, con el mismo rol `iam_app`).
+- Eventos del outbox publicados hace más de 7 días y sus acuses de entrega (`outbox_deliveries`), decisión del dueño (D6). Borra primero los acuses y luego los eventos. **Nunca** toca los eventos sin publicar ni los que están en cuarentena (dead letter): esos esperan revisión humana. Requiere la migración `0022` (permiso `delete` sobre `outbox_deliveries` para `iam_app`); aplícala antes de desplegar esta versión del comando, o la purga de esas organizaciones fallará con un error de permisos (las demás limpiezas siguen y el código de salida es `1`). Corre con el mismo cron horario: no hace falta otra programación. Los 7 días son una constante del código (`OUTBOX_RETENTION_DAYS`) hasta que exista la tabla de ajustes del sistema.
 
 No descifra nada, no escribe auditoría (decisión 6 del ADR) y es idempotente: correrlo dos veces seguidas no hace daño.
 
@@ -33,7 +33,7 @@ El minuto `17` evita chocar con otras tareas a la hora en punto. Un temporizador
 
 ## Salida y alertas
 
-Una línea de conteos: organizaciones recorridas, claves de idempotencia borradas, desafíos borrados, versiones de segundo factor reemplazadas borradas y organizaciones con fallo. No imprime identificadores ni contenido.
+Una línea de conteos: organizaciones recorridas, claves de idempotencia borradas, desafíos borrados, versiones de segundo factor reemplazadas borradas, eventos del outbox borrados, acuses del outbox borrados y organizaciones con fallo. No imprime identificadores ni contenido.
 
 - Código de salida `0`: todo en orden.
 - Código de salida `1`: alguna organización falló (el motivo sale por stderr con su identificador). Las demás se procesaron. Alerta al equipo de guardia si ocurre en dos ejecuciones seguidas.
@@ -42,11 +42,11 @@ Una línea de conteos: organizaciones recorridas, claves de idempotencia borrada
 ## Verificación
 
 - Tras la primera ejecución, la línea de conteos aparece en el registro y el código de salida es `0`.
-- `idempotency_keys` y `webauthn_challenges` no acumulan filas con vencimiento anterior a hace una hora (consulta con el rol de operación, no con datos de clientes).
+- `idempotency_keys` y `webauthn_challenges` no acumulan filas con vencimiento anterior a hace una hora, y `outbox_events` no conserva eventos con `published_at` de hace más de 7 días (consulta con el rol de operación, no con datos de clientes).
 
 ## Rollback
 
-Desactivar la entrada del cron. No hay nada que deshacer: lo borrado era efímero o ya había cumplido su retención. Una purga de secretos de segundo factor no se puede revertir; si la política de retención cambia a más de 30 días, ajusta la constante antes de volver a programarla ([ADR 0038](../adr/0038-purge-expired-ephemeral-rows.md), ampliación H1b).
+Desactivar la entrada del cron. No hay nada que deshacer: lo borrado era efímero o ya había cumplido su retención (los eventos del outbox publicados y sus acuses no se recuperan). Una purga de secretos de segundo factor no se puede revertir; si la política de retención cambia a más de 30 días, ajusta la constante antes de volver a programarla ([ADR 0038](../adr/0038-purge-expired-ephemeral-rows.md), ampliación H1b).
 
 ## Historial de ensayos
 
