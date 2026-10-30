@@ -1,10 +1,10 @@
-import { DEFAULT_PAGE_LIMIT, type Share } from '@iam/contracts';
+import type { Share } from '@iam/contracts';
 import { Badge, Button, DataTable, EmptyState, type Column } from '@iam/ui';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDataTableLabels } from '../../../shared/i18n';
-import { formatDateTime } from '../../../shared/lib';
+import { formatDateTime, useClientPagination } from '../../../shared/lib';
 
 export type SharesTableProps = {
   shares: Share[];
@@ -23,7 +23,8 @@ const NO_OP = () => undefined;
 
 /**
  * Tabla estándar de comparticiones. Presentacional: los grupos se muestran igual que las personas
- * (el tipo va como texto, no solo como color). El listado llega completo, sin cursor.
+ * (el tipo va como texto, no solo como color). El listado llega completo, sin cursor: se pagina
+ * en memoria y el pie se muestra siempre porque la lista puede crecer.
  */
 export function SharesTable({
   shares,
@@ -36,6 +37,7 @@ export function SharesTable({
 }: SharesTableProps) {
   const { t, i18n } = useTranslation('shares');
   const labels = useDataTableLabels();
+  const paging = useClientPagination(shares);
 
   const columns = useMemo<Column<Share>[]>(
     () => [
@@ -67,14 +69,13 @@ export function SharesTable({
     <DataTable<Share>
       caption={t('caption')}
       columns={columns}
-      rows={shares}
+      rows={paging.pageRows}
       getRowId={(row) => row.id}
       status={status}
       onSortChange={NO_OP}
-      limit={DEFAULT_PAGE_LIMIT}
-      onLimitChange={NO_OP}
-      pagination={{ hasPrevious: false, hasNext: false, onPrevious: NO_OP, onNext: NO_OP }}
-      hidePagination
+      limit={paging.limit}
+      onLimitChange={paging.onLimitChange}
+      pagination={paging.pagination}
       labels={labels}
       emptyState={<EmptyState title={t('empty.title')} description={t('empty.description')} />}
       errorState={{ message: errorMessage, onRetry }}

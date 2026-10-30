@@ -1,4 +1,4 @@
-import { DEFAULT_PAGE_LIMIT, type Credential } from '@iam/contracts';
+import type { Credential } from '@iam/contracts';
 import {
   Badge,
   Button,
@@ -12,7 +12,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDataTableLabels } from '../../../shared/i18n';
-import { formatDateTime } from '../../../shared/lib';
+import { formatDateTime, useClientPagination } from '../../../shared/lib';
 
 export type CredentialsTableProps = {
   credentials: Credential[];
@@ -49,7 +49,8 @@ export function rowMenuTriggerSelector(credentialId: string): string {
 /**
  * Tabla estándar de credenciales. Presentacional: nunca recibe usuario ni contraseña, solo los
  * metadatos del listado. Las acciones aparecen según lo que el container dice que la cuenta admite.
- * El listado llega completo (sin cursor), así que se omite el pie de paginación.
+ * El listado llega completo (sin cursor): se pagina en memoria y el pie se muestra siempre
+ * porque la lista puede crecer.
  */
 export function CredentialsTable({
   credentials,
@@ -70,6 +71,7 @@ export function CredentialsTable({
 }: CredentialsTableProps) {
   const { t, i18n } = useTranslation('credentials');
   const labels = useDataTableLabels();
+  const paging = useClientPagination(credentials);
 
   const columns = useMemo<Column<Credential>[]>(
     () => [
@@ -138,14 +140,13 @@ export function CredentialsTable({
     <DataTable<Credential>
       caption={t('caption')}
       columns={columns}
-      rows={credentials}
+      rows={paging.pageRows}
       getRowId={(row) => row.id}
       status={status}
       onSortChange={NO_OP}
-      limit={DEFAULT_PAGE_LIMIT}
-      onLimitChange={NO_OP}
-      pagination={{ hasPrevious: false, hasNext: false, onPrevious: NO_OP, onNext: NO_OP }}
-      hidePagination
+      limit={paging.limit}
+      onLimitChange={paging.onLimitChange}
+      pagination={paging.pagination}
       labels={labels}
       emptyState={<EmptyState title={t('empty.title')} description={t('empty.description')} />}
       errorState={{ message: errorMessage, onRetry }}

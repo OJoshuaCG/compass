@@ -1,4 +1,4 @@
-import { DEFAULT_PAGE_LIMIT, type Credential, type PasswordVersion } from '@iam/contracts';
+import type { Credential, PasswordVersion } from '@iam/contracts';
 import { Alert, Button, Dialog, EmptyState, StatusBadge, DataTable, type Column } from '@iam/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useMe } from '../../../shared/auth';
 import { useDataTableLabels, useErrorMessage } from '../../../shared/i18n';
-import { formatDateTime } from '../../../shared/lib';
+import { formatDateTime, useClientPagination } from '../../../shared/lib';
 import { credentialsKeys, fetchCredentialHistory } from '../api/credentials-api';
 import { RestoreVersionDialog } from './restore-version-dialog';
 
@@ -73,6 +73,8 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
     void queryClient.invalidateQueries({ queryKey: credentialsKeys.list(credential.accountId) });
   }
 
+  // El historial llega completo y puede crecer con cada rotación: se pagina en memoria.
+  const paging = useClientPagination(query.data ?? []);
   const status = query.isPending ? 'loading' : query.isError ? 'error' : 'success';
 
   return (
@@ -93,14 +95,13 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
       <DataTable<PasswordVersion>
         caption={t('history.caption', { ns: 'credentials' })}
         columns={columns}
-        rows={query.data ?? []}
+        rows={paging.pageRows}
         getRowId={(row) => String(row.version)}
         status={status}
         onSortChange={NO_OP}
-        limit={DEFAULT_PAGE_LIMIT}
-        onLimitChange={NO_OP}
-        pagination={{ hasPrevious: false, hasNext: false, onPrevious: NO_OP, onNext: NO_OP }}
-        hidePagination
+        limit={paging.limit}
+        onLimitChange={paging.onLimitChange}
+        pagination={paging.pagination}
         labels={labels}
         rowActions={(row) =>
           row.isCurrent ? null : (

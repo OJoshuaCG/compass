@@ -883,7 +883,10 @@ describe('history', () => {
       name: fill(es.credentials['history.title'], { label: 'Portal de nómina' }),
     });
     expect(await within(dialog).findByText(es.credentials['history.current'])).toBeVisible();
-    expect(within(dialog).getByText(es.credentials['history.previous'])).toBeVisible();
+    // Se acota a la tabla: el paginador, siempre visible, también tiene un botón "Anterior".
+    expect(
+      within(within(dialog).getByRole('table')).getByText(es.credentials['history.previous']),
+    ).toBeVisible();
     expect(await axeViolations(dialog)).toEqual([]);
   });
 
