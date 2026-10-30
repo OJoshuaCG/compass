@@ -4,9 +4,11 @@ export type { PurgeSummary } from './application/purge-expired-ephemeral.js';
 export type {
   ExpiredEphemeralStore,
   OrganizationLister,
+  OutboxRetentionStore,
   ReplacedTotpSecretStore,
 } from './application/ports/purge-ports.js';
 export { PgExpiredEphemeralStore } from './infrastructure/pg-expired-ephemeral-store.js';
+export { PgOutboxRetentionStore } from './infrastructure/pg-outbox-retention-store.js';
 export { PgReplacedTotpSecretStore } from './infrastructure/pg-replaced-totp-secret-store.js';
 export { PgOrganizationLister } from './infrastructure/pg-organization-lister.js';
 export { ReencryptSecrets } from './application/reencrypt-secrets.js';

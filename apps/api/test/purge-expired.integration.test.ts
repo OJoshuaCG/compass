@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import {
   PgExpiredEphemeralStore,
   PgOrganizationLister,
+  PgOutboxRetentionStore,
   PgReplacedTotpSecretStore,
   PurgeExpiredEphemeral,
 } from '../src/modules/maintenance/index.js';
@@ -80,6 +81,7 @@ beforeAll(async () => {
     organizations: new PgOrganizationLister(db.appPool),
     store: new PgExpiredEphemeralStore(uow),
     replacedTotpSecrets: new PgReplacedTotpSecretStore(uow),
+    outboxRetention: new PgOutboxRetentionStore(uow),
     scope: new PgTenantScope(requestContext, uow),
     ids: new UuidV7Generator(),
     clock: { now: () => NOW },
@@ -328,5 +330,163 @@ describe('PurgeExpiredEphemeral: replaced TOTP secret versions (H1b)', () => {
     expect(await versionsOf(credentialsA['chain'] ?? '', TOTP_FIELD)).toEqual([3]);
     expect(await versionsOf(credentialOnlyCurrent, TOTP_FIELD)).toEqual([1]);
     expect(await versionsOf(isolatedB, TOTP_FIELD)).toEqual([1, 2]);
+  });
+});
+
+interface OutboxEventSeed {
+  /** Momento de publicación; `null` si el evento no se publicó. */
+  readonly publishedAt: Date | null;
+  /** `true` deja el evento en cuarentena (dead letter): sin publicar y con `next_attempt_at = 'infinity'`. */
+  readonly isDeadLetter: boolean;
+  /** Nombres de manejador de los acuses de entrega que se crean para el evento. */
+  readonly receiptHandlers: readonly string[];
+}
+
+async function seedOutboxEvent(organizationId: string, seed: OutboxEventSeed): Promise<string> {
+  const event = await db.admin.query<{ id: string }>(
+    `insert into outbox_events (organization_id, aggregate, type, payload, published_at, next_attempt_at)
+     values ($1, 'test', 'test.event', '{"marker":"retention"}', $2,
+             case when $3::boolean then 'infinity'::timestamptz else now() end)
+     returning id`,
+    [organizationId, seed.publishedAt, seed.isDeadLetter],
+  );
+  const eventId = event.rows[0]?.id;
+  if (eventId === undefined) throw new Error('seed failed');
+  for (const handlerKey of seed.receiptHandlers) {
+    await db.admin.query(
+      'insert into outbox_deliveries (organization_id, event_id, handler_key) values ($1, $2, $3)',
+      [organizationId, eventId, handlerKey],
+    );
+  }
+  return eventId;
+}
+
+async function outboxEventExists(eventId: string): Promise<boolean> {
+  const result = await db.admin.query('select 1 from outbox_events where id = $1', [eventId]);
+  return (result.rowCount ?? 0) > 0;
+}
+
+async function receiptCount(eventId: string): Promise<number> {
+  const result = await db.admin.query<{ total: string }>(
+    'select count(*) as total from outbox_deliveries where event_id = $1',
+    [eventId],
+  );
+  return Number(result.rows[0]?.total ?? 0);
+}
+
+describe('PurgeExpiredEphemeral: outbox retention (D6)', () => {
+  let outboxOrgA: string;
+  let outboxOrgB: string;
+  const eventsA: Record<string, string> = {};
+  const eventsB: Record<string, string> = {};
+
+  beforeAll(async () => {
+    outboxOrgA = await db.seedOrganization('purge-outbox-a');
+    outboxOrgB = await db.seedOrganization('purge-outbox-b');
+
+    // Publicado hace 8 días, con dos acuses: se borra con ellos.
+    eventsA['oldPublished'] = await seedOutboxEvent(outboxOrgA, {
+      publishedAt: daysAgo(8),
+      isDeadLetter: false,
+      receiptHandlers: ['test.handler:one', 'test.handler:two'],
+    });
+    // Publicado hace 6 días: dentro de la retención de 7 días.
+    eventsA['recentPublished'] = await seedOutboxEvent(outboxOrgA, {
+      publishedAt: daysAgo(6),
+      isDeadLetter: false,
+      receiptHandlers: ['test.handler:one'],
+    });
+    // Sin publicar, aunque con acuses y muy viejo: nunca se borra.
+    eventsA['unpublished'] = await seedOutboxEvent(outboxOrgA, {
+      publishedAt: null,
+      isDeadLetter: false,
+      receiptHandlers: ['test.handler:one'],
+    });
+    // Cuarentena (dead letter): requiere revisión humana, nunca se borra.
+    eventsA['deadLetter'] = await seedOutboxEvent(outboxOrgA, {
+      publishedAt: null,
+      isDeadLetter: true,
+      receiptHandlers: ['test.handler:one'],
+    });
+    eventsB['oldPublished'] = await seedOutboxEvent(outboxOrgB, {
+      publishedAt: daysAgo(30),
+      isDeadLetter: false,
+      receiptHandlers: ['test.handler:one'],
+    });
+    eventsB['recentPublished'] = await seedOutboxEvent(outboxOrgB, {
+      publishedAt: daysAgo(1),
+      isDeadLetter: false,
+      receiptHandlers: ['test.handler:one'],
+    });
+  });
+
+  it('deletes published events older than 7 days with their receipts, in every organization', async () => {
+    const summary = await purge.execute();
+
+    expect(summary.failedOrganizations).toEqual([]);
+    expect(summary.outboxEvents).toBe(2);
+    expect(summary.outboxDeliveries).toBe(3);
+    expect(await outboxEventExists(eventsA['oldPublished'] ?? '')).toBe(false);
+    expect(await receiptCount(eventsA['oldPublished'] ?? '')).toBe(0);
+    expect(await outboxEventExists(eventsB['oldPublished'] ?? '')).toBe(false);
+    expect(await receiptCount(eventsB['oldPublished'] ?? '')).toBe(0);
+  });
+
+  it('keeps recent published events, unpublished events and dead letters with their receipts', async () => {
+    for (const eventId of [
+      eventsA['recentPublished'],
+      eventsA['unpublished'],
+      eventsA['deadLetter'],
+      eventsB['recentPublished'],
+    ]) {
+      expect(await outboxEventExists(eventId ?? '')).toBe(true);
+      expect(await receiptCount(eventId ?? '')).toBe(1);
+    }
+  });
+
+  it('is idempotent: a second run deletes nothing', async () => {
+    const summary = await purge.execute();
+
+    expect(summary.outboxEvents).toBe(0);
+    expect(summary.outboxDeliveries).toBe(0);
+  });
+
+  // SENSIBLE (revisión humana): aislamiento por organización y protección de lo no publicado.
+  it('cannot delete events of another organization, unpublished events or dead letters even with a far-future cutoff', async () => {
+    const requestContext = new AsyncLocalRequestContext();
+    const uow = new PgUnitOfWork(db.appPool, requestContext, db.independentPool);
+    const scope = new PgTenantScope(requestContext, uow);
+    const store = new PgOutboxRetentionStore(uow);
+    const FAR_FUTURE = new Date('2100-01-01T00:00:00.000Z');
+
+    const deletedAsA = await scope.runAs(
+      {
+        organizationId: asOrganizationId(outboxOrgA),
+        actorId: null,
+        requestId: 'req-isolation-outbox',
+      },
+      () => store.purgePublishedEvents(FAR_FUTURE, 1000),
+    );
+
+    // Con el corte en el futuro cae el publicado reciente de A con su acuse; nada más.
+    expect(deletedAsA).toEqual({ events: 1, deliveries: 1 });
+    expect(await outboxEventExists(eventsA['recentPublished'] ?? '')).toBe(false);
+    expect(await outboxEventExists(eventsA['unpublished'] ?? '')).toBe(true);
+    expect(await receiptCount(eventsA['unpublished'] ?? '')).toBe(1);
+    expect(await outboxEventExists(eventsA['deadLetter'] ?? '')).toBe(true);
+    expect(await receiptCount(eventsA['deadLetter'] ?? '')).toBe(1);
+    // Nada de B se tocó.
+    expect(await outboxEventExists(eventsB['recentPublished'] ?? '')).toBe(true);
+    expect(await receiptCount(eventsB['recentPublished'] ?? '')).toBe(1);
+  });
+
+  // SENSIBLE (revisión humana): permisos mínimos de la migración 0022 sobre los acuses.
+  it('gives the application role DELETE on receipts but never UPDATE', async () => {
+    const result = await db.admin.query<{ can_delete: boolean; can_update: boolean }>(
+      `select has_table_privilege('iam_app', 'outbox_deliveries', 'DELETE') as can_delete,
+              has_table_privilege('iam_app', 'outbox_deliveries', 'UPDATE') as can_update`,
+    );
+
+    expect(result.rows[0]).toEqual({ can_delete: true, can_update: false });
   });
 });

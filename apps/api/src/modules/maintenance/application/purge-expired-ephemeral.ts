@@ -3,6 +3,7 @@ import type { TenantScope } from '../../organization/index.js';
 import type {
   ExpiredEphemeralStore,
   OrganizationLister,
+  OutboxRetentionStore,
   ReplacedTotpSecretStore,
 } from './ports/purge-ports.js';
 
@@ -24,6 +25,15 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 export const REPLACED_TOTP_SECRET_RETENTION_MS =
   REPLACED_TOTP_SECRET_RETENTION_DAYS * MILLISECONDS_PER_DAY;
 
+/**
+ * Días que se conserva un evento del outbox ya publicado (y sus acuses de entrega) antes de borrarlo.
+ * Decisión del dueño (D6): 7 días. Es una constante mientras no exista la tabla de ajustes del sistema; cuando
+ * llegue, este valor vivirá en la base de datos y se podrá cambiar sin desplegar. Los eventos sin publicar y los
+ * de cuarentena (dead letter) NO caducan nunca: requieren revisión humana.
+ */
+export const OUTBOX_RETENTION_DAYS = 7;
+export const OUTBOX_RETENTION_MS = OUTBOX_RETENTION_DAYS * MILLISECONDS_PER_DAY;
+
 /** Filas por borrado: acota el tiempo que se sostienen los bloqueos de fila en cada sentencia. */
 export const PURGE_BATCH_SIZE = 1000;
 
@@ -38,6 +48,8 @@ interface PurgeTally {
   idempotencyKeys: number;
   webauthnChallenges: number;
   replacedTotpSecrets: number;
+  outboxEvents: number;
+  outboxDeliveries: number;
 }
 
 export interface PurgeSummary {
@@ -46,6 +58,10 @@ export interface PurgeSummary {
   readonly webauthnChallenges: number;
   /** Versiones de secreto del segundo factor reemplazadas hace más de 30 días y ya destruidas. */
   readonly replacedTotpSecrets: number;
+  /** Eventos del outbox publicados hace más de 7 días y ya borrados. */
+  readonly outboxEvents: number;
+  /** Acuses de entrega (`outbox_deliveries`) de esos eventos, borrados con ellos. */
+  readonly outboxDeliveries: number;
   /** Organizaciones cuyo borrado falló; el resto se procesó igual. */
   readonly failedOrganizations: readonly OrganizationFailure[];
 }
@@ -54,6 +70,7 @@ interface Dependencies {
   readonly organizations: OrganizationLister;
   readonly store: ExpiredEphemeralStore;
   readonly replacedTotpSecrets: ReplacedTotpSecretStore;
+  readonly outboxRetention: OutboxRetentionStore;
   readonly scope: TenantScope;
   readonly ids: IdGenerator;
   readonly clock: Clock;
@@ -61,7 +78,8 @@ interface Dependencies {
 
 /**
  * Borra las filas efímeras vencidas (`idempotency_keys`, `webauthn_challenges`) y las versiones de secreto
- * del segundo factor reemplazadas hace más de 30 días (H1b), organización por organización, bajo el
+ * del segundo factor reemplazadas hace más de 30 días (H1b) y los eventos del outbox publicados hace más de 7 días
+ * con sus acuses (D6), organización por organización, bajo el
  * aislamiento por filas normal (ADR 0038). No genera auditoría: son datos de mantenimiento sin actor,
  * no una acción sensible (decisión abierta para la purga de secretos: ver el ADR 0038).
  */
@@ -73,14 +91,27 @@ export class PurgeExpiredEphemeral {
     const replacedBefore = new Date(
       this.deps.clock.now().getTime() - REPLACED_TOTP_SECRET_RETENTION_MS,
     );
+    const publishedBefore = new Date(this.deps.clock.now().getTime() - OUTBOX_RETENTION_MS);
     const organizationIds = await this.deps.organizations.listIds();
 
-    const tally: PurgeTally = { idempotencyKeys: 0, webauthnChallenges: 0, replacedTotpSecrets: 0 };
+    const tally: PurgeTally = {
+      idempotencyKeys: 0,
+      webauthnChallenges: 0,
+      replacedTotpSecrets: 0,
+      outboxEvents: 0,
+      outboxDeliveries: 0,
+    };
     const failedOrganizations: OrganizationFailure[] = [];
 
     for (const organizationId of organizationIds) {
       try {
-        await this.purgeOrganization(organizationId, expiredBefore, replacedBefore, tally);
+        await this.purgeOrganization(
+          organizationId,
+          expiredBefore,
+          replacedBefore,
+          publishedBefore,
+          tally,
+        );
       } catch (error) {
         // Una organización con problemas no debe impedir la limpieza de las demás.
         failedOrganizations.push({ organizationId, reason: describeFailure(error) });
@@ -92,6 +123,8 @@ export class PurgeExpiredEphemeral {
       idempotencyKeys: tally.idempotencyKeys,
       webauthnChallenges: tally.webauthnChallenges,
       replacedTotpSecrets: tally.replacedTotpSecrets,
+      outboxEvents: tally.outboxEvents,
+      outboxDeliveries: tally.outboxDeliveries,
       failedOrganizations,
     };
   }
@@ -100,6 +133,7 @@ export class PurgeExpiredEphemeral {
     organizationId: OrganizationId,
     expiredBefore: Date,
     replacedBefore: Date,
+    publishedBefore: Date,
     tally: PurgeTally,
   ): Promise<void> {
     await this.drain(
@@ -129,10 +163,26 @@ export class PurgeExpiredEphemeral {
         tally.replacedTotpSecrets += deleted;
       },
     );
+    // El lote lleno se decide por eventos; los acuses se suman aparte (un evento puede tener varios o ninguno).
+    await this.drain(
+      async (limit) => {
+        const batch = await this.inBatch(organizationId, () =>
+          this.deps.outboxRetention.purgePublishedEvents(publishedBefore, limit),
+        );
+        tally.outboxDeliveries += batch.deliveries;
+        return batch.events;
+      },
+      (deleted) => {
+        tally.outboxEvents += deleted;
+      },
+    );
   }
 
   /** Una transacción por lote, para no sostener bloqueos durante toda la limpieza. */
-  private inBatch(organizationId: OrganizationId, work: () => Promise<number>): Promise<number> {
+  private inBatch<Result>(
+    organizationId: OrganizationId,
+    work: () => Promise<Result>,
+  ): Promise<Result> {
     return this.deps.scope.runAs(
       { organizationId, actorId: null, requestId: this.deps.ids.next() },
       work,

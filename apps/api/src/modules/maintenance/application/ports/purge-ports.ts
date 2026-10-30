@@ -23,3 +23,21 @@ export interface ExpiredEphemeralStore {
 export interface ReplacedTotpSecretStore {
   purgeReplacedTotpSecrets(replacedBefore: Date, limit: number): Promise<number>;
 }
+
+/** Lo que borró un lote de la retención del outbox. */
+export interface OutboxRetentionBatchResult {
+  /** Eventos publicados borrados; el recorrido continúa mientras un lote llegue lleno. */
+  readonly events: number;
+  /** Acuses de entrega de esos eventos, borrados antes que ellos. */
+  readonly deliveries: number;
+}
+
+/**
+ * Borra, en la organización en curso, los eventos del outbox publicados antes de `publishedBefore` y sus
+ * acuses de entrega (`outbox_deliveries`). Solo toca eventos con `published_at` no nulo: nunca los pendientes
+ * ni los de cuarentena (`published_at` nulo y `next_attempt_at = 'infinity'`). Cada llamada procesa como
+ * máximo `limit` eventos. No lee el contenido (`payload`).
+ */
+export interface OutboxRetentionStore {
+  purgePublishedEvents(publishedBefore: Date, limit: number): Promise<OutboxRetentionBatchResult>;
+}
