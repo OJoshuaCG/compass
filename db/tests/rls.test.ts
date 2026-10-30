@@ -31,6 +31,12 @@ const PHASE1_TENANT_TABLES = [
   'outbox_events',
   'outbox_deliveries',
   'idempotency_keys',
+  'inbound_templates',
+  'mail_sources',
+  'mail_views',
+  'mail_view_templates',
+  'inbound_items',
+  'inbound_receipts',
 ];
 
 let adminUrl = '';
