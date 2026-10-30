@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext, Locator, Page } from '@playwright/test';
 import { generateSync } from 'otplib';
 
 /**
@@ -118,4 +118,45 @@ export async function storageDump(page: Page): Promise<string> {
 
 export async function sessionCookie(context: BrowserContext) {
   return (await context.cookies()).find((cookie) => cookie.name === '__Host-session');
+}
+
+/**
+ * Entra como la Raíz. Si `identity.spec.ts` ya corrió en este trabajador, la Raíz ya está registrada
+ * y su clave quedó recordada: se entra con contraseña y código. Si este archivo corre solo, la
+ * organización es nueva: se cambia la contraseña inicial y se registra el segundo factor.
+ */
+export async function signInAsRoot(page: Page): Promise<string> {
+  const knownSecret = recalledRootSecret();
+  if (knownSecret === undefined) {
+    await signInWithPassword(page, ROOT_EMAIL, PASSWORD);
+    await changeInitialPassword(page, PASSWORD, ROOT_PASSWORD);
+    const enrolled = await completeEnrollment(page);
+    rememberRootSecret(enrolled.secret);
+    await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
+    return enrolled.secret;
+  }
+  await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
+  await page.getByLabel('Verification code').fill(await freshCode(knownSecret));
+  await page.getByRole('button', { name: 'Verify' }).click();
+  await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
+  return knownSecret;
+}
+
+/**
+ * Espera el resultado de una acción sensible. Si antes aparece "Confirm your identity" (el cliente
+ * HTTP pide reautenticar y reintenta solo), responde con un código nuevo y luego espera el resultado.
+ * `outcome` debe ser algo que NO exista hasta que la acción termine: así nunca coincide con el diálogo.
+ */
+export async function expectOutcomeConfirmingIdentity(
+  page: Page,
+  secret: string,
+  outcome: Locator,
+): Promise<void> {
+  const reauth = page.getByRole('dialog', { name: 'Confirm your identity' });
+  await expect(outcome.or(reauth)).toBeVisible();
+  if (await reauth.isVisible()) {
+    await reauth.getByLabel('Verification code').fill(await freshCode(secret));
+    await reauth.getByRole('button', { name: 'Confirm' }).click();
+    await expect(outcome).toBeVisible();
+  }
 }

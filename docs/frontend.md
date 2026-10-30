@@ -356,6 +356,8 @@ Todo lo del plan, convertido en reglas verificables:
 | E2E | Playwright | Flujos críticos del plan (invitación, passkey, compartir, revelar, 2FA, baja) |
 
 - Se prueban **comportamientos**, no implementación: se busca por rol, etiqueta o texto traducido, nunca por clase CSS.
+- **Accesibilidad en navegador real:** `e2e/tests/wcag.spec.ts` ejecuta `@axe-core/playwright` en Chrome con las etiquetas `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` y `wcag22aa` sobre el inicio de sesión (anónimo), el directorio de usuarios, las cuentas, la seguridad y las credenciales de una cuenta, en inglés y en español (es-MX). A diferencia de jsdom, aquí sí se evalúa el contraste de color. Falla ante cualquier violación e imprime regla, impacto y selectores, sin HTML ni textos. No excluye reglas ni selectores: un falso positivo se reporta y se decide aparte.
+- **Por qué no hay `eslint-plugin-jsx-a11y`:** no se instaló porque su rango de peer solo llega a ESLint 9 y el repositorio usa ESLint 10. La accesibilidad estática queda cubierta por las pruebas de componente con axe y por la comprobación e2e anterior.
 - La tabla de datos tiene su propia suite: orden, límite, paginación por cursor, estados vacío, de error y de carga, y teclado.
 - Las pruebas de secretos verifican que un valor revelado no queda en la caché de Query ni en el almacenamiento del navegador tras ocultarlo.
 
