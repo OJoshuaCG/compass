@@ -11,6 +11,8 @@ Que `purge-expired` corra solo, cada hora, para que las tablas efímeras no crez
 - Claves de idempotencia y desafíos de WebAuthn vencidos hace más de una hora.
 - Versiones del secreto del segundo factor que un re-registro reemplazó hace 30 días o más. Nunca toca la versión vigente, contraseñas ni otros campos.
 
+**No incluye** el outbox: los eventos publicados y sus acuses (`outbox_deliveries`) todavía no se purgan. Borrarlos exige un permiso `delete` para `iam_app` mediante una migración (ruta protegida); está documentado como omitido en `odd/tasks/outbox-hardening.md`. Cuando se implemente, se agendará aquí con el mismo cron (propuesta: una vez al día, con el mismo rol `iam_app`).
+
 No descifra nada, no escribe auditoría (decisión 6 del ADR) y es idempotente: correrlo dos veces seguidas no hace daño.
 
 ## Precondiciones
