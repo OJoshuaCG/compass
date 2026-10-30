@@ -61,6 +61,7 @@ Plantilla: [`template.md`](template.md).
 | [0042](0042-audit-chain-external-anchoring.md) | Anclaje externo periódico de la cadena de auditoría (`TODO.md` F2) | Propuesta (borrador, falta la decisión) | Puerta de producción (verificación diaria y R1) |
 | [0043](0043-kms-encryption-context-bound-to-organization.md) | Contexto de cifrado del KMS ligado a la organización y control de usos anómalos (`TODO.md` F5) | Propuesta (borrador, falta la decisión) | Puerta de producción (política de la clave y alertas) |
 | [0044](0044-identities-and-memberships-model.md) | Modelo de `identities` y `memberships` (`TODO.md` C5) | Propuesta (borrador; no bloquea la fase 1) | Cuando una persona deba entrar a varias organizaciones |
+| [0045](0045-inbound-codes-mail-and-sms.md) | Lectura de códigos entrantes por correo y SMS, compartida por vistas filtradas (encargo del dueño, 2026-10-30; `TODO.md` épica T) | Propuesta (borrador; subdominio, vía de recepción, proveedor de SMS y retención legal abiertos) | Antes de implementar la rebanada de migraciones (IC-2) |
 
 Las fases indicadas son una recomendación de este registro, no una decisión del plan.
 

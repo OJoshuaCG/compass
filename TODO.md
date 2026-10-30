@@ -38,9 +38,10 @@ El proyecto es viable y está bien cimentado: capas impuestas por lint, aislamie
 | | P | Gobernanza base | B, K | 3 |
 | | Q | Ensayos de operación | L | 2 |
 | **5 · Cierre de gobernanza** | R | Auditoría y alertas críticas | B, F, G, M | 2 |
-| **6 · Puerta de producción** | S | Prueba de intrusión y producción | todas | 2 |
+| **5 · Cierre de gobernanza** | T | Códigos entrantes por correo y SMS (adelantada por el dueño, 2026-10-30) | B, K y la decisión sobre el ADR 0045 | 9 |
+| **6 · Puerta de producción** | S | Prueba de intrusión y producción | todas, incluida T | 2 |
 
-Total: **90 subtareas** en **19 épicas**.
+Total: **90 subtareas** en **19 épicas**, sin contar la épica T (9 subtareas, añadida el 2026-10-30 por encargo del dueño; la letra T no sigue el orden de ejecución: se hace antes de S).
 
 ## Reglas para tomar una tarea
 
@@ -333,18 +334,38 @@ R1 y R2 son independientes entre sí.
 
 ---
 
+## T · Códigos entrantes por correo y SMS (adelantada)
+
+**Nivel** 5 (se ejecuta antes de S) · **Requiere:** decisión humana sobre el ADR 0045; el código además requiere B y K · **Zona:** módulo nuevo de códigos entrantes, identidad previa a la autenticación ⚠, criptografía ⚠, auditoría ⚠, migraciones ⚠
+
+**Adelantada por el dueño el 2026-10-30** (el plan la tenía después de la prueba de intrusión). Todo el diseño es **propuesta mía** hasta que se ratifique el [ADR 0045](docs/adr/0045-inbound-codes-mail-and-sms.md). Seguimiento por rebanadas en [`odd/tasks/inbound-codes.md`](odd/tasks/inbound-codes.md). Camino B (IMAP, Gmail, Graph) descartado por ahora. La prueba de intrusión debe incluir este alcance (S1 depende de T).
+
+| ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
+| --- | --- | --- | --- | --- | --- | --- |
+| [x] T1 | Ratificación del encargo (IC-0): camino A elegido por el dueño el 2026-10-30. El ADR 0045 sigue en Propuesta (revisado por jueces el mismo día); faltan niveles, cifras, techo de `inbound.reveal_reset` y desvío de ACL | ADR ⚠ | Dueño | S | — | Cumplida en lo del encargo; ADR sin ratificar |
+| [ ] T2 | Dominio puro: plantillas sin regex, compuerta DKIM sobre resultado estructurado, extracción, TTL y clasificación fail-closed, con pruebas y mutaciones (IC-1) | Código ⚠ | — | M | T1 | **Única rebanada autorizada a empezar** |
+| [ ] T3 | Migraciones y permisos (IC-2a permisos y techo, IC-2b tablas, RLS y `mail_view`/`mail_source` en comparticiones con `shares_check_refs` redefinido, IC-2c función de resolución y rol del worker) | Código ⚠ | — | M | T1 | Espera la revisión de los jueces |
+| [ ] T4 | Recepción y procesamiento (IC-3, fusionada con IC-4): verificador de firma como puerto, worker propio con su rol, parseo MIME bajo límites, sin persistir cuerpo | Código ⚠ | — | L | T2, T3 | Bloqueada: vía de recepción, lugar de la verificación DKIM, worker propio y parser MIME |
+| [ ] T5 | Absorbida por T4 (antes IC-4): persistencia cifrada del elemento, vencimiento de 10 minutos y purga (adenda al ADR 0038) | Código ⚠ | — | — | T4 | Fusionada con T4 |
+| [ ] T6 | Lectura por USE (IC-5a), configuración y compartición con caso de uso nuevo (IC-5b), restablecimientos críticos con rotación (IC-5c) | Código ⚠ | — | L | T3, T4, K | |
+| [ ] T7 | Pantallas web de fuentes, filtros y vistas (IC-6) | Código | — | M | T6 | |
+| [ ] T8 | SMS: `SmsProviderPort` y adaptador falso en el mismo pipeline (IC-7) | Código ⚠ | — | M | T6 | |
+| [ ] T9 | Decisiones abiertas y adaptadores reales: subdominio de alias y DNS (C10), SES entrante o SMTP propio, proveedor de SMS, retención legal (A10, C9); después los adaptadores reales, el runbook y el modelo de amenazas (IC-8) | Decisión + Código ⚠ | Dueño / Equipo | L | T6; C10 | Bloqueada: decisiones abiertas |
+
+---
+
 # NIVEL 6 · Puerta de producción
 
 **Hasta cerrar todo lo anterior y pasar la prueba de intrusión: no cargar ninguna credencial real.**
 
 ## S · Prueba de intrusión y producción
 
-**Nivel** 6 · **Requiere:** todas las épicas anteriores (A a R) · **Zona:** operación
+**Nivel** 6 · **Requiere:** todas las épicas anteriores (A a R y, si se adelanta, T) · **Zona:** operación
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] S1 | Prueba de intrusión externa sin hallazgos altos o críticos abiertos | Ops | Dueño | L | todas las épicas A a R, C7 | |
-| [ ] S2 | Reevaluar las fases 3 (SAML con Meta), 4 (correo con DKIM y cuarentena) y 7 (broker, que el plan llama frágil): son productos aparte. No comprometer diseño ni estimaciones antes de S1 [S] | Decisión | Dueño | S | S1 | |
+| [ ] S1 | Prueba de intrusión externa sin hallazgos altos o críticos abiertos (con el alcance de la épica T si se implementa antes) | Ops | Dueño | L | todas las épicas A a R, C7; T si se adelanta | |
+| [ ] S2 | Reevaluar las fases 3 (SAML con Meta) y 7 (broker, que el plan llama frágil): son productos aparte. No comprometer diseño ni estimaciones antes de S1 [S]. **El dueño adelantó el 2026-10-30 las fases 4 (correo) y 5 (SMS, solo lectura de códigos)**: salen de esta reevaluación y pasan a la épica T; dependen del [ADR 0045](docs/adr/0045-inbound-codes-mail-and-sms.md) (Propuesta, sin ratificar) | Decisión | Dueño | S | S1 | |
 
 ---
 

@@ -36,8 +36,8 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | Puerta de producción | Prueba de intrusión, simulacro de restauración y procedimientos ensayados | Pendiente |
 | 2 · Inicio de sesión único (OIDC) | Que las herramientas internas usen este sistema para iniciar sesión | Pendiente |
 | 3 · SAML y SCIM | Entrada a Meta Business y altas y bajas automáticas en otras plataformas | Pendiente |
-| 4 · Correos | Lectura automática de códigos que llegan por correo | Pendiente |
-| 5 · SMS | Lectura de códigos por mensaje de texto | Pendiente |
+| 4 · Correos | Lectura automática de códigos que llegan por correo | Adelantada por el dueño (2026-10-30), en propuesta; ver [`vault.md`](vault.md) sección 14 |
+| 5 · SMS | Lectura de códigos por mensaje de texto | Adelantada por el dueño (2026-10-30), en propuesta con proveedor de prueba; el real sigue sin elegir |
 | 6 · Extensión de navegador | Autocompletado de usuario y segundo factor | Pendiente |
 | 7 · Broker de sesiones | Iniciar sesión en una plataforma sin ver la contraseña | Pendiente |
 
