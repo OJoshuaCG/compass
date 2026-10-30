@@ -32,6 +32,9 @@ export const PERMISSIONS = [
   'access_request.approve',
   'rotation.manage',
   'audit.read_scope',
+  'inbound.read_codes',
+  'inbound.configure',
+  'inbound.reveal_reset',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

@@ -13,7 +13,7 @@ export interface SystemRole {
 }
 
 /** Versión de las plantillas: se incrementa al cambiarlas, para poder migrar organizaciones existentes. */
-export const SYSTEM_ROLES_VERSION = 3;
+export const SYSTEM_ROLES_VERSION = 4;
 
 const withCeilingAtLeast = (minimum: number): Permission[] =>
   PERMISSIONS.filter((permission) => PERMISSION_CEILING[permission] >= minimum);

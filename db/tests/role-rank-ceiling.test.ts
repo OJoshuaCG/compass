@@ -131,6 +131,29 @@ describe('user_roles rank ceiling (ADR 0012)', () => {
     expect(await assignmentOutcome(tenant.operatorId, roleId)).toBe(ACCEPTED);
   });
 
+  // SENSIBLE (revisión humana): los tres permisos de códigos entrantes (migración 0023) deben existir en
+  // el catálogo de la base con su techo; ver restablecimientos (techo 1) jamás llega a un Operador.
+  it('knows the inbound permissions with their ceilings (migration 0023)', async () => {
+    const { rows } = await app.query<{
+      read: number | null;
+      configure: number | null;
+      reveal: number | null;
+    }>(
+      "select permission_rank_ceiling('inbound.read_codes') as read, permission_rank_ceiling('inbound.configure') as configure, permission_rank_ceiling('inbound.reveal_reset') as reveal",
+    );
+    expect(rows[0]?.read).toBe(3);
+    expect(rows[0]?.configure).toBe(2);
+    expect(rows[0]?.reveal).toBe(1);
+
+    const readCodes = await createRole('Read codes', ['inbound.read_codes']);
+    const configure = await createRole('Configure inbound', ['inbound.configure']);
+    const revealReset = await createRole('Reveal resets', ['inbound.reveal_reset']);
+    expect(await assignmentOutcome(tenant.operatorId, readCodes)).toBe(ACCEPTED);
+    expect(await assignmentOutcome(tenant.operatorId, configure)).toBe(REJECTED_BY_CEILING);
+    expect(await assignmentOutcome(tenant.operatorId, revealReset)).toBe(REJECTED_BY_CEILING);
+    expect(await assignmentOutcome(tenant.adminId, revealReset)).toBe(ACCEPTED);
+  });
+
   it('lets the application role call the ceiling function, which returns NULL for unknown names', async () => {
     const { rows } = await app.query<{ ceiling: number | null; unknown: number | null }>(
       "select permission_rank_ceiling('role.manage') as ceiling, permission_rank_ceiling('made.up') as unknown",

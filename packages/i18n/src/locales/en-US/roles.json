@@ -42,6 +42,7 @@
   "permission.group.platform": "Platform",
   "permission.group.vault": "Vault",
   "permission.group.audit": "Audit",
+  "permission.group.inbound": "Received codes",
   "permission.group.sso": "Single sign-on",
   "permission.group.user": "Users",
   "permission.group.group": "Groups",
@@ -77,5 +78,8 @@
   "permission.share.manage": "Manage shares",
   "permission.access_request.approve": "Approve access requests",
   "permission.rotation.manage": "Manage rotations",
-  "permission.audit.read_scope": "Read audit logs in scope"
+  "permission.audit.read_scope": "Read audit logs in scope",
+  "permission.inbound.read_codes": "View received access codes",
+  "permission.inbound.configure": "Configure received-code sources and views",
+  "permission.inbound.reveal_reset": "Reveal received reset codes and links"
 }

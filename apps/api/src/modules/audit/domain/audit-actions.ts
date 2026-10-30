@@ -69,6 +69,20 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   // `null` si no caduca; `rotationTasks` cuenta las tareas de rotación que dejó revocar tras una revelación.
   'share.granted': ['level', 'granteeType', 'granteeId', 'expiresAt'],
   'share.revoked': ['level', 'granteeType', 'granteeId', 'rotationTasks'],
+  // Códigos entrantes (ADR 0045). Solo ids opacos y conteos: nunca direcciones, asuntos, códigos ni enlaces.
+  // `sourceId` y `viewId` son los ids de la fuente y de la vista; `level` es el nivel de la compartición.
+  'inbound.source_created': ['channel'],
+  'inbound.source_updated': ['changedFields'],
+  'inbound.source_archived': ['revokedShares'],
+  'inbound.view_created': ['sourceId', 'templateCount'],
+  'inbound.view_updated': ['sourceId', 'addedCount', 'removedCount'],
+  'inbound.view_archived': ['sourceId', 'revokedShares'],
+  'inbound.view_shared': ['level', 'granteeType', 'granteeId', 'expiresAt'],
+  'inbound.view_share_revoked': ['level', 'granteeType', 'granteeId', 'rotationTasks'],
+  // Una vez por (persona, elemento extraído), en la primera entrega (ADR 0045 sección 5).
+  'inbound.code_read': ['sourceId', 'viewId'],
+  // Revelar un restablecimiento (evento crítico): motivo escrito, nunca el valor.
+  'inbound.reset_revealed': ['sourceId', 'viewId', 'reason'],
   'audit.chain_verified': ['checked'],
   'auth.login_failed': [],
   'auth.login_password_verified': [],

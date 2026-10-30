@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +30,10 @@ describe('migration 0021: credential.restore_version for existing system roles',
     const dir = await mkdtemp(join(tmpdir(), 'iam-migrations-0021-'));
     scratch.push(dir);
     await cp(migrationsDir, dir, { recursive: true });
-    await rm(join(dir, NEW_MIGRATION));
+    // El migrador rechaza aplicar una migración anterior a la última ya aplicada: para reproducir el
+    // estado "antes de 0021" hay que quitar 0021 y TODAS las posteriores, y dejarlas para la segunda pasada.
+    const laterMigrations = (await readdir(dir)).filter((file) => file >= NEW_MIGRATION);
+    await Promise.all(laterMigrations.map((file) => rm(join(dir, file))));
     await migrate({ connectionString: db.migratorUrl, directory: dir });
 
     // Estado "antes": organizaciones con roles creados por la versión anterior del código.
@@ -63,7 +66,7 @@ describe('migration 0021: credential.restore_version for existing system roles',
       await insertRole(otherOrgId, 'Retired system', true, ['credential.update'], true);
 
       const applied = await migrate({ connectionString: db.migratorUrl, directory: migrationsDir });
-      expect(applied.applied).toEqual([NEW_MIGRATION]);
+      expect(applied.applied).toEqual(laterMigrations.sort());
 
       const roles = (
         await admin.query<RoleRow & { organization_id: string }>(

@@ -35,6 +35,10 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'access_request.approve': 2,
   'rotation.manage': 2,
   'audit.read_scope': 2,
+  // Códigos entrantes (ADR 0045). Ver restablecimientos es solo de Raíz y Administrador (techo 1).
+  'inbound.read_codes': 3,
+  'inbound.configure': 2,
+  'inbound.reveal_reset': 1,
 };
 
 export const rankAllows = (permission: Permission, rank: Rank): boolean =>
@@ -68,6 +72,8 @@ export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> 
   'vault.emergency_access': { reauth: true, writtenReason: true, criticalAudit: true },
   'credential.reveal_password': { reauth: true, writtenReason: true, criticalAudit: false },
   'credential.export_totp': { reauth: true, writtenReason: true, criticalAudit: true },
+  // Un restablecimiento (código o enlace) abre una cuenta ajena: mismo molde que exportar el 2FA.
+  'inbound.reveal_reset': { reauth: true, writtenReason: true, criticalAudit: true },
 };
 
 export const policyFor = (permission: Permission): ActionPolicy =>

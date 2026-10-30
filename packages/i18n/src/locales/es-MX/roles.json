@@ -42,6 +42,7 @@
   "permission.group.platform": "Plataforma",
   "permission.group.vault": "Bóveda",
   "permission.group.audit": "Auditoría",
+  "permission.group.inbound": "Códigos recibidos",
   "permission.group.sso": "Inicio de sesión único",
   "permission.group.user": "Usuarios",
   "permission.group.group": "Grupos",
@@ -77,5 +78,8 @@
   "permission.share.manage": "Gestionar elementos compartidos",
   "permission.access_request.approve": "Aprobar solicitudes de acceso",
   "permission.rotation.manage": "Gestionar rotaciones",
-  "permission.audit.read_scope": "Leer la auditoría de su alcance"
+  "permission.audit.read_scope": "Leer la auditoría de su alcance",
+  "permission.inbound.read_codes": "Ver códigos de acceso recibidos",
+  "permission.inbound.configure": "Configurar fuentes y vistas de códigos recibidos",
+  "permission.inbound.reveal_reset": "Revelar restablecimientos recibidos"
 }
