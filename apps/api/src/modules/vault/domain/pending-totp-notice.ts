@@ -54,6 +54,8 @@ export interface PendingTotpNoticePayload {
 /** El contenido del evento no tiene la forma esperada: reintentar no lo arregla, se deja en cuarentena para revisión. */
 export class PendingTotpNoticePayloadError extends Error {
   readonly code = 'VAULT.PENDING_TOTP_NOTICE_PAYLOAD_INVALID';
+  /** Reintentar no lo arregla: el trabajador del outbox lo manda a cuarentena sin reintentos. */
+  readonly retryable = false;
 
   constructor() {
     // Sin el contenido en el mensaje: el payload nunca se registra.

@@ -40,6 +40,8 @@ export interface RankChangeNoticePayload {
 /** El contenido del evento no tiene la forma esperada: reintentar no lo arregla, queda en cuarentena. */
 export class RankChangeNoticePayloadError extends Error {
   readonly code = 'DIRECTORY.RANK_NOTICE_PAYLOAD_INVALID';
+  /** Reintentar no lo arregla: el trabajador del outbox lo manda a cuarentena sin reintentos. */
+  readonly retryable = false;
 
   constructor() {
     // Sin el contenido en el mensaje: el payload nunca se registra.

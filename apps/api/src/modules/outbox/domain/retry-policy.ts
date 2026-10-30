@@ -11,8 +11,12 @@ export const OUTBOX_BACKOFF_CAP_MS = 60 * 60 * 1000;
  * Plazo máximo de un manejador por evento. Sin él, un manejador colgado retendría la transacción
  * (y el bloqueo de fila) para siempre, congelaría al trabajador y haría que el apagado ordenado
  * nunca terminara. Vencido el plazo se trata como un fallo más del manejador.
+ *
+ * 45 s: el peor caso de un intento SMTP son 20 s (`SMTP_WORST_CASE_ATTEMPT_MS`) y el resto (lecturas,
+ * acuse de entrega) cabe holgado en los 25 s restantes. Un plazo menor que el del correo reintentaría un
+ * aviso que el servidor ya aceptó y lo duplicaría.
  */
-export const OUTBOX_HANDLER_TIMEOUT_MS = 30 * 1000;
+export const OUTBOX_HANDLER_TIMEOUT_MS = 45 * 1000;
 
 /**
  * Espera antes del siguiente intento, dado el número de fallos acumulados (>= 1):
@@ -25,4 +29,13 @@ export function computeBackoffMs(failedAttempts: number): number {
 
 export function hasExhaustedAttempts(failedAttempts: number): boolean {
   return failedAttempts >= OUTBOX_MAX_ATTEMPTS;
+}
+
+/**
+ * Marca de los errores que reintentar no arregla (payload con forma inválida, p. ej.). El manejador
+ * los declara con `retryable = false` en lugar de importar esta clase: los módulos de negocio no
+ * dependen del outbox. El trabajador los manda a cuarentena de inmediato, sin gastar los reintentos.
+ */
+export function isNonRetryableError(error: unknown): boolean {
+  return error instanceof Error && (error as { retryable?: unknown }).retryable === false;
 }

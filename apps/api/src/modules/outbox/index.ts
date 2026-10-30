@@ -20,6 +20,7 @@ export {
   OUTBOX_HANDLER_TIMEOUT_MS,
   OUTBOX_MAX_ATTEMPTS,
   computeBackoffMs,
+  isNonRetryableError,
 } from './domain/retry-policy.js';
 export { OUTBOX_STOP_TIMEOUT_MS, OutboxPoller } from './infrastructure/outbox-poller.js';
 export type { OutboxPassRunner } from './infrastructure/outbox-poller.js';

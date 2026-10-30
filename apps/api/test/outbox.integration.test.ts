@@ -238,6 +238,27 @@ describe('OutboxWorker against PostgreSQL', () => {
     expect(row.attempts).toBe(OUTBOX_MAX_ATTEMPTS);
   });
 
+  it('dead-letters at once an error marked as non-retryable, on the first attempt', async () => {
+    const eventId = await seedEvent(orgA);
+    let calls = 0;
+    const handlers = new OutboxHandlerRegistry();
+    handlers.register(TEST_TYPE, () => {
+      calls += 1;
+      return Promise.reject(Object.assign(new Error('invalid payload'), { retryable: false }));
+    });
+    const worker = buildWorker(handlers);
+
+    const first = await worker.runOnce();
+    const second = await worker.runOnce();
+
+    expect(first).toMatchObject({ deadLettered: 1, retryScheduled: 0 });
+    expect(second).toMatchObject({ published: 0, retryScheduled: 0, deadLettered: 0 });
+    expect(calls).toBe(1);
+    const row = await readRow(eventId);
+    expect(row.is_dead_lettered).toBe(true);
+    expect(row.attempts).toBe(1);
+  });
+
   it('leaves an unknown type pending, without counting an attempt, rescheduled at the backoff cap', async () => {
     // Más intentos que el máximo: si el tipo desconocido contara intentos, iría a cuarentena.
     const unknownId = await seedEvent(orgA, 'nobody.handles.this', OUTBOX_MAX_ATTEMPTS + 2);

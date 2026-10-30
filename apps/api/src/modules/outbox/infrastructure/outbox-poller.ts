@@ -3,9 +3,10 @@ import type { OutboxRunOptions } from '../application/outbox-worker.js';
 
 /**
  * Plazo máximo que `stop()` espera a la pasada en curso. Debe superar `OUTBOX_HANDLER_TIMEOUT_MS`
- * (30 s) para que un manejador lento pueda terminar o vencer antes de rendirse.
+ * (45 s) con margen para que un manejador lento pueda vencer y su fallo se anote (otra transacción)
+ * antes de rendirse: 60 s = 45 s de plazo + 15 s de anotación y cierre.
  */
-export const OUTBOX_STOP_TIMEOUT_MS = 35 * 1000;
+export const OUTBOX_STOP_TIMEOUT_MS = 60 * 1000;
 
 /** Lo único que el sondeo necesita del trabajador; permite sustituirlo en las pruebas. */
 export interface OutboxPassRunner {

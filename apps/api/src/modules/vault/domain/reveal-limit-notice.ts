@@ -44,6 +44,8 @@ export interface RevealLimitNoticePayload {
 /** El contenido del evento no tiene la forma esperada: reintentar no lo arregla, se deja en cuarentena para revisión. */
 export class RevealLimitNoticePayloadError extends Error {
   readonly code = 'VAULT.REVEAL_NOTICE_PAYLOAD_INVALID';
+  /** Reintentar no lo arregla: el trabajador del outbox lo manda a cuarentena sin reintentos. */
+  readonly retryable = false;
 
   constructor() {
     // Sin el contenido en el mensaje: el payload nunca se registra.

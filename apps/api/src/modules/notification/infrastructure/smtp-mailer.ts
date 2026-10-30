@@ -18,6 +18,20 @@ import type {
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
 
+/**
+ * Tiempos del transporte SMTP (ms). Su suma es el peor caso de UN intento de envío y debe quedar
+ * claramente por debajo del plazo del manejador del outbox (`OUTBOX_HANDLER_TIMEOUT_MS`, 45 s): si el
+ * plazo vence con el correo ya aceptado por el servidor, el trabajador revierte y reintenta, y la
+ * persona recibe el aviso duplicado (la ventana entre el envío y el acuse de entrega).
+ * Cuenta del peor caso: conexión 5 s + saludo 5 s + inactividad del socket 10 s = 20 s, menos de la mitad del plazo.
+ * La prueba `src/app/outbox-timeouts.test.ts` fija esta relación.
+ */
+export const SMTP_CONNECTION_TIMEOUT_MS = 5_000;
+export const SMTP_GREETING_TIMEOUT_MS = 5_000;
+export const SMTP_SOCKET_TIMEOUT_MS = 10_000;
+export const SMTP_WORST_CASE_ATTEMPT_MS =
+  SMTP_CONNECTION_TIMEOUT_MS + SMTP_GREETING_TIMEOUT_MS + SMTP_SOCKET_TIMEOUT_MS;
+
 export type SmtpSecurity = 'starttls' | 'tls' | 'none';
 
 export interface SmtpOptions {
@@ -79,9 +93,9 @@ export class SmtpMailer implements Mailer {
         ...(options.user === undefined || options.password === undefined
           ? {}
           : { auth: { user: options.user, pass: options.password } }),
-        connectionTimeout: 10_000,
-        greetingTimeout: 10_000,
-        socketTimeout: 20_000,
+        connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+        greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
+        socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
       });
   }
 

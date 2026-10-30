@@ -14,6 +14,6 @@ export { renderInvitationEmail } from './application/render-invitation-email.js'
 export { renderPendingTotpEmail } from './application/render-pending-totp-email.js';
 export { renderRankChangeEmail } from './application/render-rank-change-email.js';
 export { renderRevealLimitEmail } from './application/render-reveal-limit-email.js';
-export { SmtpMailer } from './infrastructure/smtp-mailer.js';
+export { SMTP_WORST_CASE_ATTEMPT_MS, SmtpMailer } from './infrastructure/smtp-mailer.js';
 export type { MailTransport, SmtpOptions, SmtpSecurity } from './infrastructure/smtp-mailer.js';
 export { LogMailer } from './infrastructure/log-mailer.js';

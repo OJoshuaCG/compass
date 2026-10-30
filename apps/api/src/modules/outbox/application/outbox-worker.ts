@@ -7,6 +7,7 @@ import {
   OUTBOX_HANDLER_TIMEOUT_MS,
   computeBackoffMs,
   hasExhaustedAttempts,
+  isNonRetryableError,
 } from '../domain/retry-policy.js';
 import type { OutboxHandlerRegistry } from './handler-registry.js';
 import type { OutboxLogger, OutboxOrganizationSource } from './ports/outbox-ports.js';
@@ -199,8 +200,9 @@ export class OutboxWorker {
           ? OUTBOX_FAILURE_CODES.handlerTimeout
           : OUTBOX_FAILURE_CODES.handlerFailed;
       // El intento se anota en una transacción nueva: la anterior se revirtió junto con el manejador.
+      const retryable = !isNonRetryableError(error.handlerError);
       return this.deps.scope.runAs(this.scopeFor(organizationId), () =>
-        this.recordFailure(error.event, failureCode, now, error.handlerError),
+        this.recordFailure(error.event, failureCode, now, error.handlerError, retryable),
       );
     }
   }
@@ -267,9 +269,12 @@ export class OutboxWorker {
     code: OutboxFailureCode,
     now: Date,
     cause?: unknown,
+    retryable = true,
   ): Promise<OutboxOutcome> {
     const failedAttempts = event.attempts + 1;
-    if (hasExhaustedAttempts(failedAttempts)) {
+    // Un error no reintentable (p. ej. payload inválido) fallaría igual las 8 veces: se pone en
+    // cuarentena ya, para no ocupar la cola con esperas exponenciales inútiles.
+    if (!retryable || hasExhaustedAttempts(failedAttempts)) {
       await this.deps.repository.markDeadLettered(event.id, failedAttempts);
       this.logOutcome(event, 'dead_lettered', code, cause);
       return 'dead_lettered';

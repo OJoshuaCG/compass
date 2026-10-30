@@ -11,6 +11,7 @@ import {
   OUTBOX_HANDLER_TIMEOUT_MS,
   OUTBOX_MAX_ATTEMPTS,
   computeBackoffMs,
+  isNonRetryableError,
 } from '../domain/retry-policy.js';
 import { OutboxHandlerRegistry } from './handler-registry.js';
 import { OutboxWorker } from './outbox-worker.js';
@@ -254,6 +255,36 @@ describe('OutboxWorker', () => {
     expect(entry.publishedAt).toBeNull();
     expect(entry.nextAttemptAt).toBeNull();
     expect(entry.event.attempts).toBe(OUTBOX_MAX_ATTEMPTS);
+  });
+
+  it('dead-letters at once an error marked as non-retryable, without spending the retries', async () => {
+    const repository = new InMemoryOutboxRepository();
+    const entry = repository.add({ id: 'evt-1', type: 'test.invalid-payload' });
+    const retryableEntry = repository.add({ id: 'evt-2', type: 'test.fail' });
+    const handlers = new OutboxHandlerRegistry();
+    handlers.register('test.invalid-payload', () =>
+      Promise.reject(Object.assign(new Error('invalid payload'), { retryable: false })),
+    );
+    handlers.register('test.fail', () => Promise.reject(new Error('boom')));
+
+    const summary = await buildWorker({ repository, handlers }).runOnce();
+
+    expect(summary).toMatchObject({ deadLettered: 1, retryScheduled: 1 });
+    expect(entry.publishedAt).toBeNull();
+    expect(entry.nextAttemptAt).toBeNull();
+    expect(entry.event.attempts).toBe(1);
+    // Un fallo común sigue el camino normal: reintento con espera.
+    expect(retryableEntry.nextAttemptAt?.getTime()).toBe(NOW.getTime() + OUTBOX_BACKOFF_BASE_MS);
+  });
+
+  describe('isNonRetryableError', () => {
+    it('only recognizes errors that declare retryable = false', () => {
+      expect(isNonRetryableError(Object.assign(new Error('x'), { retryable: false }))).toBe(true);
+      expect(isNonRetryableError(new Error('x'))).toBe(false);
+      expect(isNonRetryableError(Object.assign(new Error('x'), { retryable: true }))).toBe(false);
+      expect(isNonRetryableError({ retryable: false })).toBe(false);
+      expect(isNonRetryableError('x')).toBe(false);
+    });
   });
 
   describe('logging', () => {
