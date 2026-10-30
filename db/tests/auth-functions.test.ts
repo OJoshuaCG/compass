@@ -150,6 +150,7 @@ describe('auth.* pre-authentication functions (no app.org_id set)', () => {
       from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'auth'
       join pg_roles r on r.oid = p.proowner
+      where p.prorettype <> 'trigger'::regtype
       order by p.proname`);
     expect(rows.map((r) => r.proname)).toEqual([
       'find_handoff_by_token_hash',
@@ -157,6 +158,7 @@ describe('auth.* pre-authentication functions (no app.org_id set)', () => {
       'find_login_by_email',
       'find_session_by_token_hash',
       'list_organization_ids',
+      'resolve_inbound_address',
     ]);
     for (const r of rows) {
       expect(r.prosecdef, r.proname).toBe(true);

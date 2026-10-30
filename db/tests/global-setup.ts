@@ -3,7 +3,11 @@ import type { TestProject } from 'vitest/node';
 import { bootstrapRoles } from '../src/index.js';
 import { Client } from 'pg';
 
-const PASSWORDS = { iam_migrator: 'migrator-test-pw', iam_app: 'app-test-pw' } as const;
+const PASSWORDS = {
+  iam_migrator: 'migrator-test-pw',
+  iam_app: 'app-test-pw',
+  iam_inbound_worker: 'inbound-worker-test-pw',
+} as const;
 
 declare module 'vitest' {
   export interface ProvidedContext {
