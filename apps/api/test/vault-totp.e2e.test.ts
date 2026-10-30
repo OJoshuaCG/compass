@@ -9,7 +9,7 @@ import type {
   Role,
   TotpCode,
 } from '@iam/contracts';
-import { TOTP_CONFIRM_MAX_FAILURES } from '@iam/contracts';
+import { TOTP_CONFIRM_LOCK_MINUTES_BY_LEVEL, TOTP_CONFIRM_MAX_FAILURES } from '@iam/contracts';
 import { generateSync } from 'otplib';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
@@ -358,7 +358,7 @@ describe('confirmation attempt limit', () => {
     expect(denials.length).toBeGreaterThanOrEqual(1);
     expect(JSON.stringify(denials)).not.toContain(SECRET_CANARY);
 
-    // Registrar de nuevo abre un registro nuevo, que sí se puede confirmar.
+    // Registrar de nuevo abre un registro nuevo (sin bloqueo ni escalamiento), que sí se puede confirmar.
     expect((await register(owner, credential.id, otpauth(SECRET_CANARY))).status).toBe(201);
     const confirmed = await confirm(credential.id, expectedCode(SECRET_CANARY));
     expect(confirmed.status).toBe(200);
@@ -610,6 +610,45 @@ describe('re-registering and retiring', () => {
       {},
     );
     expect(twice.status).toBe(409);
+  });
+});
+
+// SENSIBLE (revisión humana)
+// Va al final del archivo a propósito: avanza el reloj compartido decenas de minutos y los límites por
+// minuto de otras pruebas cuentan eventos de auditoría con la hora real de la base.
+describe('confirmation timed lock', () => {
+  const MILLISECONDS_PER_MINUTE = 60 * 1000;
+  const confirm = (credentialId: string, code: string) =>
+    owner.client.post<ProblemDetails>(`/credentials/${credentialId}/totp/confirm`, {
+      code,
+    });
+
+  it('releases the lock by time without registering again, and escalates the second lock', async () => {
+    const credential = await newCredential('Confirmation timed lock');
+    await register(owner, credential.id, otpauth(SECRET_CANARY));
+    const firstLockMs = (TOTP_CONFIRM_LOCK_MINUTES_BY_LEVEL[0] ?? 0) * MILLISECONDS_PER_MINUTE;
+    const secondLockMs = (TOTP_CONFIRM_LOCK_MINUTES_BY_LEVEL[1] ?? 0) * MILLISECONDS_PER_MINUTE;
+    const wrongCode = expectedCode(SECOND_SECRET_CANARY);
+
+    for (let attempt = 0; attempt < TOTP_CONFIRM_MAX_FAILURES; attempt += 1) {
+      expect((await confirm(credential.id, wrongCode)).status).toBe(422);
+    }
+    env.clock.advance(firstLockMs - 1);
+    const stillLocked = await confirm(credential.id, expectedCode(SECRET_CANARY));
+    expect(stillLocked.status).toBe(429);
+    expect(stillLocked.body.code).toBe('CREDENTIAL.TOTP_CONFIRM_LOCKED');
+
+    // Vencido el primer bloqueo se vuelven a contar los fallos y el segundo bloqueo dura más.
+    env.clock.advance(1);
+    for (let attempt = 0; attempt < TOTP_CONFIRM_MAX_FAILURES; attempt += 1) {
+      expect((await confirm(credential.id, expectedCode(SECOND_SECRET_CANARY))).status).toBe(422);
+    }
+    env.clock.advance(firstLockMs);
+    expect((await confirm(credential.id, expectedCode(SECRET_CANARY))).status).toBe(429);
+
+    env.clock.advance(secondLockMs - firstLockMs);
+    const confirmed = await confirm(credential.id, expectedCode(SECRET_CANARY));
+    expect(confirmed.status).toBe(200);
   });
 });
 

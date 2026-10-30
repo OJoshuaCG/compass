@@ -30,7 +30,7 @@
   "CREDENTIAL.TOTP_STATE_INVALID": "The second factor is not in a state that allows this action.",
   "CREDENTIAL.TOTP_CODE_INVALID": "The code does not match the platform's. Check the device clock and try again.",
   "CREDENTIAL.TOTP_CODE_LIMIT": "You asked for too many codes in a short time. Wait a minute.",
-  "CREDENTIAL.TOTP_CONFIRM_LOCKED": "The attempts to confirm this registration have run out. Register the second factor again to start a new one.",
+  "CREDENTIAL.TOTP_CONFIRM_LOCKED": "Confirming this registration is locked for a while after too many incorrect codes. Wait and try again later.",
   "IDEMPOTENCY.KEY_REQUIRED": "This operation requires an idempotency key.",
   "IDEMPOTENCY.KEY_REUSED": "That key was already used with a different request.",
   "IDEMPOTENCY.IN_PROGRESS": "The original request is still in progress. Try again in a few seconds.",

@@ -13,9 +13,10 @@
  * - Emitir códigos tiene tope por persona y credencial. El conteo sale de la auditoría y se protege con un
  *   bloqueo que se toma ANTES que el de auditoría (ADR 0023).
  * - Confirmar tiene tope de fallos por registro pendiente (credencial y versión del secreto), contados en
- *   memoria como los intentos de ingreso: agotado, ese registro ya no se confirma, ni con el código
- *   correcto, y hay que registrar de nuevo. Los fallos y la negación se auditan, y la respuesta no distingue
- *   códigos casi correctos.
+ *   memoria como los intentos de ingreso: agotado, ese registro se bloquea POR TIEMPO (5, 15 y luego 60
+ *   minutos, escalonado) y durante el bloqueo ni el código correcto confirma. Un acierto limpia cuenta y
+ *   escalamiento; registrar de nuevo abre un registro nuevo. Los fallos y la negación se auditan, y la
+ *   respuesta no distingue códigos casi correctos.
  * - Todo cambio escribe su auditoría en la misma transacción, como último paso. Las negaciones también.
  * - Un secreto nuevo nunca pisa al anterior: la versión previa queda retenida (30 días) como no vigente.
  */
@@ -23,7 +24,6 @@ import {
   REVEAL_REASON_MAX_LENGTH,
   REVEAL_REASON_MIN_LENGTH,
   TOTP_CODES_PER_MINUTE,
-  TOTP_CONFIRM_MAX_FAILURES,
   TOTP_NEXT_CODE_THRESHOLD_SECONDS,
   isValidRevealReason,
 } from '@iam/contracts';
@@ -44,6 +44,7 @@ import type { UnitOfWork } from '../../organization/index.js';
 import { parseOtpauthUri } from '../domain/otpauth-uri.js';
 import type { TotpParameters } from '../domain/otpauth-uri.js';
 import { levelSatisfies } from '../domain/share-level.js';
+import { afterFailure, isLocked } from '../domain/totp-confirm-lock.js';
 import { ROTATION_TASK_DUE_DAYS } from './manage-shares.js';
 import type { AccountRepository } from './ports/account-repository.js';
 import type { CredentialRecord, CredentialRepository } from './ports/credential-repository.js';
@@ -234,8 +235,9 @@ export class ManageTotp {
       // credencial ya está bloqueada, así que dos confirmaciones concurrentes no se cuelan a la vez.
       // La llave incluye la versión del secreto: re-registrar abre un registro nuevo con la cuenta en cero.
       const attemptKey = `${credential.id}:${String(totp.secretVersion)}`;
-      const failedAttempts = await confirmAttempts.failures(attemptKey);
-      if (failedAttempts >= TOTP_CONFIRM_MAX_FAILURES) {
+      const now = clock.now();
+      const lockState = await confirmAttempts.state(attemptKey);
+      if (isLocked(lockState, now)) {
         await authorizer.auditDenial({
           code: 'CREDENTIAL.TOTP_CONFIRM_LOCKED',
           permission,
@@ -244,15 +246,16 @@ export class ManageTotp {
         return err(
           new DomainError(
             'CREDENTIAL.TOTP_CONFIRM_LOCKED',
-            'The attempts to confirm this registration have run out',
+            'Confirming this registration is temporarily locked',
           ),
         );
       }
 
-      const matches = await this.codeMatches(credential, totp, code, clock.now());
+      const matches = await this.codeMatches(credential, totp, code, now);
       if (!matches.ok) return matches;
       if (!matches.value) {
-        await confirmAttempts.recordFailure(attemptKey);
+        // Los fallos solo se cuentan fuera del bloqueo (el bloqueo responde antes de comparar el código).
+        await confirmAttempts.save(attemptKey, afterFailure(lockState, now));
         await audit.record({
           action: 'credential.totp_confirmed',
           actorId,

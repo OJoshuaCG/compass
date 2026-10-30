@@ -14,11 +14,18 @@ export type TotpStatus = z.infer<typeof totpStatusSchema>;
 export const TOTP_CODES_PER_MINUTE = 10;
 
 /**
- * Fallos de confirmación que se toleran por persona y registro pendiente antes de bloquearlo. La
- * especificación no fija el número: se alinea con el umbral de bloqueo del segundo factor de identidad
- * (10 fallos). Propuesta pendiente de confirmar con el negocio.
+ * Fallos consecutivos de confirmación que se toleran por registro pendiente antes de bloquearlo por tiempo.
+ * La especificación no fija el número: se alinea con el umbral de bloqueo del segundo factor de identidad
+ * (10 fallos).
  */
 export const TOTP_CONFIRM_MAX_FAILURES = 10;
+
+/**
+ * Duración (en minutos) de cada bloqueo de confirmación, escalonada por registro: la 1ª vez 5 minutos, la
+ * 2ª 15 y de la 3ª en adelante 60. El bloqueo es temporal para que nadie pueda dejar fuera a otra persona de
+ * forma permanente, y crece para que adivinar el código siga saliendo caro. Decisión del dueño (T5b).
+ */
+export const TOTP_CONFIRM_LOCK_MINUTES_BY_LEVEL: readonly number[] = [5, 15, 60];
 
 /** Cuando faltan menos segundos que esto, la respuesta incluye también el código siguiente. */
 export const TOTP_NEXT_CODE_THRESHOLD_SECONDS = 5;

@@ -1,4 +1,4 @@
-import { TOTP_CONFIRM_MAX_FAILURES } from '@iam/contracts';
+import { TOTP_CONFIRM_LOCK_MINUTES_BY_LEVEL, TOTP_CONFIRM_MAX_FAILURES } from '@iam/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { asOrganizationId, asUserId, ok } from '../../../shared/kernel/index.js';
@@ -18,6 +18,12 @@ const SECRET_BASE32 = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const OTPAUTH_URI = `otpauth://totp/Brand:ada@brand.example?secret=${SECRET_BASE32}&issuer=Brand`;
 const NOW = new Date('2026-03-04T16:00:00.000Z');
 const WRONG_CODE = '000000';
+const MILLISECONDS_PER_MINUTE = 60 * 1000;
+// Duraciones del encargo (T5b): 1ª vez 5 min, 2ª 15 min, 3ª y siguientes 60 min. Se fijan aquí con números
+// literales a propósito: si alguien cambia la constante de contratos, esta prueba debe fallar y pedir revisión.
+const FIRST_LOCK_MS = 5 * MILLISECONDS_PER_MINUTE;
+const SECOND_LOCK_MS = 15 * MILLISECONDS_PER_MINUTE;
+const THIRD_AND_LATER_LOCK_MS = 60 * MILLISECONDS_PER_MINUTE;
 
 const generator = new OtplibTotpGenerator();
 const PARAMETERS = { algorithm: 'SHA1', digits: 6, periodSeconds: 30 } as const;
@@ -42,6 +48,7 @@ function pendingTotp(secretVersion: number): TotpRecord {
 }
 
 function buildUseCase(initialSecretVersion = 1) {
+  let currentTime = NOW;
   let current = pendingTotp(initialSecretVersion);
   const markVerified = vi.fn(() => {
     current = { ...current, status: 'verified', verifiedAt: NOW };
@@ -92,7 +99,7 @@ function buildUseCase(initialSecretVersion = 1) {
     audit: { record: auditRecord },
     auditCounter: { count: () => Promise.resolve(0) },
     ids: { next: () => 'id' },
-    clock: { now: () => NOW },
+    clock: { now: () => currentTime },
     confirmAttempts,
   } as unknown as ManageTotpDeps;
 
@@ -104,6 +111,11 @@ function buildUseCase(initialSecretVersion = 1) {
     startNewRegistration: (secretVersion: number) => {
       current = pendingTotp(secretVersion);
     },
+    advanceClock: (milliseconds: number) => {
+      currentTime = new Date(currentTime.getTime() + milliseconds);
+    },
+    // El código correcto depende del reloj: tras avanzarlo hay que recalcularlo.
+    correctCodeNow: () => generator.codeAt(SECRET_BASE32, PARAMETERS, currentTime),
   };
 }
 
@@ -208,5 +220,131 @@ describe('ManageTotp.confirm attempt limit', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('CREDENTIAL.TOTP_CONFIRM_LOCKED');
+  });
+});
+
+// SENSIBLE (revisión humana)
+describe('ManageTotp.confirm escalating time lock', () => {
+  const expectLocked = async (useCase: ManageTotp, code: string): Promise<void> => {
+    const result = await useCase.confirm(CREDENTIAL_ID, code);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('CREDENTIAL.TOTP_CONFIRM_LOCKED');
+  };
+
+  it('uses the owner-decided durations: 5, 15 and then 60 minutes', () => {
+    expect(TOTP_CONFIRM_LOCK_MINUTES_BY_LEVEL).toEqual([5, 15, 60]);
+  });
+
+  it('escalates 5 -> 15 -> 60 -> 60 minutes, locking one millisecond short and releasing on time', async () => {
+    const { useCase, advanceClock } = buildUseCase();
+    const durations = [
+      FIRST_LOCK_MS,
+      SECOND_LOCK_MS,
+      THIRD_AND_LATER_LOCK_MS,
+      THIRD_AND_LATER_LOCK_MS,
+    ];
+
+    for (const duration of durations) {
+      // Tras el desbloqueo anterior, el primer fallo del ciclo se acepta (y cuenta) en el instante exacto.
+      const errors = await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+      expect(errors.every((error) => error.code === 'CREDENTIAL.TOTP_CODE_INVALID')).toBe(true);
+
+      advanceClock(duration - 1);
+      await expectLocked(useCase, WRONG_CODE);
+      advanceClock(1);
+    }
+
+    // Tras el último desbloqueo todavía se aceptan intentos.
+    const [unlocked] = await failTimes(useCase, 1);
+    expect(unlocked?.code).toBe('CREDENTIAL.TOTP_CODE_INVALID');
+  });
+
+  it('counts the maximum failures again after a lock expires', async () => {
+    const { useCase, advanceClock, correctCodeNow, markVerified } = buildUseCase();
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    advanceClock(FIRST_LOCK_MS);
+
+    // Nueve fallos tras expirar no bloquean todavía: la cuenta volvió a cero.
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES - 1);
+    const result = await useCase.confirm(CREDENTIAL_ID, correctCodeNow());
+
+    expect(result.ok).toBe(true);
+    expect(markVerified).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not confirm with the correct code while locked, and the lock does not shorten', async () => {
+    const { useCase, advanceClock, correctCodeNow, markVerified, auditDenial } = buildUseCase();
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+
+    await expectLocked(useCase, correctCodeNow());
+    advanceClock(FIRST_LOCK_MS - 1);
+    await expectLocked(useCase, correctCodeNow());
+
+    expect(markVerified).not.toHaveBeenCalled();
+    expect(auditDenial).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the escalation level when only wrong codes are tried while locked', async () => {
+    const { useCase, advanceClock } = buildUseCase();
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    // Insistir durante el bloqueo no suma fallos ni alarga ni escala el bloqueo.
+    await expectLocked(useCase, WRONG_CODE);
+    await expectLocked(useCase, WRONG_CODE);
+    advanceClock(FIRST_LOCK_MS);
+
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+
+    // El segundo bloqueo es de 15 min: a los 5 min sigue bloqueado.
+    advanceClock(FIRST_LOCK_MS);
+    await expectLocked(useCase, WRONG_CODE);
+  });
+
+  it('clears the count and the escalation with a correct confirmation after the lock expires', async () => {
+    const { useCase, advanceClock, correctCodeNow, startNewRegistration } = buildUseCase();
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    advanceClock(FIRST_LOCK_MS);
+    expect((await useCase.confirm(CREDENTIAL_ID, correctCodeNow())).ok).toBe(true);
+
+    // Un registro nuevo (misma versión simulada: pendiente otra vez) debe empezar sin escalamiento: si el
+    // acierto no hubiera limpiado el nivel, este bloqueo duraría 15 min y no 5.
+    startNewRegistration(1);
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    advanceClock(FIRST_LOCK_MS);
+    const [unlocked] = await failTimes(useCase, 1);
+
+    expect(unlocked?.code).toBe('CREDENTIAL.TOTP_CODE_INVALID');
+  });
+
+  it('starts everything from zero, level included, when the second factor is registered again', async () => {
+    const { useCase, advanceClock, correctCodeNow, startNewRegistration } = buildUseCase(1);
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    advanceClock(FIRST_LOCK_MS);
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    // Bloqueado por segunda vez (15 min), sin esperar.
+    await expectLocked(useCase, correctCodeNow());
+
+    startNewRegistration(2);
+    expect((await useCase.confirm(CREDENTIAL_ID, correctCodeNow())).ok).toBe(true);
+
+    // Y el registro 3 vuelve a empezar en el primer escalón (5 min).
+    startNewRegistration(3);
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    advanceClock(FIRST_LOCK_MS);
+    const [unlocked] = await failTimes(useCase, 1);
+    expect(unlocked?.code).toBe('CREDENTIAL.TOTP_CODE_INVALID');
+  });
+
+  it('answers the lock with the same error code whatever the level', async () => {
+    const { useCase, advanceClock } = buildUseCase();
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    const first = await useCase.confirm(CREDENTIAL_ID, WRONG_CODE);
+    advanceClock(FIRST_LOCK_MS);
+    await failTimes(useCase, TOTP_CONFIRM_MAX_FAILURES);
+    const second = await useCase.confirm(CREDENTIAL_ID, WRONG_CODE);
+
+    if (first.ok || second.ok) throw new Error('A locked registration must not confirm');
+    expect(second.error.code).toBe(first.error.code);
+    expect(second.error.message).toBe(first.error.message);
+    expect(second.error.meta).toEqual(first.error.meta);
   });
 });
