@@ -27,6 +27,7 @@ Diseño de la base de datos de la plataforma (PostgreSQL 18). Este documento des
 | `0017_audit_actor_action_index.sql` | Índice `(organization_id, actor_id, action, created_at desc)` en `audit_events`, para contar los eventos de una persona en una ventana de tiempo (límite de revelaciones, ADR 0031) |
 | `0019_outbox_deliveries.sql`        | Tabla `outbox_deliveries` (acuses de entrega de los manejadores del outbox, con aislamiento por fila y sin clave foránea hacia `outbox_events`; ver ADR 0035)                       |
 | `0020_shares_granted_by_index.sql`   | Índice parcial `shares_org_granted_by_live` sobre `shares (organization_id, granted_by)` donde `revoked_at is null`: lista de comparticiones vivas que otorgó una persona al cambiar su rango |
+| `0021_credential_restore_version_permission.sql` | Permiso `credential.restore_version` (techo 3) en `permission_rank_ceiling()` (si no, el trigger de techo de rango de 0015 lo rechazaría como desconocido) y concesión a los roles de sistema vivos que ya tienen `credential.update`: levanta el aislamiento forzado de `roles` y lo restablece en la misma transacción (patrón de 0005), sube `version` en 1 por rol, no toca roles personalizados ni archivados y no escribe auditoría (la cadena de auditoría solo la agrega la aplicación) |
 
 ### Cómo se ejecuta
 

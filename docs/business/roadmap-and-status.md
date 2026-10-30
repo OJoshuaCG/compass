@@ -95,7 +95,7 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 | Protección contra fuerza bruta | Retraso progresivo y bloqueo temporal de 15 minutos tras 10 intentos fallidos, nunca permanente, contado por correo y por usuario. Además, un límite por dirección de red en las pantallas de acceso e invitación |
 | Sesiones | Identificador de sesión protegido, caducidad por inactividad de 30 minutos y absoluta de 12 horas, cierre de sesión que la revoca en el servidor y protección contra solicitudes desde otros sitios. Una persona suspendida o dada de baja deja de poder usar su sesión |
 | Reautenticación | Un factor verificado en los últimos 5 minutos habilita las acciones sensibles. El motor de autorización exige reautenticación, motivo escrito o auditoría crítica según la acción. Solo se acepta el código de la aplicación autenticadora, no el de recuperación; el flujo completo se prueba en un navegador real |
-| Autorización | Los tres ejes, la matriz de jerarquía y el catálogo de 27 permisos con sus techos de rango. Toda negación se audita con su código de motivo, aunque la acción se revierta |
+| Autorización | Los tres ejes, la matriz de jerarquía y el catálogo de 28 permisos con sus techos de rango. Toda negación se audita con su código de motivo, aunque la acción se revierta |
 | Directorio de personas | Cualquier persona activa busca nombre y correo de las demás personas activas, con orden, límite y paginación |
 | Interfaz | Pantallas de ingreso (con la opción de passkey), verificación en dos pasos, registro del segundo factor (código QR y clave), cambio de contraseña, aceptación de invitación, directorio con la opción de invitar, gestión de equipo, invitaciones pendientes, roles, mis sesiones, seguridad (passkeys) y diálogo de reautenticación |
 
@@ -122,7 +122,7 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | --- | --- | --- |
 | Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora; la passkey es una alternativa opcional, no obligatoria (ADR 0028) |
 | Entrada con passkey | Cumplido | Funciona de punta a punta, probada en un navegador real con un autenticador virtual. Es opcional para todas las personas |
-| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 27 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
+| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 28 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub; despriorizada por el dueño |
 

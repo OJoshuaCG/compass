@@ -96,6 +96,7 @@ Cada acción exige a la vez un permiso y un nivel de compartición sobre la cuen
 | Obtener un código de segundo factor | Usar códigos de segundo factor | USE | Ver [`two-factor.md`](two-factor.md) |
 | Compartir o revocar | Compartir y revocar | MANAGE | Si se revoca tras una revelación, se crea una tarea de rotación |
 | Ver el historial de versiones | (Ninguno adicional) | EDIT | Muestra versiones sin revelar su contenido; restaurar es una acción aparte |
+| Restaurar una versión anterior de la contraseña | Restaurar versiones de credenciales | EDIT | Crea una versión nueva y vigente con el contenido de la elegida; el historial no se borra ni se reescribe. Cambiar la contraseña no basta: el permiso es propio. Queda auditado, y también cada negación |
 
 **Ejemplo.** Luis crea la cuenta de Instagram de una marca. Automáticamente recibe MANAGE. Agrega una credencial de tipo "contraseña y segundo factor" con el usuario y la contraseña, y registra el segundo factor (ver [`two-factor.md`](two-factor.md)). Después comparte la cuenta con el grupo "Redes Marca MX" a nivel USE.
 

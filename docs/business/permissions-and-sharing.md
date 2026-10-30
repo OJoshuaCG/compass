@@ -8,7 +8,7 @@ Este documento explica cómo el sistema decide si una persona puede hacer algo: 
 
 | Tema | Estado hoy |
 | --- | --- |
-| Catálogo de 27 permisos con sus techos de rango | **Implementado y probado.** Es una lista fija; no se crean permisos desde la pantalla |
+| Catálogo de 28 permisos con sus techos de rango | **Implementado y probado.** Es una lista fija; no se crean permisos desde la pantalla |
 | Plantillas de rol del sistema (Raíz, Administrador, Líder, Operador) | **Funcionan.** Se crean con cada organización. Los conjuntos de Líder y Operador son una decisión asumida (ver [preguntas abiertas](#11-preguntas-abiertas)) |
 | Permisos efectivos (unión de roles recortada por el techo) | **Funciona** |
 | No escalamiento al invitar | **Funciona.** Quien invita no puede otorgar roles con permisos que no tiene ni que superen el techo del rango invitado |
@@ -105,6 +105,7 @@ Cómo leer el techo:
 | Archivar cuentas | Archivar una cuenta | 2 | MANAGE | Es una acción más delicada: revoca todas las comparticiones |
 | Crear credenciales | Agregar credenciales a una cuenta | 3 | EDIT | Registrar accesos |
 | Cambiar contraseñas y secretos | Registrar nuevas contraseñas y secretos | 3 | EDIT | Mantener los secretos vigentes |
+| Restaurar versiones de credenciales | Volver a poner como vigente una contraseña anterior (crea una versión nueva; no borra el historial) | 3 | EDIT | Es una acción distinta de cambiar la contraseña: quien puede registrar una contraseña nueva no necesariamente debe poder reinstalar una antigua, que pudo haberse retirado por estar comprometida |
 | Revelar contraseñas | Mostrar la contraseña | 3 | VIEW | Es la acción más sensible sobre un secreto |
 | Usar códigos de segundo factor | Obtener el código actual | 3 | USE | Permite trabajar sin ver el secreto |
 | Exportar el secreto de segundo factor | Mostrar el secreto con el que se generan los códigos | 2 | MANAGE | Es poder llevarse el segundo factor; por eso solo lo tienen hasta los Líderes |
@@ -137,8 +138,8 @@ Un rol es un conjunto de permisos con nombre, para asignarlos juntos.
 
 | Plantilla | Qué incluye hoy |
 | --- | --- |
-| Líder | Los 19 permisos con techo 2 o 3: invitar, editar, transferir y desactivar personas, asignar roles, crear grupos y gestionar sus miembros, todas las acciones de cuentas y credenciales (incluidas archivar y exportar el secreto de segundo factor), compartir, aprobar accesos temporales, gestionar tareas de rotación y leer la auditoría de su ámbito |
-| Operador | Los 7 permisos con techo 3: crear y editar cuentas, crear y editar credenciales, revelar contraseñas, usar códigos de segundo factor y compartir y revocar |
+| Líder | Los 20 permisos con techo 2 o 3: invitar, editar, transferir y desactivar personas, asignar roles, crear grupos y gestionar sus miembros, todas las acciones de cuentas y credenciales (incluidas archivar y exportar el secreto de segundo factor), compartir, aprobar accesos temporales, gestionar tareas de rotación y leer la auditoría de su ámbito |
+| Operador | Los 7 permisos con techo 3 que quedan al quitar el de revelar contraseñas (decisión B5): crear y editar cuentas, crear y editar credenciales, restaurar versiones de credenciales, usar códigos de segundo factor y compartir y revocar |
 
 Estos permisos solo se vuelven efectivos sobre una cuenta concreta cuando exista la compartición (fase 1b), porque una acción sobre un secreto exige el permiso y el nivel de compartición a la vez.
 
