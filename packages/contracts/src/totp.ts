@@ -13,6 +13,13 @@ export type TotpStatus = z.infer<typeof totpStatusSchema>;
 /** Tope de códigos emitidos por persona y credencial en una ventana de un minuto (propuesta pendiente de confirmar). */
 export const TOTP_CODES_PER_MINUTE = 10;
 
+/**
+ * Fallos de confirmación que se toleran por persona y registro pendiente antes de bloquearlo. La
+ * especificación no fija el número: se alinea con el umbral de bloqueo del segundo factor de identidad
+ * (10 fallos). Propuesta pendiente de confirmar con el negocio.
+ */
+export const TOTP_CONFIRM_MAX_FAILURES = 10;
+
 /** Cuando faltan menos segundos que esto, la respuesta incluye también el código siguiente. */
 export const TOTP_NEXT_CODE_THRESHOLD_SECONDS = 5;
 

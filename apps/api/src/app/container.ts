@@ -81,6 +81,7 @@ import {
   ManageCredentials,
   EnqueuePendingTotpNotices,
   ImportCredentials,
+  InMemoryTotpConfirmAttemptStore,
   ManageTotp,
   NotifyPendingTotpUnconfirmed,
   NotifyRevealLimitExceeded,
@@ -427,6 +428,7 @@ export function buildContainer(options: ContainerOptions) {
       auditCounter: auditEvents,
       ids,
       clock,
+      confirmAttempts: new InMemoryTotpConfirmAttemptStore(),
     }),
     idempotency: new IdempotencyService({
       scope,

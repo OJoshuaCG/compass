@@ -59,6 +59,8 @@ export type {
   IssuedTotpCode,
   ManageTotpDeps,
 } from './application/manage-totp.js';
+export type { TotpConfirmAttemptStore } from './application/ports/totp-confirm-attempt-store.js';
+export { InMemoryTotpConfirmAttemptStore } from './infrastructure/in-memory-totp-confirm-attempt-store.js';
 export type { TotpGenerator } from './application/ports/totp-generator.js';
 export type { TotpRecord, TotpRepository } from './application/ports/totp-repository.js';
 export { OtplibTotpGenerator } from './infrastructure/otplib-totp-generator.js';

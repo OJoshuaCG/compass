@@ -9,6 +9,7 @@ import type {
   Role,
   TotpCode,
 } from '@iam/contracts';
+import { TOTP_CONFIRM_MAX_FAILURES } from '@iam/contracts';
 import { generateSync } from 'otplib';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
@@ -317,6 +318,52 @@ describe('confirming the second factor', () => {
     );
     expect(asUseOnly.status).toBe(403);
     expect(asUseOnly.body.code).toBe('AUTHZ.SHARE');
+  });
+});
+
+// SENSIBLE (revisión humana)
+describe('confirmation attempt limit', () => {
+  const confirm = (credentialId: string, code: string) =>
+    owner.client.post<ProblemDetails>(`/credentials/${credentialId}/totp/confirm`, {
+      code,
+    });
+
+  it('locks the pending registration after the maximum failures and audits the denial', async () => {
+    const credential = await newCredential('Confirmation lock');
+    await register(owner, credential.id, otpauth(SECRET_CANARY));
+    const wrongCode = expectedCode(SECOND_SECRET_CANARY);
+
+    for (let attempt = 0; attempt < TOTP_CONFIRM_MAX_FAILURES; attempt += 1) {
+      const rejected = await confirm(credential.id, wrongCode);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.code).toBe('CREDENTIAL.TOTP_CODE_INVALID');
+    }
+
+    // Agotado, ni el código correcto confirma ese registro.
+    const locked = await confirm(credential.id, expectedCode(SECRET_CANARY));
+    expect(locked.status).toBe(429);
+    expect(locked.body.code).toBe('CREDENTIAL.TOTP_CONFIRM_LOCKED');
+    const stillPending = await owner.client.get<CredentialTotp>(
+      `/credentials/${credential.id}/totp`,
+    );
+    expect(stillPending.body.status).toBe('pending');
+
+    const failures = (await auditRows('credential.totp_confirmed', credential.id)).filter(
+      (row) => row.outcome === 'failure',
+    );
+    expect(failures).toHaveLength(TOTP_CONFIRM_MAX_FAILURES);
+    const denials = (await auditRows('authz.denied', account.id)).filter(
+      (row) => row.reason_code === 'CREDENTIAL.TOTP_CONFIRM_LOCKED',
+    );
+    expect(denials.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(denials)).not.toContain(SECRET_CANARY);
+
+    // Registrar de nuevo abre un registro nuevo, que sí se puede confirmar.
+    expect((await register(owner, credential.id, otpauth(SECRET_CANARY))).status).toBe(201);
+    const confirmed = await confirm(credential.id, expectedCode(SECRET_CANARY));
+    expect(confirmed.status).toBe(200);
+    const verified = await owner.client.get<CredentialTotp>(`/credentials/${credential.id}/totp`);
+    expect(verified.body.status).toBe('verified');
   });
 });
 

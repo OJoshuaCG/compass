@@ -12,6 +12,10 @@
  *   deja una tarea de rotación: desde ese momento el secreto ya no lo conoce solo la bóveda.
  * - Emitir códigos tiene tope por persona y credencial. El conteo sale de la auditoría y se protege con un
  *   bloqueo que se toma ANTES que el de auditoría (ADR 0023).
+ * - Confirmar tiene tope de fallos por registro pendiente (credencial y versión del secreto), contados en
+ *   memoria como los intentos de ingreso: agotado, ese registro ya no se confirma, ni con el código
+ *   correcto, y hay que registrar de nuevo. Los fallos y la negación se auditan, y la respuesta no distingue
+ *   códigos casi correctos.
  * - Todo cambio escribe su auditoría en la misma transacción, como último paso. Las negaciones también.
  * - Un secreto nuevo nunca pisa al anterior: la versión previa queda retenida (30 días) como no vigente.
  */
@@ -19,6 +23,7 @@ import {
   REVEAL_REASON_MAX_LENGTH,
   REVEAL_REASON_MIN_LENGTH,
   TOTP_CODES_PER_MINUTE,
+  TOTP_CONFIRM_MAX_FAILURES,
   TOTP_NEXT_CODE_THRESHOLD_SECONDS,
   isValidRevealReason,
 } from '@iam/contracts';
@@ -42,6 +47,7 @@ import { levelSatisfies } from '../domain/share-level.js';
 import { ROTATION_TASK_DUE_DAYS } from './manage-shares.js';
 import type { AccountRepository } from './ports/account-repository.js';
 import type { CredentialRecord, CredentialRepository } from './ports/credential-repository.js';
+import type { TotpConfirmAttemptStore } from './ports/totp-confirm-attempt-store.js';
 import type { TotpGenerator } from './ports/totp-generator.js';
 import type { TotpRecord, TotpRepository } from './ports/totp-repository.js';
 
@@ -59,6 +65,8 @@ export interface ManageTotpDeps {
   readonly auditCounter: AuditEventCounter;
   readonly ids: IdGenerator;
   readonly clock: Clock;
+  /** Fallos de confirmación por registro pendiente (en memoria hasta que haya Redis). */
+  readonly confirmAttempts: TotpConfirmAttemptStore;
 }
 
 export interface IssuedTotpCode {
@@ -205,7 +213,8 @@ export class ManageTotp {
    * escribe el código que ve allá. Solo entonces `pending` pasa a `verified`.
    */
   confirm(credentialId: string, code: string): Promise<Result<TotpRecord, DomainError>> {
-    const { context, uow, authorizer, credentials, totps, audit, clock } = this.deps;
+    const { context, uow, authorizer, credentials, totps, audit, clock, confirmAttempts } =
+      this.deps;
     const permission: Permission = 'credential.update';
     return uow.run(async () => {
       await authorizer.require({ permission });
@@ -221,9 +230,29 @@ export class ManageTotp {
       if (totp === null) return err(notFound());
       if (totp.status !== 'pending') return err(stateInvalid());
 
+      // El tope se revisa ANTES de comparar el código: un registro agotado no sirve de oráculo. La fila de la
+      // credencial ya está bloqueada, así que dos confirmaciones concurrentes no se cuelan a la vez.
+      // La llave incluye la versión del secreto: re-registrar abre un registro nuevo con la cuenta en cero.
+      const attemptKey = `${credential.id}:${String(totp.secretVersion)}`;
+      const failedAttempts = await confirmAttempts.failures(attemptKey);
+      if (failedAttempts >= TOTP_CONFIRM_MAX_FAILURES) {
+        await authorizer.auditDenial({
+          code: 'CREDENTIAL.TOTP_CONFIRM_LOCKED',
+          permission,
+          targetAccountId: credential.accountId,
+        });
+        return err(
+          new DomainError(
+            'CREDENTIAL.TOTP_CONFIRM_LOCKED',
+            'The attempts to confirm this registration have run out',
+          ),
+        );
+      }
+
       const matches = await this.codeMatches(credential, totp, code, clock.now());
       if (!matches.ok) return matches;
       if (!matches.value) {
+        await confirmAttempts.recordFailure(attemptKey);
         await audit.record({
           action: 'credential.totp_confirmed',
           actorId,
@@ -240,6 +269,7 @@ export class ManageTotp {
         );
       }
 
+      await confirmAttempts.clear(attemptKey);
       await totps.markVerified(credential.id, clock.now());
       await audit.record({
         action: 'credential.totp_confirmed',
