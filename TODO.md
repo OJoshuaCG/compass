@@ -303,7 +303,7 @@ Las tres se hacen en orden: N2 depende de N1 y N3 de N2.
 
 | ID | Tarea | Tipo | Decide | Tam. | Depende de | Quién |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] P1 | Bajas con tareas de rotación de secretos. Decidir qué pasa si la persona dada de baja era la única gestora de una cuenta (sin asignatario) | Código ⚠ | Dueño | L | K2, B10 | |
+| [ ] P1 | Bajas con tareas de rotación de secretos. Decidir qué pasa si la persona dada de baja era la única gestora de una cuenta (sin asignatario) | Código ⚠ | Dueño | L | K2, B10 | **BLOQUEADA a la decisión del dueño (2026-10-30).** Dos jueces ciegos concluyeron que el diseño no es ejecutable tal cual: regla de negocio no cubierta en ruta protegida. Propuesta corregida y preguntas en `docs/business/governance.md` §2.4; diseño técnico y hallazgos en `odd/tasks/offboarding.md`. Requiere enmienda al ADR 0009 |
 | [ ] P2 | Salud de credenciales | Código | — | M | K1 | |
 | [ ] P3 | Acceso temporal (JIT) | Código ⚠ | — | M | K2 | |
 

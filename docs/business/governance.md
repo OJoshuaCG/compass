@@ -96,7 +96,48 @@ Ana desactiva a Luis, que dejó la empresa. En los últimos 180 días, Luis reve
 5. Se registra un evento de auditoría crítico con el resumen.
 6. Cuando el gestor de la cuenta de Facebook registra una nueva contraseña, esa tarea se cierra. La de Instagram sigue pendiente hasta que se registre un nuevo segundo factor.
 
-## 3. Salud de credenciales
+### 2.4 Decisión pendiente: qué pasa con las cuentas cuando su responsable se va
+
+> **Estado: propuesta sin decidir.** Nada de esto está construido. Hoy la baja no reasigna cuentas (ver la pregunta 2 de la sección 9). Hace falta la decisión del dueño antes de tocar el sistema, porque afecta quién puede ver y compartir secretos.
+
+**En una frase.** Si la persona que se va era la única responsable de una cuenta, la cuenta pasa a su superior; si ese superior no puede recibirla, sube al siguiente; si nadie puede, queda **sin responsable y se avisa** a Administrador y Raíz. Además, quien recibe la cuenta recibe un informe de lo que la persona conocía y se rotan sus credenciales.
+
+**La regla propuesta, paso a paso**
+
+| Paso | Qué ocurre |
+| --- | --- |
+| 1 | Antes de cambiar nada, el sistema identifica las cuentas cuyo único responsable activo era la persona que se va. Quien ya tenga otro responsable activo no necesita reasignación |
+| 2 | Para cada cuenta busca, de abajo hacia arriba por la cadena de superiores, a la primera persona que **califique** |
+| 3 | Califica quien ya puede, por sí misma, compartir secretos, editar credenciales y gestionar su rotación, y además pertenece al equipo de quien da la baja |
+| 4 | A quien califica se le da la responsabilidad de la cuenta, y la auditoría registra cuenta por cuenta que fue por baja y quién la recibió |
+| 5 | Si nadie califica, no se concede nada: la cuenta queda sin responsable y se avisa a Administrador y Raíz |
+| 6 | Se entrega a quien reciba la cuenta un **informe de baja** de solo lectura (qué cuentas y credenciales conocía la persona), y se crean tareas de rotación |
+
+**Ejemplo.** Luis era el único responsable de la cuenta de Facebook de una marca. Su superior directo, Ana, ya puede compartir, editar y gestionar rotación: recibe la cuenta. Si Ana no tuviera esos permisos, se probaría con el superior de Ana. Si ninguna persona de la cadena calificara, la cuenta queda sin responsable y Administrador y Raíz reciben un aviso para decidir.
+
+**Por qué las condiciones son estrictas.** En la bóveda nadie comparte más que su propio nivel. Si el sistema concediera la responsabilidad automáticamente a alguien sin esos permisos, se saltaría ese doble control. Por eso solo califica quien ya los tiene.
+
+**Lo que se descartó, y por qué**
+
+| Idea | Por qué no |
+| --- | --- |
+| Entregar la cuenta a una persona **del mismo nivel** como último recurso | La elegiría el sistema, sin autoridad jerárquica sobre la cuenta y sin un criterio repetible: daría control de secretos a una persona al azar. La cadena de superiores siempre termina en la Raíz activa, así que no hace falta |
+| **Mantener vivo el perfil** de la persona para consultar sus credenciales | Contradice la seguridad. Una baja existe para cortar sesiones y accesos de inmediato; un perfil vivo deja a alguien que ya no pertenece a la organización con acceso a secretos reales. En su lugar: el informe de baja de solo lectura para quien reciba la cuenta y las tareas de rotación |
+
+**Cómo se rotan las credenciales.** A diferencia de la regla de los 180 días de la sección 2.1, el criterio propuesto para la baja es más amplio: se rotan **todas** las credenciales vivas de las cuentas donde la persona tuvo acceso de ver o más, aunque no las haya revelado hace poco. Quien se va pudo haber copiado un secreto en cualquier momento. Cada tarea tiene siempre una persona asignada; si no hay otra, la Raíz.
+
+**Qué se deja igual.** Suspender a una persona **no reasigna** nada: la persona suspendida conserva su responsabilidad y sus comparticiones hasta que se reactive o se dé de baja.
+
+**Qué debe resolver el dueño**
+
+| N.º | Pregunta | Qué cambia según la respuesta |
+| --- | --- | --- |
+| 1 | ¿En cuántos días debe rotarse una credencial tras una baja? | Fija el plazo de las tareas y cuándo se consideran vencidas. Enlaza con la pregunta 1 de la sección 9 |
+| 2 | Si nadie califica, ¿basta con dejar la cuenta sin responsable y avisar, o se prefiere otra salida? | Define quién y en cuánto tiempo debe actuar mientras la cuenta no tiene responsable |
+| 3 | ¿Hace falta el informe de baja de solo lectura para quien reciba la cuenta? | Si no se quiere, basta con las tareas de rotación; si se quiere, hay que decidir quién lo ve y cuánto tiempo |
+| 4 | ¿Debe la persona **suspendida** conservar su acceso a las cuentas? | Hoy lo conserva. Si no debe, la suspensión tendría que retirar o congelar ese acceso, lo que es otra regla |
+
+**Qué implica aprobarla.** Es un cambio en la regla de bajas y en una zona protegida (identidad, acceso y bóveda), así que se hará solo con encargo expreso. Una baja de una persona con muchísimas cuentas podría tardar y bloquear cambios de jerarquía en la organización mientras se procesa; el diseño técnico propone un tope o dejar parte del trabajo para después, siempre cerrando de inmediato las sesiones y el estado de la persona.
 
 Cada credencial tiene un puntaje y señales de riesgo. **Nunca se guarda el secreto**; solo el resultado de la evaluación.
 
@@ -182,7 +223,7 @@ Los correos de recuperación, los nombres y los registros de actividad de las pe
 | N.º | Pregunta | Por qué importa |
 | --- | --- | --- |
 | 1 | Cuántos días de plazo tiene una tarea de rotación y cómo se asigna la prioridad según el tipo de exposición | El plan dice "con prioridad según el tipo de exposición" sin definir las categorías |
-| 2 | Quién se hace cargo de una cuenta si la persona dada de baja era su único gestor | La baja retira sus accesos y asigna tareas "al gestor de la cuenta", que podría no existir |
+| 2 | Quién se hace cargo de una cuenta si la persona dada de baja era su único gestor | La baja retira sus accesos y asigna tareas "al gestor de la cuenta", que podría no existir. **Propuesta pendiente de decisión del dueño en la sección 2.4** |
 | 3 | Cómo se mantienen al día señales como la antigüedad de una contraseña, si la salud se calcula al escribir | El plan indica que se calcula al guardar; una contraseña envejece sin que nadie la guarde de nuevo |
 | 4 | Cómo se garantiza que no se pierdan las negaciones cuando la acción se revierte | **Resuelta en la fase 1a:** cada negación se registra de forma independiente y queda en la auditoría aunque la acción se revierta (ver [`docs/adr/`](../adr/README.md), ADR 0022). Queda abierto cuántas negaciones repetidas conviene agrupar |
 | 5 | Plazo de retención definitivo de la auditoría y de las versiones de secretos | Debe validarse con el área legal antes de producción |
