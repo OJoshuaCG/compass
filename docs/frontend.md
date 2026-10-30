@@ -220,6 +220,8 @@ Los botones tienen estados normal, hover, foco visible, activo, deshabilitado y 
 
 El estado nunca se comunica solo con el color: siempre ícono o texto (regla del plan). La insignia de estado lo garantiza (ícono, etiqueta y color).
 
+El aviso en línea fija su rol por tono: el de error (`danger`) es `role="alert"` y es el único asertivo; los de información, advertencia y éxito son `role="status"` (cortés), para que las notas fijas no interrumpan al lector de pantalla al abrir un diálogo. Una prueba en `packages/ui` fija el rol de cada tono.
+
 ## 6. La tabla estándar de datos
 
 **Toda tabla de la aplicación usa la tabla de datos estándar.** No hay tablas hechas a mano. Un solo organismo garantiza que el orden, la paginación, los estados vacío y de error y la accesibilidad sean idénticos en todas partes.

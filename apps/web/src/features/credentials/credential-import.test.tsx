@@ -245,7 +245,7 @@ describe('credential import: preview errors and ordering', () => {
     renderApp(PAGE);
     const { user } = await chooseFile();
 
-    // El aviso de privacidad también es `role="alert"`: se localiza el del error por su contenido.
+    // El aviso de privacidad es `role="status"` (tono info): el `alert` de esta pantalla es el del error.
     const alert = alertContaining(await findMessage('req-test-1'));
     expect(alert).toHaveTextContent('req-test-1');
     await user.click(screen.getByRole('button', { name: es.common['actions.retry'] }));

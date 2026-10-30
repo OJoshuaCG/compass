@@ -41,6 +41,9 @@ export function field(label: string): HTMLElement {
  * Textos que las regiones `status` de un contenedor anuncian en este momento. El botón de copiar
  * mantiene siempre montada una región vacía (solo habla al copiar), así que "no hay anuncio
  * duplicado" se comprueba con esta lista vacía y no con la ausencia de la región.
+ * Los avisos `Alert` de tono info, warning y success también son `status`: se usa solo en fases
+ * donde esas notas fijas ya no están montadas (contraseña, código o clave visibles). Si una nota
+ * apareciera ahí, la lista dejaría de estar vacía y la prueba fallaría, que es lo que se quiere.
  */
 export function announcedStatusTexts(container: HTMLElement): string[] {
   return within(container)
