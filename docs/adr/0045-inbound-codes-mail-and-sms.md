@@ -211,6 +211,22 @@ Dos revisores ciegos revisaron el borrador (solo documentación). Hallazgos conf
 
 Ningún hallazgo se descartó. El único matiz es el del punto 3. IC-0 (ratificación) queda **cumplida por el dueño** (camino A elegido el 2026-10-30, "adelante con lo necesario"); el ADR **sigue en Propuesta**. Solo **IC-1** está autorizada a empezar; IC-2 en adelante esperan estos cambios y una nueva revisión de los jueces.
 
+## Enmienda 2026-10-30: ratificación parcial y camino B (IMAP) para el correo del dueño
+
+El dueño aprobó las cuatro propuestas pendientes: (1) segundo tipo de recurso `mail_source` además de `mail_view`; (2) reutilizar `share.manage` para compartir vistas; (3) techo 1 para `inbound.reveal_reset`; (4) quien crea una fuente o vista recibe MANAGE. El ADR **sigue en Propuesta** hasta que se ratifiquen las decisiones abiertas restantes.
+
+Además aclaró que el servidor de correo es **propio (cPanel)**, que ya envía y recibe, y que prefiere una alta dinámica estilo Thunderbird (correo y contraseña, con autodetección). Por eso el **camino B (IMAP contra un buzón dedicado) sustituye al camino A como vía de avance**; A queda como opción futura. Condiciones propuestas, todas por revisar con jueces antes de escribir código:
+
+- Buzón **dedicado** a la plataforma: la contraseña da acceso completo al buzón, así que nunca se usa uno personal.
+- Conexión de **solo lectura** (`EXAMINE`, sin marcar ni borrar mensajes) con TLS obligatorio.
+- La contraseña se guarda cifrada solo por el módulo de criptografía, con un `field` nuevo en el AAD; nunca se registra ni se devuelve.
+- Defensa contra SSRF en el host que escribe el usuario: resolver y rechazar direcciones privadas, locales y de metadatos, y fijar la IP resuelta.
+- La autenticidad no se asume por la conexión: se sigue exigiendo una verificación DKIM o el `Authentication-Results` del servidor propio, y el filtro de remitente y plantillas sigue fallando cerrado.
+- La autodetección (configuración publicada por el dominio) solo propone valores; la persona confirma el host antes de guardar.
+- Requiere un cliente IMAP y un analizador MIME: **dependencias nuevas, pendientes de aprobación**.
+
+IC-3 queda bloqueada por esa aprobación y por el proceso trabajador. IC-2c puede cambiar de forma bajo este camino.
+
 ## No verificado
 
 - Que SES entrante esté disponible en la región elegida ni su comportamiento con un hospedaje en Linode.
