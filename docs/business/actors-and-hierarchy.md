@@ -13,11 +13,12 @@ Este documento explica quién existe en la organización, quién crea a quién, 
 | Regla de gestión y subárbol | **Funciona.** Decide quién puede suspender, reactivar, desactivar, cambiar el rango o transferir a una persona |
 | Creador y responsable separados | **Funciona.** Al aceptar una invitación, quien invita queda como creador; el responsable es quien invita, o la persona de su subárbol que elija al invitar (con rango superior al del invitado). Si esa persona sale del subárbol antes de que se acepte, la invitación deja de ser válida |
 | Transferencia de responsable, cambio de rango, bajas con reasignación | **Funciona.** Hay además una vista de equipo con las personas del subárbol de quien consulta (la Raíz ve a todas) en cualquier estado |
+| Cambio de rango: roles, motivo, aviso y comparticiones | **Funciona.** Al bajar de rango se retiran de forma persistente los roles que excedan el nuevo tope y, si la persona se queda sin ninguno, recibe la plantilla de su nuevo rango. Subir de rango exige un motivo. Se protege al último Administrador activo. Quien hace el cambio ve las comparticiones que la persona otorgó, que no se revocan solas, y la persona recibe un correo con el nombre de quien actuó |
 | Recuperación de la Raíz con códigos de emergencia | **Funciona.** Solo quienes custodian los códigos pueden restablecer la Raíz; ningún Administrador puede hacerlo |
 | Transferencia de la Raíz | **Pendiente** |
 | Estados de una persona | **Funcionan** los cuatro: invitada, activa, suspendida y desactivada. Se puede suspender, reactivar y desactivar; la Raíz nunca se suspende ni se desactiva |
 | Directorio visible | **Funciona** para personas activas |
-| Grupos | **Pendiente** (llegan con la compartición, fase 1b) |
+| Grupos | **Pendiente** (llegan con la compartición, fase 1b). El aviso de comparticiones al bajar de rango tampoco cubre grupos hasta entonces |
 
 ## Contenido
 
@@ -154,22 +155,28 @@ Cambiar el responsable de una persona (la "mueve" de rama) exige tres condicione
 
 ## 6. Cambio de rango
 
-**Estado hoy.** Funciona. Exige reautenticación reciente y que el nuevo rango tenga menos autoridad que el de su responsable actual; si la persona tiene subordinados, se bloquea al bajarla de rango. Se cierran sus sesiones y la acción queda en la auditoría con el rango anterior y el nuevo. La Raíz nunca cambia de rango.
+**Estado hoy.** Funciona. Exige reautenticación reciente y que el nuevo rango tenga menos autoridad que el de su responsable actual; si la persona tiene subordinados, se bloquea al bajarla de rango. Se cierran sus sesiones y la acción queda en la auditoría con el rango anterior y el nuevo, el motivo si lo hubo, los roles retirados, la plantilla asignada y cuántas comparticiones había que revisar. La Raíz nunca cambia de rango. Los roles asignados sí se recortan de forma persistente al bajar de rango (antes solo se recortaban al leer los permisos). Los grupos siguen diferidos.
 
 Solo lo hace quien gestiona a la persona, y exige reautenticación (ver [`permissions-and-sharing.md`](permissions-and-sharing.md)). Además:
 
 - El nuevo rango debe ser **mayor** (menos autoridad) que el del actor que lo ejecuta.
 - El nuevo rango debe respetar la matriz de creación del actor: un Administrador puede dejar a alguien como Líder u Operador, pero no puede nombrar Administradores.
+- Cambiar a la persona al rango que ya tiene se rechaza como una operación inválida.
 - Si la persona tiene subordinados, **no se le puede bajar de rango** hasta reasignarlos.
-- Al cambiar el rango, se recalculan sus permisos (se recortan los que superen el techo del nuevo rango) y se cierran sus sesiones en el acto.
+- **Roles al bajar de rango.** Se retiran, de forma persistente y quedando en la auditoría, los roles asignados a la persona cuyo techo supere el del nuevo rango. Si tras el recorte la persona se queda sin ningún rol, se le asigna la plantilla de rol del nuevo rango, igual que al aceptar una invitación. Si conserva algún rol, no se le agrega nada.
+- **Motivo.** Es obligatorio cuando el cambio **sube** la autoridad (el rango numérico baja) y opcional cuando la reduce. Se guarda en la auditoría y no se incluye en el correo.
+- **Último administrador.** No se puede bajar de rango a la única persona Administradora activa de la organización. Las personas suspendidas o invitadas no cuentan para esta cuenta, y la Raíz tampoco porque ya está protegida. Antes hay que designar a otro Administrador.
+- **Comparticiones.** Al terminar el cambio, quien lo hizo ve la lista de las comparticiones vivas que la persona otorgó, con el total. No se revocan automáticamente: se avisa para que alguien las revise. La lista muestra identificadores y niveles, no nombres de cuentas, porque cambiar el rango de alguien no da derecho a ver sus cuentas.
+- **Correo.** La persona afectada recibe un aviso, tanto al subir como al bajar, con el nombre de quien hizo el cambio, el rango anterior, el nuevo y la fecha. No incluye el motivo, la lista de roles ni enlaces. Sale por la bandeja de salida, así que se reintenta si el correo falla y no se envía dos veces.
+- Al cambiar el rango se cierran sus sesiones en el acto.
 
-**Ejemplo.** Ana quiere dejar a Luis como Operador. Luis tiene a Sofía como subordinada, así que se bloquea. Ana primero pasa a Sofía a su propio equipo (sección 5) y después baja el rango de Luis. Los permisos de Luis que solo caben en el rango de Líder o superior se retiran automáticamente.
+**Ejemplo.** Ana quiere dejar a Luis como Operador. Luis tiene a Sofía como subordinada, así que se bloquea. Ana primero pasa a Sofía a su propio equipo (sección 5) y después baja el rango de Luis. Se retiran los roles de Luis que solo caben en el rango de Líder o superior; como se queda sin ninguno, recibe la plantilla de Operador. Ana ve las tres cuentas que Luis había compartido, para decidir si las revoca, y Luis recibe un correo que dice que Ana cambió su rango de Líder a Operador. Si más adelante Ana vuelve a subir a Luis a Líder, tendrá que escribir un motivo.
 
 ## 7. Bajas con reasignación
 
-**Estado hoy.** Funcionan la suspensión, la reactivación y la desactivación. Solo suspende quien gestiona a una persona activa, y solo reactiva quien gestiona a una persona suspendida; en otro estado la acción se rechaza. Suspender o desactivar cierra todas las sesiones de la persona en la misma operación. Desactivar además pasa a sus subordinados activos a su propio responsable y revoca las invitaciones pendientes que dejó; la auditoría registra cuántos subordinados se reasignaron. La Raíz nunca se suspende ni se desactiva. Quien gestiona a una persona también puede cerrar todas sus sesiones sin suspenderla ni desactivarla, con el permiso de desactivar y respetando la jerarquía; la Raíz queda protegida y la acción se audita. Siguen pendientes el retiro de comparticiones y la rotación de secretos, que llegan con la bóveda y la gobernanza.
+**Estado hoy.** Funcionan la suspensión, la reactivación y la desactivación. Solo suspende quien gestiona a una persona activa, y solo reactiva quien gestiona a una persona suspendida; en otro estado la acción se rechaza. Suspender o desactivar cierra todas las sesiones de la persona en la misma operación. Desactivar además pasa a sus subordinados activos a su propio responsable y revoca las invitaciones pendientes que dejó; la auditoría registra cuántos subordinados se reasignaron. La Raíz nunca se suspende ni se desactiva, y tampoco se puede suspender ni desactivar a la única persona Administradora activa de la organización (hay que designar antes a otra). Quien gestiona a una persona también puede cerrar todas sus sesiones sin suspenderla ni desactivarla, con el permiso de desactivar y respetando la jerarquía; la Raíz queda protegida y la acción se audita. Siguen pendientes el retiro de comparticiones y la rotación de secretos, que llegan con la bóveda y la gobernanza.
 
-Desactivar a una persona **no la borra**. En el mismo momento:
+Desactivar a una persona **no la borra**. La protección del último Administrador aplica también aquí: no se la puede desactivar mientras sea la única activa. En el mismo momento:
 
 1. Sus subordinados directos pasan al responsable de la persona dada de baja.
 2. Si era Administrador, sus subordinados pasan a la Raíz.
@@ -266,8 +273,12 @@ El plan no define estos puntos. Deben resolverse antes de implementar la parte a
 | 4 | Quién puede cancelar una transferencia de la Raíz durante las 72 horas | El plan indica que es cancelable, sin precisar por quién |
 | 5 | Quiénes son las dos personas custodias y si hacen falta juntas para usar un código de emergencia | Se implementaron ocho códigos de un solo uso y se decidió que ningún Administrador puede restablecer la Raíz. La identidad de los custodios sigue como decisión pendiente |
 | 6 | Quién puede nombrar a otro gestor de un grupo, y quién archiva un grupo | El plan define los papeles, pero no esas acciones |
-| 7 | Cómo se interpreta "bajar de rango": este documento lo lee como pasar a un rango con menos autoridad (número mayor) | Es la lectura coherente con el resto de la regla, pero conviene confirmarla |
+| 7 | Cómo se interpreta "bajar de rango": este documento lo lee como pasar a un rango con menos autoridad (número mayor) | Es la lectura coherente con el resto de la regla, pero conviene confirmarla. Sigue como suposición: el dueño no la objetó al encargar el cambio de rango |
 | 8 | Qué pasa con las cuentas cuyos únicos gestores (MANAGE) son personas dadas de baja | La baja retira comparticiones directas; el plan no dice quién queda a cargo de esas cuentas |
 | 9 | Cómo nace la Raíz y con qué estado | **La implementación asumió:** la Raíz nace en estado "invitada", con una contraseña inicial aleatoria que se muestra una sola vez a la persona de operaciones, y pasa a activa al registrar su segundo factor, después de cambiar esa contraseña en su primer ingreso. El alta de la organización queda en la auditoría. Falta confirmar cómo se entrega esa contraseña a la Raíz |
 | 10 | Si quien invita puede elegir un responsable distinto de sí mismo | El plan dice que quien invita define el responsable. **La implementación asumió** que el responsable de la persona invitada es siempre quien la invita, que es el caso que la matriz de creación permite sin ambigüedad |
 | 11 | Si el directorio debe mostrar el rango de cada persona | El plan solo menciona nombre y correo. **La implementación muestra además el rango**; falta confirmar que esa información deba ser visible para cualquier persona activa |
+| 12 | Si el aviso de comparticiones al bajar de rango debe cubrir también a los grupos | Hoy solo se listan las comparticiones a personas porque los grupos no existen aún; el dueño los dejó **diferidos** hasta la compartición con grupos (fase 1b) |
+| 13 | Quién revisa las comparticiones que otorgó una persona a la que se bajó de rango | **La implementación asumió** que quien hizo el cambio las ve y decide; no se revocan solas ni se crea una tarea. Falta confirmar si debe haber una tarea o un recordatorio |
+| 14 | Si "último administrador" debe contar a la Raíz | **La implementación asumió** que no: cuenta solo a las personas activas de rango 1, porque la Raíz ya está protegida. Los suspendidos e invitados tampoco cuentan |
+| 15 | Si el motivo debe exigirse también al bajar de rango | **La implementación asumió** que es obligatorio solo al subir la autoridad y opcional al bajar, por decisión del dueño |

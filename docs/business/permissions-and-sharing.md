@@ -146,7 +146,7 @@ Reglas:
 
 - Los permisos de un rol personalizado deben ser un **subconjunto de los del que lo crea**.
 - Los permisos efectivos de una persona son la **unión de todos sus roles**, recortada por el techo de su rango.
-- Si el rango de la persona cambia, el recorte se recalcula.
+- Si el rango de la persona cambia, el recorte se recalcula. Además, al **bajar** de rango se retiran de forma persistente (y auditada) los roles asignados cuyo techo supera el del nuevo rango, y si la persona se queda sin ninguno recibe la plantilla de su nuevo rango; ya no basta con recortar al leer. Ver [`actors-and-hierarchy.md`](actors-and-hierarchy.md#6-cambio-de-rango).
 - **Hoy** la pantalla de roles solo ofrece al crear los permisos que tiene quien lo crea; si se intenta otorgar uno que no tiene, se rechaza. Dos roles no pueden llamarse igual, sin distinguir mayúsculas.
 - Las plantillas del sistema no se pueden archivar. Un rol archivado deja de otorgar sus permisos y no se puede usar en invitaciones nuevas.
 - Crear y archivar roles queda en la auditoría.

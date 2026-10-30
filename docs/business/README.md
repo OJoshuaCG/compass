@@ -50,6 +50,7 @@ Todos los documentos usan los mismos personajes para que los ejemplos se puedan 
 | Directorio | Lista de nombres y correos que cualquier persona activa puede consultar para compartir cuentas |
 | Grupo | Conjunto de personas al que se le comparten cuentas. Tiene gestores y miembros |
 | Gestor de grupo | Persona de rango 0 a 2 que administra los miembros de un grupo |
+| Último administrador | La única persona Administradora (rango 1) activa de la organización. No se la puede bajar de rango, suspender ni desactivar hasta que haya otra |
 
 ### Permisos y compartición
 
@@ -57,6 +58,7 @@ Todos los documentos usan los mismos personajes para que los ejemplos se puedan 
 | --- | --- |
 | Permiso | Una acción concreta que una persona puede realizar (por ejemplo, invitar usuarios o revelar contraseñas) |
 | Rol | Conjunto de permisos con nombre. Hay plantillas del sistema y roles personalizados |
+| Plantilla de rol | Rol del sistema pensado para un rango. Se asigna al aceptar una invitación y también a quien, al bajar de rango, se queda sin ningún rol |
 | Techo de un permiso | Rango máximo que puede tener ese permiso. Un Operador nunca recibe un permiso con techo superior a su rango |
 | No escalamiento | Regla por la que nadie otorga un permiso que no tiene |
 | Compartición | Autorización explícita para que una persona o un grupo use una cuenta con un nivel determinado |
