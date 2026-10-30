@@ -82,7 +82,7 @@ export async function fetchCredentialHistory(
 }
 
 /**
- * `POST /credentials/:id/versions/:version/restore` (exige `credential.update` y nivel EDIT). Sin
+ * `POST /credentials/:id/versions/:version/restore` (exige `credential.restore_version` y nivel EDIT). Sin
  * cuerpo: el servidor crea una versión nueva con la contraseña de la elegida y devuelve solo los
  * metadatos de la credencial, nunca el contenido.
  */

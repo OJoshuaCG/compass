@@ -45,6 +45,17 @@ export function canChangePassword(
   return hasUpdatePermission && levelSatisfies(myLevel, 'EDIT');
 }
 
+/**
+ * Restaurar una versión anterior de la contraseña exige el permiso `credential.restore_version` Y
+ * nivel EDIT. Es un permiso propio: `credential.update` ya no basta.
+ */
+export function canRestoreVersion(
+  hasRestoreVersionPermission: boolean,
+  myLevel: ShareLevel | null,
+): boolean {
+  return hasRestoreVersionPermission && levelSatisfies(myLevel, 'EDIT');
+}
+
 /** Ver el estado del segundo factor y pedir códigos exige el permiso `credential.use_totp` Y nivel USE. */
 export function canUseTotp(hasUseTotpPermission: boolean, myLevel: ShareLevel | null): boolean {
   return hasUseTotpPermission && levelSatisfies(myLevel, 'USE');

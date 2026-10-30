@@ -118,6 +118,19 @@ describe('user_roles rank ceiling (ADR 0012)', () => {
     expect(swappedToManage).toBe(REJECTED_BY_CEILING);
   });
 
+  // SENSIBLE (revisión humana): el permiso nuevo de la migración 0021 debe existir en el catálogo de
+  // la base (si no, nadie podría tenerlo: falla cerrado) y tener el mismo techo que credential.update.
+  it('knows credential.restore_version with the same ceiling as credential.update (migration 0021)', async () => {
+    const { rows } = await app.query<{ restore: number | null; update: number | null }>(
+      "select permission_rank_ceiling('credential.restore_version') as restore, permission_rank_ceiling('credential.update') as update",
+    );
+    expect(rows[0]?.restore).toBe(3);
+    expect(rows[0]?.update).toBe(3);
+
+    const roleId = await createRole('Restore versions', ['credential.restore_version']);
+    expect(await assignmentOutcome(tenant.operatorId, roleId)).toBe(ACCEPTED);
+  });
+
   it('lets the application role call the ceiling function, which returns NULL for unknown names', async () => {
     const { rows } = await app.query<{ ceiling: number | null; unknown: number | null }>(
       "select permission_rank_ceiling('role.manage') as ceiling, permission_rank_ceiling('made.up') as unknown",

@@ -70,6 +70,7 @@
   "permission.account.archive": "Archivar cuentas",
   "permission.credential.create": "Crear credenciales",
   "permission.credential.update": "Actualizar credenciales",
+  "permission.credential.restore_version": "Restaurar versiones de credenciales",
   "permission.credential.reveal_password": "Revelar contraseñas",
   "permission.credential.use_totp": "Usar códigos TOTP",
   "permission.credential.export_totp": "Exportar semillas TOTP",

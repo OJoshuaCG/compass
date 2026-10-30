@@ -27,6 +27,7 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'account.archive': 2,
   'credential.create': 3,
   'credential.update': 3,
+  'credential.restore_version': 3,
   'credential.reveal_password': 3,
   'credential.use_totp': 3,
   'credential.export_totp': 2,

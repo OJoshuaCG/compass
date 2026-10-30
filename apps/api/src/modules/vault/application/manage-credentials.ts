@@ -218,7 +218,10 @@ export class ManageCredentials {
   ): Promise<Result<CredentialRecord, DomainError>> {
     const { context, uow, authorizer, credentials, audit, clock } = this.deps;
     return uow.run(async () => {
-      await authorizer.require({ permission: 'credential.update' });
+      // Permiso propio, distinto de `credential.update`: quien puede cambiar la contraseña no puede
+      // restaurar una versión anterior salvo que su rol también lo conceda. El motor lo decide y audita
+      // la negación (`authz.denied`); la negación por nivel o sin acceso se audita con el mismo permiso.
+      await authorizer.require({ permission: 'credential.restore_version' });
       const current = context.current();
       const actorId = this.requireActorId();
 
@@ -230,7 +233,7 @@ export class ManageCredentials {
       const level = await this.levelOrNotFound(
         credential.accountId,
         actorId,
-        'credential.update',
+        'credential.restore_version',
         'EDIT',
       );
       if (!level.ok) return level;

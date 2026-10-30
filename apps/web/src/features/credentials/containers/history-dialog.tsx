@@ -4,10 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useMe } from '../../../shared/auth';
+import { useMe, usePermission } from '../../../shared/auth';
 import { useDataTableLabels, useErrorMessage } from '../../../shared/i18n';
 import { formatDateTime, useClientPagination } from '../../../shared/lib';
 import { credentialsKeys, fetchCredentialHistory } from '../api/credentials-api';
+import { canRestoreVersion } from '../model/credential-access';
 import { RestoreVersionDialog } from './restore-version-dialog';
 
 const NO_OP = () => undefined;
@@ -19,7 +20,9 @@ export type HistoryDialogProps = {
 
 /**
  * Historial de versiones de la contraseña: número, vigencia y fecha, nunca el contenido. Cada
- * versión anterior ofrece "Restaurar"; la vigente no, porque el servidor la rechazaría.
+ * versión anterior ofrece "Restaurar" solo a quien tiene el permiso `credential.restore_version`
+ * (el historial ya exige nivel EDIT); la vigente no lo ofrece, porque el servidor la rechazaría.
+ * El servidor vuelve a decidir: ocultar el botón es comodidad, no autorización.
  */
 export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
   const { t, i18n } = useTranslation(['credentials', 'common']);
@@ -27,6 +30,9 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
   const labels = useDataTableLabels();
   const timeZone = useMe()?.user.timezone;
   const queryClient = useQueryClient();
+  const hasRestorePermission = usePermission('credential.restore_version');
+  // El historial solo se abre con nivel EDIT o más, así que aquí el nivel ya está garantizado.
+  const mayRestore = canRestoreVersion(hasRestorePermission, 'EDIT');
   // Solo el número de versión: la contraseña nunca llega al navegador en este flujo.
   const [versionToRestore, setVersionToRestore] = useState<number | null>(null);
   const [restoredVersion, setRestoredVersion] = useState<number | null>(null);
@@ -104,7 +110,7 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
         pagination={paging.pagination}
         labels={labels}
         rowActions={(row) =>
-          row.isCurrent ? null : (
+          row.isCurrent || !mayRestore ? null : (
             <Button
               variant="secondary"
               size="sm"

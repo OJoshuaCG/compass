@@ -5,6 +5,7 @@ import {
   canChangePassword,
   canCopyUsername,
   canCreateCredential,
+  canRestoreVersion,
   canRevealPassword,
   canViewHistory,
 } from './credential-access';
@@ -35,8 +36,8 @@ describe('credential access gating', () => {
     ]);
   });
 
-  it('create and change password need EDIT or more AND their permission', () => {
-    for (const check of [canCreateCredential, canChangePassword]) {
+  it('create, change password and restore a version need EDIT or more AND their own permission', () => {
+    for (const check of [canCreateCredential, canChangePassword, canRestoreVersion]) {
       expect(gates((level) => check(true, level))).toEqual([false, false, false, true, true]);
       expect(gates((level) => check(false, level))).toEqual([false, false, false, false, false]);
     }

@@ -8,7 +8,7 @@ import type {
   RevealedPassword,
   Role,
 } from '@iam/contracts';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
 
 import {
   STRONG_PASSWORD,
@@ -53,6 +53,8 @@ let stranger: EnrolledSession;
 let inventoryReader: EnrolledSession;
 let limited: EnrolledSession;
 let racer: EnrolledSession;
+let updateOnly: EnrolledSession;
+let restoreOnly: EnrolledSession;
 let instagramId: string;
 let account: Account;
 let credential: Credential;
@@ -166,6 +168,46 @@ beforeAll(async () => {
   limited = await invite('limited@creds.test', 2, 'Leader');
   racer = await invite('racer@creds.test', 2, 'Leader');
 
+  // Roles personalizados para probar que restaurar una versión tiene permiso propio: uno cambia la
+  // contraseña pero no restaura; el otro restaura pero no cambia la contraseña. Se crean aquí, junto
+  // al resto de las sesiones, para que la sesión de la Raíz no caduque por el reloj simulado.
+  const updateOnlyRole = await root.client.post<Role>('/roles', {
+    name: 'Update without restore',
+    permissions: ['credential.update'],
+  });
+  const restoreOnlyRole = await root.client.post<Role>('/roles', {
+    name: 'Restore without update',
+    permissions: ['credential.restore_version'],
+  });
+  expect(updateOnlyRole.status).toBe(201);
+  expect(restoreOnlyRole.status).toBe(201);
+  updateOnly = await inviteAndOnboard(env, root.client, {
+    email: 'updateonly@creds.test',
+    rank: 2,
+    roleIds: [updateOnlyRole.body.id],
+  });
+  restoreOnly = await inviteAndOnboard(env, root.client, {
+    email: 'restoreonly@creds.test',
+    rank: 2,
+    roleIds: [restoreOnlyRole.body.id],
+  });
+  // Toda persona invitada recibe además el rol de sistema de su rango, y ese rol ya trae ambos
+  // permisos; sin quitarlo la unión de permisos taparía el rol personalizado y la prueba no
+  // distinguiría nada. No hay endpoint para retirar roles, por eso se hace con la conexión de
+  // administración, solo para estas dos personas.
+  await env.adminPool.query(
+    `delete from user_roles as assignment
+      using roles as system_role
+      where assignment.role_id = system_role.id
+        and system_role.is_system
+        and assignment.user_id in (
+          select custom_assignment.user_id
+            from user_roles as custom_assignment
+           where custom_assignment.role_id = any($1::uuid[])
+        )`,
+    [[updateOnlyRole.body.id, restoreOnlyRole.body.id]],
+  );
+
   const platforms = await owner.client.get<{ data: { id: string; slug: string }[] }>('/platforms');
   instagramId = platforms.body.data.find((platform) => platform.slug === 'instagram')?.id ?? '';
   const createdAccount = await owner.client.post<Account>('/accounts', {
@@ -178,8 +220,17 @@ beforeAll(async () => {
   await shareAccount(account.id, 'editor@creds.test', 'EDIT');
   await shareAccount(account.id, 'limited@creds.test', 'VIEW');
   await shareAccount(account.id, 'racer@creds.test', 'VIEW');
+  await shareAccount(account.id, 'updateonly@creds.test', 'EDIT');
+  await shareAccount(account.id, 'restoreonly@creds.test', 'EDIT');
 
   credential = await newCredential('Main login');
+});
+
+// El reloj simulado es único para todo el archivo y las pruebas lo adelantan para salir de las
+// ventanas de agrupación; la sesión del lector de inventario solo se usa al final y, sin actividad,
+// caduca por inactividad. Esta petición barata renueva su actividad antes de cada prueba.
+beforeEach(async () => {
+  await inventoryReader.client.get('/me');
 });
 
 afterAll(async () => {
@@ -484,6 +535,60 @@ describe('restoring a password version (M2, BO-7)', () => {
       (row) => row.target_id === own.id,
     );
     expect(events).toHaveLength(0);
+  });
+
+  // SENSIBLE (revisión humana): restaurar exige `credential.restore_version`; tener `credential.update`
+  // (y nivel EDIT) ya no basta. La negación se audita con el permiso nuevo y no cambia nada.
+  it('denies a person with credential.update but without credential.restore_version, audited and changing nothing', async () => {
+    const own = await credentialWithTwoVersions('Permission split');
+    const versionsBefore = await secretVersionCount(own.id);
+
+    env.clock.advance(DENIAL_GROUPING_WINDOW_MS);
+    const denialsBefore = await auditRows('authz.denied', 'updateonly@creds.test');
+    const denied = await restore(updateOnly, own.id, 1);
+    expect(denied.status).toBe(403);
+    expect(denied.body.code).toBe('AUTHZ.PERMISSION');
+
+    const denialsAfter = await auditRows('authz.denied', 'updateonly@creds.test');
+    expect(denialsAfter).toHaveLength(denialsBefore.length + 1);
+    expect(denialsAfter.at(-1)?.outcome).toBe('denied');
+    expect(denialsAfter.at(-1)?.reason_code).toBe('AUTHZ.PERMISSION');
+    expect(denialsAfter.at(-1)?.metadata.permission).toBe('credential.restore_version');
+
+    expect(await secretVersionCount(own.id)).toBe(versionsBefore);
+    const events = (await auditRows('credential.version_restored')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(events).toHaveLength(0);
+
+    // Cambiar la contraseña sigue dependiendo solo de `credential.update`: no se rompió.
+    const changed = await updateOnly.client.post(`/credentials/${own.id}/password`, {
+      password: NEW_PASSWORD_CANARY,
+    });
+    expect(changed.status).toBe(201);
+  });
+
+  // SENSIBLE (revisión humana): el permiso nuevo es independiente de `credential.update`.
+  it('lets a person with only credential.restore_version restore, but not change the password', async () => {
+    const own = await credentialWithTwoVersions('Restore only');
+
+    const restored = await restore(restoreOnly, own.id, 1);
+    expect(restored.status).toBe(201);
+    const events = (await auditRows('credential.version_restored')).filter(
+      (row) => row.target_id === own.id,
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]?.metadata).toEqual({ restoredVersion: 1, newVersion: 3 });
+
+    env.clock.advance(DENIAL_GROUPING_WINDOW_MS);
+    const changed = await restoreOnly.client.post<ProblemDetails>(
+      `/credentials/${own.id}/password`,
+      {
+        password: NEW_PASSWORD_CANARY,
+      },
+    );
+    expect(changed.status).toBe(403);
+    expect(changed.body.code).toBe('AUTHZ.PERMISSION');
   });
 
   it('rejects restoring the version that is already current, without creating a version', async () => {

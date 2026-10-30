@@ -24,6 +24,7 @@ export const PERMISSIONS = [
   'account.archive',
   'credential.create',
   'credential.update',
+  'credential.restore_version',
   'credential.reveal_password',
   'credential.use_totp',
   'credential.export_totp',

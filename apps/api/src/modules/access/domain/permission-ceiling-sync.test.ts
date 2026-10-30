@@ -5,8 +5,11 @@ import { describe, expect, it } from 'vitest';
 
 import { PERMISSION_CEILING } from './permission-catalog.js';
 
+// Migración que tiene la ÚLTIMA definición de permission_rank_ceiling: 0015 la creó y 0021 la
+// redefinió al agregar credential.restore_version. Si otra migración la vuelve a redefinir, hay
+// que apuntar aquí a esa, o la prueba compararía contra una definición vieja.
 const MIGRATION_URL = new URL(
-  '../../../../../../db/migrations/0015_role_rank_ceiling.sql',
+  '../../../../../../db/migrations/0021_credential_restore_version_permission.sql',
   import.meta.url,
 );
 

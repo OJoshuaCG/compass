@@ -31,6 +31,7 @@ const HIDE_AFTER_MS = 30_000;
 const ALL_PERMISSIONS: Permission[] = [
   'credential.create',
   'credential.update',
+  'credential.restore_version',
   'credential.reveal_password',
 ];
 
@@ -949,6 +950,32 @@ describe('restore a password version', () => {
     expect(within(dialog).getAllByRole('button', { name: /^Restaurar la versión/ })).toHaveLength(
       1,
     );
+  });
+
+  // SENSIBLE (revisión humana): la visibilidad del botón sigue el permiso propio, no `credential.update`.
+  it('hides restore from a person who can change the password but lacks credential.restore_version', async () => {
+    const user = userEvent.setup();
+    setup({
+      level: 'EDIT',
+      permissions: ['credential.update', 'credential.reveal_password'],
+      extra: { [`GET ${HISTORY_PATH}`]: historyRoute },
+    });
+    renderApp(PAGE);
+    const dialog = await openHistory(user);
+    expect(within(dialog).queryByRole('button', { name: /^Restaurar la versión/ })).toBeNull();
+  });
+
+  // SENSIBLE (revisión humana): con solo el permiso de restaurar, el botón aparece.
+  it('offers restore with only credential.restore_version', async () => {
+    const user = userEvent.setup();
+    setup({
+      level: 'EDIT',
+      permissions: ['credential.restore_version'],
+      extra: { [`GET ${HISTORY_PATH}`]: historyRoute },
+    });
+    renderApp(PAGE);
+    const dialog = await openHistory(user);
+    expect(within(dialog).getByRole('button', { name: restoreLabel(1) })).toBeVisible();
   });
 
   it('restores the chosen version, reloads the queries and confirms without storing the password', async () => {
