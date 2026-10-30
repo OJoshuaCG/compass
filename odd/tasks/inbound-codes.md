@@ -1,6 +1,6 @@
 # Lectura de códigos entrantes por correo y SMS (IC)
 
-Estado: **documentación más la rebanada IC-1 (código y pruebas de dominio, 2026-10-30; sin migraciones y sin pruebas ejecutadas).** Ruta protegida (identidad previa a la autenticación, criptografía, auditoría, permisos y migraciones con aislamiento): el dueño ya dio el encargo humano; faltan nueva revisión de dos jueces ciegos sobre un alcance congelado, mutación a propósito y revisión humana de las pruebas de autorización, criptografía y aislamiento, **por rebanada**.
+Estado: **IC-1, IC-2a, IC-2b e IC-2c hechas y revisadas por dos jueces ciegos (2026-10-30; commits locales, sin push). IC-3 en adelante bloqueadas por la aprobación de dependencias (cliente IMAP, analizador MIME) y por el proceso trabajador.** Ruta protegida (identidad previa a la autenticación, criptografía, auditoría, permisos y migraciones con aislamiento): el dueño delegó el encargo humano para este lote; queda pendiente la revisión humana de las pruebas SENSIBLE (ver la bitácora de cada rebanada).
 
 Diseño: [ADR 0045](../../docs/adr/0045-inbound-codes-mail-and-sms.md) (**Propuesta**). Negocio: `docs/business/vault.md` sección 14 (propuesta). Seguimiento: `TODO.md` épica T y fila S2.
 
@@ -21,7 +21,7 @@ Los identificadores de rebanada son **IC-n** (no R1 a R8) para no chocar con las
 ## Estado tras la revisión por jueces (2026-10-30)
 
 - **IC-0 cumplida** por el dueño (camino A elegido el 2026-10-30, "adelante con lo necesario"). El ADR 0045 **sigue en Propuesta**.
-- **Solo IC-1 está autorizada a empezar.** IC-2 en adelante esperan los cambios del ADR (sección "Revisión por jueces 2026-10-30") y una nueva revisión de los jueces.
+- **Autorizadas y hechas: IC-1 a IC-2c.** IC-3 en adelante esperan la aprobación de dependencias y el proceso trabajador.
 - Los prerrequisitos de IC-3 son: decidir la vía de recepción y dónde corre la verificación DKIM, y que exista el worker propio (proceso y rol).
 
 ## Decisiones de diseño propuestas (mías, por confirmar)
@@ -49,7 +49,7 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | ID | Rebanada | Depende de | Estado |
 | --- | --- | --- | --- |
 | IC-0 | Ratificación del encargo y elección del camino A | — | **Cumplida** (dueño, 2026-10-30). El ADR sigue en Propuesta |
-| IC-1 | Dominio puro: plantillas y filtros **sin regex de usuario**, compuerta DKIM sobre **resultado estructurado** (puerto con resultados abstractos), extracción de código y de enlace con lista de anfitriones, vigencia, **clasificación fail-closed**. Sin base de datos ni red | IC-0 | **Escrita, sin cerrar** (typecheck y lint en verde; faltan jueces, mutación y revisión humana) |
+| IC-1 | Dominio puro: plantillas y filtros **sin regex de usuario**, compuerta DKIM sobre **resultado estructurado** (puerto con resultados abstractos), extracción de código y de enlace con lista de anfitriones, vigencia, **clasificación fail-closed**. Sin base de datos ni red | IC-0 | Hecha y cerrada 2026-10-30 (jueces y mutación en la bitácora; falta la revisión humana de las pruebas SENSIBLE) |
 | IC-2a | Permisos, techo, plantillas de roles y lista blanca de auditoría ⚠ (molde 0021; la siguiente migración libre es la 0023): `inbound.read_codes`, `inbound.configure`, `inbound.reveal_reset` con política de acción, `permission_rank_ceiling()`, `SYSTEM_ROLES_VERSION`, exclusiones si el techo lo exige, acciones nuevas de auditoría | IC-0 | Hecha 2026-10-30 (ver bitácora) |
 | IC-2b | Tablas con RLS ⚠: fuentes, vistas, referencias a plantillas, elementos extraídos, historial de recepciones (con deduplicación), cuarentena; `mail_view` y `mail_source` en `shares` con **`shares_check_refs` redefinido**; reconciliación con `recovery_email_alias` | IC-2a | Hecha 2026-10-30 (ver bitácora); falta la conciliación con `recovery_email_alias` (diferida a IC-2c) |
 | IC-2c | Función `auth.resolve_inbound_address` y **rol de base de datos del worker** con sus grants ⚠ | IC-2b | Hecha 2026-10-30 (ver bitácora) |
