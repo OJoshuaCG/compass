@@ -13,8 +13,8 @@
  * - La organización nunca se queda sin una persona ACTIVA de rango 1: bajar de rango, suspender o dar
  *   de baja a la última se niega (con auditoría) bajo el bloqueo de jerarquía.
  * - Bajar de rango quita en la misma transacción los roles que exceden el nuevo tope (y asigna la
- *   plantilla del rango si no queda ninguno); las comparticiones que la persona otorgó no se revocan,
- *   solo se informan. Subir de rango exige un motivo, que va a la auditoría.
+ *   plantilla del rango si no queda ninguno y quien actúa tiene todos sus permisos); las comparticiones que la persona otorgó no se revocan,
+ *   solo se informan, con detalle únicamente para quien tiene permiso sobre la bóveda. Subir de rango exige un motivo, que va a la auditoría.
  * - Toda acción exitosa escribe su auditoría en la misma transacción.
  */
 import type { ErrorCode, Permission } from '@iam/contracts';
@@ -36,7 +36,11 @@ import {
   wouldLeaveNoActiveAdministrator,
 } from '../domain/management-policy.js';
 import type { UserRecord } from '../domain/user.js';
-import type { AssignedRoleRevoker, RoleSummary } from './ports/assigned-role-revoker.js';
+import type {
+  AssignedRoleRevoker,
+  RoleAdjustment,
+  RoleSummary,
+} from './ports/assigned-role-revoker.js';
 import type { RankChangeNoticeQueue } from './ports/rank-change-notice-queue.js';
 import type { SharedAccountSummary, SharedByLister } from './ports/shared-by-lister.js';
 import type { UserDirectory } from './ports/user-directory.js';
@@ -54,6 +58,13 @@ const MAX_SHARED_ACCOUNTS_IN_RESPONSE = 100;
 const AUDIT_METADATA_TEXT_MAX_LENGTH = 256;
 const AUDIT_ID_LIST_SEPARATOR = ',';
 
+/**
+ * Permisos que habilitan ver las comparticiones de la bóveda: el inventario completo o la gestión de
+ * comparticiones. Quien cambia el rango sin ninguno solo recibe el conteo; el rango de una persona
+ * nunca concede ver cuentas (ver ADR 0012 y `docs/business`).
+ */
+const SHARE_DETAIL_PERMISSIONS: readonly Permission[] = ['vault.inventory.read', 'share.manage'];
+
 /** Lo que este caso de uso necesita del motor de autorización (que vive en el módulo de acceso). */
 export interface ActionAuthorizer {
   require(request: {
@@ -65,6 +76,8 @@ export interface ActionAuthorizer {
     readonly permission: Permission;
     readonly targetUserId?: UserId;
   }): Promise<void>;
+  /** Permisos efectivos de quien actúa, sin auditar (para comparar permisos y acotar la respuesta). */
+  actorPermissions(): Promise<ReadonlySet<Permission>>;
 }
 
 /** Cierre de sesiones, implementado por identidad y cableado en la composición. */
@@ -97,7 +110,12 @@ type Outcome = Result<void, DomainError>;
 export interface RankChangeOutcome {
   readonly removedRoles: readonly RoleSummary[];
   readonly assignedRole: RoleSummary | null;
-  /** A lo sumo `MAX_SHARED_ACCOUNTS_IN_RESPONSE`; vacío al subir de rango. */
+  /** La persona quedó sin rol y no se le asignó la plantilla (no escalamiento); ver el puerto. */
+  readonly templateSkipped: boolean;
+  /**
+   * A lo sumo `MAX_SHARED_ACCOUNTS_IN_RESPONSE`; vacío al subir de rango o si quien cambia el rango
+   * no tiene permiso sobre la bóveda (entonces solo se informa el conteo).
+   */
   readonly sharedAccounts: readonly SharedAccountSummary[];
   /** Total real de comparticiones vivas, aunque la lista esté truncada. */
   readonly sharedAccountCount: number;
@@ -226,12 +244,14 @@ export class ManageUsers {
       const at = this.deps.clock.now();
       // Solo bajar de rango puede dejar roles por encima del nuevo tope; al subir, el tope solo se
       // relaja y no hay nada que quitar.
-      const adjustment = isPromotion
-        ? { removedRoles: [], assignedRole: null }
+      const actorPermissions = await authorizer.actorPermissions();
+      const adjustment: RoleAdjustment = isPromotion
+        ? { removedRoles: [], assignedRole: null, templateSkipped: false }
         : await this.deps.roles.revokeRolesAboveRank({
             userId: target.id,
             newRank,
             grantedBy: actor.id,
+            actorPermissions,
           });
       // Se informa de lo que la persona compartió, sin revocarlo: decidirlo es de quien gestiona.
       const shared = isPromotion
@@ -241,6 +261,12 @@ export class ManageUsers {
             at,
             MAX_SHARED_ACCOUNTS_IN_RESPONSE,
           );
+      // El detalle (ids de cuenta y destinatario) solo lo ve quien ya tiene permiso sobre la bóveda;
+      // el conteo basta para avisar y no revela qué hay compartido.
+      const mayViewShareDetail = SHARE_DETAIL_PERMISSIONS.some((permission) =>
+        actorPermissions.has(permission),
+      );
+      const sharedAccounts = mayViewShareDetail ? shared.rows : [];
       // El motor lee el rango en cada petición, así que la autoridad ya cambió al confirmar; las
       // sesiones se cierran igualmente en la misma transacción para que la persona vuelva a
       // autenticarse con su nuevo rango (AU-9, ADR 0014, defensa en profundidad).
@@ -260,12 +286,14 @@ export class ManageUsers {
         removedRoles: joinIdsWithinAuditLimit(adjustment.removedRoles.map((role) => role.id)),
         removedRoleCount: adjustment.removedRoles.length,
         assignedRole: adjustment.assignedRole?.id ?? null,
+        templateSkipped: adjustment.templateSkipped,
         sharedAccountCount: shared.total,
       });
       return ok({
         removedRoles: adjustment.removedRoles,
         assignedRole: adjustment.assignedRole,
-        sharedAccounts: shared.rows,
+        templateSkipped: adjustment.templateSkipped,
+        sharedAccounts,
         sharedAccountCount: shared.total,
       });
     });

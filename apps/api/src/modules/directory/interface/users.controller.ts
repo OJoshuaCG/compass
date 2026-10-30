@@ -15,7 +15,7 @@ import type {
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 
-import { Idempotent, unwrap } from '../../../shared/http/http-decorators.js';
+import { unwrap } from '../../../shared/http/http-decorators.js';
 import { asUserId } from '../../../shared/kernel/index.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
 import { ListDirectory } from '../application/list-directory.js';
@@ -85,13 +85,14 @@ export class UsersController {
   }
 
   /**
-   * Responde 200 con el resultado (roles quitados, plantilla asignada y comparticiones vivas). Lleva
-   * `@Idempotent()`: si el reintento llega tras un cambio ya hecho, recibe el mismo resultado en vez
-   * de `USER.INVALID_STATE` (mismo rango) y no pierde la lista de roles quitados. La respuesta solo
+   * Responde 200 con el resultado (roles quitados, plantilla asignada o saltada y comparticiones
+   * vivas, estas últimas solo con detalle si quien actúa tiene permiso sobre la bóveda). NO lleva
+   * `@Idempotent()`: la respuesta guardada 24 horas se reproduciría sin volver a autorizar y
+   * devolvería el detalle de comparticiones a quien ya perdió el permiso. Una repetición recibe
+   * `USER.INVALID_STATE` (mismo rango); lo que se quitó queda en la auditoría. La respuesta solo
    * contiene ids, nombres de rol y niveles, ningún secreto.
    */
   @Post(':id/rank')
-  @Idempotent()
   @HttpCode(200)
   async changeRank(
     @Param('id', new ZodValidationPipe(idSchema)) id: string,
@@ -104,6 +105,7 @@ export class UsersController {
         outcome.assignedRole === null
           ? null
           : { id: outcome.assignedRole.id, name: outcome.assignedRole.name },
+      templateSkipped: outcome.templateSkipped,
       sharedAccounts: outcome.sharedAccounts.map((share) => ({
         shareId: share.shareId,
         accountId: share.accountId,

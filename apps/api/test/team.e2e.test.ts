@@ -242,13 +242,27 @@ describe('changing a rank', () => {
     // Sin una sesión abierta de partida, comprobar que se cierran no probaría nada.
     expect(sessionsBefore.rowCount).toBeGreaterThan(0);
     expect((await reauth(root)).status).toBe(204);
-    const changed = await root.client.post<RankChangeResponse>(`/users/${target}/rank`, {
-      rank: 3,
-    });
+    // El cambio de rango no es idempotente por clave: una repetición con la misma clave no reproduce
+    // la respuesta guardada (que no se volvería a autorizar), sino que recibe USER.INVALID_STATE.
+    const headers = { 'idempotency-key': 'rank-change-repeat-0001' };
+    const changed = await root.client.post<RankChangeResponse>(
+      `/users/${target}/rank`,
+      { rank: 3 },
+      headers,
+    );
     expect(changed.status).toBe(200);
+    const repeated = await root.client.post<ProblemDetails>(
+      `/users/${target}/rank`,
+      { rank: 3 },
+      headers,
+    );
+    expect(repeated.status).toBe(409);
+    expect(repeated.body.code).toBe('USER.INVALID_STATE');
+    expect(repeated.headers['idempotent-replayed']).toBeUndefined();
     // La plantilla de Líder excede el tope de Operador: se retira y se asigna la de Operador.
     expect(changed.body.removedRoles.map((role) => role.name)).toContain('Leader');
     expect(changed.body.assignedRole?.name).toBe('Operator');
+    expect(changed.body.templateSkipped).toBe(false);
     expect(Array.isArray(changed.body.sharedAccounts)).toBe(true);
     expect((await row('l2@team.test'))?.rank).toBe(3);
     const openSessions = await env.db.admin.query(

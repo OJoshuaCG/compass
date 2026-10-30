@@ -176,7 +176,8 @@ type ChangeRankResultProps = {
  */
 function ChangeRankResult({ person, change, onAcknowledge }: ChangeRankResultProps) {
   const { t, i18n } = useTranslation(['directory', 'common', 'shares']);
-  const { removedRoles, assignedRole, sharedAccounts, sharedAccountCount } = change.response;
+  const { removedRoles, assignedRole, templateSkipped, sharedAccounts, sharedAccountCount } =
+    change.response;
   // El diálogo no tiene otro control que reciba el foco al desmontarse el formulario: se lleva aquí.
   const headingRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
@@ -209,6 +210,11 @@ function ChangeRankResult({ person, change, onAcknowledge }: ChangeRankResultPro
           {t('rank.result.assignedRole', { ns: 'directory', role: assignedRole.name })}
         </p>
       ) : null}
+      {templateSkipped ? (
+        <Alert tone="warning">
+          {t('rank.result.templateSkipped', { ns: 'directory', name: person.displayName })}
+        </Alert>
+      ) : null}
       {sharedAccountCount > 0 ? (
         <section className="flex flex-col gap-2">
           <h3 className="text-sm font-medium text-text">
@@ -217,6 +223,12 @@ function ChangeRankResult({ person, change, onAcknowledge }: ChangeRankResultPro
           <Alert tone="warning">
             {t('rank.result.shares.description', { ns: 'directory', name: person.displayName })}
           </Alert>
+          {sharedAccounts.length === 0 ? (
+            // Sin permiso sobre la bóveda el servidor solo manda el conteo.
+            <p className="text-sm text-text-secondary">
+              {t('rank.result.shares.noDetail', { ns: 'directory' })}
+            </p>
+          ) : null}
           <ul className="list-disc ps-5 text-sm break-all text-text-secondary">
             {sharedAccounts.map((share) => (
               <li key={share.shareId}>
@@ -234,7 +246,7 @@ function ChangeRankResult({ person, change, onAcknowledge }: ChangeRankResultPro
               </li>
             ))}
           </ul>
-          {sharedAccountCount > sharedAccounts.length ? (
+          {sharedAccounts.length > 0 && sharedAccountCount > sharedAccounts.length ? (
             <p className="text-sm text-text-secondary">
               {t('rank.result.shares.truncated', {
                 ns: 'directory',
@@ -271,9 +283,12 @@ export function ChangeRankDialog(props: ChangeRankDialogProps) {
   }
 
   function handleConfirmed(change: ConfirmedChange) {
-    const { removedRoles, assignedRole, sharedAccountCount } = change.response;
+    const { removedRoles, assignedRole, templateSkipped, sharedAccountCount } = change.response;
     const hasNothingToReview =
-      removedRoles.length === 0 && assignedRole === null && sharedAccountCount === 0;
+      removedRoles.length === 0 &&
+      assignedRole === null &&
+      !templateSkipped &&
+      sharedAccountCount === 0;
     // Sin nada que revisar (p. ej. un ascenso) un paso extra solo estorba: se cierra y se avisa con el
     // aviso emergente, como cualquier otra acción confirmada.
     if (hasNothingToReview) props.onDone(change.toastMessage);

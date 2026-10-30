@@ -93,6 +93,21 @@ export class Authorizer {
   }
 
   /**
+   * Permisos efectivos de la persona autenticada, SIN decidir ni auditar nada: sirve para que un caso
+   * de uso ya autorizado decida cuánto detalle devolver o compare permisos (no escalamiento) sin
+   * generar una negación por cada consulta. Se niega por defecto: sin actor activo de la organización
+   * del contexto, el conjunto es vacío.
+   */
+  async actorPermissions(): Promise<ReadonlySet<Permission>> {
+    const { context, directory, roles } = this.deps;
+    const current = context.current();
+    const actor = current.actorId === null ? null : await directory.findById(current.actorId);
+    if (actor === null || actor.status !== 'active') return new Set();
+    if (actor.organizationId !== current.organizationId) return new Set();
+    return effectivePermissions(await roles.rolePermissionsOf(actor.id), actor.rank);
+  }
+
+  /**
    * Decide las consultas que no necesitan un permiso del catálogo, solo ser una persona activa de la
    * organización del contexto (el directorio visible de la regla 11 y la vista de gestión, que
    * después acota por jerarquía). Se niega por defecto y la negación se audita como cualquier otra.

@@ -40,8 +40,7 @@ export type ManagedUser = z.infer<typeof managedUserSchema>;
 export const RANK_CHANGE_REASON_MAX_LENGTH = 500;
 
 /**
- * Tope de comparticiones que devuelve el cambio de rango. La lista completa puede ser larga y la
- * respuesta se guarda 24 horas (idempotencia): se acota y se informa el total aparte.
+ * Tope de comparticiones que devuelve el cambio de rango. La lista completa puede ser larga: se acota y se informa el total aparte.
  */
 export const RANK_CHANGE_MAX_SHARED_ACCOUNTS = 100;
 
@@ -61,7 +60,8 @@ const roleSummarySchema = z.object({ id: z.uuid(), name: z.string() });
 /**
  * Comparticiones vivas que la persona otorgó. Solo ids, nivel y vencimiento: quien cambia el rango
  * no necesariamente ve esas cuentas (el rango nunca concede acceso a una cuenta), así que no se
- * devuelven nombres de cuentas.
+ * devuelven nombres de cuentas. Además, la lista solo viene con detalle si quien cambia el rango tiene
+ * permiso sobre la bóveda; sin él llega vacía y solo cuenta `sharedAccountCount`.
  */
 const sharedAccountSchema = z.object({
   shareId: z.uuid(),
@@ -76,6 +76,8 @@ const sharedAccountSchema = z.object({
 export const rankChangeResponseSchema = z.object({
   removedRoles: z.array(roleSummarySchema),
   assignedRole: roleSummarySchema.nullable(),
+  /** La persona quedó sin rol y no se le asignó la plantilla porque quien cambia el rango no tiene todos sus permisos. */
+  templateSkipped: z.boolean(),
   sharedAccounts: z.array(sharedAccountSchema).max(RANK_CHANGE_MAX_SHARED_ACCOUNTS),
   sharedAccountCount: z.number().int().nonnegative(),
 });

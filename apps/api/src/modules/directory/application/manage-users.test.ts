@@ -1,3 +1,4 @@
+import { PERMISSIONS } from '@iam/contracts';
 import type { Permission } from '@iam/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -62,6 +63,8 @@ interface SetupOptions {
   readonly users?: readonly UserRecord[];
   readonly sharedAccounts?: readonly SharedAccountSummary[];
   readonly shareTotal?: number;
+  /** Permisos efectivos de quien actúa; por defecto todos (como la Raíz). */
+  readonly actorPermissions?: readonly Permission[];
 }
 
 function setup(options: SetupOptions = {}) {
@@ -104,6 +107,9 @@ function setup(options: SetupOptions = {}) {
   const revokeAllOfUser = vi.fn(() => Promise.resolve());
   const auditDenial = vi.fn(() => Promise.resolve());
   const require = vi.fn(() => Promise.resolve(undefined));
+  const actorPermissions = vi.fn(() =>
+    Promise.resolve<ReadonlySet<Permission>>(new Set(options.actorPermissions ?? PERMISSIONS)),
+  );
   const uow: UnitOfWork = { run: (fn) => fn(), runIndependent: (fn) => fn() };
   const sharedAccounts = options.sharedAccounts ?? [];
   const listLiveGrantedBy = vi.fn(() =>
@@ -113,7 +119,7 @@ function setup(options: SetupOptions = {}) {
   const manageUsers = new ManageUsers({
     context: { current: context },
     uow,
-    authorizer: { require, auditDenial },
+    authorizer: { require, auditDenial, actorPermissions },
     directory,
     sessions: { revokeAllOfUser },
     invitations: { revokePendingOfUser: () => Promise.resolve() },
@@ -170,7 +176,50 @@ describe('ManageUsers.changeRank: roles above the new ceiling', () => {
     if (!result.ok) return;
     expect(result.value.removedRoles.map((role) => role.id)).toEqual([LEADER_ROLE.id]);
     expect(result.value.assignedRole).toEqual({ id: OPERATOR_ROLE.id, name: 'Operator' });
+    expect(result.value.templateSkipped).toBe(false);
     expect([...(roles.assignments.get(LEADER_ID) ?? [])]).toEqual([OPERATOR_ROLE.id]);
+  });
+
+  // SENSIBLE (revisión humana): no escalamiento (ADR 0012); sin los permisos de la plantilla no se asigna.
+  it('does NOT assign the template when the actor lacks one of its permissions', async () => {
+    const operatorPermissions = [...systemRole('operator').permissions];
+    const missingPermission = operatorPermissions[0];
+    const { manageUsers, roles, auditEvents } = setup({
+      actorPermissions: operatorPermissions.filter(
+        (permission) => permission !== missingPermission,
+      ),
+    });
+    roles.assignments.get(LEADER_ID)?.delete(CUSTOM_ROLE.id);
+
+    const result = await manageUsers.changeRank(LEADER_ID, RANK.OPERATOR);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.removedRoles.map((role) => role.id)).toEqual([LEADER_ROLE.id]);
+    expect(result.value.assignedRole).toBeNull();
+    expect(result.value.templateSkipped).toBe(true);
+    expect([...(roles.assignments.get(LEADER_ID) ?? [])]).toEqual([]);
+    const event = auditEvents.find((candidate) => candidate.action === 'user.rank_changed');
+    expect(event?.metadata).toMatchObject({ assignedRole: null, templateSkipped: true });
+  });
+
+  // SENSIBLE (revisión humana): un actor sin ningún permiso tampoco puede otorgar la plantilla.
+  it('does NOT assign the template when the actor has no permissions at all', async () => {
+    const { manageUsers, roles } = setup({ actorPermissions: [] });
+    roles.assignments.get(LEADER_ID)?.delete(CUSTOM_ROLE.id);
+
+    const result = await manageUsers.changeRank(LEADER_ID, RANK.OPERATOR);
+
+    expect(result.ok && result.value.templateSkipped).toBe(true);
+    expect([...(roles.assignments.get(LEADER_ID) ?? [])]).toEqual([]);
+  });
+
+  it('does not flag a skipped template when the person keeps another role', async () => {
+    const { manageUsers } = setup({ actorPermissions: [] });
+
+    const result = await manageUsers.changeRank(LEADER_ID, RANK.OPERATOR);
+
+    expect(result.ok && result.value.templateSkipped).toBe(false);
   });
 
   it('does not touch roles when the rank goes up', async () => {
@@ -200,6 +249,7 @@ describe('ManageUsers.changeRank: roles above the new ceiling', () => {
       removedRoles: LEADER_ROLE.id,
       removedRoleCount: 1,
       assignedRole: null,
+      templateSkipped: false,
       sharedAccountCount: 3,
     });
   });
@@ -248,6 +298,34 @@ describe('ManageUsers.changeRank: shared accounts are reported, never revoked', 
     expect(result.ok && result.value.sharedAccounts).toEqual([share]);
     expect(result.ok && result.value.sharedAccountCount).toBe(250);
     expect(listLiveGrantedBy).toHaveBeenCalledWith(LEADER_ID, NOW, SHARE_LIST_LIMIT_IN_RESPONSE);
+  });
+
+  // SENSIBLE (revisión humana): el detalle de comparticiones exige permiso sobre la bóveda.
+  it.each<Permission>(['vault.inventory.read', 'share.manage'])(
+    'returns the share list when the actor holds %s',
+    async (permission) => {
+      const { manageUsers } = setup({ sharedAccounts: [share], actorPermissions: [permission] });
+
+      const result = await manageUsers.changeRank(LEADER_ID, RANK.OPERATOR);
+
+      expect(result.ok && result.value.sharedAccounts).toEqual([share]);
+    },
+  );
+
+  // SENSIBLE (revisión humana): sin permiso sobre la bóveda solo se devuelve el conteo.
+  it('returns only the count when the actor has no vault permission', async () => {
+    const { manageUsers, auditEvents } = setup({
+      sharedAccounts: [share],
+      shareTotal: 4,
+      actorPermissions: ['user.change_rank', 'role.assign'],
+    });
+
+    const result = await manageUsers.changeRank(LEADER_ID, RANK.OPERATOR);
+
+    expect(result.ok && result.value.sharedAccounts).toEqual([]);
+    expect(result.ok && result.value.sharedAccountCount).toBe(4);
+    const event = auditEvents.find((candidate) => candidate.action === 'user.rank_changed');
+    expect(event?.metadata).toMatchObject({ sharedAccountCount: 4 });
   });
 
   it('does not look at shares when the rank goes up', async () => {

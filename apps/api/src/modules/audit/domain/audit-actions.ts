@@ -22,7 +22,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'user.reactivated': [],
   // Cambio de rango: `reason` es el motivo escrito (hasta 500, ver abajo). `removedRoles` es una lista de ids
   // de rol separados por coma, TRUNCADA a ids completos para caber en 256 caracteres; el total real va en
-  // `removedRoleCount`. `assignedRole` es el id de la plantilla asignada (o null) y `sharedAccountCount` el
+  // `removedRoleCount`. `assignedRole` es el id de la plantilla asignada (o null), `templateSkipped` indica que la persona quedó sin rol
+  // porque no se asignó la plantilla (no escalamiento) y `sharedAccountCount` el
   // número de comparticiones vivas que la persona otorgó. Nunca nombres de roles ni de cuentas.
   'user.rank_changed': [
     'fromRank',
@@ -31,6 +32,7 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
     'removedRoles',
     'removedRoleCount',
     'assignedRole',
+    'templateSkipped',
     'sharedAccountCount',
   ],
   'user.manager_changed': ['newManagerId'],

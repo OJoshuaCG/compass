@@ -54,6 +54,7 @@ const REASON_TEXT = 'Asume la coordinación del equipo';
 const EMPTY_RANK_RESULT = {
   removedRoles: [],
   assignedRole: null,
+  templateSkipped: false,
   sharedAccounts: [],
   sharedAccountCount: 0,
 };
@@ -599,7 +600,7 @@ describe('change rank', () => {
     const rank = api.callsTo('POST', `/users/${LUIS_ID}/rank`);
     expect(rank).toHaveLength(2);
     expect(rank[1]?.body).toEqual({ rank: 2, reason: REASON_TEXT });
-    // Es la MISMA operación: misma clave de idempotencia en el reintento.
+    // El cliente HTTP conserva la clave en el reintento tras reautenticar (comportamiento genérico).
     expect(rank[1]?.headers.get('Idempotency-Key')).toBe(rank[0]?.headers.get('Idempotency-Key'));
     expect(api.callsTo('POST', '/auth/reauth')).toHaveLength(1);
   });
@@ -660,6 +661,7 @@ describe('change rank: reason, warning and result', () => {
       { id: SECOND_ROLE_ID, name: 'Rol de auditoría' },
     ],
     assignedRole: { id: ROLE_ID, name: 'Plantilla Operador' },
+    templateSkipped: false,
     sharedAccounts: [
       {
         shareId: SHARE_ID,
@@ -828,6 +830,38 @@ describe('change rank: reason, warning and result', () => {
     await waitFor(() => {
       expect(managedCalls(api).length).toBeGreaterThan(before);
     });
+  });
+
+  it('warns when the template was not assigned and still works with only the share count', async () => {
+    const user = userEvent.setup();
+    leaderApi(() =>
+      jsonResponse({
+        ...DEMOTION_RESULT,
+        assignedRole: null,
+        templateSkipped: true,
+        // Sin permiso sobre la bóveda el servidor manda el conteo y la lista vacía.
+        sharedAccounts: [],
+      }),
+    );
+    renderApp(TEAM_URL);
+    const dialog = await openLeaderDialog(user);
+    await user.click(within(dialog).getByRole('button', { name: es.directory['rank.submit'] }));
+
+    expect(
+      await within(dialog).findByText(
+        es.directory['rank.result.templateSkipped'].replace('{{name}}', 'Lía Líder'),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(new RegExp(es.directory['rank.result.assignedRole'].slice(0, 12))),
+    ).toBeNull();
+    expect(
+      within(dialog).getByText(es.directory['rank.result.shares.title'].replace('{{count}}', '3')),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(es.directory['rank.result.shares.noDetail']),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Se muestran/)).toBeNull();
   });
 
   it('renders the warning, the reason and the result in English', async () => {
