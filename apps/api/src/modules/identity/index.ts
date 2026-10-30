@@ -35,6 +35,23 @@ export type {
   TotpEngine,
 } from './application/ports/identity-ports.js';
 export { SecondFactor } from './application/second-factor.js';
+export { NotifySecurityNotice } from './application/notify-security-notice.js';
+export type {
+  NotifySecurityNoticeDeps,
+  SecurityNoticeDeliveries,
+  SecurityNoticeOutboxEvent,
+} from './application/notify-security-notice.js';
+export type {
+  SecurityNoticeEvent,
+  SecurityNoticeQueue,
+} from './application/ports/security-notice-queue.js';
+export {
+  SECURITY_NOTICE_EVENT_TYPE,
+  SecurityNoticeDeliveryError,
+  SecurityNoticePayloadError,
+  securityNoticeHandlerKey,
+} from './domain/security-notice-event.js';
+export { PgSecurityNoticeQueue } from './infrastructure/pg-security-notice-queue.js';
 export { SessionService } from './application/session-service.js';
 export type { AuthenticatedPrincipal, IssuedSession } from './application/session-service.js';
 export { evaluatePassword, personalTokens } from './domain/password-policy.js';

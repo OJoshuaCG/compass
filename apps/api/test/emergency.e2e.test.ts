@@ -163,6 +163,14 @@ describe('the emergency codes of the Root', () => {
     expect(env.mailer.alerts.map((a) => a.to).sort()).toEqual(['a@em.test', 'b@em.test']);
     // El código de emergencia tiene su propio aviso a los Administradores: no suma otro a la persona.
     expect(env.mailer.notices.filter((n) => n.kind === 'recovery_code_used')).toHaveLength(1);
+    // La baja de la app de autenticación se encoló en el outbox en la misma transacción (el correo
+    // sale por el trabajador, que aquí no corre): un solo evento, solo con ids, tipo y fecha.
+    const queued = await env.db.admin.query<{ payload: Record<string, unknown> }>(
+      "select payload from outbox_events where type = 'user.security_notice' and payload->>'userId' = $1",
+      [rootId],
+    );
+    expect(queued.rows).toHaveLength(1);
+    expect(queued.rows[0]?.payload).toMatchObject({ kind: 'totp_removed' });
 
     // El código no se reutiliza, y el secreto TOTP anterior ya no sirve.
     const again = await login('203.0.113.95');

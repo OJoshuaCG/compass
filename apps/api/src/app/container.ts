@@ -59,13 +59,17 @@ import {
   InMemoryLoginAttemptStore,
   Login,
   Logout,
+  NotifySecurityNotice,
   OtplibTotpEngine,
   PgCredentialRepository,
   PgInvitationRepository,
   PgPreAuthLookup,
+  PgSecurityNoticeQueue,
   PgSessionRepository,
   PreviewInvitation,
+  SECURITY_NOTICE_EVENT_TYPE,
   SecondFactor,
+  securityNoticeHandlerKey,
   SessionService,
   ZxcvbnPasswordStrength,
 } from '../modules/identity/index.js';
@@ -232,6 +236,20 @@ export function buildContainer(options: ContainerOptions) {
   });
   outboxHandlers.register(RANK_CHANGE_NOTICE_EVENT_TYPE, (event) =>
     notifyRankChanged.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Aviso de seguridad a la dueña de la cuenta (hoy: baja de su app de autenticación). Solo a ella.
+  const notifySecurityNotice = new NotifySecurityNotice({
+    directory,
+    mailer,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, securityNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, securityNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(SECURITY_NOTICE_EVENT_TYPE, (event) =>
+    notifySecurityNotice.handle({ eventId: event.id, payload: event.payload }),
   );
   // Aviso a quien registró un segundo factor que lleva 24 h sin confirmar (S10). Solo a quien lo registró.
   const notifyPendingTotpUnconfirmed = new NotifyPendingTotpUnconfirmed({
@@ -455,6 +473,7 @@ export function buildContainer(options: ContainerOptions) {
       clock,
       mailer,
       reportLost: reportNoticeLost,
+      securityNotices: new PgSecurityNoticeQueue(uow),
       passkeys: passkeyRepository,
       challenges,
       webauthn,

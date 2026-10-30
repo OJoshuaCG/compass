@@ -17,6 +17,10 @@ const COPY: Record<SecurityNoticeMessage['locale'], Record<SecurityNoticeKind, N
       subject: 'Se quitó una llave de acceso de tu cuenta',
       what: 'Se quitó una de las llaves de acceso de tu cuenta.',
     },
+    totp_removed: {
+      subject: 'Se quitó la app de autenticación de tu cuenta',
+      what: 'Se quitó la app de autenticación (segundo factor) de tu cuenta de acceso.',
+    },
   },
   'en-US': {
     recovery_code_used: {
@@ -30,6 +34,10 @@ const COPY: Record<SecurityNoticeMessage['locale'], Record<SecurityNoticeKind, N
     passkey_removed: {
       subject: 'A passkey was removed from your account',
       what: 'One of the passkeys on your account was removed.',
+    },
+    totp_removed: {
+      subject: 'The authenticator app was removed from your account',
+      what: 'The authenticator app (second factor) was removed from your sign-in account.',
     },
   },
 };

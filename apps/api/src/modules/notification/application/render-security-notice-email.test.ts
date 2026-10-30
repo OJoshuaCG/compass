@@ -8,6 +8,7 @@ const KINDS: readonly SecurityNoticeKind[] = [
   'recovery_code_used',
   'passkey_added',
   'passkey_removed',
+  'totp_removed',
 ];
 
 describe('renderSecurityNoticeEmail', () => {
@@ -57,6 +58,24 @@ describe('renderSecurityNoticeEmail', () => {
     for (const body of [email.subject, email.text, email.html]) {
       expect(body).not.toMatch(/https?:\/\//i);
       expect(body).not.toContain('secret.person');
+    }
+  });
+
+  it('describes the authenticator removal without codes, secrets or links, and escapes the html', () => {
+    for (const locale of ['es-MX', 'en-US'] as const) {
+      const email = renderSecurityNoticeEmail({
+        to: 'a@x.test',
+        locale,
+        kind: 'totp_removed',
+        occurredAt: OCCURRED_AT,
+      });
+
+      for (const body of [email.subject, email.text, email.html]) {
+        expect(body).not.toMatch(/https?:\/\//i);
+        expect(body).not.toMatch(/\d{6}/);
+      }
+      // Cada línea va en su propio párrafo y ningún texto introduce etiquetas por su cuenta.
+      expect(email.html.replace(/<\/?p>/g, '')).not.toMatch(/[<>]/);
     }
   });
 });

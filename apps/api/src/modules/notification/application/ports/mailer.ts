@@ -12,8 +12,12 @@ export interface EmergencyAlertMessage {
   readonly usedAt: Date;
 }
 
-/** Cambios de seguridad de la propia cuenta que se avisan a la persona (TODO G5). */
-export type SecurityNoticeKind = 'recovery_code_used' | 'passkey_added' | 'passkey_removed';
+/**
+ * Cambios de seguridad de la propia cuenta que se avisan a la persona (TODO G5). `totp_removed` (baja del
+ * factor de aplicación) sale por el outbox; los demás se envían después del _commit_ con mejor esfuerzo.
+ */
+export type SecurityNoticeKind =
+  'recovery_code_used' | 'passkey_added' | 'passkey_removed' | 'totp_removed';
 
 /**
  * Aviso a la persona de un cambio en sus propios factores. Dice qué pasó y cuándo; no incluye
