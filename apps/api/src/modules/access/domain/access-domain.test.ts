@@ -8,7 +8,7 @@ import { decide } from './decision.js';
 import type { DecisionInput } from './decision.js';
 import { effectivePermissions } from './effective-permissions.js';
 import { PERMISSION_CEILING, REAUTH_WINDOW_MS } from './permission-catalog.js';
-import { checkRoleAssignment, isSubsetOfCreator } from './role-assignment.js';
+import { checkRoleAssignment, isSubsetOfCreator, rolesExceedingRank } from './role-assignment.js';
 import { SYSTEM_ROLES, systemRole } from './system-roles.js';
 
 const RANKS: readonly Rank[] = [0, 1, 2, 3];
@@ -299,5 +299,27 @@ describe('decision engine', () => {
         reason: 'PERMISSION',
       });
     });
+  });
+});
+
+describe('roles exceeding a rank ceiling', () => {
+  const leaderRole = { name: 'leader', permissions: systemRole('leader').permissions };
+  const operatorRole = { name: 'operator', permissions: systemRole('operator').permissions };
+  const emptyRole = { name: 'empty', permissions: [] as readonly Permission[] };
+
+  it('keeps every role when the rank does not go down', () => {
+    expect(rolesExceedingRank([leaderRole, operatorRole], 2)).toEqual([]);
+  });
+
+  it('removes the whole role when any permission is above the new ceiling', () => {
+    expect(rolesExceedingRank([leaderRole, operatorRole, emptyRole], 3)).toEqual([leaderRole]);
+  });
+
+  it('removes administrator roles for a leader', () => {
+    const administratorRole = {
+      name: 'admin',
+      permissions: systemRole('administrator').permissions,
+    };
+    expect(rolesExceedingRank([administratorRole], 2)).toEqual([administratorRole]);
   });
 });

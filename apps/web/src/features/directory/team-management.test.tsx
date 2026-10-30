@@ -48,6 +48,16 @@ const MANAGED: ManagedUser[] = [
   },
 ];
 
+const REASON_TEXT = 'Asume la coordinación del equipo';
+
+/** Respuesta 200 del cambio de rango sin nada que mostrar (ascenso o descenso sin efectos). */
+const EMPTY_RANK_RESULT = {
+  removedRoles: [],
+  assignedRole: null,
+  sharedAccounts: [],
+  sharedAccountCount: 0,
+};
+
 const ALL: Permission[] = ['user.deactivate', 'user.update', 'user.change_rank', 'user.transfer'];
 const TEAM_URL = '/users?view=team';
 
@@ -510,13 +520,21 @@ describe('change rank', () => {
 
   it('posts the chosen rank, reloads and shows a toast', async () => {
     const user = userEvent.setup();
-    const api = teamApi({ [`POST /users/${LUIS_ID}/rank`]: noContent() }, { rank: 0 });
+    const api = teamApi(
+      { [`POST /users/${LUIS_ID}/rank`]: () => jsonResponse(EMPTY_RANK_RESULT) },
+      { rank: 0 },
+    );
     renderApp(TEAM_URL);
     await screen.findByRole('cell', { name: 'Luis Gómez' });
     const before = managedCalls(api).length;
     await chooseAction(user, 'Luis Gómez', 'team.action.changeRank');
     const dialog = await screen.findByRole('dialog', { name: es.directory['rank.title'] });
     await user.selectOptions(within(dialog).getByRole('combobox'), String(1));
+    // Subir de rango (3 a 1) exige motivo.
+    await user.type(
+      within(dialog).getByLabelText(new RegExp(es.directory['rank.reason.label'])),
+      REASON_TEXT,
+    );
     await user.click(within(dialog).getByRole('button', { name: es.directory['rank.submit'] }));
     expect(
       await screen.findByText(
@@ -525,7 +543,10 @@ describe('change rank', () => {
           .replace('{{rank}}', es.common['rank.1']),
       ),
     ).toBeInTheDocument();
-    expect(api.callsTo('POST', `/users/${LUIS_ID}/rank`)[0]?.body).toEqual({ rank: 1 });
+    expect(api.callsTo('POST', `/users/${LUIS_ID}/rank`)[0]?.body).toEqual({
+      rank: 1,
+      reason: REASON_TEXT,
+    });
     await waitFor(() => {
       expect(managedCalls(api).length).toBeGreaterThan(before);
     });
@@ -534,6 +555,10 @@ describe('change rank', () => {
   async function submitRank(user: User) {
     await chooseAction(user, 'Luis Gómez', 'team.action.changeRank');
     const dialog = await screen.findByRole('dialog', { name: es.directory['rank.title'] });
+    await user.type(
+      within(dialog).getByLabelText(new RegExp(es.directory['rank.reason.label'])),
+      REASON_TEXT,
+    );
     await user.click(within(dialog).getByRole('button', { name: es.directory['rank.submit'] }));
   }
 
@@ -553,7 +578,9 @@ describe('change rank', () => {
       {
         [`POST /users/${LUIS_ID}/rank`]: () => {
           attempts += 1;
-          return attempts === 1 ? problem(403, 'AUTHZ.REAUTH_REQUIRED') : noContent();
+          return attempts === 1
+            ? problem(403, 'AUTHZ.REAUTH_REQUIRED')
+            : jsonResponse(EMPTY_RANK_RESULT);
         },
         'POST /auth/reauth': noContent(),
       },
@@ -571,7 +598,7 @@ describe('change rank', () => {
     ).toBeInTheDocument();
     const rank = api.callsTo('POST', `/users/${LUIS_ID}/rank`);
     expect(rank).toHaveLength(2);
-    expect(rank[1]?.body).toEqual({ rank: 2 });
+    expect(rank[1]?.body).toEqual({ rank: 2, reason: REASON_TEXT });
     // Es la MISMA operación: misma clave de idempotencia en el reintento.
     expect(rank[1]?.headers.get('Idempotency-Key')).toBe(rank[0]?.headers.get('Idempotency-Key'));
     expect(api.callsTo('POST', '/auth/reauth')).toHaveLength(1);
@@ -609,6 +636,226 @@ describe('change rank', () => {
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
       es.errors['USER.HAS_REPORTS'],
     );
+  });
+});
+
+describe('change rank: reason, warning and result', () => {
+  const LEADER_ID = '66666666-6666-4666-8666-666666666666';
+  const ROLE_ID = '77777777-7777-4777-8777-777777777777';
+  const SECOND_ROLE_ID = '88888888-8888-4888-8888-888888888888';
+  const ACCOUNT_ID = '99999999-9999-4999-8999-999999999999';
+  const GRANTEE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const SHARE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const LEADER: ManagedUser = {
+    id: LEADER_ID,
+    displayName: 'Lía Líder',
+    email: 'lia@example.com',
+    rank: 2,
+    status: 'active',
+    managedBy: null,
+  };
+  const DEMOTION_RESULT = {
+    removedRoles: [
+      { id: ROLE_ID, name: 'Rol de gestión' },
+      { id: SECOND_ROLE_ID, name: 'Rol de auditoría' },
+    ],
+    assignedRole: { id: ROLE_ID, name: 'Plantilla Operador' },
+    sharedAccounts: [
+      {
+        shareId: SHARE_ID,
+        accountId: ACCOUNT_ID,
+        granteeType: 'user',
+        granteeId: GRANTEE_ID,
+        level: 'MANAGE',
+        expiresAt: null,
+      },
+    ],
+    sharedAccountCount: 3,
+  };
+
+  /** Equipo con una persona de rango 2 (Líder) para poder bajarla a Operador. */
+  function leaderApi(rankResponse: () => Response) {
+    return teamApi(
+      {
+        'GET /users/managed': () =>
+          jsonResponse({ data: [LEADER, ...MANAGED], page: { nextCursor: null, limit: 25 } }),
+        [`POST /users/${LEADER_ID}/rank`]: rankResponse,
+      },
+      { rank: 0 },
+    );
+  }
+
+  async function openLeaderDialog(user: User) {
+    await chooseAction(user, 'Lía Líder', 'team.action.changeRank');
+    const dialog = await screen.findByRole('dialog', { name: es.directory['rank.title'] });
+    await user.selectOptions(within(dialog).getByRole('combobox'), String(3));
+    return dialog;
+  }
+
+  it('requires a reason when the chosen rank raises authority and does not send the request', async () => {
+    const user = userEvent.setup();
+    const api = teamApi({ [`POST /users/${LUIS_ID}/rank`]: () => jsonResponse(EMPTY_RANK_RESULT) });
+    renderApp(TEAM_URL);
+    await chooseAction(user, 'Luis Gómez', 'team.action.changeRank');
+    const dialog = await screen.findByRole('dialog', { name: es.directory['rank.title'] });
+    await user.selectOptions(within(dialog).getByRole('combobox'), String(2));
+
+    await user.click(within(dialog).getByRole('button', { name: es.directory['rank.submit'] }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      es.errors['USER.RANK_REASON_REQUIRED'],
+    );
+    expect(
+      within(dialog).getByLabelText(new RegExp(es.directory['rank.reason.label'])),
+    ).toHaveFocus();
+    expect(api.callsTo('POST', `/users/${LUIS_ID}/rank`)).toHaveLength(0);
+    // Al subir no se advierte de retiro de roles.
+    expect(within(dialog).queryByText(/Si se queda sin ningún rol/)).toBeNull();
+  });
+
+  it('shows the server USER.RANK_REASON_REQUIRED error next to the reason field', async () => {
+    const user = userEvent.setup();
+    teamApi(
+      { [`POST /users/${LUIS_ID}/rank`]: problem(422, 'USER.RANK_REASON_REQUIRED') },
+      { rank: 1 },
+    );
+    renderApp(TEAM_URL);
+    await chooseAction(user, 'Luis Gómez', 'team.action.changeRank');
+    const dialog = await screen.findByRole('dialog', { name: es.directory['rank.title'] });
+    // Con un motivo escrito el cliente no bloquea; la respuesta del servidor es la que se muestra.
+    await user.type(
+      within(dialog).getByLabelText(new RegExp(es.directory['rank.reason.label'])),
+      'x',
+    );
+    await user.click(within(dialog).getByRole('button', { name: es.directory['rank.submit'] }));
+
+    const alerts = await within(dialog).findAllByRole('alert');
+    expect(
+      alerts.some((alert) => alert.textContent.includes(es.errors['USER.RANK_REASON_REQUIRED'])),
+    ).toBe(true);
+  });
+
+  it('shows the last administrator error in the dialog', async () => {
+    const user = userEvent.setup();
+    const api = leaderApi(() => problem(409, 'USER.LAST_ADMINISTRATOR'));
+    renderApp(TEAM_URL);
+    const dialog = await openLeaderDialog(user);
+    await user.click(within(dialog).getByRole('button', { name: es.directory['rank.submit'] }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      es.errors['USER.LAST_ADMINISTRATOR'],
+    );
+    expect(api.callsTo('POST', `/users/${LEADER_ID}/rank`)).toHaveLength(1);
+    expect(screen.getByRole('dialog', { name: es.directory['rank.title'] })).toBeInTheDocument();
+  });
+
+  it('warns before lowering, keeps the reason optional and sends no reason when it is empty', async () => {
+    const user = userEvent.setup();
+    const api = leaderApi(() => jsonResponse(EMPTY_RANK_RESULT));
+    renderApp(TEAM_URL);
+    await chooseAction(user, 'Lía Líder', 'team.action.changeRank');
+    const dialog = await screen.findByRole('dialog', { name: es.directory['rank.title'] });
+    // Con el rango por defecto (el de menor autoridad) ya es un descenso: la advertencia está visible.
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      es.directory['rank.demoteWarning'].replace('{{name}}', 'Lía Líder'),
+    );
+    expect(await axeViolations(dialog)).toEqual([]);
+
+    await user.click(within(dialog).getByRole('button', { name: es.directory['rank.submit'] }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(api.callsTo('POST', `/users/${LEADER_ID}/rank`)[0]?.body).toEqual({ rank: 3 });
+  });
+
+  it('shows removed roles, the assigned template and the shares to review with the total, then refreshes on close', async () => {
+    const user = userEvent.setup();
+    const api = leaderApi(() => jsonResponse(DEMOTION_RESULT));
+    renderApp(TEAM_URL);
+    await screen.findByRole('cell', { name: 'Lía Líder' });
+    const before = managedCalls(api).length;
+    const dialog = await openLeaderDialog(user);
+    await user.type(
+      within(dialog).getByLabelText(new RegExp(es.directory['rank.reason.label'])),
+      'Reorganización',
+    );
+    await user.click(within(dialog).getByRole('button', { name: es.directory['rank.submit'] }));
+
+    expect(await within(dialog).findByText('Rol de gestión')).toBeInTheDocument();
+    expect(within(dialog).getByText('Rol de auditoría')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        es.directory['rank.result.assignedRole'].replace('{{role}}', 'Plantilla Operador'),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(es.directory['rank.result.shares.title'].replace('{{count}}', '3')),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(new RegExp(ACCOUNT_ID))).toHaveTextContent(
+      es.shares['level.MANAGE'],
+    );
+    expect(
+      within(dialog).getByText(
+        es.directory['rank.result.shares.truncated']
+          .replace('{{shown}}', '1')
+          .replace('{{total}}', '3'),
+      ),
+    ).toBeInTheDocument();
+    // El foco pasa al resultado al desmontarse el formulario (el botón de envío ya no existe).
+    expect(
+      within(dialog).getByText(
+        es.directory['team.toast.rankChanged']
+          .replace('{{name}}', 'Lía Líder')
+          .replace('{{rank}}', es.common['rank.3']),
+      ),
+    ).toHaveFocus();
+    expect(await axeViolations(dialog)).toEqual([]);
+    // Todavía no se mostró el aviso emergente ni se refrescó la lista: eso ocurre al cerrar.
+    expect(managedCalls(api).length).toBe(before);
+
+    await user.click(
+      within(dialog).getByRole('button', { name: es.directory['rank.result.close'] }),
+    );
+
+    expect(
+      await screen.findByText(
+        es.directory['team.toast.rankChanged']
+          .replace('{{name}}', 'Lía Líder')
+          .replace('{{rank}}', es.common['rank.3']),
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(managedCalls(api).length).toBeGreaterThan(before);
+    });
+  });
+
+  it('renders the warning, the reason and the result in English', async () => {
+    const user = userEvent.setup();
+    leaderApi(() => jsonResponse(DEMOTION_RESULT));
+    renderApp(TEAM_URL, 'en-US');
+    const menuButton = await waitFor(() => {
+      const button = screen.getByRole('button', { name: 'Actions for Lía Líder' });
+      expect(button).toBeEnabled();
+      return button;
+    });
+    await user.click(menuButton);
+    await user.click(await screen.findByRole('menuitem', { name: 'Change rank' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Change rank' });
+    await user.selectOptions(within(dialog).getByRole('combobox'), String(3));
+    expect(
+      within(dialog).getByText(/Lowering the rank removes the roles of Lía Líder/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Reason/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Change rank' }));
+
+    expect(await within(dialog).findByText('Removed roles')).toBeInTheDocument();
+    expect(within(dialog).getByText('Shares to review (3)')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Template role assigned: Plantilla Operador.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Showing 1 of 3.')).toBeInTheDocument();
   });
 });
 

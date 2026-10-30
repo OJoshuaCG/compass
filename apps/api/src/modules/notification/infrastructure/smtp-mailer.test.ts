@@ -126,6 +126,34 @@ describe('SmtpMailer', () => {
     expect(String(failure)).toBe('Error: Mail delivery failed');
   });
 
+  it('sends the rank change notice to the affected person and hides the provider error', async () => {
+    const notice = {
+      to: 'luis@example.com',
+      locale: 'es-MX' as const,
+      changedByDisplayName: 'Ana',
+      fromRank: 3 as const,
+      toRank: 2 as const,
+      changedAt: new Date('2026-03-04T15:30:00Z'),
+    };
+    const sendMail = vi.fn<MailTransport['sendMail']>().mockResolvedValue(undefined);
+    await new SmtpMailer(options, 'production', { sendMail }).sendRankChangeNotice(notice);
+
+    expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
+      from: 'IAM <no-reply@example.com>',
+      to: 'luis@example.com',
+      subject: 'Cambió tu rango en la plataforma',
+    });
+
+    const failingSend = vi
+      .fn<MailTransport['sendMail']>()
+      .mockRejectedValue(new Error('550 rejected luis@example.com'));
+    const failure = await new SmtpMailer(options, 'production', { sendMail: failingSend })
+      .sendRankChangeNotice(notice)
+      .catch((error: unknown) => error);
+    expect(String(failure)).toBe('Error: Mail delivery failed');
+    expect((failure as Error).cause).toBeUndefined();
+  });
+
   it('refuses to run without TLS in production, and allows it only for local tests', () => {
     const plain = { ...options, security: 'none' as const };
     expect(() => new SmtpMailer(plain, 'production')).toThrow(/TLS/);

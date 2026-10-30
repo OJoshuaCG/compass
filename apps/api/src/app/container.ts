@@ -10,6 +10,7 @@ import {
   DenialGrouper,
   ManageRoles,
   PgRoleRepository,
+  RankRoleAdjuster,
 } from '../modules/access/index.js';
 import { PgAuditEventRepository, RecordAuditEvent } from '../modules/audit/index.js';
 import {
@@ -35,7 +36,11 @@ import {
   ListDirectory,
   ListManaged,
   ManageUsers,
+  NotifyRankChanged,
+  PgRankChangeNoticeQueue,
   PgUserDirectory,
+  RANK_CHANGE_NOTICE_EVENT_TYPE,
+  rankChangeNoticeHandlerKey,
 } from '../modules/directory/index.js';
 import {
   AcceptInvitation,
@@ -160,6 +165,7 @@ export function buildContainer(options: ContainerOptions) {
   const createUser = new CreateUser({ directory, ids });
   const listDirectory = new ListDirectory({ directory, uow, authorizer });
   const listManaged = new ListManaged({ directory, uow, authorizer });
+  const shareRepository = new PgShareRepository(uow);
 
   // identity
   const lookup = new PgPreAuthLookup(pool);
@@ -212,6 +218,20 @@ export function buildContainer(options: ContainerOptions) {
   });
   outboxHandlers.register(REVEAL_LIMIT_NOTICE_EVENT_TYPE, (event) =>
     notifyRevealLimitExceeded.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Aviso a la persona cuyo rango cambió, con el nombre de quien lo hizo.
+  const notifyRankChanged = new NotifyRankChanged({
+    directory,
+    mailer,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, rankChangeNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, rankChangeNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(RANK_CHANGE_NOTICE_EVENT_TYPE, (event) =>
+    notifyRankChanged.handle({ eventId: event.id, payload: event.payload }),
   );
   // Aviso a quien registró un segundo factor que lleva 24 h sin confirmar (S10). Solo a quien lo registró.
   const notifyPendingTotpUnconfirmed = new NotifyPendingTotpUnconfirmed({
@@ -349,7 +369,7 @@ export function buildContainer(options: ContainerOptions) {
       uow,
       authorizer,
       accounts: new PgAccountRepository(uow),
-      shares: new PgShareRepository(uow),
+      shares: shareRepository,
       ids,
       audit,
       clock,
@@ -403,6 +423,13 @@ export function buildContainer(options: ContainerOptions) {
       directory,
       sessions: sessionRepository,
       invitations,
+      roles: new RankRoleAdjuster({ roles }),
+      sharedBy: {
+        listLiveGrantedBy: (userId, now, limit) =>
+          shareRepository.listLiveGrantedBy(userId, now, limit),
+      },
+      // El aviso se escribe en el outbox en la misma transacción del cambio (ADR 0035).
+      rankChangeNotices: new PgRankChangeNoticeQueue(uow),
       audit,
       clock,
     }),

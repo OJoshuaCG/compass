@@ -41,10 +41,29 @@ export interface NewRotationTask {
   readonly dueAt: Date;
 }
 
+/** Una compartición viva tal como la necesita el aviso de cambio de rango (sin nombres de cuenta). */
+export interface GrantedShareSummary {
+  readonly shareId: string;
+  readonly accountId: string;
+  readonly granteeType: ShareGranteeType;
+  readonly granteeId: string;
+  readonly level: ShareLevel;
+  readonly expiresAt: Date | null;
+}
+
 /** Todo corre en la transacción en curso, con la organización fijada por RLS. */
 export interface ShareRepository {
   /** Comparticiones vigentes de la cuenta: sin revocar y sin vencer. */
   listLive(accountId: string, now: Date): Promise<readonly ShareView[]>;
+  /**
+   * Comparticiones vivas (sin revocar y sin vencer en `now`) que `userId` otorgó, de la más antigua a
+   * la más reciente, con a lo sumo `limit` filas y el total real aunque se trunque.
+   */
+  listLiveGrantedBy(
+    userId: string,
+    now: Date,
+    limit: number,
+  ): Promise<{ readonly total: number; readonly rows: readonly GrantedShareSummary[] }>;
   findViewById(accountId: string, shareId: string): Promise<ShareView | null>;
   /**
    * La compartición sin revocar de ese destinatario, aunque ya haya vencido: el índice único parcial

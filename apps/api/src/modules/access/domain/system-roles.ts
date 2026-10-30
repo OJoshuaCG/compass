@@ -1,6 +1,7 @@
 import { PERMISSIONS } from '@iam/contracts';
 import type { Permission } from '@iam/contracts';
 
+import type { Rank } from '../../../shared/kernel/index.js';
 import { PERMISSION_CEILING } from './permission-catalog.js';
 
 export type SystemRoleKey = 'root' | 'administrator' | 'leader' | 'operator';
@@ -48,4 +49,12 @@ export const systemRole = (key: SystemRoleKey): SystemRole => {
   const role = SYSTEM_ROLES.find((candidate) => candidate.key === key);
   if (role === undefined) throw new Error(`Unknown system role: ${key}`);
   return role;
+};
+
+/** Plantilla de rol que corresponde a cada rango (la misma que se asigna al aceptar una invitación). */
+export const SYSTEM_ROLE_KEY_BY_RANK: Readonly<Record<Rank, SystemRoleKey>> = {
+  0: 'root',
+  1: 'administrator',
+  2: 'leader',
+  3: 'operator',
 };

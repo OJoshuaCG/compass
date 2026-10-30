@@ -25,6 +25,20 @@ export function checkRoleAssignment(input: {
   return null;
 }
 
+/**
+ * Roles que dejan de ser válidos al pasar a `newRank`: los que contienen algún permiso cuyo techo de
+ * rango queda por debajo. Se quita el rol completo (no se recorta): un rol es la unidad que se
+ * asigna y se audita, y editarlo cambiaría a las demás personas que lo tienen.
+ */
+export function rolesExceedingRank<T extends { readonly permissions: readonly Permission[] }>(
+  roles: readonly T[],
+  newRank: Rank,
+): T[] {
+  return roles.filter((role) =>
+    role.permissions.some((permission) => !rankAllows(permission, newRank)),
+  );
+}
+
 /** Un rol personalizado solo puede contener permisos que su creador tiene (subconjunto). */
 export function isSubsetOfCreator(
   rolePermissions: readonly Permission[],

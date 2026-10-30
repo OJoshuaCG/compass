@@ -58,5 +58,7 @@
   "USER.ROOT_PROTECTED": "La persona Raíz no se puede suspender, dar de baja ni cambiar de rango.",
   "USER.INVALID_STATE": "Esa acción no es posible en el estado actual de la persona.",
   "USER.HAS_REPORTS": "Esta persona tiene subordinados. Reasígnalos antes de bajarla de rango.",
-  "USER.MANAGER_RANK_INVALID": "El responsable debe tener un rango superior al de la persona."
+  "USER.MANAGER_RANK_INVALID": "El responsable debe tener un rango superior al de la persona.",
+  "USER.LAST_ADMINISTRATOR": "Esta es la única persona Administradora activa. Designa a otra antes de bajarla de rango, suspenderla o darla de baja.",
+  "USER.RANK_REASON_REQUIRED": "Indica el motivo para subir de rango a esta persona."
 }

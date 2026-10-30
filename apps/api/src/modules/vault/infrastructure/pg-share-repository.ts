@@ -9,6 +9,7 @@ import type { ShareGranteeType, ShareLevel } from '@iam/contracts';
 import type { UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type {
+  GrantedShareSummary,
   NewRotationTask,
   NewShare,
   RevealedCredential,
@@ -76,6 +77,38 @@ export class PgShareRepository implements ShareRepository {
       [accountId, now],
     );
     return result.rows.map(toView);
+  }
+
+  async listLiveGrantedBy(
+    userId: string,
+    now: Date,
+    limit: number,
+  ): Promise<{ readonly total: number; readonly rows: readonly GrantedShareSummary[] }> {
+    // `count(*) over ()` se evalúa antes del `limit`: el total sobrevive al truncado. Una compartición
+    // vencida pero no revocada sigue en la tabla y no cuenta como viva (igual que `listLive`).
+    const result = await this.transactions.current().query<ShareRow & { total: string }>(
+      `select ${SHARE_COLUMNS}, count(*) over () as total
+         from shares s
+        where s.resource_type = 'account'
+          and s.granted_by = $1
+          and s.revoked_at is null
+          and (s.expires_at is null or s.expires_at > $2)
+        order by s.created_at, s.id
+        limit $3`,
+      [userId, now, limit],
+    );
+    const total = result.rows.length === 0 ? 0 : Number(result.rows[0]?.total ?? 0);
+    return {
+      total,
+      rows: result.rows.map((row) => ({
+        shareId: row.id,
+        accountId: row.account_id,
+        granteeType: row.grantee_type,
+        granteeId: row.grantee_id,
+        level: row.level,
+        expiresAt: row.expires_at,
+      })),
+    };
   }
 
   async findViewById(accountId: string, shareId: string): Promise<ShareView | null> {

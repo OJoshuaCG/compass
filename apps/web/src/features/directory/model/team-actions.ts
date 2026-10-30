@@ -27,6 +27,14 @@ export function assignableRanks(actorRank: Rank, currentRank: Rank): InvitableRa
 }
 
 /**
+ * ¿El cambio sube la autoridad (rango numérico menor)? Entonces el motivo es obligatorio. Es comodidad
+ * de la UI: el servidor aplica la regla (`USER.RANK_REASON_REQUIRED`).
+ */
+export function isRankPromotion(currentRank: Rank, newRank: Rank): boolean {
+  return newRank < currentRank;
+}
+
+/**
  * Candidatos a responsable de `person`: rango estrictamente menor (más autoridad) y no ella
  * misma. El servidor responde `USER.MANAGER_RANK_INVALID` si no se cumple.
  */

@@ -41,4 +41,8 @@ export interface RoleRepository {
   findLiveByIdForUpdate(id: string): Promise<RoleRecord | null>;
   archive(id: string, at: Date): Promise<void>;
   assign(userId: UserId, roleId: string, grantedBy: UserId): Promise<void>;
+  /** Roles vigentes (no archivados) asignados a la persona, con sus permisos. */
+  listLiveAssigned(userId: UserId): Promise<readonly RoleRecord[]>;
+  /** Quita las asignaciones indicadas; la historia de quién las tuvo vive en la auditoría. */
+  unassign(userId: UserId, roleIds: readonly string[]): Promise<void>;
 }

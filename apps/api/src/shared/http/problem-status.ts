@@ -24,6 +24,8 @@ const STATUS_BY_CODE: Readonly<Record<ErrorCode, number>> = {
   [ErrorCode.USER_INVALID_STATE]: 409,
   [ErrorCode.USER_HAS_REPORTS]: 409,
   [ErrorCode.USER_MANAGER_RANK_INVALID]: 422,
+  [ErrorCode.USER_LAST_ADMINISTRATOR]: 409,
+  [ErrorCode.USER_RANK_REASON_REQUIRED]: 422,
   [ErrorCode.PASSWORD_WEAK]: 422,
   [ErrorCode.INVITATION_INVALID]: 404,
   [ErrorCode.INVITATION_CONFLICT]: 409,

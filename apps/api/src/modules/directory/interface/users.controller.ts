@@ -9,12 +9,13 @@ import type {
   ChangeRankRequest,
   DirectoryUser,
   ManagedUser,
+  RankChangeResponse,
   TransferManagerRequest,
 } from '@iam/contracts';
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 
-import { unwrap } from '../../../shared/http/http-decorators.js';
+import { Idempotent, unwrap } from '../../../shared/http/http-decorators.js';
 import { asUserId } from '../../../shared/kernel/index.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
 import { ListDirectory } from '../application/list-directory.js';
@@ -83,13 +84,36 @@ export class UsersController {
     unwrap(await this.manageUsers.revokeSessions(asUserId(id)));
   }
 
+  /**
+   * Responde 200 con el resultado (roles quitados, plantilla asignada y comparticiones vivas). Lleva
+   * `@Idempotent()`: si el reintento llega tras un cambio ya hecho, recibe el mismo resultado en vez
+   * de `USER.INVALID_STATE` (mismo rango) y no pierde la lista de roles quitados. La respuesta solo
+   * contiene ids, nombres de rol y niveles, ningún secreto.
+   */
   @Post(':id/rank')
-  @HttpCode(204)
+  @Idempotent()
+  @HttpCode(200)
   async changeRank(
     @Param('id', new ZodValidationPipe(idSchema)) id: string,
     @Body(new ZodValidationPipe(changeRankRequestSchema)) body: ChangeRankRequest,
-  ): Promise<void> {
-    unwrap(await this.manageUsers.changeRank(asUserId(id), body.rank));
+  ): Promise<RankChangeResponse> {
+    const outcome = unwrap(await this.manageUsers.changeRank(asUserId(id), body.rank, body.reason));
+    return {
+      removedRoles: outcome.removedRoles.map((role) => ({ id: role.id, name: role.name })),
+      assignedRole:
+        outcome.assignedRole === null
+          ? null
+          : { id: outcome.assignedRole.id, name: outcome.assignedRole.name },
+      sharedAccounts: outcome.sharedAccounts.map((share) => ({
+        shareId: share.shareId,
+        accountId: share.accountId,
+        granteeType: share.granteeType,
+        granteeId: share.granteeId,
+        level: share.level,
+        expiresAt: share.expiresAt === null ? null : share.expiresAt.toISOString(),
+      })),
+      sharedAccountCount: outcome.sharedAccountCount,
+    };
   }
 
   @Post(':id/manager')

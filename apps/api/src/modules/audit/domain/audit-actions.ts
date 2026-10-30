@@ -20,7 +20,19 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'user.deactivated': ['rotationTasks', 'reassignedReports'],
   'user.suspended': [],
   'user.reactivated': [],
-  'user.rank_changed': ['fromRank', 'toRank'],
+  // Cambio de rango: `reason` es el motivo escrito (hasta 500, ver abajo). `removedRoles` es una lista de ids
+  // de rol separados por coma, TRUNCADA a ids completos para caber en 256 caracteres; el total real va en
+  // `removedRoleCount`. `assignedRole` es el id de la plantilla asignada (o null) y `sharedAccountCount` el
+  // número de comparticiones vivas que la persona otorgó. Nunca nombres de roles ni de cuentas.
+  'user.rank_changed': [
+    'fromRank',
+    'toRank',
+    'reason',
+    'removedRoles',
+    'removedRoleCount',
+    'assignedRole',
+    'sharedAccountCount',
+  ],
   'user.manager_changed': ['newManagerId'],
   'authz.denied': ['permission', 'resourceType', 'suppressedCount'],
   // Cuentas de la bóveda. `revokedShares`: comparticiones que se cerraron al archivar.

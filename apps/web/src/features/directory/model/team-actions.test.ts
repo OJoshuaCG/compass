@@ -5,6 +5,7 @@ import {
   assignableRanks,
   availableActions,
   canManageTeam,
+  isRankPromotion,
   managerCandidates,
 } from './team-actions';
 
@@ -102,5 +103,14 @@ describe('availableActions', () => {
     expect(availableActions(person({ rank: 3 }), { rank: 2, permissions: ALL })).not.toContain(
       'changeRank',
     );
+  });
+});
+
+describe('isRankPromotion', () => {
+  it('is true only when the new rank has more authority (lower number)', () => {
+    expect(isRankPromotion(3, 2)).toBe(true);
+    expect(isRankPromotion(3, 1)).toBe(true);
+    expect(isRankPromotion(1, 3)).toBe(false);
+    expect(isRankPromotion(2, 2)).toBe(false);
   });
 });

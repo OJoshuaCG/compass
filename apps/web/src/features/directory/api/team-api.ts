@@ -1,4 +1,10 @@
-import { managedUserSchema, MAX_PAGE_LIMIT, type ManagedUser, type Rank } from '@iam/contracts';
+import {
+  managedUserSchema,
+  MAX_PAGE_LIMIT,
+  rankChangeResponseSchema,
+  type ManagedUser,
+  type Rank,
+} from '@iam/contracts';
 
 import { apiClient, createListFetcher, noContentSchema, type ApiClient } from '../../../shared/api';
 
@@ -40,7 +46,7 @@ export async function fetchInvitableManagers(signal: AbortSignal) {
 }
 
 /**
- * Acciones sobre una persona gestionada: todas responden 204. El cliente HTTP reintenta una vez
+ * Acciones sobre una persona gestionada: todas responden 204, salvo cambiar el rango (200 con cuerpo). El cliente HTTP reintenta una vez
  * tras reautenticar (cambiar el rango la exige) con la misma clave de idempotencia.
  */
 export function createTeamApi(client: ApiClient = apiClient) {
@@ -52,7 +58,11 @@ export function createTeamApi(client: ApiClient = apiClient) {
     deactivate: (id: string) => post(id, 'deactivate'),
     /** Cierra TODAS las sesiones de la persona (204); exige `user.deactivate`, sin reautenticación. */
     closeSessions: (id: string) => post(id, 'sessions/revoke'),
-    changeRank: (id: string, rank: Exclude<Rank, 0>) => post(id, 'rank', { rank }),
+    // Responde 200 con el resultado del cambio: roles retirados, plantilla asignada y comparticiones a revisar.
+    changeRank: (id: string, rank: Exclude<Rank, 0>, reason?: string) =>
+      client.post(`/users/${id}/rank`, rankChangeResponseSchema, {
+        body: reason === undefined ? { rank } : { rank, reason },
+      }),
     transferManager: (id: string, managerId: string) => post(id, 'manager', { managerId }),
   };
 }

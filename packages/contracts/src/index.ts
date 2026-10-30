@@ -57,10 +57,13 @@ export type {
 } from './invitations.js';
 export {
   DIRECTORY_SORT_FIELDS,
+  RANK_CHANGE_MAX_SHARED_ACCOUNTS,
+  RANK_CHANGE_REASON_MAX_LENGTH,
   USER_STATUSES,
   changeRankRequestSchema,
   directoryUserSchema,
   managedUserSchema,
+  rankChangeResponseSchema,
   transferManagerRequestSchema,
   userStatusSchema,
 } from './users.js';
@@ -69,6 +72,7 @@ export type {
   DirectorySortField,
   DirectoryUser,
   ManagedUser,
+  RankChangeResponse,
   TransferManagerRequest,
   UserStatus,
 } from './users.js';

@@ -5,6 +5,7 @@ import type {
   InvitationMessage,
   Mailer,
   PendingTotpNoticeMessage,
+  RankChangeNoticeMessage,
   RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
@@ -54,6 +55,15 @@ export class LogMailer implements Mailer {
   sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void> {
     // Sin destinatario ni nombre: son datos personales y aquí solo importa cuándo se registró el factor.
     this.logger.info({ registeredAt: message.registeredAt }, 'pending totp notice (dev)');
+    return Promise.resolve();
+  }
+
+  sendRankChangeNotice(message: RankChangeNoticeMessage): Promise<void> {
+    // Sin destinatario ni nombres: son datos personales y aquí solo importan los rangos y el momento.
+    this.logger.info(
+      { fromRank: message.fromRank, toRank: message.toRank, changedAt: message.changedAt },
+      'rank change notice (dev)',
+    );
     return Promise.resolve();
   }
 

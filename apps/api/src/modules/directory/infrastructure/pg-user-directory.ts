@@ -153,6 +153,17 @@ export class PgUserDirectory implements UserDirectory {
     return result.rowCount ?? 0;
   }
 
+  async countActiveByRank(rank: Rank): Promise<number> {
+    const result = await this.transactions
+      .current()
+      .query<{ total: string }>(
+        "select count(*) as total from users where rank = $1 and status = 'active'",
+        [rank],
+      );
+    // `count` llega como texto (bigint): se convierte de forma explícita.
+    return Number(result.rows[0]?.total ?? 0);
+  }
+
   async listAdministratorContacts(): Promise<
     readonly { readonly email: string; readonly locale: 'es-MX' | 'en-US' }[]
   > {

@@ -100,4 +100,17 @@ export class InMemoryRoleRepository implements RoleRepository {
     this.grant(userId, roleId);
     return Promise.resolve();
   }
+
+  listLiveAssigned(userId: UserId): Promise<readonly RoleRecord[]> {
+    const ids = [...(this.assignments.get(userId) ?? [])];
+    return Promise.resolve(
+      ids.map((id) => this.roles.get(id)).filter((role): role is RoleRecord => role !== undefined),
+    );
+  }
+
+  unassign(userId: UserId, roleIds: readonly string[]): Promise<void> {
+    const set = this.assignments.get(userId);
+    for (const roleId of roleIds) set?.delete(roleId);
+    return Promise.resolve();
+  }
 }

@@ -173,6 +173,28 @@ export class PgRoleRepository implements RoleRepository {
     return row === undefined ? null : toRecord(row);
   }
 
+  async listLiveAssigned(userId: UserId): Promise<readonly RoleRecord[]> {
+    const result = await this.transactions.current().query<RoleRow>(
+      `select r.id, r.name, r.is_system, r.permissions
+         from user_roles ur
+         join roles r on r.organization_id = ur.organization_id and r.id = ur.role_id
+        where ur.user_id = $1 and r.archived_at is null
+        order by r.is_system desc, lower(r.name), r.id`,
+      [userId],
+    );
+    return result.rows.map(toRecord);
+  }
+
+  async unassign(userId: UserId, roleIds: readonly string[]): Promise<void> {
+    if (roleIds.length === 0) return;
+    await this.transactions
+      .current()
+      .query('delete from user_roles where user_id = $1 and role_id = any($2::uuid[])', [
+        userId,
+        [...roleIds],
+      ]);
+  }
+
   async assign(userId: UserId, roleId: string, grantedBy: UserId): Promise<void> {
     await this.transactions.current().query(
       `insert into user_roles (organization_id, user_id, role_id, granted_by)

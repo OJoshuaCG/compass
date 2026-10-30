@@ -58,6 +58,21 @@ export interface PendingTotpNoticeMessage {
   readonly registeredAt: Date;
 }
 
+/**
+ * Aviso a la persona de que su rango cambió (sube o baja). Dice quién lo hizo, de qué rango a cuál y cuándo;
+ * NO incluye el motivo (va a la auditoría), la lista de roles retirados ni enlaces.
+ */
+export interface RankChangeNoticeMessage {
+  readonly to: string;
+  /** Idioma de la persona afectada. */
+  readonly locale: 'es-MX' | 'en-US';
+  /** Nombre visible de quien hizo el cambio; `null` si ya no se puede resolver (el aviso sale igual, sin nombre). */
+  readonly changedByDisplayName: string | null;
+  readonly fromRank: 0 | 1 | 2 | 3;
+  readonly toRank: 0 | 1 | 2 | 3;
+  readonly changedAt: Date;
+}
+
 /** Correo saliente detrás de un puerto (SES en producción; el proveedor es intercambiable). */
 export interface Mailer {
   sendInvitation(message: InvitationMessage): Promise<void>;
@@ -69,4 +84,6 @@ export interface Mailer {
   sendRevealLimitAlert(message: RevealLimitAlertMessage): Promise<void>;
   /** Avisa a quien registró un segundo factor de que sigue sin confirmarse pasadas 24 horas (sin secretos ni nombres). */
   sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void>;
+  /** Avisa a la persona de que su rango cambió, con el nombre de quien lo hizo (sin motivo, roles ni enlaces). */
+  sendRankChangeNotice(message: RankChangeNoticeMessage): Promise<void>;
 }

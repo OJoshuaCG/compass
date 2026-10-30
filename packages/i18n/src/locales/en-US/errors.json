@@ -58,5 +58,7 @@
   "USER.ROOT_PROTECTED": "The Root person cannot be suspended, deactivated or have their rank changed.",
   "USER.INVALID_STATE": "That action is not possible in the person's current state.",
   "USER.HAS_REPORTS": "This person has direct reports. Reassign them before lowering their rank.",
-  "USER.MANAGER_RANK_INVALID": "The responsible person must have a higher rank than the person."
+  "USER.MANAGER_RANK_INVALID": "The responsible person must have a higher rank than the person.",
+  "USER.LAST_ADMINISTRATOR": "This is the only active Administrator. Appoint another one before lowering their rank, suspending or deactivating them.",
+  "USER.RANK_REASON_REQUIRED": "Provide a reason to raise this person's rank."
 }

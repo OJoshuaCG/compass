@@ -81,6 +81,12 @@ export class InMemoryUserDirectory implements UserDirectory {
     return Promise.resolve(moved);
   }
 
+  countActiveByRank(rank: Rank): Promise<number> {
+    return Promise.resolve(
+      [...this.users.values()].filter((u) => u.rank === rank && u.status === 'active').length,
+    );
+  }
+
   listManaged(): Promise<ManagedPage> {
     return Promise.resolve({ rows: [], nextCursor: null });
   }
