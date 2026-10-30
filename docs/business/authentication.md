@@ -56,7 +56,7 @@ El sistema guarda las contraseñas y los segundos factores de toda la organizaci
 | 1 | Quien tiene el permiso de invitar crea la invitación: correo, rango, responsable y roles iniciales. El sistema valida la matriz de creación y el no escalamiento (ver [`actors-and-hierarchy.md`](actors-and-hierarchy.md)) |
 | 2 | El sistema envía un enlace de **un solo uso**, vigente **72 horas** |
 | 3 | La persona invitada define su contraseña y registra **obligatoriamente** un segundo factor antes de poder entrar. Hoy el alta inicial se hace con una aplicación autenticadora; las passkeys se agregan después desde la pantalla de seguridad |
-| 4 | El sistema entrega **10 códigos de recuperación** de un solo uso. Se muestran una sola vez. Solo cuando la persona confirma el segundo factor con un código válido queda activa |
+| 4 | El sistema entrega **10 códigos de recuperación** de un solo uso. Se muestran una sola vez. Solo cuando la persona confirma el segundo factor con un código válido queda activa. La persona puede copiarlos o descargarlos en un archivo de texto con solo los códigos; descargarlos no cuenta como confirmar que los guardó |
 
 Reglas importantes:
 

@@ -4,6 +4,35 @@ import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const CLIPBOARD_CLEAR_MS = 30_000;
+// Nombre fijo y neutro: no lleva correo, nombre ni fecha que identifique a la persona.
+const DOWNLOAD_FILE_NAME = 'recovery-codes.txt';
+
+// La descarga se resuelve de forma asíncrona: Firefox y Safari pueden leer el Blob después de que
+// `click()` regresa, y revocar antes cancelaría o vaciaría el archivo de códigos que solo se ven
+// una vez. La URL es de un solo origen e inadivinable, así que unos segundos de vida no la exponen.
+const BLOB_URL_REVOKE_DELAY_MS = 5000;
+
+/**
+ * Dispara la descarga del archivo generado en el navegador. La URL del Blob se revoca tras un
+ * retardo corto (también si `click()` lanza) para que los códigos no queden accesibles desde una
+ * URL viva; no se guarda nada en almacenamiento ni en caché.
+ */
+function downloadTextFile(fileName: string, content: string): void {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  try {
+    link.click();
+  } finally {
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, BLOB_URL_REVOKE_DELAY_MS);
+    link.remove();
+  }
+}
 
 export type RecoveryCodesPanelProps = {
   codes: readonly string[];
@@ -43,6 +72,18 @@ export function RecoveryCodesPanel({ codes, onContinue }: RecoveryCodesPanelProp
     withResolver: true,
   });
 
+  // Solo encabezado genérico, advertencia y códigos (uno por línea): sin datos personales.
+  function handleDownload() {
+    const fileContent = [
+      t('enroll.recovery.file.header', { ns: 'auth' }),
+      t('enroll.recovery.file.warning', { ns: 'auth' }),
+      '',
+      ...codes,
+      '',
+    ].join('\n');
+    downloadTextFile(DOWNLOAD_FILE_NAME, fileContent);
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-text-secondary">
@@ -61,7 +102,7 @@ export function RecoveryCodesPanel({ codes, onContinue }: RecoveryCodesPanelProp
           </li>
         ))}
       </ul>
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
         <CopyButton
           value={codes.join('\n')}
           label={t('enroll.recovery.copyAll', { ns: 'auth' })}
@@ -70,6 +111,10 @@ export function RecoveryCodesPanel({ codes, onContinue }: RecoveryCodesPanelProp
           clearAfterMs={CLIPBOARD_CLEAR_MS}
           size="sm"
         />
+        {/* Descargar no marca "Ya los guardé": la persona confirma por su cuenta que los guardó. */}
+        <Button variant="secondary" size="sm" onClick={handleDownload}>
+          {t('enroll.recovery.download', { ns: 'auth' })}
+        </Button>
       </div>
       <div className="flex items-center gap-3">
         <Checkbox
