@@ -89,7 +89,7 @@ export type TotpCapabilities = {
   canUse: boolean;
   /** Permiso `credential.update` y nivel EDIT: registrar, confirmar y retirar. */
   canEdit: boolean;
-  /** Permiso `credential.export_totp` y nivel MANAGE: exportar la clave. */
+  /** Permiso `credential.export_totp` y nivel MANAGE: exportar la clave y desbloquear la confirmación. */
   canExport: boolean;
 };
 
@@ -99,6 +99,8 @@ export type TotpAvailableActions = {
   getCode: boolean;
   exportKey: boolean;
   retire: boolean;
+  /** Desbloqueo anticipado de la confirmación; además la pantalla exige que el estado indique bloqueo. */
+  unlockConfirmation: boolean;
 };
 
 /**
@@ -117,6 +119,7 @@ export function availableActionsFor(
     getCode: capabilities.canUse && isLive,
     exportKey: capabilities.canExport && isLive,
     retire: capabilities.canEdit && isLive,
+    unlockConfirmation: capabilities.canExport && status === 'pending',
   };
 }
 

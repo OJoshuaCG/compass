@@ -55,3 +55,12 @@ export function afterFailure(state: TotpConfirmLockState, now: Date): TotpConfir
     lockedUntil: new Date(now.getTime() + lockDurationMs(lockCount)),
   };
 }
+
+/**
+ * Estado tras el desbloqueo anticipado por un superior (T5b-3): limpia los fallos y el bloqueo vigente, pero
+ * CONSERVA `lockCount`. Así el siguiente bloqueo sigue siendo más largo y desbloquear no sirve para reiniciar
+ * el escalamiento y seguir adivinando códigos a la misma velocidad.
+ */
+export function afterUnlock(state: TotpConfirmLockState): TotpConfirmLockState {
+  return { failures: 0, lockCount: state.lockCount, lockedUntil: null };
+}

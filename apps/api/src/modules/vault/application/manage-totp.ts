@@ -17,6 +17,10 @@
  *   minutos, escalonado) y durante el bloqueo ni el código correcto confirma. Un acierto limpia cuenta y
  *   escalamiento; registrar de nuevo abre un registro nuevo. Los fallos y la negación se auditan, y la
  *   respuesta no distingue códigos casi correctos.
+ * - Un superior puede desbloquear ANTES de tiempo (T5b-3, SENSIBLE): exige el permiso de administrar el segundo
+ *   factor (`credential.export_totp`, con su reautenticación vigente), nivel MANAGE y ser OTRA persona distinta
+ *   de quien registró el factor pendiente (si no, un solo usuario con MANAGE se saltaría el bloqueo). Limpia
+ *   fallos y bloqueo pero conserva el nivel de escalamiento, y audita `credential.totp_unlocked`.
  * - Todo cambio escribe su auditoría en la misma transacción, como último paso. Las negaciones también.
  * - Un secreto nuevo nunca pisa al anterior: la versión previa queda retenida (30 días) como no vigente.
  */
@@ -44,7 +48,7 @@ import type { UnitOfWork } from '../../organization/index.js';
 import { parseOtpauthUri } from '../domain/otpauth-uri.js';
 import type { TotpParameters } from '../domain/otpauth-uri.js';
 import { levelSatisfies } from '../domain/share-level.js';
-import { afterFailure, isLocked } from '../domain/totp-confirm-lock.js';
+import { afterFailure, afterUnlock, isLocked } from '../domain/totp-confirm-lock.js';
 import { ROTATION_TASK_DUE_DAYS } from './manage-shares.js';
 import type { AccountRepository } from './ports/account-repository.js';
 import type { CredentialRecord, CredentialRepository } from './ports/credential-repository.js';
@@ -68,6 +72,12 @@ export interface ManageTotpDeps {
   readonly clock: Clock;
   /** Fallos de confirmación por registro pendiente (en memoria hasta que haya Redis). */
   readonly confirmAttempts: TotpConfirmAttemptStore;
+}
+
+/** Metadatos del segundo factor más el fin del bloqueo de confirmación vigente (si lo hay). */
+export interface TotpStatusView {
+  readonly record: TotpRecord;
+  readonly confirmLockedUntil: Date | null;
 }
 
 export interface IssuedTotpCode {
@@ -105,8 +115,8 @@ export class ManageTotp {
   constructor(private readonly deps: ManageTotpDeps) {}
 
   /** Metadatos del segundo factor: nunca el secreto. Basta con poder usar la credencial. */
-  status(credentialId: string): Promise<Result<TotpRecord, DomainError>> {
-    const { uow, authorizer, totps } = this.deps;
+  status(credentialId: string): Promise<Result<TotpStatusView, DomainError>> {
+    const { uow, authorizer, totps, confirmAttempts, clock } = this.deps;
     return uow.run(async () => {
       const permission: Permission = 'credential.use_totp';
       await authorizer.require({ permission });
@@ -118,7 +128,16 @@ export class ManageTotp {
       if (!level.ok) return level;
 
       const totp = await totps.find(credential.id);
-      return totp === null ? err(notFound()) : ok(totp);
+      if (totp === null) return err(notFound());
+
+      // Solo un registro pendiente puede estar bloqueado; el fin del bloqueo no es secreto y deja a la
+      // pantalla ofrecer el desbloqueo a quien lo puede hacer.
+      let confirmLockedUntil: Date | null = null;
+      if (totp.status === 'pending') {
+        const lockState = await confirmAttempts.state(this.confirmAttemptKey(credential.id, totp));
+        if (isLocked(lockState, clock.now())) confirmLockedUntil = lockState.lockedUntil;
+      }
+      return ok({ record: totp, confirmLockedUntil });
     });
   }
 
@@ -234,7 +253,7 @@ export class ManageTotp {
       // El tope se revisa ANTES de comparar el código: un registro agotado no sirve de oráculo. La fila de la
       // credencial ya está bloqueada, así que dos confirmaciones concurrentes no se cuelan a la vez.
       // La llave incluye la versión del secreto: re-registrar abre un registro nuevo con la cuenta en cero.
-      const attemptKey = `${credential.id}:${String(totp.secretVersion)}`;
+      const attemptKey = this.confirmAttemptKey(credential.id, totp);
       const now = clock.now();
       const lockState = await confirmAttempts.state(attemptKey);
       if (isLocked(lockState, now)) {
@@ -288,6 +307,76 @@ export class ManageTotp {
       const saved = await totps.find(credential.id);
       if (saved === null) throw new Error('The second factor just confirmed was not found');
       return ok(saved);
+    });
+  }
+
+  /**
+   * Desbloqueo anticipado de la confirmación por una persona con autoridad (T5b-3). Solo procede si el
+   * registro está pendiente y bloqueado. La decisión es del motor (permiso con reautenticación) más el nivel
+   * MANAGE sobre la cuenta, y quien desbloquea debe ser distinta de quien registró el factor pendiente: la
+   * negación se audita. Conserva el nivel de escalamiento: el siguiente bloqueo sigue siendo más largo.
+   */
+  unlockConfirmation(credentialId: string): Promise<Result<TotpRecord, DomainError>> {
+    const { context, uow, authorizer, credentials, totps, audit, clock, confirmAttempts } =
+      this.deps;
+    // Mismo permiso que exportar el segundo factor: es "administrar el segundo factor" en el catálogo y trae
+    // la reautenticación reciente; no se crea un permiso nuevo.
+    const permission: Permission = 'credential.export_totp';
+    return uow.run(async () => {
+      await authorizer.require({ permission });
+      const current = context.current();
+      const actorId = this.requireActorId();
+
+      const credential = await this.liveOrNull(await credentials.findByIdForUpdate(credentialId));
+      if (credential === null) return err(notFound());
+      const level = await this.levelOrNotFound(credential, actorId, permission, 'MANAGE');
+      if (!level.ok) return level;
+
+      const totp = await totps.find(credential.id);
+      if (totp === null) return err(notFound());
+
+      const attemptKey = this.confirmAttemptKey(credential.id, totp);
+      const lockState = await confirmAttempts.state(attemptKey);
+      const notLocked = totp.status !== 'pending' || !isLocked(lockState, clock.now());
+      if (notLocked) {
+        return err(
+          new DomainError(
+            'CREDENTIAL.TOTP_NOT_LOCKED',
+            'Confirming this registration is not locked',
+          ),
+        );
+      }
+
+      // Si quien desbloquea es quien registró, un solo usuario con MANAGE anularía el bloqueo por tiempo.
+      if (totp.registeredBy === actorId) {
+        await authorizer.auditDenial({
+          code: 'CREDENTIAL.TOTP_UNLOCK_SELF',
+          permission,
+          targetAccountId: credential.accountId,
+        });
+        return err(
+          new DomainError(
+            'CREDENTIAL.TOTP_UNLOCK_SELF',
+            'The person who registered the second factor cannot unlock it',
+          ),
+        );
+      }
+
+      // La auditoría va antes de tocar la memoria: si la escritura falla la transacción se revierte y el
+      // bloqueo sigue vigente (la memoria no participa en la transacción).
+      await audit.record({
+        action: 'credential.totp_unlocked',
+        actorId,
+        targetType: 'credential',
+        targetId: credential.id,
+        outcome: 'success',
+        reasonCode: null,
+        ip: null,
+        requestId: current.requestId,
+        metadata: { lockLevel: lockState.lockCount, registeredBy: totp.registeredBy },
+      });
+      await confirmAttempts.save(attemptKey, afterUnlock(lockState));
+      return ok(totp);
     });
   }
 
@@ -487,6 +576,11 @@ export class ManageTotp {
       if (saved === null) throw new Error('The second factor just retired was not found');
       return ok(saved);
     });
+  }
+
+  /** Llave del registro pendiente: incluye la versión del secreto, así que re-registrar empieza en cero. */
+  private confirmAttemptKey(credentialId: string, totp: TotpRecord): string {
+    return `${credentialId}:${String(totp.secretVersion)}`;
   }
 
   /** Compara el secreto vigente (si lo hay) con el nuevo; un fallo al descifrar cuenta como "distinto". */

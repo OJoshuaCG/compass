@@ -31,6 +31,8 @@
   "CREDENTIAL.TOTP_CODE_INVALID": "The code does not match the platform's. Check the device clock and try again.",
   "CREDENTIAL.TOTP_CODE_LIMIT": "You asked for too many codes in a short time. Wait a minute.",
   "CREDENTIAL.TOTP_CONFIRM_LOCKED": "Confirming this registration is locked for a while after too many incorrect codes. Wait and try again later.",
+  "CREDENTIAL.TOTP_NOT_LOCKED": "Confirming this registration is not locked, so there is nothing to unlock.",
+  "CREDENTIAL.TOTP_UNLOCK_SELF": "You cannot unlock a registration you made yourself. Ask another person with manage access to unlock it.",
   "IDEMPOTENCY.KEY_REQUIRED": "This operation requires an idempotency key.",
   "IDEMPOTENCY.KEY_REUSED": "That key was already used with a different request.",
   "IDEMPOTENCY.IN_PROGRESS": "The original request is still in progress. Try again in a few seconds.",

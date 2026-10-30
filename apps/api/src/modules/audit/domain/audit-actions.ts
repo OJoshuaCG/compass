@@ -61,6 +61,9 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'credential.totp_retired': [],
   'credential.totp_code_issued': [],
   'credential.totp_exported': ['reason'],
+  // Desbloqueo anticipado de la confirmación (T5b-3): solo ids y el nivel de escalamiento que se conserva
+  // (`lockLevel`) y quién registró el factor pendiente (`registeredBy`, id opaco). Nunca códigos ni secretos.
+  'credential.totp_unlocked': ['lockLevel', 'registeredBy'],
   'access.emergency_granted': ['reason', 'expiresInMinutes'],
   // Comparticiones de cuentas. `granteeId` es el id opaco de la persona o del grupo; `expiresAt` es ISO o
   // `null` si no caduca; `rotationTasks` cuenta las tareas de rotación que dejó revocar tras una revelación.

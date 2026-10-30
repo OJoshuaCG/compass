@@ -613,6 +613,28 @@ describe('re-registering and retiring', () => {
   });
 });
 
+// Estas comprobaciones de nivel van antes del describe de bloqueo por tiempo (que adelanta el reloj decenas de
+// minutos y vencería las sesiones de `editor` y `stranger`, 401) y DESPUÉS de las pruebas del tope de códigos:
+// cada `reauth` avanza 30 s el reloj de la prueba y el tope cuenta eventos de auditoría con la hora real de la
+// base, así que adelantar el reloj antes lo haría contar de menos (200 en vez de 429).
+describe('early unlock needs MANAGE on the account', () => {
+  const unlockAs = (who: EnrolledSession, credentialId: string) =>
+    who.client.post<ProblemDetails>(`/credentials/${credentialId}/totp/unlock`, {});
+
+  it('denies EDIT with AUTHZ.SHARE and answers not found without access', async () => {
+    const credential = await newCredential('Unlock level check');
+    await register(owner, credential.id, otpauth(SECRET_CANARY));
+
+    await reauth(editor);
+    const asEditor = await unlockAs(editor, credential.id);
+    expect(asEditor.status).toBe(403);
+    expect(asEditor.body.code).toBe('AUTHZ.SHARE');
+
+    await reauth(stranger);
+    expect((await unlockAs(stranger, credential.id)).status).toBe(404);
+  });
+});
+
 // SENSIBLE (revisión humana)
 // Va al final del archivo a propósito: avanza el reloj compartido decenas de minutos y los límites por
 // minuto de otras pruebas cuentan eventos de auditoría con la hora real de la base.
@@ -649,6 +671,108 @@ describe('confirmation timed lock', () => {
     env.clock.advance(secondLockMs - firstLockMs);
     const confirmed = await confirm(credential.id, expectedCode(SECRET_CANARY));
     expect(confirmed.status).toBe(200);
+  });
+
+  // T5b-3: desbloqueo anticipado por un superior.
+  const lockRegistration = async (credentialId: string): Promise<void> => {
+    for (let attempt = 0; attempt < TOTP_CONFIRM_MAX_FAILURES; attempt += 1) {
+      expect((await confirm(credentialId, expectedCode(SECOND_SECRET_CANARY))).status).toBe(422);
+    }
+  };
+  const unlock = (who: EnrolledSession, credentialId: string) =>
+    who.client.post<Pick<CredentialTotp, 'confirmLockedUntil'> & ProblemDetails>(
+      `/credentials/${credentialId}/totp/unlock`,
+      {},
+    );
+
+  it('lets another person with MANAGE unlock early, audits it and keeps the escalation level', async () => {
+    const credential = await newCredential('Early unlock');
+    await register(owner, credential.id, otpauth(SECRET_CANARY));
+    await lockRegistration(credential.id);
+
+    // El estado informa el bloqueo (sin secretos) para que la pantalla ofrezca el desbloqueo.
+    const lockedStatus = await manager.client.get<CredentialTotp>(
+      `/credentials/${credential.id}/totp`,
+    );
+    expect(typeof lockedStatus.body.confirmLockedUntil).toBe('string');
+
+    await reauth(manager);
+    const unlocked = await unlock(manager, credential.id);
+    expect(unlocked.status).toBe(200);
+    expect(unlocked.body.confirmLockedUntil).toBeNull();
+
+    const events = await auditRows('credential.totp_unlocked', credential.id);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.outcome).toBe('success');
+    expect(events[0]?.metadata).toEqual({
+      lockLevel: 1,
+      registeredBy: await userId('owner@totp.test'),
+    });
+    expect(JSON.stringify(events)).not.toContain(SECRET_CANARY);
+
+    // Los fallos se limpiaron: se puede volver a fallar, y el siguiente bloqueo ya es el de 15 minutos.
+    await lockRegistration(credential.id);
+    const firstLockMs = (TOTP_CONFIRM_LOCK_MINUTES_BY_LEVEL[0] ?? 0) * MILLISECONDS_PER_MINUTE;
+    env.clock.advance(firstLockMs);
+    expect((await confirm(credential.id, expectedCode(SECRET_CANARY))).status).toBe(429);
+  });
+
+  it('lets the registration be confirmed right after the unlock', async () => {
+    const credential = await newCredential('Confirm after unlock');
+    await register(owner, credential.id, otpauth(SECRET_CANARY));
+    await lockRegistration(credential.id);
+    await reauth(manager);
+    expect((await unlock(manager, credential.id)).status).toBe(200);
+
+    expect((await confirm(credential.id, expectedCode(SECRET_CANARY))).status).toBe(200);
+  });
+
+  it('denies and audits the person who registered the pending factor', async () => {
+    const credential = await newCredential('Unlock by the registrant');
+    expect((await register(manager, credential.id, otpauth(SECRET_CANARY))).status).toBe(201);
+    for (let attempt = 0; attempt < TOTP_CONFIRM_MAX_FAILURES; attempt += 1) {
+      const rejected = await manager.client.post<ProblemDetails>(
+        `/credentials/${credential.id}/totp/confirm`,
+        { code: expectedCode(SECOND_SECRET_CANARY) },
+      );
+      expect(rejected.status).toBe(422);
+    }
+
+    await reauth(manager);
+    const denied = await unlock(manager, credential.id);
+    expect(denied.status).toBe(403);
+    expect(denied.body.code).toBe('CREDENTIAL.TOTP_UNLOCK_SELF');
+    expect(await auditRows('credential.totp_unlocked', credential.id)).toHaveLength(0);
+    const denials = (await auditRows('authz.denied', account.id)).filter(
+      (row) => row.reason_code === 'CREDENTIAL.TOTP_UNLOCK_SELF',
+    );
+    expect(denials.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('answers 409 when the registration is not locked', async () => {
+    const credential = await newCredential('Unlock without lock');
+    await register(owner, credential.id, otpauth(SECRET_CANARY));
+    await reauth(manager);
+
+    const notLocked = await unlock(manager, credential.id);
+    expect(notLocked.status).toBe(409);
+    expect(notLocked.body.code).toBe('CREDENTIAL.TOTP_NOT_LOCKED');
+  });
+
+  it('requires the administration permission (rank) and a recent reauthentication', async () => {
+    const credential = await newCredential('Unlock authorization');
+    await register(owner, credential.id, otpauth(SECRET_CANARY));
+    await lockRegistration(credential.id);
+
+    // El responsable de la cuenta es de rango 3: el catálogo no le da el permiso.
+    const asOwner = await unlock(owner, credential.id);
+    expect(asOwner.status).toBe(403);
+
+    env.clock.advance(REAUTH_WINDOW_MS);
+    const stale = await unlock(manager, credential.id);
+    expect(stale.status).toBe(403);
+    expect(stale.body.code).toBe('AUTHZ.REAUTH_REQUIRED');
+    expect(await auditRows('credential.totp_unlocked', credential.id)).toHaveLength(0);
   });
 });
 

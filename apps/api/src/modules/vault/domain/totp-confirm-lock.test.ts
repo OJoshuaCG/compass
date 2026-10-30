@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   INITIAL_TOTP_CONFIRM_LOCK_STATE,
   afterFailure,
+  afterUnlock,
   isLocked,
   lockDurationMs,
 } from './totp-confirm-lock.js';
@@ -61,5 +62,33 @@ describe('TOTP confirmation lock policy', () => {
 
     expect(second.lockCount).toBe(2);
     expect(second.lockedUntil).toEqual(new Date(later.getTime() + 15 * MILLISECONDS_PER_MINUTE));
+  });
+});
+
+// SENSIBLE (revisión humana)
+describe('TOTP confirmation early unlock policy', () => {
+  it('clears the failures and the lock but keeps the escalation level', () => {
+    const locked = failTimes(INITIAL_TOTP_CONFIRM_LOCK_STATE, TOTP_CONFIRM_MAX_FAILURES, NOW);
+    expect(isLocked(locked, NOW)).toBe(true);
+
+    const unlocked = afterUnlock(locked);
+
+    expect(isLocked(unlocked, NOW)).toBe(false);
+    expect(unlocked).toEqual({ failures: 0, lockCount: 1, lockedUntil: null });
+  });
+
+  it('makes the next lock after an unlock last longer than the previous one', () => {
+    const locked = failTimes(INITIAL_TOTP_CONFIRM_LOCK_STATE, TOTP_CONFIRM_MAX_FAILURES, NOW);
+
+    const relocked = failTimes(afterUnlock(locked), TOTP_CONFIRM_MAX_FAILURES, NOW);
+
+    expect(relocked.lockCount).toBe(2);
+    expect(relocked.lockedUntil).toEqual(new Date(NOW.getTime() + 15 * MILLISECONDS_PER_MINUTE));
+  });
+
+  it('discards the failures counted before the lock was imposed', () => {
+    const partial = failTimes(INITIAL_TOTP_CONFIRM_LOCK_STATE, 3, NOW);
+
+    expect(afterUnlock(partial).failures).toBe(0);
   });
 });

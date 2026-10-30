@@ -15,6 +15,7 @@ import { TotpConfirmForm } from './totp-confirm-form';
 import { TotpExportPanel } from './totp-export-panel';
 import { TotpRegisterForm } from './totp-register-form';
 import { TotpRetireDialog } from './totp-retire-dialog';
+import { TotpUnlockDialog } from './totp-unlock-dialog';
 
 type TotpBodyProps = {
   credential: Credential;
@@ -30,9 +31,12 @@ function TotpBody({ credential, totp, capabilities, timeZone, onChanged }: TotpB
   const { t } = useTranslation(['credentials', 'common']);
   const [reRegistering, setReRegistering] = useState(false);
   const [retiring, setRetiring] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
   const status = viewStatusOf(totp);
   const actions = availableActionsFor(status, capabilities);
+  // El servidor solo informa el fin del bloqueo mientras sigue vigente.
+  const isConfirmLocked = typeof totp?.confirmLockedUntil === 'string';
   const hasLiveFactor = status === 'pending' || status === 'verified';
   // Sin factor vigente la única salida es registrar; con uno vigente el re-registro es opcional.
   const showRegisterForm = actions.register && (!hasLiveFactor || reRegistering);
@@ -48,6 +52,21 @@ function TotpBody({ credential, totp, capabilities, timeZone, onChanged }: TotpB
       ) : null}
       {totp !== null && actions.confirm ? (
         <TotpConfirmForm credential={credential} digits={totp.digits} onConfirmed={onChanged} />
+      ) : null}
+      {actions.unlockConfirmation && isConfirmLocked ? (
+        <div className="flex flex-col gap-3">
+          <Alert tone="warning">{t('totp.unlock.lockedNote', { ns: 'credentials' })}</Alert>
+          <div className="flex justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setUnlocking(true);
+              }}
+            >
+              {t('totp.unlock.open', { ns: 'credentials' })}
+            </Button>
+          </div>
+        </div>
       ) : null}
       {status === 'pending' && !actions.confirm ? (
         <Alert tone="warning">{t('totp.confirm.pendingReadOnly', { ns: 'credentials' })}</Alert>
@@ -100,6 +119,18 @@ function TotpBody({ credential, totp, capabilities, timeZone, onChanged }: TotpB
             </Button>
           ) : null}
         </div>
+      ) : null}
+      {unlocking ? (
+        <TotpUnlockDialog
+          credential={credential}
+          onClose={() => {
+            setUnlocking(false);
+          }}
+          onDone={() => {
+            setUnlocking(false);
+            onChanged();
+          }}
+        />
       ) : null}
       {retiring ? (
         <TotpRetireDialog

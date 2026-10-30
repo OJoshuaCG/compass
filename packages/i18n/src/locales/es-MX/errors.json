@@ -31,6 +31,8 @@
   "CREDENTIAL.TOTP_CODE_INVALID": "El código no coincide con el de la plataforma. Revisa el reloj del dispositivo e inténtalo de nuevo.",
   "CREDENTIAL.TOTP_CODE_LIMIT": "Pediste demasiados códigos en poco tiempo. Espera un minuto.",
   "CREDENTIAL.TOTP_CONFIRM_LOCKED": "Confirmar este registro está bloqueado por un tiempo tras demasiados códigos incorrectos. Espera e inténtalo de nuevo más tarde.",
+  "CREDENTIAL.TOTP_NOT_LOCKED": "La confirmación de este registro no está bloqueada, así que no hay nada que desbloquear.",
+  "CREDENTIAL.TOTP_UNLOCK_SELF": "No puedes desbloquear un registro que tú mismo hiciste. Pídele a otra persona con acceso de administración que lo desbloquee.",
   "IDEMPOTENCY.KEY_REQUIRED": "Esta operación requiere una clave de idempotencia.",
   "IDEMPOTENCY.KEY_REUSED": "Esa clave ya se usó con una petición distinta.",
   "IDEMPOTENCY.IN_PROGRESS": "La petición original sigue en curso. Inténtalo de nuevo en unos segundos.",

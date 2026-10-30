@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { unwrap } from '../../../shared/http/http-decorators.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
 import { ManageTotp } from '../application/manage-totp.js';
+import type { TotpStatusView } from '../application/manage-totp.js';
 import type { TotpRecord } from '../application/ports/totp-repository.js';
 
 /** Respuestas con secretos o códigos: ningún caché, ni del navegador ni de un intermediario, debe guardarlas. */
@@ -24,7 +25,10 @@ const NO_STORE = 'no-store';
 
 const uuidPipe = new ZodValidationPipe(z.uuid());
 
-const toCredentialTotp = (totp: TotpRecord): CredentialTotp => ({
+const toCredentialTotp = (
+  totp: TotpRecord,
+  confirmLockedUntil: Date | null = null,
+): CredentialTotp => ({
   status: totp.status,
   algorithm: totp.algorithm,
   digits: totp.digits,
@@ -32,7 +36,11 @@ const toCredentialTotp = (totp: TotpRecord): CredentialTotp => ({
   registeredAt: totp.registeredAt.toISOString(),
   verifiedAt: totp.verifiedAt === null ? null : totp.verifiedAt.toISOString(),
   exposed: totp.exposedAt !== null,
+  confirmLockedUntil: confirmLockedUntil === null ? null : confirmLockedUntil.toISOString(),
 });
+
+const toCredentialTotpStatus = (view: TotpStatusView): CredentialTotp =>
+  toCredentialTotp(view.record, view.confirmLockedUntil);
 
 // Ninguna ruta lleva `@Idempotent()`: los cuerpos y las respuestas llevan secretos o códigos.
 @Controller('credentials/:id/totp')
@@ -42,7 +50,7 @@ export class TotpController {
   @Header('Cache-Control', NO_STORE)
   @Get()
   async status(@Param('id', uuidPipe) id: string): Promise<CredentialTotp> {
-    return toCredentialTotp(unwrap(await this.manageTotp.status(id)));
+    return toCredentialTotpStatus(unwrap(await this.manageTotp.status(id)));
   }
 
   @Header('Cache-Control', NO_STORE)
@@ -62,6 +70,14 @@ export class TotpController {
     @Body(new ZodValidationPipe(confirmTotpRequestSchema)) body: ConfirmTotpRequest,
   ): Promise<CredentialTotp> {
     return toCredentialTotp(unwrap(await this.manageTotp.confirm(id, body.code)));
+  }
+
+  // SENSIBLE (revisión humana): desbloqueo anticipado; la decisión (permiso, MANAGE, otra persona) es del caso de uso.
+  @Header('Cache-Control', NO_STORE)
+  @HttpCode(200)
+  @Post('unlock')
+  async unlock(@Param('id', uuidPipe) id: string): Promise<CredentialTotp> {
+    return toCredentialTotp(unwrap(await this.manageTotp.unlockConfirmation(id)));
   }
 
   @Header('Cache-Control', NO_STORE)

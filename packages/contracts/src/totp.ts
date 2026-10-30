@@ -43,6 +43,11 @@ export const credentialTotpSchema = z.object({
   verifiedAt: z.iso.datetime().nullable(),
   /** `true` si el secreto se exportó alguna vez: ya no lo conoce solo la bóveda. */
   exposed: z.boolean(),
+  /**
+   * Fin del bloqueo vigente de la confirmación (solo si el registro está pendiente y bloqueado); ausente o
+   * `null` si no hay bloqueo. Es un dato de estado, nunca un código ni un secreto.
+   */
+  confirmLockedUntil: z.iso.datetime().nullable().optional(),
 });
 export type CredentialTotp = z.infer<typeof credentialTotpSchema>;
 

@@ -65,6 +65,7 @@ describe('available actions by status', () => {
       getCode: false,
       exportKey: false,
       retire: false,
+      unlockConfirmation: false,
     });
   });
 
@@ -75,12 +76,23 @@ describe('available actions by status', () => {
       getCode: true,
       exportKey: true,
       retire: true,
+      unlockConfirmation: true,
     });
   });
 
   it('verified does not offer confirming again', () => {
     expect(availableActionsFor('verified', everything).confirm).toBe(false);
     expect(availableActionsFor('verified', everything).getCode).toBe(true);
+  });
+
+  it('offers the early unlock of the confirmation only for a pending factor', () => {
+    expect(availableActionsFor('pending', everything).unlockConfirmation).toBe(true);
+    expect(availableActionsFor('verified', everything).unlockConfirmation).toBe(false);
+    expect(availableActionsFor('retired', everything).unlockConfirmation).toBe(false);
+    expect(
+      availableActionsFor('pending', { canUse: true, canEdit: true, canExport: false })
+        .unlockConfirmation,
+    ).toBe(false);
   });
 
   it('retired only allows registering again', () => {
@@ -90,12 +102,14 @@ describe('available actions by status', () => {
       getCode: false,
       exportKey: false,
       retire: false,
+      unlockConfirmation: false,
     });
   });
 
   it('offers nothing without capabilities', () => {
     const nothing: TotpCapabilities = { canUse: false, canEdit: false, canExport: false };
     expect(Object.values(availableActionsFor('verified', nothing))).toEqual([
+      false,
       false,
       false,
       false,

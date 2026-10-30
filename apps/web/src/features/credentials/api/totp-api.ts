@@ -101,3 +101,15 @@ export function retireTotp(
 ): Promise<CredentialTotp> {
   return client.post(`/credentials/${credentialId}/totp/retire`, credentialTotpSchema);
 }
+
+/**
+ * `POST /credentials/:id/totp/unlock` (nivel MANAGE y permiso `credential.export_totp`; el cliente HTTP
+ * gestiona la reautenticación): desbloquea antes de tiempo la confirmación de un registro pendiente.
+ * El servidor niega si quien desbloquea es quien registró el factor.
+ */
+export function unlockTotpConfirmation(
+  credentialId: string,
+  client: ApiClient = apiClient,
+): Promise<CredentialTotp> {
+  return client.post(`/credentials/${credentialId}/totp/unlock`, credentialTotpSchema);
+}
