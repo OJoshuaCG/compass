@@ -138,14 +138,22 @@ Propuestos. Las cifras marcadas "propuesta" las confirma el equipo antes de empe
 - **Medir antes de fijar plantillas**: no se verificó que las plataformas del catálogo firmen `Subject`, sobrefirmen cabeceras, eviten `l=` y usen claves de 2048 bits.
 - Números VoIP rechazados, SMS como factor débil, remitente de SMS falsificable, spam y costo: ver el ADR.
 
-## Decisiones abiertas (bloquean IC-3 e IC-8; IC-1 no depende de ellas)
+## Decisiones (dueño, 2026-10-30) y lo que sigue abierto
 
-1. Subdominio de alias y DNS (`TODO.md` C10, decisión nº 4).
-2. SES entrante o SMTP propio (Linode con KMS en AWS) y **dónde corre la verificación DKIM**: prerrequisito de IC-3.
-3. Proveedor de SMS.
-4. Retención legal (`TODO.md` A10 y C9).
-5. Dependencias nuevas que requieren aprobación: parser MIME, lista de sufijos públicos, RE2.
-6. Desvío de ACL (vista contra cuenta), tipo `mail_source`, techo de `inbound.reveal_reset` y cifras propuestas.
+Decididas:
+
+1. Cliente IMAP: `imapflow` 2.9.1 y analizador MIME: `postal-mime` 4.1.4, ambos con versión exacta. Se eligen estas versiones y no las más nuevas (2.10.0 y 4.2.0, publicadas el 2026-10-29) por la espera de 7 días; ambas ya incluyen la corrección de sus avisos de seguridad (imapflow 2.5.9, postal-mime 4.0.8). Se descartan `imap` (último release 2016) y `mailparser` (modo mantenimiento; su README recomienda PostalMime).
+2. DKIM en dos fases: la fase 1 confía en `Authentication-Results` del servidor propio y deja un registro con solo el resultado de SPF, DKIM y DMARC por mensaje (sin cuerpo ni códigos); con lecturas reales el dueño comparte el registro y decide si se verifica DKIM en el worker.
+3. El worker es un trabajo periódico (cron), no un proceso a la escucha; IDLE queda como mejora si la latencia molesta.
+4. Alta por buzón dedicado más filtros: la persona registra el buzón y define filtros por plataforma (recomendados desde el catálogo, editables) que comparte por separado. El filtro es la `mail_view` del modelo; el nombre de cara a la persona se define en IC-6 (propuesto: "Fuente de códigos" y "Códigos de <plataforma>"). La casilla dedicada es el punto de partida para pruebas.
+5. SMS: sin proveedor por defecto; cada organización configura la API de consulta de SMS entrantes detrás de un puerto, con adaptador falso para pruebas (IC-7).
+6. Pentest externo: al final, antes de la fase 1b.
+
+Siguen abiertas:
+
+- Retención legal (`TODO.md` A10 y C9): la propuesta (elementos 10 min, recibos 30 días, cuarentena 7 días) rige hasta que legal opine.
+- Subdominio de alias y DNS (`TODO.md` C10): diferido, solo hace falta antes de la fase 1b.
+- Lista de sufijos públicos y RE2, si se necesitan: requieren aprobación aparte.
 
 ## Bitácora
 

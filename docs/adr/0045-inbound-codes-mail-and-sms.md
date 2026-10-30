@@ -227,6 +227,17 @@ Además aclaró que el servidor de correo es **propio (cPanel)**, que ya envía 
 
 IC-3 queda bloqueada por esa aprobación y por el proceso trabajador. IC-2c puede cambiar de forma bajo este camino.
 
+## Enmienda 2026-10-30 (2): dependencias, DKIM por fases, sondeo y SMS
+
+El dueño aprobó las dos dependencias y cerró las decisiones del camino B:
+
+- **Dependencias**: `imapflow` 2.9.1 y `postal-mime` 4.1.4, versión exacta, instaladas en `@iam/api`. Se evaluaron en el registro de npm y en GitHub: `imapflow` y `postal-mime` están activas, con tipos y ESM, y sus avisos de seguridad (imapflow GHSA-q347-wc7v-rfx2, corregido en 2.5.9; postal-mime GHSA-f2hq-32vh-53cc, corregido en 4.0.8) quedan fuera de las versiones elegidas. `imap` (último release 2016) y `mailparser` (modo mantenimiento, depende de `nodemailer`) se descartan. Las versiones 2.10.0 y 4.2.0 se publicaron el 2026-10-29 y no cumplen la espera de 7 días; se revisan más adelante. El contenido de los mensajes sigue siendo entrada hostil: límites de tamaño y nunca se renderiza HTML.
+- **Autenticidad en dos fases**: la fase 1 confía en `Authentication-Results` del servidor propio y registra solo el resultado de SPF, DKIM y DMARC por mensaje; con lecturas reales el dueño decide si hace falta verificar DKIM en el worker. Hasta entonces el filtro de remitente y plantillas sigue fallando cerrado.
+- **Sondeo**: el worker es un trabajo periódico, no un proceso a la escucha. La latencia de hasta un intervalo es aceptable porque los códigos duran 10 minutos.
+- **Modelo para la persona**: se registra el buzón dedicado y se definen filtros por plataforma que se comparten por separado (la `mail_view` del modelo). Los nombres visibles se fijan en IC-6.
+- **SMS**: sin proveedor por defecto; el proveedor se configura por organización detrás de un puerto de consulta de mensajes entrantes.
+- **Pentest externo**: al final, antes de la fase 1b.
+
 ## No verificado
 
 - Que SES entrante esté disponible en la región elegida ni su comportamiento con un hospedaje en Linode.
