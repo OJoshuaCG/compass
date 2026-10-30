@@ -217,6 +217,14 @@ describe('deactivating a person', () => {
 });
 
 describe('changing a rank', () => {
+  const openSessionCount = async (userId: string): Promise<number> => {
+    const result = await env.db.admin.query(
+      'select 1 from sessions where user_id = $1 and revoked_at is null',
+      [userId],
+    );
+    return result.rowCount ?? 0;
+  };
+
   it('requires a recent reauthentication', async () => {
     const target = await idOf('l2@team.test');
     const response = await root.client.post<ProblemDetails>(`/users/${target}/rank`, { rank: 3 });
@@ -227,9 +235,20 @@ describe('changing a rank', () => {
 
   it('lowers someone without reports and audits the change', async () => {
     const target = await idOf('l2@team.test');
+    const sessionsBefore = await env.db.admin.query(
+      'select 1 from sessions where user_id = $1 and revoked_at is null',
+      [target],
+    );
+    // Sin una sesión abierta de partida, comprobar que se cierran no probaría nada.
+    expect(sessionsBefore.rowCount).toBeGreaterThan(0);
     expect((await reauth(root)).status).toBe(204);
     expect((await root.client.post(`/users/${target}/rank`, { rank: 3 })).status).toBe(204);
     expect((await row('l2@team.test'))?.rank).toBe(3);
+    const openSessions = await env.db.admin.query(
+      'select 1 from sessions where user_id = $1 and revoked_at is null',
+      [target],
+    );
+    expect(openSessions.rowCount).toBe(0);
     expect((await audit('user.rank_changed'))[0]?.metadata).toMatchObject({
       fromRank: 2,
       toRank: 3,
@@ -242,6 +261,8 @@ describe('changing a rank', () => {
     expect(response.status).toBe(409);
     expect(response.body.code).toBe('USER.HAS_REPORTS');
     expect((await row('l1@team.test'))?.rank).toBe(2);
+    // Un cambio rechazado no debe cerrar sesiones: la revocación solo acompaña a un cambio efectivo.
+    expect(await openSessionCount(target)).toBeGreaterThan(0);
   });
 
   it('never lets someone reach the rank of their responsible or above', async () => {
@@ -249,6 +270,7 @@ describe('changing a rank', () => {
     const response = await root.client.post<ProblemDetails>(`/users/${target}/rank`, { rank: 1 });
     expect(response.status).toBe(422);
     expect(response.body.code).toBe('USER.MANAGER_RANK_INVALID');
+    expect(await openSessionCount(target)).toBeGreaterThan(0);
   });
 
   it('an Administrator cannot change ranks: the permission is not theirs', async () => {

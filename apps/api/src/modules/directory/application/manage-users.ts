@@ -6,7 +6,8 @@
  * - Cada acción pasa por el motor de autorización con el usuario objetivo (jerarquía incluida); el
  *   motor audita cualquier negación. Las reglas de negocio que lo complementan también auditan.
  * - La Raíz nunca se suspende, se da de baja, cambia de rango ni se transfiere.
- * - Suspender o dar de baja cierra todas sus sesiones en la misma transacción que el cambio.
+ * - Suspender, dar de baja o cambiar el rango cierra todas sus sesiones en la misma transacción que
+ *   el cambio.
  * - Dar de baja reasigna a sus subordinados vigentes a su propio responsable (nadie queda huérfano)
  *   y revoca las invitaciones pendientes que dejó.
  * - Toda acción exitosa escribe su auditoría en la misma transacción.
@@ -153,6 +154,10 @@ export class ManageUsers {
         return err(new DomainError('AUTHZ.CREATION_NOT_ALLOWED', 'Rank not allowed for your role'));
       }
       await directory.setRank(target.id, newRank);
+      // El motor lee el rango en cada petición, así que la autoridad ya cambió al confirmar; las
+      // sesiones se cierran igualmente en la misma transacción para que la persona vuelva a
+      // autenticarse con su nuevo rango (AU-9, ADR 0014, defensa en profundidad).
+      await this.deps.sessions.revokeAllOfUser(target.id, this.deps.clock.now());
       await this.record('user.rank_changed', target.id, { fromRank: target.rank, toRank: newRank });
       return ok(undefined);
     });
