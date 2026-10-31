@@ -25,6 +25,7 @@ export {
   Plus,
   RefreshCw,
   Settings,
+  Share2,
   ShieldCheck,
   Trash2,
   UserPlus,

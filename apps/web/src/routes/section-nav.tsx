@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 
-export type SectionPath = '/users' | '/roles' | '/security' | '/sessions';
+export type SectionPath = '/users' | '/roles' | '/security' | '/sessions' | '/audit';
 
 export type SectionLink = { readonly to: SectionPath; /** Ya traducido. */ readonly label: string };
 

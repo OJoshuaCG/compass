@@ -63,7 +63,7 @@ function NavItem({
 
 const VAULT_PATHS = ['/accounts', '/vault'] as const;
 const PEOPLE_PATHS = ['/users', '/roles'] as const;
-const SETTINGS_PATHS = ['/security', '/sessions'] as const;
+const SETTINGS_PATHS = ['/security', '/sessions', '/audit'] as const;
 
 /** Iniciales para el avatar: primera letra de las dos primeras palabras del nombre. */
 function initials(name: string): string {
@@ -80,6 +80,9 @@ export function AppLayout() {
   const { t } = useTranslation('common');
   const me = useMe();
   const canManageRoles = usePermission('role.manage');
+  const canReadAllAudit = usePermission('audit.read_all');
+  const canReadScopeAudit = usePermission('audit.read_scope');
+  const canReadAudit = canReadAllAudit || canReadScopeAudit;
   const { logout, pending } = useLogout();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
@@ -92,6 +95,10 @@ export function AppLayout() {
   const settingsLinks: SectionLink[] = [
     { to: '/security', label: t('nav.security') },
     { to: '/sessions', label: t('nav.sessions') },
+    // Vista previa con eventos ficticios: solo en desarrollo hasta que exista la lectura (R1).
+    ...(import.meta.env.DEV && canReadAudit
+      ? [{ to: '/audit' as const, label: t('nav.audit') }]
+      : []),
   ];
   const section = PEOPLE_PATHS.some((path) => isWithin(pathname, path))
     ? { label: t('nav.sectionsOf', { section: t('nav.people') }), links: peopleLinks }

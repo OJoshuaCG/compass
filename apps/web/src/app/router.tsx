@@ -15,6 +15,7 @@ import { HomePage } from '../routes/home-page';
 import { NotFoundPage, RootNotFound } from '../routes/not-found-page';
 import { PublicLayout } from '../routes/public-layout';
 import { RootLayout } from '../routes/root-layout';
+import { auditPreviewSearchSchema } from '../routes/audit-preview-search';
 import { vaultPreviewSearchSchema } from '../routes/vault-preview-search';
 import {
   invitationSearchSchema,
@@ -178,6 +179,23 @@ const vaultPreviewRoute = createRoute({
   component: lazyRouteComponent(loadVaultPreview, 'VaultPreviewRoutePage'),
 });
 
+// Vista previa de la auditoría (diseño de Compass con eventos ficticios), solo en desarrollo: la
+// lectura real de auditoría es la tarea R1. En producción responde 404.
+const loadAuditPreview = import.meta.env.DEV
+  ? () => import('../routes/audit-preview-route-page')
+  : () => Promise.resolve({ AuditPreviewRoutePage: NotFoundPage });
+
+const auditPreviewRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/audit',
+  validateSearch: auditPreviewSearchSchema,
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    if (!import.meta.env.DEV) throw notFound();
+  },
+  component: lazyRouteComponent(loadAuditPreview, 'AuditPreviewRoutePage'),
+});
+
 // Rutas en código (sin file-based routing): el árbol es explícito y revisable.
 const routeTree = rootRoute.addChildren([
   publicLayout.addChildren([
@@ -199,6 +217,7 @@ const routeTree = rootRoute.addChildren([
     sharesRoute,
     catalogRoute,
     vaultPreviewRoute,
+    auditPreviewRoute,
   ]),
 ]);
 
