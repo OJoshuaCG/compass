@@ -24,7 +24,6 @@ import type { E2eEnvironment, EnrolledSession } from './support/e2e.js';
 // tarea de rotación al revocar a quien reveló una contraseña.
 const DENIAL_GROUPING_WINDOW_MS = 61_000;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
-const VALID_REASON = 'Rotating the shared login for the brand page';
 
 const capturedLines: string[] = [];
 const logDestination = new Writable({
@@ -113,9 +112,7 @@ const revealOnce = async (who: EnrolledSession, credentialId: string): Promise<v
     code: freshTotp(who.secret, env.clock),
   });
   expect(reauth.status).toBe(204);
-  const revealed = await who.client.post<RevealedPassword>(`/credentials/${credentialId}/reveal`, {
-    reason: VALID_REASON,
-  });
+  const revealed = await who.client.post<RevealedPassword>(`/credentials/${credentialId}/reveal`);
   expect(revealed.status).toBe(200);
 };
 

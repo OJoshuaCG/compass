@@ -406,7 +406,7 @@ describe('5. Reauthentication (step-up)', () => {
     const allowed = await env.container.scope.runAs(asRoot(env.clock.now()), () =>
       env.container.authorizer.authorize({ permission: 'credential.reveal_password' }),
     );
-    expect(allowed).toEqual({ allowed: true, obligations: ['REAUTH', 'WRITTEN_REASON'] });
+    expect(allowed).toEqual({ allowed: true, obligations: ['REAUTH'] });
     expect(
       (await auditActions('authz.denied')).some((e) => e.reason_code === 'AUTHZ.REAUTH_REQUIRED'),
     ).toBe(true);

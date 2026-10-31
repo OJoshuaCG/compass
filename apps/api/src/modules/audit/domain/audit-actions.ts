@@ -50,7 +50,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   // Importación por CSV (O2a): un solo evento por importación, solo conteos; nunca nombres, usuarios,
   // contraseñas ni contenido del archivo.
   'credential.imported': ['accountsCreated', 'credentialsCreated', 'duplicatesSkipped'],
-  'credential.revealed': ['reason'],
+  // Sin metadatos: revelar no pide motivo; quién, cuándo y qué credencial bastan para la bitácora.
+  'credential.revealed': [],
   // Evento crítico: la persona superó el tope de revelaciones por hora (ADR 0031); `limit` es el tope vigente.
   'credential.reveal_limit_exceeded': ['limit'],
   // Segundo factor: nunca el secreto ni el código. `algorithm`, `digits` y `period` son los parámetros públicos
@@ -120,8 +121,9 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
 const ACTION_PATTERN = /^[a-z][a-z_]*(\.[a-z][a-z_]*)+$/;
 const MAX_STRING_LENGTH = 256;
 /**
- * Campos de texto libre que admiten más de 256 caracteres. El motivo escrito de una revelación llega a
- * 500 (`REVEAL_REASON_MAX_LENGTH`): truncarlo dejaría un rastro incompleto de por qué se abrió un secreto.
+ * Campos de texto libre que admiten más de 256 caracteres. El motivo escrito de exportar un secreto 2FA, del
+ * acceso de emergencia o de revelar un restablecimiento llega a 500 (`REVEAL_REASON_MAX_LENGTH`): truncarlo
+ * dejaría un rastro incompleto de por qué se abrió un secreto.
  */
 const FIELD_MAX_STRING_LENGTH: Readonly<Record<string, number>> = { reason: 500 };
 

@@ -338,7 +338,7 @@ autorizar(contexto, accion, recurso) → Decision {
 - **Los listados filtran en SQL**: una vista `effective_access` (directo + grupos, sin vencidos) se une en cada consulta de listado. Nunca se cargan registros para filtrarlos en memoria.
 - **Las negaciones también se auditan**, con su código de motivo. Un patrón de negaciones repetidas es una señal de abuso.
 - **Acciones que exigen reautenticación** (válida 5 minutos): revelar contraseña, exportar secreto 2FA, cambiar rango o roles, acceso de emergencia, transferir Raíz, gestionar SSO.
-- **Acciones que exigen motivo escrito**: revelar contraseña, exportar secreto 2FA, acceso de emergencia.
+- **Acciones que exigen motivo escrito**: exportar secreto 2FA, acceso de emergencia. Revelar contraseña ya no lo exige (decisión del dueño, 2026-10-31): basta la reautenticación y la auditoría, y se revela en un solo paso.
 
 ## Modelo de dominio y de datos
 
@@ -519,7 +519,7 @@ La bóveda guarda cuentas de cualquier plataforma, no solo redes sociales: el ca
 | Archivar cuenta | `account.archive` + MANAGE | Revoca comparticiones; los secretos se conservan cifrados |
 | Crear credencial | `credential.create` + EDIT | Usuario, contraseña, 2FA, códigos de recuperación |
 | Cambiar contraseña | `credential.update` + EDIT | Nueva versión; huella de reutilización; fecha de rotación |
-| Revelar contraseña | `credential.reveal_password` + VIEW | Reautenticación, motivo, auditoría; la UI la oculta a los 30 s |
+| Revelar contraseña | `credential.reveal_password` + VIEW | Reautenticación, auditoría (sin motivo escrito, decisión del 2026-10-31); la UI la oculta a los 30 s |
 | Copiar usuario | USE | Auditoría ligera |
 | Obtener código 2FA | `credential.use_totp` + USE | Ver sección 2FA |
 | Compartir / revocar | `share.manage` + MANAGE | Revocar tras una revelación crea tarea de rotación |

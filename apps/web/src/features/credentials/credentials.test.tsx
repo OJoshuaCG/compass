@@ -1,10 +1,10 @@
 import type { Account, Credential, Permission, ShareLevel } from '@iam/contracts';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, configure, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../../test/axe';
-import { jsonResponse, meFixture, problem, stubApi } from '../../test/fake-api';
+import { jsonResponse, meFixture, noContent, problem, stubApi } from '../../test/fake-api';
 import {
   announcedStatusTexts,
   chooseRowMenuAction,
@@ -25,7 +25,6 @@ const CREATOR_ID = '5c9e6f3e-4c1a-4a53-9d9e-6b0f0a1f7a01';
 
 const PASSWORD = 'S3cr3t-de-prueba-Ωmega';
 const USERNAME = 'rh-usuario@example.com';
-const REASON = 'Recuperar acceso tras cambio de dispositivo';
 const HIDE_AFTER_MS = 30_000;
 
 const ALL_PERMISSIONS: Permission[] = [
@@ -385,91 +384,186 @@ describe('copy username', () => {
 
 describe('reveal password', () => {
   const revealPath = `POST /credentials/${CREDENTIAL_ID}/reveal`;
+  const revealCalls = (api: ReturnType<typeof setup>) =>
+    api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`);
+  const revealedResponse = () => jsonResponse({ password: PASSWORD });
 
-  async function openReveal(user: ReturnType<typeof userEvent.setup>) {
+  const dialogName = fill(es.credentials['reveal.title'], { label: 'Portal de nómina' });
+
+  // Un solo clic: la petición sale del clic de la fila y la contraseña aparece sin pasos previos.
+  async function clickReveal(user: ReturnType<typeof userEvent.setup>) {
     await rowsLoaded();
     await user.click(screen.getByRole('button', { name: revealLabel('Portal de nómina') }));
-    return screen.findByRole('dialog', {
-      name: fill(es.credentials['reveal.title'], { label: 'Portal de nómina' }),
-    });
   }
 
-  it('asks for a reason with a warning and a live counter, without violations', async () => {
+  async function revealWithOneClick(user: ReturnType<typeof userEvent.setup>) {
+    await clickReveal(user);
+    return screen.findByRole('dialog', { name: dialogName });
+  }
+
+  it('shows the password with a single click, asks for no reason and sends no body, without violations', async () => {
     const user = userEvent.setup();
-    setup({ level: 'VIEW' });
+    const api = setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    expect(within(dialog).getByText(es.credentials['reveal.warning'])).toBeVisible();
-    const counter = (length: number) =>
-      fill(es.credentials['reveal.counter'], { length, max: 500, min: 6 });
-    expect(within(dialog).getByText(counter(0))).toBeVisible();
-    await user.type(field(es.credentials['reveal.reason']), '  abc  ');
-    // El contador cuenta como el servidor: sin los espacios de los extremos.
-    expect(within(dialog).getByText(counter(3))).toBeVisible();
-    expect(await axeViolations(dialog)).toEqual([]);
+    const dialog = await revealWithOneClick(user);
+
+    expect(await screen.findByDisplayValue(PASSWORD)).toBeInTheDocument();
+    expect(within(dialog).queryByRole('textbox', { name: /motivo/i })).toBeNull();
+    expect(within(dialog).queryByText(es.credentials['reveal.warning'])).toBeNull();
+    const calls = revealCalls(api);
+    expect(calls).toHaveLength(1);
+    // Sin cuerpo: nada de `reason`, ni siquiera vacío.
+    expect(calls[0]?.body).toBeUndefined();
+    expect(calls[0]?.headers.has('Content-Type')).toBe(false);
+    expect(await axeViolations(screen.getByRole('dialog'))).toEqual([]);
   });
 
-  it('rejects a reason shorter than 6 characters and sends nothing', async () => {
+  it('shows an accessible loading state until the response arrives, without violations', async () => {
     const user = userEvent.setup();
-    const api = setup({ level: 'VIEW' });
-    renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), 'corto');
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
-    expect(await within(dialog).findByText(es.errors['CREDENTIAL.REASON_INVALID'])).toBeVisible();
-    expect(field(es.credentials['reveal.reason'])).toHaveAttribute('aria-invalid', 'true');
-    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(0);
-  });
-
-  it('rejects a reason made only of spaces', async () => {
-    const user = userEvent.setup();
-    const api = setup({ level: 'VIEW' });
-    renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), '          ');
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
-    expect(await within(dialog).findByText(es.errors['CREDENTIAL.REASON_INVALID'])).toBeVisible();
-    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(0);
-  });
-
-  it('caps the reason at 500 characters', async () => {
-    const user = userEvent.setup();
-    setup({ level: 'VIEW' });
-    renderApp(PAGE);
-    await openReveal(user);
-    expect(field(es.credentials['reveal.reason'])).toHaveAttribute('maxlength', '500');
-  });
-
-  it('maps a server-side CREDENTIAL.REASON_INVALID to the reason field', async () => {
-    const user = userEvent.setup();
-    setup({ level: 'VIEW', extra: { [revealPath]: problem(422, 'CREDENTIAL.REASON_INVALID') } });
-    renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
-    await waitFor(() => {
-      expect(field(es.credentials['reveal.reason'])).toHaveAttribute('aria-invalid', 'true');
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    expect(within(dialog).getByText(es.errors['CREDENTIAL.REASON_INVALID'])).toBeVisible();
+    setup({
+      level: 'VIEW',
+      extra: {
+        [revealPath]: async () => {
+          await gate;
+          return revealedResponse();
+        },
+      },
+    });
+    renderApp(PAGE);
+    const dialog = await revealWithOneClick(user);
+
+    expect(within(dialog).getByRole('status')).toHaveTextContent(es.credentials['reveal.loading']);
+    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
+    expect(await axeViolations(dialog)).toEqual([]);
+
+    release();
+    expect(await screen.findByDisplayValue(PASSWORD)).toBeInTheDocument();
+    expect(within(dialog).queryByText(es.credentials['reveal.loading'])).toBeNull();
   });
 
-  it('shows the hourly limit message and blocks further attempts', async () => {
+  // SENSIBLE (revisión humana): StrictMode ejecuta los efectos dos veces; si la petición saliera de un
+  // efecto de montaje se revelaría y auditaría dos veces y contaría doble para el tope por hora.
+  it('sends exactly one request per click even under StrictMode', async () => {
+    configure({ reactStrictMode: true });
+    try {
+      const user = userEvent.setup();
+      const api = setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
+      renderApp(PAGE);
+      await revealWithOneClick(user);
+      await screen.findByDisplayValue(PASSWORD);
+      expect(revealCalls(api)).toHaveLength(1);
+
+      await user.click(screen.getByRole('button', { name: es.credentials['reveal.hideNow'] }));
+      await user.click(screen.getByRole('button', { name: es.credentials['reveal.again'] }));
+      await screen.findByDisplayValue(PASSWORD);
+      expect(revealCalls(api)).toHaveLength(2);
+    } finally {
+      configure({ reactStrictMode: false });
+    }
+  });
+
+  // SENSIBLE (revisión humana): cerrar antes de la respuesta descarta la contraseña, no se pinta.
+  it('does not show the password when the dialog is closed before the response arrives', async () => {
+    const user = userEvent.setup();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { queryClient } = {
+      ...setup({
+        level: 'VIEW',
+        extra: {
+          [revealPath]: async () => {
+            await gate;
+            return revealedResponse();
+          },
+        },
+      }),
+      ...renderApp(PAGE),
+    };
+    const dialog = await revealWithOneClick(user);
+    expect(within(dialog).getByRole('status')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    release();
+    // Deja correr la respuesta tardía y su manejo antes de afirmar.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
+    expect(document.body.textContent).not.toContain(PASSWORD);
+    expectNoSecretsStored(queryClient, [PASSWORD]);
+  });
+
+  it('shows the hourly limit message in the dialog and blocks retrying', async () => {
     const user = userEvent.setup();
     const api = setup({
       level: 'VIEW',
       extra: { [revealPath]: problem(429, 'CREDENTIAL.REVEAL_LIMIT') },
     });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    const dialog = await revealWithOneClick(user);
     expect(
       await within(dialog).findByText(new RegExp(es.errors['CREDENTIAL.REVEAL_LIMIT'])),
     ).toBeVisible();
-    expect(
-      within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }),
-    ).toBeDisabled();
-    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(1);
+    expect(within(dialog).getByRole('button', { name: es.common['actions.retry'] })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: es.common['actions.close'] })).toBeEnabled();
+    expect(revealCalls(api)).toHaveLength(1);
+  });
+
+  it('shows a 403 in the dialog and lets the person close it and try again with another click', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const api = setup({
+      level: 'VIEW',
+      extra: {
+        [revealPath]: () => {
+          attempts += 1;
+          return attempts === 1 ? problem(403, 'AUTHZ.SHARE') : revealedResponse();
+        },
+      },
+    });
+    renderApp(PAGE);
+    const dialog = await revealWithOneClick(user);
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.SHARE']);
+    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
+
+    await user.click(within(dialog).getByRole('button', { name: es.common['actions.close'] }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    await user.click(screen.getByRole('button', { name: revealLabel('Portal de nómina') }));
+    expect(await screen.findByDisplayValue(PASSWORD)).toBeInTheDocument();
+    expect(revealCalls(api)).toHaveLength(2);
+  });
+
+  it('retries from the error with a new click', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const api = setup({
+      level: 'VIEW',
+      extra: {
+        [revealPath]: () => {
+          attempts += 1;
+          return attempts === 1 ? problem(500, 'INTERNAL') : revealedResponse();
+        },
+      },
+    });
+    renderApp(PAGE);
+    const dialog = await revealWithOneClick(user);
+    await within(dialog).findByRole('alert');
+    await user.click(within(dialog).getByRole('button', { name: es.common['actions.retry'] }));
+    expect(await screen.findByDisplayValue(PASSWORD)).toBeInTheDocument();
+    expect(revealCalls(api)).toHaveLength(2);
   });
 
   it('shows the re-authentication message when the user cancels the identity check', async () => {
@@ -479,34 +573,49 @@ describe('reveal password', () => {
       extra: { [revealPath]: problem(403, 'AUTHZ.REAUTH_REQUIRED') },
     });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await clickReveal(user);
     const reauth = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
     await user.click(within(reauth).getByRole('button', { name: es.common['actions.cancel'] }));
     expect(
       await screen.findByText(new RegExp(es.errors['AUTHZ.REAUTH_REQUIRED'])),
     ).toBeInTheDocument();
-    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(1);
+    expect(revealCalls(api)).toHaveLength(1);
+  });
+
+  it('reauthenticates and retries the reveal exactly once, then shows the password', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const api = setup({
+      level: 'VIEW',
+      extra: {
+        [revealPath]: () => {
+          attempts += 1;
+          return attempts === 1 ? problem(403, 'AUTHZ.REAUTH_REQUIRED') : revealedResponse();
+        },
+        'POST /auth/reauth': noContent(),
+      },
+    });
+    renderApp(PAGE);
+    await clickReveal(user);
+    const reauth = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
+    await user.type(
+      within(reauth).getByLabelText(new RegExp(`^${es.common['reauth.code']}`)),
+      '246810',
+    );
+    await user.click(within(reauth).getByRole('button', { name: es.common['reauth.submit'] }));
+    expect(await screen.findByDisplayValue(PASSWORD)).toBeInTheDocument();
+    expect(revealCalls(api)).toHaveLength(2);
+    expect(revealCalls(api)[1]?.body).toBeUndefined();
+    expect(api.callsTo('POST', '/auth/reauth')).toHaveLength(1);
   });
 
   it('shows the password, hides it after 30 s and leaves no trace in the DOM or the stores', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
-    const api = setup({
-      level: 'VIEW',
-      extra: { [revealPath]: jsonResponse({ password: PASSWORD }) },
-    });
+    setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     const { queryClient } = renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), `  ${REASON}  `);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
-
+    await revealWithOneClick(user);
     expect(await screen.findByDisplayValue(PASSWORD)).toBeInTheDocument();
-    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)[0]?.body).toEqual({
-      reason: REASON,
-    });
-    expect(await axeViolations(screen.getByRole('dialog'))).toEqual([]);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(HIDE_AFTER_MS - 5_000);
@@ -525,11 +634,9 @@ describe('reveal password', () => {
 
   it('hides the password right away with "Hide now"', async () => {
     const user = userEvent.setup();
-    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await revealWithOneClick(user);
     await screen.findByDisplayValue(PASSWORD);
     await user.click(screen.getByRole('button', { name: es.credentials['reveal.hideNow'] }));
     expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
@@ -537,14 +644,12 @@ describe('reveal password', () => {
   });
 
   // SENSIBLE (revisión humana): al revelar el foco va al aviso de ocultado (no al campo del secreto),
-  // ese foco es el único anuncio (sin región de estado) y nada fuera del campo contiene la contraseña.
+  // ese foco es el único anuncio de la contraseña (sin región de estado) y nada fuera del campo la contiene.
   it('moves focus to the auto-hide notice, with no duplicate live region and no password outside the field', async () => {
     const user = userEvent.setup();
-    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    const dialog = await revealWithOneClick(user);
     const passwordField = await screen.findByDisplayValue(PASSWORD);
     const autoHide = fill(es.credentials['reveal.autoHide'], { seconds: 30 });
     const notice = within(dialog).getByText((content) => content.startsWith(autoHide));
@@ -565,11 +670,9 @@ describe('reveal password', () => {
   it('shows a silent visible countdown that ticks every second without the password', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
-    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    const dialog = await revealWithOneClick(user);
     await screen.findByDisplayValue(PASSWORD);
 
     const countdown = within(dialog).getByRole('timer');
@@ -609,11 +712,9 @@ describe('reveal password', () => {
   // es el único anuncio (texto fijo, sin región de estado ni alert).
   it('moves focus to the hidden notice when the password is hidden by hand', async () => {
     const user = userEvent.setup();
-    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    const dialog = await revealWithOneClick(user);
     await screen.findByDisplayValue(PASSWORD);
     await user.click(screen.getByRole('button', { name: es.credentials['reveal.hideNow'] }));
     const notice = within(dialog).getByText(es.credentials['reveal.hidden']);
@@ -624,8 +725,6 @@ describe('reveal password', () => {
     expect(within(dialog).queryByRole('status')).toBeNull();
     // El aviso visible no es un role="alert": no repite el anuncio del foco.
     expect(within(dialog).queryByRole('alert')).toBeNull();
-    await user.click(screen.getByRole('button', { name: es.credentials['reveal.again'] }));
-    expect(field(es.credentials['reveal.reason'])).toHaveFocus();
   });
 
   // SENSIBLE (revisión humana): al expirar solo (30 s) la contraseña sale del DOM y el foco, que
@@ -633,11 +732,9 @@ describe('reveal password', () => {
   it('removes the password and keeps focus on the hidden notice when it expires by itself', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
-    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    const dialog = await revealWithOneClick(user);
     await screen.findByDisplayValue(PASSWORD);
 
     await act(async () => {
@@ -654,32 +751,30 @@ describe('reveal password', () => {
     expect(within(dialog).queryByRole('timer')).toBeNull();
   });
 
-  it('asks for a new reason to reveal again', async () => {
+  it('reveals again with one click after it hides, with a new request and no reason', async () => {
     const user = userEvent.setup();
-    const api = setup({
-      level: 'VIEW',
-      extra: { [revealPath]: jsonResponse({ password: PASSWORD }) },
-    });
+    const api = setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await revealWithOneClick(user);
     await screen.findByDisplayValue(PASSWORD);
     await user.click(screen.getByRole('button', { name: es.credentials['reveal.hideNow'] }));
+    expect(revealCalls(api)).toHaveLength(1);
+
     await user.click(screen.getByRole('button', { name: es.credentials['reveal.again'] }));
-    expect(field(es.credentials['reveal.reason'])).toHaveValue('');
-    expect(api.callsTo('POST', `/credentials/${CREDENTIAL_ID}/reveal`)).toHaveLength(1);
+    expect(await screen.findByDisplayValue(PASSWORD)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /motivo/i })).toBeNull();
+    const calls = revealCalls(api);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.body).toBeUndefined();
   });
 
   it('drops the password when the dialog is closed', async () => {
     const user = userEvent.setup();
     const { queryClient } = {
-      ...setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } }),
+      ...setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } }),
       ...renderApp(PAGE),
     };
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await revealWithOneClick(user);
     await screen.findByDisplayValue(PASSWORD);
     await user.click(screen.getByRole('button', { name: es.common['dialog.close'] }));
     await waitFor(() => {
@@ -692,11 +787,9 @@ describe('reveal password', () => {
 
   it('drops the password when the screen unmounts', async () => {
     const user = userEvent.setup();
-    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     const { unmount } = renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await revealWithOneClick(user);
     await screen.findByDisplayValue(PASSWORD);
     unmount();
     expect(document.body.textContent).not.toContain(PASSWORD);
@@ -705,11 +798,9 @@ describe('reveal password', () => {
   it('copies the revealed password and clears the clipboard after 30 s', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
-    setup({ level: 'VIEW', extra: { [revealPath]: jsonResponse({ password: PASSWORD }) } });
+    setup({ level: 'VIEW', extra: { [revealPath]: revealedResponse() } });
     renderApp(PAGE);
-    const dialog = await openReveal(user);
-    await user.type(field(es.credentials['reveal.reason']), REASON);
-    await user.click(within(dialog).getByRole('button', { name: es.credentials['reveal.submit'] }));
+    await revealWithOneClick(user);
     await screen.findByDisplayValue(PASSWORD);
     const write = vi.spyOn(navigator.clipboard, 'writeText');
     await user.click(screen.getByRole('button', { name: es.credentials['reveal.copy'] }));

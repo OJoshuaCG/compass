@@ -60,7 +60,7 @@ const NONE: ActionPolicy = { reauth: false, writtenReason: false, criticalAudit:
 
 /**
  * Acciones con reautenticación: revelar contraseña, exportar secreto 2FA, cambiar rango o roles,
- * acceso de emergencia, transferir la Raíz y gestionar SSO. Con motivo escrito: revelar, exportar
+ * acceso de emergencia, transferir la Raíz y gestionar SSO. Con motivo escrito: exportar
  * y acceso de emergencia. Los eventos críticos están listados en "Gobernanza > Auditoría".
  */
 export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> = {
@@ -70,7 +70,8 @@ export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> 
   'user.change_rank': { reauth: true, writtenReason: false, criticalAudit: false },
   'role.assign': { reauth: true, writtenReason: false, criticalAudit: false },
   'vault.emergency_access': { reauth: true, writtenReason: true, criticalAudit: true },
-  'credential.reveal_password': { reauth: true, writtenReason: true, criticalAudit: false },
+  // Sin motivo escrito (decisión del dueño): la reautenticación, el tope por hora y la auditoría bastan.
+  'credential.reveal_password': { reauth: true, writtenReason: false, criticalAudit: false },
   'credential.export_totp': { reauth: true, writtenReason: true, criticalAudit: true },
   // Un restablecimiento (código o enlace) abre una cuenta ajena: mismo molde que exportar el 2FA.
   'inbound.reveal_reset': { reauth: true, writtenReason: true, criticalAudit: true },

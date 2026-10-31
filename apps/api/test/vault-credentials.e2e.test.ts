@@ -22,7 +22,7 @@ import {
 import type { E2eEnvironment, EnrolledSession } from './support/e2e.js';
 
 // Fase 1b, B2: credenciales de la bóveda. Cifrado y huella, historial sin contenido, revelado con
-// reautenticación, motivo de 6 a 500 caracteres y límite de 30 por hora (ADR 0031).
+// reautenticación (sin motivo escrito) y límite de 30 por hora (ADR 0031).
 const DENIAL_GROUPING_WINDOW_MS = 61_000;
 const REAUTH_WINDOW_MS = 6 * 60 * 1000;
 const REVEAL_LIMIT = 30;
@@ -135,11 +135,8 @@ const newCredential = async (label: string): Promise<Credential> => {
   return response.body;
 };
 
-const reveal = (who: EnrolledSession, credentialId: string, reason: string | undefined) =>
-  who.client.post<RevealedPassword & ProblemDetails>(
-    `/credentials/${credentialId}/reveal`,
-    reason === undefined ? {} : { reason },
-  );
+const reveal = (who: EnrolledSession, credentialId: string) =>
+  who.client.post<RevealedPassword & ProblemDetails>(`/credentials/${credentialId}/reveal`);
 
 beforeAll(async () => {
   env = await startEnvironment(inject('adminUrl'), { logDestination });
@@ -501,7 +498,7 @@ describe('restoring a password version (M2, BO-7)', () => {
 
     // Revelar con el flujo existente devuelve el contenido de la versión 1.
     await reauth(editor);
-    const revealed = await reveal(editor, own.id, VALID_REASON);
+    const revealed = await reveal(editor, own.id);
     expect(revealed.status).toBe(200);
     expect(revealed.body.password).toBe(PASSWORD_CANARY);
 
@@ -752,29 +749,15 @@ describe('copying the username', () => {
 describe('revealing the password', () => {
   it('requires a fresh re-authentication', async () => {
     env.clock.advance(REAUTH_WINDOW_MS);
-    const response = await reveal(viewer, credential.id, VALID_REASON);
+    const response = await reveal(viewer, credential.id);
     expect(response.status).toBe(403);
     expect(response.body.code).toBe('AUTHZ.REAUTH_REQUIRED');
     expect(JSON.stringify(response.body)).not.toContain(PASSWORD_CANARY);
   });
 
-  it('requires a written reason of 6 to 500 characters and audits the denial', async () => {
+  it('reveals without asking for a reason, audits it and forbids caching', async () => {
     await reauth(viewer);
-    for (const reason of [undefined, '12345', ' '.repeat(10), 'x'.repeat(501)]) {
-      env.clock.advance(DENIAL_GROUPING_WINDOW_MS);
-      const response = await reveal(viewer, credential.id, reason);
-      expect(response.status).toBe(422);
-      expect(response.body.code).toBe('CREDENTIAL.REASON_INVALID');
-    }
-    const denials = (await auditRows('authz.denied', 'viewer@creds.test')).filter(
-      (row) => row.reason_code === 'CREDENTIAL.REASON_INVALID',
-    );
-    expect(denials.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('reveals with a valid reason, audits it and forbids caching', async () => {
-    await reauth(viewer);
-    const response = await reveal(viewer, credential.id, '  123456  ');
+    const response = await reveal(viewer, credential.id);
     expect(response.status).toBe(200);
     expect(response.body.password).toBe(PASSWORD_CANARY);
     expect(response.headers['cache-control']).toBe('no-store');
@@ -783,33 +766,39 @@ describe('revealing the password', () => {
     const last = events.at(-1);
     expect(last?.outcome).toBe('success');
     expect(last?.target_id).toBe(credential.id);
-    expect(last?.metadata).toEqual({ reason: '123456' });
+    expect(last?.metadata).toEqual({});
     expect(JSON.stringify(events)).not.toContain(PASSWORD_CANARY);
   });
 
-  it('accepts exactly 500 characters', async () => {
+  it('ignores a body sent by an old client and never stores it', async () => {
     await reauth(viewer);
-    expect((await reveal(viewer, credential.id, 'r'.repeat(500))).status).toBe(200);
+    const response = await viewer.client.post<RevealedPassword>(
+      `/credentials/${credential.id}/reveal`,
+      { reason: VALID_REASON },
+    );
+    expect(response.status).toBe(200);
+    const events = await auditRows('credential.revealed', 'viewer@creds.test');
+    expect(events.at(-1)?.metadata).toEqual({});
   });
 
   it('denies below VIEW, without access and without the permission', async () => {
     await reauth(useOnly);
-    const asUse = await reveal(useOnly, credential.id, VALID_REASON);
+    const asUse = await reveal(useOnly, credential.id);
     expect(asUse.status).toBe(403);
     expect(asUse.body.code).toBe('AUTHZ.SHARE');
 
     await reauth(stranger);
     env.clock.advance(DENIAL_GROUPING_WINDOW_MS);
-    expect((await reveal(stranger, credential.id, VALID_REASON)).status).toBe(404);
+    expect((await reveal(stranger, credential.id)).status).toBe(404);
     const strangerDenials = await auditRows('authz.denied', 'stranger@creds.test');
     expect(strangerDenials.some((row) => row.reason_code === 'AUTHZ.SHARE')).toBe(true);
 
     // El inventario solo muestra metadatos: no concede revelar.
     await reauth(inventoryReader);
-    expect((await reveal(inventoryReader, credential.id, VALID_REASON)).status).toBe(404);
+    expect((await reveal(inventoryReader, credential.id)).status).toBe(404);
 
     // Operador: el catálogo por defecto no incluye revelar.
-    const asOwner = await reveal(owner, credential.id, VALID_REASON);
+    const asOwner = await reveal(owner, credential.id);
     expect(asOwner.status).toBe(403);
     expect(asOwner.body.code).toBe('AUTHZ.PERMISSION');
   });
@@ -833,7 +822,7 @@ describe('revealing the password', () => {
     ).body;
     expect((await editor.client.post(`/accounts/${archivedAccount.id}/archive`)).status).toBe(204);
     await reauth(viewer);
-    expect((await reveal(viewer, own.id, VALID_REASON)).status).toBe(404);
+    expect((await reveal(viewer, own.id)).status).toBe(404);
   });
 });
 
@@ -850,10 +839,10 @@ describe('the reveal limit', () => {
     await reauth(racer);
     const alreadyUsed = REVEAL_LIMIT - 5;
     for (let count = 0; count < alreadyUsed; count += 1) {
-      expect((await reveal(racer, credential.id, VALID_REASON)).status).toBe(200);
+      expect((await reveal(racer, credential.id)).status).toBe(200);
     }
     const responses = await Promise.all(
-      Array.from({ length: 20 }, () => reveal(racer, credential.id, VALID_REASON)),
+      Array.from({ length: 20 }, () => reveal(racer, credential.id)),
     );
     expect(responses.filter((response) => response.status === 200)).toHaveLength(5);
     expect(responses.filter((response) => response.status === 429)).toHaveLength(15);
@@ -867,15 +856,15 @@ describe('the reveal limit', () => {
   it('denies the 31st reveal of the hour, flags it once and recovers after the window', async () => {
     await reauth(limited);
     for (let count = 0; count < REVEAL_LIMIT; count += 1) {
-      expect((await reveal(limited, credential.id, VALID_REASON)).status).toBe(200);
+      expect((await reveal(limited, credential.id)).status).toBe(200);
     }
-    const denied = await reveal(limited, credential.id, VALID_REASON);
+    const denied = await reveal(limited, credential.id);
     expect(denied.status).toBe(429);
     expect(denied.body.code).toBe('CREDENTIAL.REVEAL_LIMIT');
     expect(JSON.stringify(denied.body)).not.toContain(PASSWORD_CANARY);
 
     env.clock.advance(DENIAL_GROUPING_WINDOW_MS);
-    expect((await reveal(limited, credential.id, VALID_REASON)).status).toBe(429);
+    expect((await reveal(limited, credential.id)).status).toBe(429);
 
     // Un aviso crítico y un solo mensaje pendiente por ventana, aunque se insista.
     const flagged = await auditRows('credential.reveal_limit_exceeded', 'limited@creds.test');
@@ -902,9 +891,7 @@ describe('the reveal limit', () => {
     env.clock.advance(LIMIT_WINDOW_MS);
     const client = await signIn(env, 'limited@creds.test', limited.secret);
     await client.post('/auth/reauth', { code: freshTotp(limited.secret, env.clock) });
-    const again = await client.post<RevealedPassword>(`/credentials/${credential.id}/reveal`, {
-      reason: VALID_REASON,
-    });
+    const again = await client.post<RevealedPassword>(`/credentials/${credential.id}/reveal`);
     expect(again.status).toBe(200);
   });
 });

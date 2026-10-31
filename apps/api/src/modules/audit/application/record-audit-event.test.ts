@@ -29,7 +29,7 @@ function setup(organizationId = ORG_A) {
 }
 
 const input = (overrides: Partial<AuditEventInput> = {}): AuditEventInput => ({
-  action: 'credential.revealed',
+  action: 'credential.totp_exported',
   actorId: asUserId('0198cccc-0000-7000-8000-000000000003'),
   targetType: 'credential',
   targetId: '0198eeee-0000-7000-8000-000000000004',
@@ -50,7 +50,7 @@ describe('RecordAuditEvent', () => {
     expect(result.ok).toBe(true);
     expect(repository.events).toHaveLength(1);
     expect(repository.events[0]).toMatchObject({
-      action: 'credential.revealed',
+      action: 'credential.totp_exported',
       metadata: { reason: 'rotating the shared account' },
     });
   });

@@ -1,20 +1,16 @@
 import { ErrorCode, type Credential } from '@iam/contracts';
-import { Alert, Button, CopyButton, Dialog, FormField, Input, PasswordInput } from '@iam/ui';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Button, CopyButton, Dialog, FormField, PasswordInput, Spinner } from '@iam/ui';
+import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError, useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
+import { ApiError, useRateLimitCooldown } from '../../../shared/api';
 import { ErrorAlert } from '../../../shared/i18n';
 import { revealCredentialPassword } from '../api/credentials-api';
 import {
   CLIPBOARD_CLEAR_MS,
   CLIPBOARD_CLEAR_SECONDS,
-  isRevealReasonValid,
-  REVEAL_REASON_MAX_LENGTH,
-  REVEAL_REASON_MIN_LENGTH,
   REVEALED_PASSWORD_VISIBLE_MS,
   REVEALED_PASSWORD_VISIBLE_SECONDS,
-  revealReasonLength,
 } from '../model/secret-policy';
 import { TOTP_COUNTDOWN_TICK_MS } from '../model/totp-model';
 
@@ -23,107 +19,11 @@ import { TOTP_COUNTDOWN_TICK_MS } from '../model/totp-model';
  * componente: no pasa por Query, por la URL, por el almacenamiento ni por la consola.
  */
 type Phase =
-  { kind: 'ask' } | { kind: 'shown'; password: string; secondsLeft: number } | { kind: 'hidden' };
-
-type ReasonFormProps = {
-  credential: Credential;
-  /** Verdadero al volver desde «Revelar de nuevo»: el botón pulsado se desmontó y el foco se perdió. */
-  focusReasonOnMount: boolean;
-  onCancel: () => void;
-  onRevealed: (password: string) => void;
-};
-
-function ReasonForm({ credential, focusReasonOnMount, onCancel, onRevealed }: ReasonFormProps) {
-  const { t } = useTranslation(['credentials', 'common', 'errors']);
-  const [reason, setReason] = useState('');
-  // La validación empieza al enviar; después responde en vivo a cada cambio.
-  const [submitted, setSubmitted] = useState(false);
-  const action = useAsyncAction((trimmedReason: string) =>
-    revealCredentialPassword(credential.id, trimmedReason),
-  );
-  const cooldown = useRateLimitCooldown(action.error);
-  const reasonRef = useRef<HTMLInputElement>(null);
-
-  // El motivo no es un secreto: es un destino de foco seguro tras volver a la fase de petición.
-  useEffect(() => {
-    if (focusReasonOnMount) reasonRef.current?.focus();
-  }, [focusReasonOnMount]);
-
-  // Tras un error el botón de envío quedó deshabilitado o en carga y el foco pudo perderse. El
-  // aviso de error ya se anuncia solo (role="alert"), así que aquí solo se devuelve el foco.
-  useEffect(() => {
-    if (action.error !== undefined) reasonRef.current?.focus();
-  }, [action.error]);
-
-  const apiError = action.error instanceof ApiError ? action.error : undefined;
-  const limitReached = apiError?.code === ErrorCode.CREDENTIAL_REVEAL_LIMIT;
-  const serverRejectedReason = apiError?.code === ErrorCode.CREDENTIAL_REASON_INVALID;
-  const clientRejectedReason = submitted && !isRevealReasonValid(reason);
-  const reasonError =
-    clientRejectedReason || serverRejectedReason
-      ? t('CREDENTIAL.REASON_INVALID', { ns: 'errors' })
-      : undefined;
-
-  async function submit() {
-    setSubmitted(true);
-    if (!isRevealReasonValid(reason)) return;
-    const result = await action.run(reason.trim());
-    if (result.ok) onRevealed(result.value);
-  }
-
-  return (
-    <form
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-      className="flex flex-col gap-4"
-    >
-      <Alert tone="warning">{t('reveal.warning', { ns: 'credentials' })}</Alert>
-      {action.error !== undefined && !serverRejectedReason ? (
-        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
-      ) : null}
-      <FormField
-        label={t('reveal.reason', { ns: 'credentials' })}
-        required
-        help={t('reveal.counter', {
-          ns: 'credentials',
-          length: revealReasonLength(reason),
-          max: REVEAL_REASON_MAX_LENGTH,
-          min: REVEAL_REASON_MIN_LENGTH,
-        })}
-        error={reasonError}
-      >
-        {(field) => (
-          <Input
-            {...field}
-            ref={reasonRef}
-            value={reason}
-            maxLength={REVEAL_REASON_MAX_LENGTH}
-            autoComplete="off"
-            invalid={field['aria-invalid'] === true}
-            onChange={(event) => {
-              setReason(event.target.value);
-            }}
-          />
-        )}
-      </FormField>
-      <div className="flex justify-end gap-3">
-        <Button variant="secondary" onClick={onCancel}>
-          {t('actions.cancel', { ns: 'common' })}
-        </Button>
-        <Button
-          type="submit"
-          loading={action.pending}
-          disabled={cooldown.secondsLeft > 0 || limitReached}
-        >
-          {t('reveal.submit', { ns: 'credentials' })}
-        </Button>
-      </div>
-    </form>
-  );
-}
+  | { kind: 'closed' }
+  | { kind: 'loading'; credential: Credential }
+  | { kind: 'error'; credential: Credential; error: unknown }
+  | { kind: 'shown'; credential: Credential; password: string; secondsLeft: number }
+  | { kind: 'hidden'; credential: Credential };
 
 type ShownPasswordProps = {
   password: string;
@@ -201,23 +101,150 @@ function isFocusOnForeignControl(container: HTMLElement | null): boolean {
   return focused.matches(INTERACTIVE_CONTROL_SELECTOR);
 }
 
-type RevealBodyProps = {
-  credential: Credential;
+/** Oculta solo si sigue visible; un cierre previo no debe resucitar el diálogo. */
+function hiddenFrom(current: Phase): Phase {
+  return current.kind === 'shown' ? { kind: 'hidden', credential: current.credential } : current;
+}
+
+type RevealErrorPanelProps = {
+  error: unknown;
   onClose: () => void;
+  onRetry: () => void;
 };
 
-function RevealBody({ credential, onClose }: RevealBodyProps) {
+function RevealErrorPanel({ error, onClose, onRetry }: RevealErrorPanelProps) {
   const { t } = useTranslation(['credentials', 'common']);
-  const [phase, setPhase] = useState<Phase>({ kind: 'ask' });
-  // Se vuelve verdadero la primera vez que la contraseña se oculta; el diálogo recién abierto no
-  // debe robarle el foco inicial a Radix.
-  const [hasBeenHidden, setHasBeenHidden] = useState(false);
-  const hiddenNoticeRef = useRef<HTMLParagraphElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const cooldown = useRateLimitCooldown(error);
+  const limitReached =
+    error instanceof ApiError && error.code === ErrorCode.CREDENTIAL_REVEAL_LIMIT;
+  return (
+    <div className="flex flex-col gap-4">
+      <ErrorAlert error={error} secondsLeft={cooldown.secondsLeft} />
+      <div className="flex justify-end gap-3">
+        <Button variant="secondary" onClick={onClose}>
+          {t('actions.close', { ns: 'common' })}
+        </Button>
+        <Button onClick={onRetry} disabled={cooldown.secondsLeft > 0 || limitReached}>
+          {t('actions.retry', { ns: 'common' })}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+type HiddenNoticeProps = {
+  onClose: () => void;
+  onRevealAgain: () => void;
+};
+
+function HiddenNotice({ onClose, onRevealAgain }: HiddenNoticeProps) {
+  const { t } = useTranslation(['credentials', 'common']);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+
+  // Tanto al ocultar a mano como al expirar solo, el botón o el campo que tenían el foco se
+  // desmontan. Este aviso es el destino estable del foco y su texto fijo (sin el valor) es el
+  // anuncio, por lo que no hay región de estado aparte.
+  useEffect(() => {
+    // Si se ocultó solo a los 30 s y el foco está en un control ajeno al cuerpo (p. ej. el botón de
+    // cerrar del diálogo), no se mueve (ver isFocusOnForeignControl).
+    if (isFocusOnForeignControl(noticeRef.current?.parentElement ?? null)) return;
+    noticeRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Párrafo y no Alert: el foco ya lo anuncia; un role="alert" lo repetiría. */}
+      <p
+        ref={noticeRef}
+        tabIndex={-1}
+        className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+      >
+        {t('reveal.hidden', { ns: 'credentials' })}
+      </p>
+      <div className="flex justify-end gap-3">
+        <Button variant="secondary" onClick={onClose}>
+          {t('actions.close', { ns: 'common' })}
+        </Button>
+        <Button onClick={onRevealAgain}>{t('reveal.again', { ns: 'credentials' })}</Button>
+      </div>
+    </div>
+  );
+}
+
+/** Acciones que la pantalla puede pedirle al diálogo; la petición sale del clic que la invoca. */
+export type RevealPasswordDialogHandle = {
+  reveal: (credential: Credential) => void;
+};
+
+export type RevealPasswordDialogProps = {
+  ref?: Ref<RevealPasswordDialogHandle>;
+};
+
+/**
+ * Diálogo de revelación en un solo clic: sin motivo, la petición sale desde el manejador del clic
+ * (`reveal`, o «Revelar de nuevo» y «Reintentar») y nunca desde un efecto de montaje, porque
+ * StrictMode ejecuta los efectos dos veces y se revelaría y auditaría dos veces (cuenta para el
+ * tope por hora). Por eso la pantalla lo mantiene montado y lo abre con `ref.reveal`.
+ *
+ * La contraseña vive 30 s en el estado local. Cerrar (botón, Escape, X) o desmontar invalida el
+ * identificador de la petición: una respuesta que llegue después se ignora y no se guarda. La
+ * reautenticación la resuelve el cliente HTTP (abre su diálogo y reintenta una vez).
+ */
+export function RevealPasswordDialog({ ref }: RevealPasswordDialogProps) {
+  const { t } = useTranslation(['credentials', 'common']);
+  const [phase, setPhase] = useState<Phase>({ kind: 'closed' });
+  // Identificador de la petición vigente: cerrar lo avanza para que una respuesta tardía no cuente.
+  const requestIdRef = useRef(0);
+  // Cerrojo síncrono: dos clics en el mismo tick verían la misma fase y enviarían dos peticiones.
+  const inFlightRef = useRef(false);
+
+  function startReveal(credential: Credential) {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    requestIdRef.current += 1;
+    const requestId = requestIdRef.current;
+    setPhase({ kind: 'loading', credential });
+    revealCredentialPassword(credential.id).then(
+      (password) => {
+        if (requestIdRef.current !== requestId) return;
+        inFlightRef.current = false;
+        setPhase({
+          kind: 'shown',
+          credential,
+          password,
+          secondsLeft: REVEALED_PASSWORD_VISIBLE_SECONDS,
+        });
+      },
+      (error: unknown) => {
+        if (requestIdRef.current !== requestId) return;
+        inFlightRef.current = false;
+        setPhase({ kind: 'error', credential, error });
+      },
+    );
+  }
+
+  function hide() {
+    setPhase(hiddenFrom);
+  }
+
+  function close() {
+    requestIdRef.current += 1;
+    inFlightRef.current = false;
+    setPhase({ kind: 'closed' });
+  }
+
+  useImperativeHandle(ref, () => ({ reveal: startReveal }));
+
+  // Al desmontar la pantalla, una respuesta en vuelo ya no debe escribir estado.
+  useEffect(() => {
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, []);
 
   // Oculta a los 30 s. Al desmontar se cancelan los temporizadores y el estado se descarta con el
-  // componente, así que cerrar el diálogo también borra la contraseña. El efecto depende solo de
-  // `isShown`: si dependiera de `phase`, cada tick de la cuenta regresiva reiniciaría el ocultado.
+  // componente. El efecto depende solo de `isShown`: si dependiera de `phase`, cada tick de la
+  // cuenta regresiva reiniciaría el ocultado.
   const isShown = phase.kind === 'shown';
   useEffect(() => {
     if (!isShown) return;
@@ -226,8 +253,7 @@ function RevealBody({ credential, onClose }: RevealBodyProps) {
     // sigue siendo el temporizador de 30 s.
     const deadlineMs = Date.now() + REVEALED_PASSWORD_VISIBLE_MS;
     const hideTimer = window.setTimeout(() => {
-      setHasBeenHidden(true);
-      setPhase({ kind: 'hidden' });
+      setPhase(hiddenFrom);
     }, REVEALED_PASSWORD_VISIBLE_MS);
     const countdownTimer = window.setInterval(() => {
       const secondsLeft = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
@@ -242,98 +268,55 @@ function RevealBody({ credential, onClose }: RevealBodyProps) {
     };
   }, [isShown]);
 
-  // Tanto al ocultar a mano como al expirar solo, el botón o el campo que tenían el foco se
-  // desmontan. El aviso de oculto sigue montado en esa fase: es el destino estable del foco y su
-  // texto fijo (sin el valor) es el anuncio, por lo que no hay región de estado aparte.
-  const isHidden = phase.kind === 'hidden';
-  useEffect(() => {
-    if (!isHidden) return;
-    // Si se ocultó solo a los 30 s y el foco está en un control ajeno al cuerpo (p. ej. el botón de
-    // cerrar del diálogo), no se mueve (ver isFocusOnForeignControl).
-    if (isFocusOnForeignControl(bodyRef.current)) return;
-    hiddenNoticeRef.current?.focus();
-  }, [isHidden]);
+  if (phase.kind === 'closed') return null;
+  const credential = phase.credential;
 
   let body: ReactNode;
   if (phase.kind === 'shown') {
     body = (
-      <ShownPassword
-        password={phase.password}
-        secondsLeft={phase.secondsLeft}
-        onHide={() => {
-          setHasBeenHidden(true);
-          setPhase({ kind: 'hidden' });
-        }}
-      />
+      <ShownPassword password={phase.password} secondsLeft={phase.secondsLeft} onHide={hide} />
     );
   } else if (phase.kind === 'hidden') {
     body = (
-      <div className="flex flex-col gap-4">
-        {/* Párrafo y no Alert: el foco ya lo anuncia; un role="alert" lo repetiría. */}
-        <p
-          ref={hiddenNoticeRef}
-          tabIndex={-1}
-          className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
-        >
-          {t('reveal.hidden', { ns: 'credentials' })}
-        </p>
-        <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>
-            {t('actions.close', { ns: 'common' })}
-          </Button>
-          <Button
-            onClick={() => {
-              setPhase({ kind: 'ask' });
-            }}
-          >
-            {t('reveal.again', { ns: 'credentials' })}
-          </Button>
-        </div>
-      </div>
-    );
-  } else {
-    body = (
-      <ReasonForm
-        credential={credential}
-        focusReasonOnMount={hasBeenHidden}
-        onCancel={onClose}
-        onRevealed={(password) => {
-          setPhase({
-            kind: 'shown',
-            password,
-            secondsLeft: REVEALED_PASSWORD_VISIBLE_SECONDS,
-          });
+      <HiddenNotice
+        onClose={close}
+        onRevealAgain={() => {
+          startReveal(credential);
         }}
       />
     );
+  } else if (phase.kind === 'error') {
+    body = (
+      <RevealErrorPanel
+        error={phase.error}
+        onClose={close}
+        onRetry={() => {
+          startReveal(credential);
+        }}
+      />
+    );
+  } else {
+    // Spinner con etiqueta: su role="status" anuncia la carga una vez; al llegar la contraseña el
+    // foco pasa al aviso de ocultado automático.
+    body = (
+      <div className="flex items-center gap-3 text-sm text-text-secondary">
+        <Spinner label={t('reveal.loading', { ns: 'credentials' })} />
+        <span aria-hidden="true">{t('reveal.loading', { ns: 'credentials' })}</span>
+      </div>
+    );
   }
 
-  return <div ref={bodyRef}>{body}</div>;
-}
-
-export type RevealPasswordDialogProps = {
-  credential: Credential;
-  onClose: () => void;
-};
-
-/**
- * Diálogo de revelación: motivo obligatorio (6 a 500 caracteres con contador en vivo), aviso de no
- * pegar secretos, y la contraseña visible 30 s en el estado local. La reautenticación la resuelve
- * el cliente HTTP (abre su diálogo y reintenta una vez); si se cancela, aquí se ve el mensaje.
- */
-export function RevealPasswordDialog({ credential, onClose }: RevealPasswordDialogProps) {
-  const { t } = useTranslation(['credentials', 'common']);
   return (
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) close();
       }}
       title={t('reveal.title', { ns: 'credentials', label: credential.label })}
       description={t('reveal.description', { ns: 'credentials' })}
       closeLabel={t('dialog.close', { ns: 'common' })}
     >
-      <RevealBody credential={credential} onClose={onClose} />
+      {body}
     </Dialog>
   );
 }

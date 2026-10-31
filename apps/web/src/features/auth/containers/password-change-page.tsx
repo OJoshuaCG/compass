@@ -195,7 +195,10 @@ function fieldErrorMessage(
     case ErrorCode.AUTH_INVALID_CREDENTIALS:
       return { field: 'currentPassword', key: 'passwordChange.currentIncorrect', ns: 'auth' };
     case ErrorCode.PASSWORD_WEAK:
-      return { field: 'newPassword', key: ErrorCode.PASSWORD_WEAK, ns: 'errors' };
+    case ErrorCode.PASSWORD_TOO_SHORT:
+    case ErrorCode.PASSWORD_TOO_LONG:
+    case ErrorCode.PASSWORD_CONTAINS_PERSONAL_DATA:
+      return { field: 'newPassword', key: code, ns: 'errors' };
     case ErrorCode.PASSWORD_REUSED:
       return { field: 'newPassword', key: ErrorCode.PASSWORD_REUSED, ns: 'errors' };
     default:

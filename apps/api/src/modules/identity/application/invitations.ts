@@ -31,6 +31,7 @@ import { invitationExpiry, isInvitationLive } from '../domain/invitation-policy.
 import { evaluatePassword, personalTokens } from '../domain/password-policy.js';
 import { TOKEN_BYTES, toBase64Url } from '../domain/tokens.js';
 import type {
+import { passwordProblemToError } from './password-problem.js';
   CredentialRepository,
   InvitationRepository,
   PasswordHasher,
@@ -439,7 +440,7 @@ export class AcceptInvitation {
       score: strength.score(input.password, personalTokens(found.email, input.displayName)),
       personalTokens: personalTokens(found.email, input.displayName),
     });
-    if (problem !== null) return err(new DomainError('PASSWORD.WEAK', 'Password is too weak'));
+    if (problem !== null) return err(passwordProblemToError(problem));
 
     const passwordHash = await hasher.hash(input.password);
     const organizationId: OrganizationId = found.organizationId;

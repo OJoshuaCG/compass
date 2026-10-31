@@ -23,6 +23,14 @@ import { AuthCard } from '../ui/auth-card';
 import { InvitationSummary } from '../ui/invitation-summary';
 import { PasswordStrength } from '../ui/password-strength';
 
+/** Causas por las que la política rechaza la contraseña; cada una tiene su mensaje en `errors`. */
+const PASSWORD_POLICY_ERROR_CODES: readonly string[] = [
+  ErrorCode.PASSWORD_WEAK,
+  ErrorCode.PASSWORD_TOO_SHORT,
+  ErrorCode.PASSWORD_TOO_LONG,
+  ErrorCode.PASSWORD_CONTAINS_PERSONAL_DATA,
+];
+
 export type InvitationPageProps = {
   /** Token de un solo uso, ya extraído de la URL por la ruta (que además lo borra de ella). */
   token: string | undefined;
@@ -73,9 +81,9 @@ function AcceptForm({ token, preview, onAccepted, onInvalid }: AcceptFormProps) 
         onInvalid();
         return;
       }
-      if (error.code === ErrorCode.PASSWORD_WEAK) {
-        // El error de contraseña débil se muestra en el propio campo, no como aviso general.
-        setError('password', { type: 'server', message: t('PASSWORD.WEAK', { ns: 'errors' }) });
+      if (PASSWORD_POLICY_ERROR_CODES.includes(error.code)) {
+        // El rechazo de la política se muestra en el propio campo, con el mensaje de su causa.
+        setError('password', { type: 'server', message: t(error.code, { ns: 'errors' }) });
         accept.reset();
         return;
       }

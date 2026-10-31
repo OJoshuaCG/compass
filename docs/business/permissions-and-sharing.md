@@ -13,7 +13,7 @@ Este documento explica cómo el sistema decide si una persona puede hacer algo: 
 | Permisos efectivos (unión de roles recortada por el techo) | **Funciona** |
 | No escalamiento al invitar | **Funciona.** Quien invita no puede otorgar roles con permisos que no tiene ni que superen el techo del rango invitado |
 | Motor de decisión (organización, sesión, permiso, jerarquía, contexto) | **Funciona.** El paso de compartición llega con la bóveda (fase 1b) |
-| Reautenticación, motivo escrito y auditoría crítica como obligaciones | **El motor las exige.** La reautenticación está disponible con la aplicación autenticadora; el motivo escrito y la auditoría crítica se aplicarán cuando existan las acciones que los usan (revelar, exportar, acceso de emergencia) |
+| Reautenticación, motivo escrito y auditoría crítica como obligaciones | **El motor las exige.** La reautenticación está disponible con la aplicación autenticadora; el motivo escrito y la auditoría crítica se aplicarán cuando existan las acciones que los usan (exportar el secreto de segundo factor y el acceso de emergencia; revelar una contraseña pide solo reautenticación, por decisión del dueño del 2026-10-31) |
 | Auditoría de negaciones | **Funciona.** Toda negación se registra con su código de motivo, aunque la acción se revierta (ver [ADR 0022](../adr/0022-audit-of-denials-in-independent-transaction.md)) |
 | Roles personalizados (crear, editar, archivar, elegir al invitar) | **Funciona.** Un rol ya creado se edita desde su pantalla (nombre y permisos) |
 | Niveles de compartición, vencimientos, revocación, acceso de emergencia | **Pendiente** (fase 1b y 1c) |
@@ -286,7 +286,7 @@ Como concede VIEW y no MANAGE, con este acceso **no** se puede exportar el secre
 | PE-8 | Con acceso directo y por grupo a la vez, vale el nivel más alto |
 | PE-9 | Una compartición vencida deja de valer aunque aún no se haya retirado |
 | PE-10 | Revocar es inmediato; si la persona reveló la contraseña, se crea una tarea de rotación |
-| PE-11 | Revelar contraseñas, exportar el secreto de segundo factor y el acceso de emergencia exigen reautenticación y motivo escrito |
+| PE-11 | Revelar contraseñas exige reautenticación y auditoría, sin motivo escrito; exportar el secreto de segundo factor y el acceso de emergencia exigen reautenticación y motivo escrito |
 | PE-12 | Cambiar rangos o roles, transferir la Raíz y gestionar aplicaciones de inicio de sesión único exigen reautenticación |
 | PE-13 | Las negaciones se auditan con su motivo |
 

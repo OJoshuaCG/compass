@@ -205,26 +205,29 @@ describe('password change form', () => {
     expect(api.callsTo('POST', '/auth/password/change')).toHaveLength(1);
   });
 
-  it.each(['PASSWORD.WEAK', 'PASSWORD.REUSED'] as const)(
-    'shows %s in the new password field',
-    async (code) => {
-      const user = userEvent.setup();
-      stubApi({
-        ...sessionApi('password').handlers,
-        'POST /auth/password/change': problem(422, code),
-      });
-      renderApp('/password/change');
-      await fillAndSubmit(user);
-      const next = field(es.auth['passwordChange.new']);
-      await waitFor(() => {
-        expect(next).toHaveAccessibleDescription(new RegExp(es.errors[code]));
-      });
-      await waitFor(() => {
-        expect(next).toHaveFocus();
-      });
-      expect(next).toHaveAttribute('aria-invalid', 'true');
-    },
-  );
+  it.each([
+    'PASSWORD.WEAK',
+    'PASSWORD.TOO_SHORT',
+    'PASSWORD.TOO_LONG',
+    'PASSWORD.CONTAINS_PERSONAL_DATA',
+    'PASSWORD.REUSED',
+  ] as const)('shows %s in the new password field', async (code) => {
+    const user = userEvent.setup();
+    stubApi({
+      ...sessionApi('password').handlers,
+      'POST /auth/password/change': problem(422, code),
+    });
+    renderApp('/password/change');
+    await fillAndSubmit(user);
+    const next = field(es.auth['passwordChange.new']);
+    await waitFor(() => {
+      expect(next).toHaveAccessibleDescription(new RegExp(es.errors[code]));
+    });
+    await waitFor(() => {
+      expect(next).toHaveFocus();
+    });
+    expect(next).toHaveAttribute('aria-invalid', 'true');
+  });
 
   it('disables the button during a 429 and shows the wait time', async () => {
     const user = userEvent.setup();

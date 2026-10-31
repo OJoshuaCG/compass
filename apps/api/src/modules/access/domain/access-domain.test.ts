@@ -285,11 +285,11 @@ describe('decision engine', () => {
       expect(decide(reveal)).toEqual({ allowed: false, reason: 'REAUTH' });
     });
 
-    it('allows within five minutes and returns the written-reason obligation', () => {
+    it('allows within five minutes and asks only for the reauthentication obligation', () => {
       const reauthAt = new Date(now.getTime() - REAUTH_WINDOW_MS);
       expect(decide({ ...reveal, reauthAt })).toEqual({
         allowed: true,
-        obligations: ['REAUTH', 'WRITTEN_REASON'],
+        obligations: ['REAUTH'],
       });
     });
 

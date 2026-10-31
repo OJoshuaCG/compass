@@ -37,7 +37,7 @@ afterAll(async () => {
 });
 
 const input = (overrides: Partial<AuditEventInput> = {}): AuditEventInput => ({
-  action: 'credential.revealed',
+  action: 'credential.totp_exported',
   actorId: null,
   targetType: 'credential',
   targetId: '0198eeee-0000-7000-8000-000000000004',

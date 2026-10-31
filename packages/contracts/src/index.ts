@@ -118,7 +118,6 @@ export {
   credentialUsernameSchema,
   isValidRevealReason,
   passwordVersionSchema,
-  revealPasswordRequestSchema,
   revealedPasswordSchema,
 } from './credentials.js';
 export type {
@@ -128,7 +127,6 @@ export type {
   CredentialKind,
   CredentialUsername,
   PasswordVersion,
-  RevealPasswordRequest,
   RevealedPassword,
 } from './credentials.js';
 export {

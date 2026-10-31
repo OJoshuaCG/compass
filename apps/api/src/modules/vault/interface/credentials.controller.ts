@@ -1,7 +1,6 @@
 import {
   changeCredentialPasswordRequestSchema,
   createCredentialRequestSchema,
-  revealPasswordRequestSchema,
 } from '@iam/contracts';
 import type {
   ChangeCredentialPasswordRequest,
@@ -9,7 +8,6 @@ import type {
   Credential,
   CredentialUsername,
   PasswordVersion,
-  RevealPasswordRequest,
   RevealedPassword,
 } from '@iam/contracts';
 import { Body, Controller, Get, Header, HttpCode, Param, Post } from '@nestjs/common';
@@ -116,15 +114,11 @@ export class CredentialsController {
     return { username: unwrap(await this.manageCredentials.copyUsername(id)) };
   }
 
-  // Sin cuerpo obligatorio: uno ausente se trata como "sin motivo" y se niega con auditoría.
+  // Sin cuerpo: revelar no pide motivo. Un cuerpo enviado se ignora.
   @Header('Cache-Control', NO_STORE)
   @HttpCode(200)
   @Post(':id/reveal')
-  async reveal(
-    @Param('id', uuidPipe) id: string,
-    @Body(new ZodValidationPipe(z.preprocess((body) => body ?? {}, revealPasswordRequestSchema)))
-    body: RevealPasswordRequest,
-  ): Promise<RevealedPassword> {
-    return { password: unwrap(await this.manageCredentials.revealPassword(id, body.reason)) };
+  async reveal(@Param('id', uuidPipe) id: string): Promise<RevealedPassword> {
+    return { password: unwrap(await this.manageCredentials.revealPassword(id)) };
   }
 }
