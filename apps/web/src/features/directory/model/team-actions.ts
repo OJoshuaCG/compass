@@ -3,7 +3,13 @@ import type { ManagedUser, Permission, Rank } from '@iam/contracts';
 import { creatableRanks, type InvitableRank } from './creatable-ranks';
 
 export type TeamAction =
-  'suspend' | 'reactivate' | 'deactivate' | 'changeRank' | 'transfer' | 'closeSessions';
+  | 'suspend'
+  | 'reactivate'
+  | 'deactivate'
+  | 'changeRank'
+  | 'transfer'
+  | 'closeSessions'
+  | 'rolesAndPermissions';
 
 /** Permisos que abren la sección "Gestión del equipo" (basta con uno). */
 const MANAGEMENT_PERMISSIONS: readonly Permission[] = [
@@ -11,6 +17,7 @@ const MANAGEMENT_PERMISSIONS: readonly Permission[] = [
   'user.update',
   'user.change_rank',
   'user.transfer',
+  'role.assign',
 ];
 
 export function canManageTeam(permissions: readonly Permission[]): boolean {
@@ -61,6 +68,13 @@ export function availableActions(
   if (person.status === 'suspended' && can('user.update')) actions.push('reactivate');
   if (can('user.change_rank') && assignableRanks(actor.rank, person.rank).length > 0) {
     actions.push('changeRank');
+  }
+  // Asignar roles y permisos solo aplica a quien está por debajo del actor. El diálogo lee los roles
+  // de la persona y el catálogo, y el servidor exige `user.invite` para ambas lecturas; sin él
+  // la acción abriría un diálogo que solo muestra un 403. Cambiar exige además `role.assign`,
+  // reautenticación y que no se escale.
+  if (can('role.assign') && can('user.invite') && actor.rank < person.rank) {
+    actions.push('rolesAndPermissions');
   }
   if (can('user.transfer')) actions.push('transfer');
   // Mismo permiso que la baja; no es destructiva a nivel de cuenta (la persona puede volver a entrar).

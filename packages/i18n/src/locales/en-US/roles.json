@@ -1,6 +1,6 @@
 {
-  "title": "Roles",
-  "description": "Roles group permissions that you can assign when inviting someone.",
+  "title": "Roles and permissions",
+  "description": "Manage roles and browse the permissions catalog. Special permissions are assigned per person from Team.",
   "caption": "Organization roles",
   "col.name": "Name",
   "col.type": "Type",
@@ -82,5 +82,11 @@
   "permission.audit.read_scope": "Read audit logs in scope",
   "permission.inbound.read_codes": "View received access codes",
   "permission.inbound.configure": "Configure received-code sources and views",
-  "permission.inbound.reveal_reset": "Reveal received reset codes and links"
+  "permission.inbound.reveal_reset": "Reveal received reset codes and links",
+  "tabs.label": "Roles and permissions sections",
+  "tabs.roles": "Roles",
+  "tabs.permissions": "Permissions",
+  "permissions.help": "Read-only catalog: each permission with the lowest rank that can hold it.",
+  "permissions.empty": "There are no permissions in the catalog.",
+  "permissions.maxRank": "Up to rank {{rank}}"
 }

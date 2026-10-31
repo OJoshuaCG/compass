@@ -30,6 +30,7 @@ import { availableActions, type TeamAction } from '../model/team-actions';
 import { ChangeRankDialog } from './change-rank-dialog';
 import { CloseSessionsDialog } from './close-sessions-dialog';
 import { DeactivateDialog } from './deactivate-dialog';
+import { PersonAccessDialog } from './person-access-dialog';
 import { TransferManagerDialog } from './transfer-manager-dialog';
 
 export type TeamManagementProps = {
@@ -48,7 +49,7 @@ const STATUS_TONE: Record<UserStatus, Status> = {
 };
 
 type DialogState = {
-  kind: 'deactivate' | 'changeRank' | 'transfer' | 'closeSessions';
+  kind: 'deactivate' | 'changeRank' | 'transfer' | 'closeSessions' | 'rolesAndPermissions';
   person: ManagedUser;
 };
 
@@ -127,6 +128,7 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
           },
         };
       case 'changeRank':
+      case 'rolesAndPermissions':
       case 'transfer':
         return {
           id: action,
@@ -245,6 +247,14 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
             setDialog(null);
           }}
           onDone={done}
+        />
+      ) : null}
+      {dialog?.kind === 'rolesAndPermissions' ? (
+        <PersonAccessDialog
+          person={dialog.person}
+          onClose={() => {
+            setDialog(null);
+          }}
         />
       ) : null}
       {dialog?.kind === 'transfer' ? (

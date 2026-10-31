@@ -96,5 +96,21 @@
   "link.warning": "This link is shown only once and cannot be viewed again; to see it again you must resend the invitation. Anyone who has it can accept the invitation.",
   "link.close": "Done",
   "invitations.resendWithLink": "Resend and show link",
-  "invitations.resendWithLinkLabel": "Resend the invitation to {{email}} and show the link"
+  "invitations.resendWithLinkLabel": "Resend the invitation to {{email}} and show the link",
+  "team.action.rolesAndPermissions": "Roles and permissions",
+  "access.title": "Roles and permissions for {{name}}",
+  "access.description": "Assign roles and special permissions. This is a sensitive action: you may be asked to confirm your identity.",
+  "access.roles.legend": "Roles",
+  "access.roles.help": "The roles this person will have. Saving replaces the current ones; you can only grant permissions you already have.",
+  "access.roles.empty": "There are no roles to assign.",
+  "access.roles.submit": "Save roles",
+  "access.roles.toast": "Updated the roles of {{name}}.",
+  "access.special.legend": "Special permissions",
+  "access.special.help": "Individual permissions added on top of their roles, as far as their rank allows. If you select none, all are removed.",
+  "access.unsaved": "Unsaved changes",
+  "access.special.helpLimits": "Only the permissions that the person's rank allows and that you hold are offered.",
+  "access.special.catalogError": "We could not check which permissions this rank allows; the server will validate on save.",
+  "access.special.empty": "There are no permissions that can be assigned to this rank.",
+  "access.special.submit": "Save special permissions",
+  "access.special.toast": "Updated the special permissions of {{name}}."
 }

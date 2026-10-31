@@ -190,6 +190,8 @@ test.describe
     await page.getByRole('button', { name: /Actions for / }).click();
     await page.getByRole('menuitem', { name: 'Change rank' }).click();
     await page.getByLabel('New rank').selectOption({ label: 'Lead' });
+    // Subir de rango exige un motivo escrito: queda en la auditoría.
+    await page.getByLabel('Reason').fill('Takes over the team while the current lead is away');
     await page.getByRole('button', { name: 'Change rank' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Confirm your identity' });
