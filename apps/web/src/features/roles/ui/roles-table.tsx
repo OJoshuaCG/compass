@@ -3,6 +3,7 @@ import { Badge, Button, DataTable, EmptyState, type Column } from '@iam/ui';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { TablePaging } from '../../../shared/api';
 import { useDataTableLabels } from '../../../shared/i18n';
 
 export type RolesTableProps = {
@@ -12,14 +13,18 @@ export type RolesTableProps = {
   errorMessage: string;
   onRetry: () => void;
   onView: (role: Role) => void;
+  onEdit: (role: Role) => void;
   onArchive: (role: Role) => void;
   /** Hay una recarga en curso conservando las filas anteriores. */
   refreshing: boolean;
+  /** Tamaño y navegación de página que entrega el container. */
+  paging: TablePaging;
 };
 
 /**
- * Tabla estándar de roles. Presentacional: los de sistema solo se pueden consultar; archivar se
- * ofrece únicamente en los personalizados (el servidor lo rechaza igual en los de sistema).
+ * Tabla estándar de roles. Presentacional: los de sistema solo se pueden consultar; editar y
+ * archivar se ofrecen únicamente en los personalizados (el servidor lo rechaza igual en los de
+ * sistema).
  */
 export function RolesTable({
   roles,
@@ -27,8 +32,10 @@ export function RolesTable({
   errorMessage,
   onRetry,
   onView,
+  onEdit,
   onArchive,
   refreshing,
+  paging,
 }: RolesTableProps) {
   const { t } = useTranslation('roles');
   const labels = useDataTableLabels();
@@ -63,15 +70,9 @@ export function RolesTable({
       getRowId={(row) => row.id}
       status={status}
       onSortChange={() => undefined}
-      limit={100}
-      onLimitChange={() => undefined}
-      pagination={{
-        hasPrevious: false,
-        hasNext: false,
-        onPrevious: () => undefined,
-        onNext: () => undefined,
-      }}
-      hidePagination
+      limit={paging.limit}
+      onLimitChange={paging.onLimitChange}
+      pagination={paging.pagination}
       refreshing={refreshing}
       labels={labels}
       emptyState={<EmptyState title={t('empty.title')} description={t('empty.description')} />}
@@ -89,16 +90,28 @@ export function RolesTable({
             {t('action.view')}
           </Button>
           {row.isSystem ? null : (
-            <Button
-              variant="secondary"
-              size="sm"
-              aria-label={t('action.archiveLabel', { name: row.name })}
-              onClick={() => {
-                onArchive(row);
-              }}
-            >
-              {t('action.archive')}
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label={t('action.editLabel', { name: row.name })}
+                onClick={() => {
+                  onEdit(row);
+                }}
+              >
+                {t('action.edit')}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label={t('action.archiveLabel', { name: row.name })}
+                onClick={() => {
+                  onArchive(row);
+                }}
+              >
+                {t('action.archive')}
+              </Button>
+            </>
           )}
         </span>
       )}

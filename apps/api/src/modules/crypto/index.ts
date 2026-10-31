@@ -8,6 +8,7 @@ export { SecretCipher } from './application/secret-cipher.js';
 export type { BlindIndexValue } from './application/secret-cipher.js';
 export type { BlindIndexPurpose } from './domain/blind-index.js';
 export type { EncryptedSecret, SecretContext } from './domain/secret-context.js';
+export { AwsKeyManagement } from './infrastructure/aws-key-management.js';
 export { LocalKeyManagement } from './infrastructure/local-key-management.js';
 export { NodeCryptoPrimitives } from './infrastructure/node-crypto-primitives.js';
 export { PgDataKeyRepository } from './infrastructure/pg-data-key-repository.js';

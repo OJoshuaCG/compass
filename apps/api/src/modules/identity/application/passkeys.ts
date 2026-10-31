@@ -10,10 +10,18 @@
  * - Todo cambio escribe su auditoría en la misma transacción.
  */
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
-import type { Clock, RequestContextReader, Result, UserId } from '../../../shared/kernel/index.js';
+import type {
+  Clock,
+  KeysetPage,
+  KeysetRequest,
+  RequestContextReader,
+  Result,
+  UserId,
+} from '../../../shared/kernel/index.js';
 import { REAUTH_WINDOW_MS } from '../../access/index.js';
 import type { AuditLog } from '../../audit/index.js';
 import type { UserDirectory } from '../../directory/index.js';
+import type { Mailer } from '../../notification/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
 import type {
   ChallengeStore,
@@ -21,6 +29,8 @@ import type {
   PasskeyRepository,
   WebAuthnEngine,
 } from './ports/identity-ports.js';
+import { sendSecurityNotice } from './security-notice.js';
+import type { SecurityNoticeDeps, SecurityNoticePlan } from './security-notice.js';
 
 export const MAX_PASSKEYS = 10;
 const CHALLENGE_MS = 5 * 60 * 1000;
@@ -34,14 +44,17 @@ export interface PasskeysDeps {
   readonly webauthn: WebAuthnEngine;
   readonly audit: AuditLog;
   readonly clock: Clock;
+  /** Para avisar a la persona de que se agregó o quitó una llave (TODO G5). */
+  readonly mailer: Mailer;
+  readonly reportLost?: SecurityNoticeDeps['reportLost'];
 }
 
 export class Passkeys {
   constructor(private readonly deps: PasskeysDeps) {}
 
-  list(): Promise<readonly PasskeyRecord[]> {
+  list(page: KeysetRequest): Promise<KeysetPage<PasskeyRecord>> {
     const { uow, passkeys } = this.deps;
-    return uow.run(async () => passkeys.listLive(this.actorId()));
+    return uow.run(async () => passkeys.listLivePage(this.actorId(), page));
   }
 
   beginRegistration(): Promise<Result<{ options: unknown }, DomainError>> {
@@ -69,12 +82,13 @@ export class Passkeys {
     });
   }
 
-  finishRegistration(input: {
+  async finishRegistration(input: {
     readonly name: string;
     readonly response: unknown;
   }): Promise<Result<PasskeyRecord, DomainError>> {
     const { context, uow, passkeys, challenges, webauthn, audit, clock } = this.deps;
-    return uow.run(async () => {
+    const pending: { notice: SecurityNoticePlan | null } = { notice: null };
+    const result = await uow.run(async () => {
       this.requireRecentReauth();
       const user = await this.user();
       const now = clock.now();
@@ -116,13 +130,18 @@ export class Passkeys {
         requestId: context.current().requestId,
         metadata: {},
       });
+      pending.notice = this.noticePlan('passkey_added', user, now);
       return ok(created);
     });
+    // El aviso sale DESPUÉS de confirmar y es de mejor esfuerzo: nunca deshace ni bloquea el alta.
+    if (result.ok && pending.notice !== null) await sendSecurityNotice(this.deps, pending.notice);
+    return result;
   }
 
-  revoke(passkeyId: string): Promise<Result<void, DomainError>> {
+  async revoke(passkeyId: string): Promise<Result<void, DomainError>> {
     const { context, uow, passkeys, audit, clock } = this.deps;
-    return uow.run(async () => {
+    const pending: { notice: SecurityNoticePlan | null } = { notice: null };
+    const result = await uow.run(async () => {
       this.requireRecentReauth();
       const actorId = this.actorId();
       if (!(await passkeys.revoke(passkeyId, actorId, clock.now()))) {
@@ -140,11 +159,29 @@ export class Passkeys {
         requestId: context.current().requestId,
         metadata: {},
       });
+      pending.notice = this.noticePlan('passkey_removed', await this.user(), clock.now());
       return ok(undefined);
     });
+    if (result.ok && pending.notice !== null) await sendSecurityNotice(this.deps, pending.notice);
+    return result;
   }
 
   // -----------------------------------------------------------------------------------------------
+
+  private noticePlan(
+    kind: SecurityNoticePlan['kind'],
+    user: { readonly id: UserId; readonly email: string; readonly locale: 'es-MX' | 'en-US' },
+    occurredAt: Date,
+  ): SecurityNoticePlan {
+    return {
+      kind,
+      userId: user.id,
+      to: user.email,
+      locale: user.locale,
+      occurredAt,
+      requestId: this.deps.context.current().requestId,
+    };
+  }
 
   private sessionId(): string {
     const { sessionId } = this.deps.context.current();

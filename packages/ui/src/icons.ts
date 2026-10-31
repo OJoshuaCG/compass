@@ -29,6 +29,7 @@ export {
   Trash2,
   UserPlus,
   Users,
+  Vault,
   X,
   XCircle,
   type LucideIcon,

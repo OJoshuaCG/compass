@@ -33,7 +33,7 @@ El plan habla de "dos procesos (API y worker)" más las migraciones como paso pr
 
 ## 2. Contexto y contenedores
 
-Diagrama de contexto y contenedores. Los servicios externos se muestran con la referencia AWS del plan ([ADR 0020](adr/0020-reference-cloud-aws.md), confirmación pendiente); cada uno está detrás de un puerto.
+Diagrama de contexto y contenedores. Los servicios externos se muestran con la referencia AWS del plan ([ADR 0020](adr/0020-reference-cloud-aws.md); lo que realmente se despliega es Dokploy, PostgreSQL dedicado y AWS solo para el KMS); cada uno está detrás de un puerto.
 
 ```mermaid
 flowchart LR
@@ -93,7 +93,7 @@ El plan describe un diagrama de "12 módulos" y su tabla de responsabilidades en
 | 7 | `crypto` | Fase 0 y 1 (protegido) | `SecretCipher`, caché de DEK, rotación, índices ciegos | Cifrar, descifrar, HMAC por propósito |
 | 8 | `audit` | Fase 0 y 1 (protegido) | Escritura encadenada, verificación, consulta, exportación | `AuditLog.record()` dentro de la transacción |
 | 9 | `governance` | Fase 1 | Bajas con rotación, salud, acceso temporal | Tareas de rotación, paneles |
-| 10 | `notification` | Fase 1. Implementado en 1a solo para invitaciones y el aviso de uso de un código de emergencia, con adaptador SMTP del dominio propio (y uno de desarrollo) | Correos traducidos, SSE, alertas | Enviar, publicar evento al cliente |
+| 10 | `notification` | Fase 1. Implementado en 1a para invitaciones, el aviso de uso de un código de emergencia y los avisos de seguridad a la persona (código de recuperación usado, llave de acceso agregada o quitada), con adaptador SMTP del dominio propio (y uno de desarrollo) | Correos traducidos, SSE, alertas | Enviar, publicar evento al cliente |
 | 11 | `federation` | Futuro (fases 2 y 3) | OIDC, SAML, SCIM | Por definir en esas fases |
 | 12 | `inbound-codes` | Futuro (fases 4 y 5) | Ingesta de correos y SMS | Por definir en esas fases |
 | 13 | `broker` | Futuro (fases 6 y 7) | Intenciones de login, sesiones delegadas | Por definir en esas fases |
@@ -324,7 +324,7 @@ El detalle paso a paso está en [`backend.md`](backend.md) §3.7 y §3.8. En pro
 
 La **fase 0** está terminada y entregó el esqueleto: monorepo, contexto de organización, `crypto` y `audit` con pruebas, RLS activo, esqueleto de UI con tokens oscuros e i18n, y los ADR 0001 a 0020. El criterio de salida completo está en `plan.md` ("Criterios de salida por fase") y el seguimiento en [`odd/tasks/phase-0-foundations.md`](../odd/tasks/phase-0-foundations.md).
 
-La **fase 1a (identidad)** está implementada en lo esencial en backend y frontend: alta de organización por operaciones con códigos de emergencia de la Raíz, invitaciones reenviables por el correo del dominio propio, contraseña y segundo factor con aplicación autenticadora o passkey, cambio obligatorio de la contraseña inicial, inicio de sesión, sesiones propias y ajenas, reautenticación, motor de autorización con 27 permisos y auditoría de negaciones, roles personalizados, gestión de personas, idempotencia de las creaciones y directorio. La web ofrece las pantallas correspondientes (ver [`frontend.md`](frontend.md) §18). Las pruebas de punta a punta pasan contra PostgreSQL real y en Chrome real. No está cerrada: faltan, entre otros, Redis, la purga de datos temporales y la recuperación de la Raíz sin contraseña ni factores (§11). La **fase 1b (bóveda y segundo factor) no ha empezado**; su plan está en [`odd/tasks/phase-1b-vault.md`](../odd/tasks/phase-1b-vault.md). La lógica de negocio está en [`business/`](business/README.md) y el estado detallado en [`business/roadmap-and-status.md`](business/roadmap-and-status.md).
+La **fase 1a (identidad)** está implementada en lo esencial en backend y frontend: alta de organización por operaciones con códigos de emergencia de la Raíz, invitaciones reenviables por el correo del dominio propio, contraseña y segundo factor con aplicación autenticadora o passkey, cambio obligatorio de la contraseña inicial, inicio de sesión, sesiones propias y ajenas, reautenticación, motor de autorización con 28 permisos y auditoría de negaciones, roles personalizados, gestión de personas, idempotencia de las creaciones y directorio. La web ofrece las pantallas correspondientes (ver [`frontend.md`](frontend.md) §18). Las pruebas de punta a punta pasan contra PostgreSQL real y en Chrome real. No está cerrada: faltan, entre otros, Redis, la purga de datos temporales y la recuperación de la Raíz sin contraseña ni factores (§11). La **fase 1b (bóveda y segundo factor) está en curso**: ya funcionan cuentas, credenciales con revelado auditado, compartición, segundo factor por clave manual o imagen del QR y las importaciones por CSV y desde Google Authenticator; faltan la búsqueda avanzada y la entrega por celular. Su plan está en [`odd/tasks/phase-1b-vault.md`](../odd/tasks/phase-1b-vault.md). La lógica de negocio está en [`business/`](business/README.md) y el estado detallado en [`business/roadmap-and-status.md`](business/roadmap-and-status.md).
 
 ## 11. Decisiones pendientes
 
@@ -335,7 +335,7 @@ Vigentes tras la fase 1a. El detalle técnico está en [`backend.md`](backend.md
 | Passkeys (WebAuthn) | **Resuelta** ([ADR 0028](adr/0028-passkeys-optional-enforcement-later.md)): opcionales para todos. Sigue abierta la configuración para exigirlas a la Raíz y a los Administradores |
 | Cambio de la contraseña inicial de la Raíz | **Resuelto**: obligatorio en el primer ingreso |
 | Redis para límites de intentos y por IP | Pendiente. Hoy en memoria de cada instancia; el sistema debe operar con una sola instancia hasta incorporarlo ([runbook](runbooks/single-instance-operation.md)) |
-| Proveedor de correo | **Resuelto** para invitaciones y el aviso de códigos de emergencia: SMTP del dominio propio. Faltan los demás avisos (dispositivo nuevo, código de recuperación, cambios de factores) |
+| Proveedor de correo | **Resuelto** para invitaciones y el aviso de códigos de emergencia: SMTP del dominio propio. Faltan los avisos de dispositivo nuevo, baja del factor de aplicación y regeneración de códigos |
 | Idempotencia de peticiones que crean recursos | **Resuelta** ([ADR 0029](adr/0029-idempotency-reservation-and-ownership.md)); falta la purga de filas vencidas |
 | Recuperación de la Raíz que olvida su contraseña y pierde sus factores | Sin solución en el sistema; falta un procedimiento de operaciones |
 | Purga de datos temporales vencidos (idempotencia, desafíos de passkeys) | Pendiente; necesita un camino para recorrer organizaciones ([`database.md`](database.md) §7.5) |

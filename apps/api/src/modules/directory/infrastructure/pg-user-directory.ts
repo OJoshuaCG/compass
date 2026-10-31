@@ -153,6 +153,17 @@ export class PgUserDirectory implements UserDirectory {
     return result.rowCount ?? 0;
   }
 
+  async countActiveByRank(rank: Rank): Promise<number> {
+    const result = await this.transactions
+      .current()
+      .query<{ total: string }>(
+        "select count(*) as total from users where rank = $1 and status = 'active'",
+        [rank],
+      );
+    // `count` llega como texto (bigint): se convierte de forma explícita.
+    return Number(result.rows[0]?.total ?? 0);
+  }
+
   async listAdministratorContacts(): Promise<
     readonly { readonly email: string; readonly locale: 'es-MX' | 'en-US' }[]
   > {
@@ -161,6 +172,25 @@ export class PgUserDirectory implements UserDirectory {
       locale: 'es-MX' | 'en-US';
     }>("select email, locale from users where rank = 1 and status = 'active' order by email");
     return result.rows;
+  }
+
+  async listRootContacts(): Promise<
+    readonly {
+      readonly id: UserId;
+      readonly email: string;
+      readonly locale: 'es-MX' | 'en-US';
+    }[]
+  > {
+    const result = await this.transactions.current().query<{
+      id: string;
+      email: string;
+      locale: 'es-MX' | 'en-US';
+    }>("select id, email, locale from users where rank = 0 and status = 'active' order by email");
+    return result.rows.map((row) => ({
+      id: asUserId(row.id),
+      email: row.email,
+      locale: row.locale,
+    }));
   }
 
   async list(query: DirectoryQuery): Promise<DirectoryPage> {

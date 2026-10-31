@@ -80,6 +80,16 @@ describe('Tabs', () => {
     await user.keyboard('{Home}');
     expect(screen.getByRole('tab', { name: 'First' })).toHaveFocus();
   });
+
+  it('makes the tabpanel focusable so keyboard users can reach its content', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const panel = screen.getByRole('tabpanel');
+    expect(panel).toHaveAttribute('tabindex', '0');
+    screen.getByRole('tab', { name: 'First' }).focus();
+    await user.tab();
+    expect(panel).toHaveFocus();
+  });
 });
 
 describe('RadioGroup', () => {

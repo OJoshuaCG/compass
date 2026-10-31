@@ -1,7 +1,15 @@
 import type { QueryResultRow } from 'pg';
 
-import { asOrganizationId, asUserId, isRank } from '../../../shared/kernel/index.js';
-import type { Rank, UserId } from '../../../shared/kernel/index.js';
+import {
+  asOrganizationId,
+  asUserId,
+  decodeKeysetCursor,
+  isRank,
+  isTimestampTextPart,
+  isUuidPart,
+  toKeysetPage,
+} from '../../../shared/kernel/index.js';
+import type { KeysetPage, KeysetRequest, Rank, UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type {
   PendingInvitationRecord,
@@ -65,26 +73,46 @@ export class PgInvitationRepository implements InvitationRepository {
     );
   }
 
-  async listPending(invitedBy: UserId | null): Promise<readonly PendingInvitationRecord[]> {
+  async listPending(
+    invitedBy: UserId | null,
+    page: KeysetRequest,
+  ): Promise<KeysetPage<PendingInvitationRecord>> {
+    const params: unknown[] = [invitedBy];
+    let afterCursor = '';
+    const after = decodeKeysetCursor(page.cursor, [isTimestampTextPart, isUuidPart]);
+    if (after !== null) {
+      params.push(after[0], after[1]);
+      afterCursor = 'and (created_at, id) < ($2::timestamptz, $3::uuid)';
+    }
+    params.push(page.limit + 1);
+    // La marca de tiempo viaja como texto en el cursor para no perder los microsegundos.
     const result = await this.transactions.current().query<{
       id: string;
       email: string;
       rank: number;
       created_at: Date;
+      created_text: string;
       expires_at: Date;
     }>(
-      `select id, email, rank, created_at, expires_at from invitations
+      `select id, email, rank, created_at, created_at::text as created_text, expires_at
+         from invitations
         where accepted_at is null and revoked_at is null and ($1::uuid is null or invited_by = $1)
-        order by created_at desc, id desc`,
-      [invitedBy],
+          ${afterCursor}
+        order by created_at desc, id desc
+        limit $${String(params.length)}`,
+      params,
     );
-    return result.rows.map((row) => ({
-      id: row.id,
-      email: row.email,
-      rank: toRank(row.rank),
-      createdAt: row.created_at,
-      expiresAt: row.expires_at,
-    }));
+    const keyset = toKeysetPage(result.rows, page.limit, (row) => [row.created_text, row.id]);
+    return {
+      rows: keyset.rows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        rank: toRank(row.rank),
+        createdAt: row.created_at,
+        expiresAt: row.expires_at,
+      })),
+      nextCursor: keyset.nextCursor,
+    };
   }
 
   async revoke(id: string, at: Date): Promise<void> {

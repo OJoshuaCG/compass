@@ -7,21 +7,82 @@ import type { AuditMetadata, AuditMetadataValue } from './audit-event.js';
  * Para auditar un campo nuevo hay que registrarlo aquí, y eso se revisa como código protegido.
  */
 export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]>> = {
+  // Solo números de versión y el motivo (`scheduled` | `incident`); nunca material de clave.
+  'crypto.dek_rotated': ['fromVersion', 'toVersion', 'reason'],
   'user.invited': ['rank', 'roleCount'],
   'user.invitation_resent': ['rank', 'roleCount'],
   'role.created': ['permissionCount'],
+  'role.updated': ['addedCount', 'removedCount', 'renamed'],
   'role.archived': [],
+  // Sincronización de plantillas de sistema (B5a): `removed` y `added` son nombres de permisos separados por
+  // coma (la auditoría solo admite valores primitivos); nunca contenido de credenciales.
+  'role.system_synced': ['roleName', 'removed', 'added'],
   'user.deactivated': ['rotationTasks', 'reassignedReports'],
   'user.suspended': [],
   'user.reactivated': [],
-  'user.rank_changed': ['fromRank', 'toRank'],
+  // Cambio de rango: `reason` es el motivo escrito (hasta 500, ver abajo). `removedRoles` es una lista de ids
+  // de rol separados por coma, TRUNCADA a ids completos para caber en 256 caracteres; el total real va en
+  // `removedRoleCount`. `assignedRole` es el id de la plantilla asignada (o null), `templateSkipped` indica que la persona quedó sin rol
+  // porque no se asignó la plantilla (no escalamiento) y `sharedAccountCount` el
+  // número de comparticiones vivas que la persona otorgó. Nunca nombres de roles ni de cuentas.
+  'user.rank_changed': [
+    'fromRank',
+    'toRank',
+    'reason',
+    'removedRoles',
+    'removedRoleCount',
+    'assignedRole',
+    'templateSkipped',
+    'sharedAccountCount',
+  ],
   'user.manager_changed': ['newManagerId'],
-  'authz.denied': ['permission', 'resourceType'],
+  'authz.denied': ['permission', 'resourceType', 'suppressedCount'],
+  // Cuentas de la bóveda. `revokedShares`: comparticiones que se cerraron al archivar.
+  'account.created': ['platformId', 'hasOwnerGroup'],
+  'account.updated': ['changedFields'],
+  'account.archived': ['revokedShares'],
+  // Credenciales: nunca el contenido. `version` es el número de versión de la contraseña.
+  'credential.created': ['kind'],
+  'credential.password_changed': ['version'],
+  // Restaurar crea una versión nueva con el contenido de una anterior: se anotan solo los dos números.
+  'credential.version_restored': ['restoredVersion', 'newVersion'],
+  'credential.username_copied': [],
+  // Importación por CSV (O2a): un solo evento por importación, solo conteos; nunca nombres, usuarios,
+  // contraseñas ni contenido del archivo.
+  'credential.imported': ['accountsCreated', 'credentialsCreated', 'duplicatesSkipped'],
   'credential.revealed': ['reason'],
+  // Evento crítico: la persona superó el tope de revelaciones por hora (ADR 0031); `limit` es el tope vigente.
+  'credential.reveal_limit_exceeded': ['limit'],
+  // Segundo factor: nunca el secreto ni el código. `algorithm`, `digits` y `period` son los parámetros públicos
+  // del URI; `previousVersion` es la versión del secreto que queda retenida al re-registrar.
+  'credential.totp_registered': ['algorithm', 'digits', 'period'],
+  'credential.totp_confirmed': [],
+  'credential.totp_reregistered': ['algorithm', 'digits', 'period', 'previousVersion'],
+  'credential.totp_retired': [],
   'credential.totp_code_issued': [],
   'credential.totp_exported': ['reason'],
+  // Desbloqueo anticipado de la confirmación (T5b-3): solo ids y el nivel de escalamiento que se conserva
+  // (`lockLevel`) y quién registró el factor pendiente (`registeredBy`, id opaco). Nunca códigos ni secretos.
+  'credential.totp_unlocked': ['lockLevel', 'registeredBy'],
   'access.emergency_granted': ['reason', 'expiresInMinutes'],
-  'share.revoked': ['level', 'rotationTaskCreated'],
+  // Comparticiones de cuentas. `granteeId` es el id opaco de la persona o del grupo; `expiresAt` es ISO o
+  // `null` si no caduca; `rotationTasks` cuenta las tareas de rotación que dejó revocar tras una revelación.
+  'share.granted': ['level', 'granteeType', 'granteeId', 'expiresAt'],
+  'share.revoked': ['level', 'granteeType', 'granteeId', 'rotationTasks'],
+  // Códigos entrantes (ADR 0045). Solo ids opacos y conteos: nunca direcciones, asuntos, códigos ni enlaces.
+  // `sourceId` y `viewId` son los ids de la fuente y de la vista; `level` es el nivel de la compartición.
+  'inbound.source_created': ['channel'],
+  'inbound.source_updated': ['changedFields'],
+  'inbound.source_archived': ['revokedShares'],
+  'inbound.view_created': ['sourceId', 'templateCount'],
+  'inbound.view_updated': ['sourceId', 'addedCount', 'removedCount'],
+  'inbound.view_archived': ['sourceId', 'revokedShares'],
+  'inbound.view_shared': ['level', 'granteeType', 'granteeId', 'expiresAt'],
+  'inbound.view_share_revoked': ['level', 'granteeType', 'granteeId', 'rotationTasks'],
+  // Una vez por (persona, elemento extraído), en la primera entrega (ADR 0045 sección 5).
+  'inbound.code_read': ['sourceId', 'viewId'],
+  // Revelar un restablecimiento (evento crítico): motivo escrito, nunca el valor.
+  'inbound.reset_revealed': ['sourceId', 'viewId', 'reason'],
   'audit.chain_verified': ['checked'],
   'auth.login_failed': [],
   'auth.login_password_verified': [],
@@ -35,6 +96,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.passkey_revoke_failed': [],
   'auth.emergency_code_used': ['alertRecipients'],
   'auth.emergency_alert_incomplete': ['recipients', 'failed'],
+  // `kind`: qué aviso a la persona no salió (recovery_code_used, passkey_added, passkey_removed).
+  'auth.security_notice_failed': ['kind'],
   'auth.root_recovered': ['codesIssued', 'alertRecipients'],
   'auth.root_recovery_rejected': [],
   'auth.totp_enrolled': [],
@@ -56,6 +119,11 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
 
 const ACTION_PATTERN = /^[a-z][a-z_]*(\.[a-z][a-z_]*)+$/;
 const MAX_STRING_LENGTH = 256;
+/**
+ * Campos de texto libre que admiten más de 256 caracteres. El motivo escrito de una revelación llega a
+ * 500 (`REVEAL_REASON_MAX_LENGTH`): truncarlo dejaría un rastro incompleto de por qué se abrió un secreto.
+ */
+const FIELD_MAX_STRING_LENGTH: Readonly<Record<string, number>> = { reason: 500 };
 
 /**
  * Devuelve solo los campos permitidos. Un campo fuera de la lista o un valor no primitivo
@@ -80,7 +148,8 @@ export function sanitizeMetadata(action: string, metadata: AuditMetadata): Audit
         },
       );
     }
-    if (typeof value === 'string' && value.length > MAX_STRING_LENGTH) {
+    const maxLength = FIELD_MAX_STRING_LENGTH[field] ?? MAX_STRING_LENGTH;
+    if (typeof value === 'string' && value.length > maxLength) {
       throw new DomainError('AUDIT.METADATA_FIELD_NOT_ALLOWED', 'Audit metadata value too long', {
         action,
         field,

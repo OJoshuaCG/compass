@@ -14,6 +14,24 @@ describe('Alert', () => {
     render(<Alert tone="danger">Something failed</Alert>);
     expect(screen.getByRole('alert')).toHaveTextContent('Something failed');
   });
+
+  it.each([
+    ['danger', 'alert'],
+    ['warning', 'status'],
+    ['success', 'status'],
+    ['info', 'status'],
+  ] as const)('gives the %s tone the %s role and no other', (tone, role) => {
+    render(<Alert tone={tone}>Notice</Alert>);
+    expect(screen.getByRole(role)).toHaveTextContent('Notice');
+    const otherRole = role === 'alert' ? 'status' : 'alert';
+    expect(screen.queryByRole(otherRole)).toBeNull();
+  });
+
+  it('uses the polite status role when no tone is given', () => {
+    render(<Alert>Notice</Alert>);
+    expect(screen.getByRole('status')).toHaveTextContent('Notice');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });
 
 describe('StrengthMeter', () => {
@@ -65,5 +83,20 @@ describe('Dialog', () => {
     expect(await axeViolations(document.body)).toEqual([]);
     await user.keyboard('{Escape}');
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('breaks long titles without spaces instead of overflowing', () => {
+    render(
+      <Dialog
+        open
+        onOpenChange={vi.fn()}
+        title="Averyveryverylonglabelwithoutanyspaces"
+        description="Desc"
+        closeLabel="Close"
+      >
+        <p>Body</p>
+      </Dialog>,
+    );
+    expect(screen.getByRole('heading', { name: /^Averyvery/ })).toHaveClass('break-words');
   });
 });

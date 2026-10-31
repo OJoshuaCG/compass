@@ -2,13 +2,18 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { bootstrapRoles, migrate } from '../src/index.js';
 
-export const PASSWORDS = { iam_migrator: 'migrator-test-pw', iam_app: 'app-test-pw' } as const;
+export const PASSWORDS = {
+  iam_migrator: 'migrator-test-pw',
+  iam_app: 'app-test-pw',
+  iam_inbound_worker: 'inbound-worker-test-pw',
+} as const;
 
 export interface TestDb {
   name: string;
   adminUrl: string;
   migratorUrl: string;
   appUrl: string;
+  workerUrl: string;
 }
 
 function withCredentials(
@@ -46,6 +51,12 @@ export async function createDatabase(clusterAdminUrl: string): Promise<TestDb> {
     adminUrl,
     migratorUrl: withCredentials(clusterAdminUrl, 'iam_migrator', PASSWORDS.iam_migrator, name),
     appUrl: withCredentials(clusterAdminUrl, 'iam_app', PASSWORDS.iam_app, name),
+    workerUrl: withCredentials(
+      clusterAdminUrl,
+      'iam_inbound_worker',
+      PASSWORDS.iam_inbound_worker,
+      name,
+    ),
   };
 }
 

@@ -74,9 +74,25 @@ export interface UserDirectory {
     actor: { readonly id: UserId; readonly isRoot: boolean },
     query: DirectoryQuery,
   ): Promise<ManagedPage>;
+  /**
+   * Cuántas personas ACTIVAS tienen exactamente ese rango. Suspendidas, invitadas y dadas de baja no
+   * cuentan. Debe llamarse bajo `lockHierarchy` para que el conteo no cambie antes de escribir.
+   */
+  countActiveByRank(rank: Rank): Promise<number>;
   /** Correo e idioma de los Administradores activos (rango 1): destinatarios de las alertas críticas. */
   listAdministratorContacts(): Promise<
     readonly { readonly email: string; readonly locale: 'es-MX' | 'en-US' }[]
+  >;
+  /**
+   * Id, correo e idioma de la Raíz activa (rango 0): destinataria de los avisos de abuso, como el tope de
+   * revelaciones. El id permite llevar un acuse de entrega por destinataria.
+   */
+  listRootContacts(): Promise<
+    readonly {
+      readonly id: UserId;
+      readonly email: string;
+      readonly locale: 'es-MX' | 'en-US';
+    }[]
   >;
   /** Directorio visible: usuarios activos, solo nombre, correo y rango. */
   list(query: DirectoryQuery): Promise<DirectoryPage>;

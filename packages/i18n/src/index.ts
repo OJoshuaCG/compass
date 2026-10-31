@@ -25,9 +25,17 @@ export const resources = {
 /**
  * Catálogos que NO viajan en el JavaScript inicial: se descargan con la pantalla que los usa
  * (docs/frontend.md §12). `directory` solo hace falta en `/users`; `sessions`, en `/sessions` y en
- * el diálogo "Cerrar sesiones" de la gestión del equipo; `roles`, en `/roles`; `security`, en `/security`. Cada cargador trae los dos idiomas.
+ * el diálogo "Cerrar sesiones" de la gestión del equipo; `roles`, en `/roles`; `security`, en `/security`; `accounts`, en `/accounts`; `credentials`, en `/accounts/:id/credentials`; `shares`, en `/accounts/:id/shares`. Cada cargador trae los dos idiomas.
  */
-export const LAZY_NAMESPACES = ['directory', 'sessions', 'roles', 'security'] as const;
+export const LAZY_NAMESPACES = [
+  'directory',
+  'sessions',
+  'roles',
+  'security',
+  'accounts',
+  'credentials',
+  'shares',
+] as const;
 export type LazyNamespace = (typeof LAZY_NAMESPACES)[number];
 export type LazyCatalog = Record<Locale, Record<string, string>>;
 
@@ -64,11 +72,32 @@ export const loadSecurityCatalog = () =>
     import('./locales/en-US/security.json', { with: { type: 'json' } }),
   );
 
+export const loadAccountsCatalog = () =>
+  bothLocales(
+    import('./locales/es-MX/accounts.json', { with: { type: 'json' } }),
+    import('./locales/en-US/accounts.json', { with: { type: 'json' } }),
+  );
+
+export const loadCredentialsCatalog = () =>
+  bothLocales(
+    import('./locales/es-MX/credentials.json', { with: { type: 'json' } }),
+    import('./locales/en-US/credentials.json', { with: { type: 'json' } }),
+  );
+
+export const loadSharesCatalog = () =>
+  bothLocales(
+    import('./locales/es-MX/shares.json', { with: { type: 'json' } }),
+    import('./locales/en-US/shares.json', { with: { type: 'json' } }),
+  );
+
 export const lazyCatalogLoaders: Record<LazyNamespace, () => Promise<LazyCatalog>> = {
   directory: loadDirectoryCatalog,
   sessions: loadSessionsCatalog,
   roles: loadRolesCatalog,
   security: loadSecurityCatalog,
+  accounts: loadAccountsCatalog,
+  credentials: loadCredentialsCatalog,
+  shares: loadSharesCatalog,
 };
 
 export type CommonKey = keyof (typeof resources)['es-MX']['common'];

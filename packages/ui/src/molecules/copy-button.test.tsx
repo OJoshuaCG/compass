@@ -29,6 +29,61 @@ describe('CopyButton', () => {
     });
   });
 
+  // El texto visible es aria-hidden (la región status ya lo anuncia): se localiza el que queda
+  // fuera de ella.
+  function visibleFeedback(text: string): HTMLElement | undefined {
+    return screen
+      .queryAllByText(text)
+      .find((element) => element.closest('[role="status"]') === null);
+  }
+
+  it('shows visible text on success without ever painting the copied value', async () => {
+    const user = userEvent.setup();
+    render(
+      <CopyButton value="SECRET-123" label="Copy" copiedLabel="Copied" failedLabel="Failed" />,
+    );
+    expect(visibleFeedback('Copied')).toBeUndefined();
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+    await waitFor(() => {
+      expect(visibleFeedback('Copied')).toBeVisible();
+    });
+    expect(screen.queryByText('SECRET-123')).not.toBeInTheDocument();
+  });
+
+  it('shows visible text on failure', async () => {
+    const user = userEvent.setup();
+    render(<CopyButton value="ABC" label="Copy" copiedLabel="Copied" failedLabel="Failed" />);
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+    await waitFor(() => {
+      expect(visibleFeedback('Failed')).toBeVisible();
+    });
+    expect(visibleFeedback('Copied')).toBeUndefined();
+  });
+
+  it('hides the visible text when the state returns to idle', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(
+      <CopyButton
+        value="ABC"
+        label="Copy"
+        copiedLabel="Copied"
+        failedLabel="Failed"
+        announceResetMs={5_000}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(visibleFeedback('Copied')).toBeVisible();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_500);
+    });
+    expect(visibleFeedback('Copied')).toBeUndefined();
+  });
+
   it('clears a copied secret from the clipboard after the delay', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
     vi.useFakeTimers({ shouldAdvanceTime: true });

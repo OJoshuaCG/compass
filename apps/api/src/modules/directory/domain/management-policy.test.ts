@@ -7,6 +7,8 @@ import {
   canCreateRank,
   canManage,
   canTransferManager,
+  isRankPromotion,
+  wouldLeaveNoActiveAdministrator,
 } from './management-policy.js';
 import type { UserStatus, UserSubject } from './user.js';
 
@@ -206,5 +208,71 @@ describe('rank change (rule 5)', () => {
 
   it('refuses when the actor does not manage the target', () => {
     expect(canChangeRank({ ...base, targetInActorSubtree: false })).toBe(false);
+  });
+});
+
+describe('rank promotion', () => {
+  it.each(RANKS.flatMap((from) => RANKS.map((to) => [from, to] as const)))(
+    'from %i to %i is a promotion only when the number goes down',
+    (from, to) => {
+      expect(isRankPromotion(from, to)).toBe(to < from);
+    },
+  );
+});
+
+describe('last active administrator', () => {
+  const STATUSES: readonly UserStatus[] = ['active', 'suspended', 'invited', 'deactivated'];
+
+  // SENSIBLE (revisión humana): matriz escrita a mano de cuándo se bloquea la acción.
+  it('blocks leaving rank 1 or suspending/deactivating when they are the only active one', () => {
+    const sole = subject('admin', 1);
+    for (const newRank of [null, 0, 2, 3] as const) {
+      expect(
+        wouldLeaveNoActiveAdministrator({ target: sole, newRank, activeAdministratorCount: 1 }),
+      ).toBe(true);
+    }
+  });
+
+  it('allows the action when another active administrator remains', () => {
+    expect(
+      wouldLeaveNoActiveAdministrator({
+        target: subject('admin', 1),
+        newRank: 2,
+        activeAdministratorCount: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it('never blocks an action that keeps the person as administrator', () => {
+    expect(
+      wouldLeaveNoActiveAdministrator({
+        target: subject('admin', 1),
+        newRank: 1,
+        activeAdministratorCount: 1,
+      }),
+    ).toBe(false);
+  });
+
+  it.each(STATUSES.filter((status) => status !== 'active'))(
+    'does not protect a %s administrator: they were not counted',
+    (status) => {
+      expect(
+        wouldLeaveNoActiveAdministrator({
+          target: subject('admin', 1, { status }),
+          newRank: null,
+          activeAdministratorCount: 1,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it.each([0, 2, 3] as const)('does not protect rank %i', (rank) => {
+    expect(
+      wouldLeaveNoActiveAdministrator({
+        target: subject('person', rank),
+        newRank: null,
+        activeAdministratorCount: 1,
+      }),
+    ).toBe(false);
   });
 });

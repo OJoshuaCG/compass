@@ -121,7 +121,8 @@ describe('login -> MFA', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(es.errors['RATE_LIMITED']);
-    expect(alert).toHaveTextContent('Reintenta en 7 s.');
+    expect(alert).not.toHaveTextContent('Reintenta en 7 s.');
+    expect(screen.getByRole('timer')).toHaveTextContent('Reintenta en 7 s.');
     expect(screen.getByRole('button', { name: es.auth['login.submit'] })).toBeDisabled();
   });
 
@@ -215,12 +216,28 @@ describe('TOTP enrollment', () => {
     expect(qr).toHaveAttribute('height');
     // La URI con la clave nunca se envía fuera: solo hubo una llamada a `enroll`.
     expect(api.callsTo('POST', '/auth/mfa/totp/enroll')).toHaveLength(1);
-    expect(screen.getByLabelText(es.auth['enroll.secretLabel'])).toHaveTextContent(SECRET);
+    // La clave se lee por su etiqueta como campo de solo lectura (el rol `code` no admite nombre).
+    const secretField = screen.getByRole('textbox', { name: es.auth['enroll.secretLabel'] });
+    expect(secretField).toHaveValue(SECRET);
+    expect(secretField).toHaveAttribute('readonly');
+    // Los gestores de contraseñas y la autocorrección no deben tocar la clave.
+    expect(secretField).toHaveAttribute('autocomplete', 'off');
+    expect(secretField).toHaveAttribute('autocorrect', 'off');
+    expect(secretField).toHaveAttribute('autocapitalize', 'off');
+    expect(secretField).toHaveAttribute('data-1p-ignore');
+    expect(secretField).toHaveAttribute('data-lpignore', 'true');
+    expect(secretField).toHaveAttribute('data-bwignore', 'true');
+    expect(secretField).toHaveAttribute('data-form-type', 'other');
+    expect(secretField.getAttribute('id') ?? '').not.toContain(SECRET);
+    expect(secretField.getAttribute('name') ?? '').not.toContain(SECRET);
     expect(await axeViolations(container)).toEqual([]);
 
     await user.click(screen.getByRole('button', { name: es.auth['enroll.copySecret'] }));
     expect(await navigator.clipboard.readText()).toBe(SECRET);
-    expect(screen.getByText(es.common['clipboard.copied'])).toBeInTheDocument();
+    // El texto aparece dos veces a propósito: la región `status` (lectores) y el texto visible.
+    expect(
+      screen.getByText(es.common['clipboard.copied'], { selector: '[role="status"]' }),
+    ).toBeInTheDocument();
 
     await user.type(field(es.auth['enroll.code']), '654321');
     await user.click(screen.getByRole('button', { name: es.auth['enroll.confirm'] }));
@@ -230,6 +247,8 @@ describe('TOTP enrollment', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(10);
     // La clave se descartó en cuanto se confirmó.
     expect(screen.queryByText(SECRET)).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue(SECRET)).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: es.auth['enroll.secretLabel'] })).toBeNull();
     expect(await axeViolations(container)).toEqual([]);
 
     // No se puede continuar sin confirmar que se guardaron.

@@ -3,6 +3,8 @@ import type { DynamicModule, Provider } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { ManageRoles } from '../modules/access/index.js';
+import { RotateDataKey } from '../modules/maintenance/index.js';
+import { DataKeyController } from '../modules/maintenance/interface/data-key.controller.js';
 import { RolesController } from '../modules/access/interface/roles.controller.js';
 import { IdempotencyInterceptor, IdempotencyService } from '../modules/idempotency/index.js';
 import { ListDirectory, ListManaged, ManageUsers } from '../modules/directory/index.js';
@@ -25,6 +27,24 @@ import {
 } from '../modules/identity/index.js';
 import { AuthController, MeController } from '../modules/identity/interface/auth.controller.js';
 import { InvitationsController } from '../modules/identity/interface/invitations.controller.js';
+import {
+  ManageAccounts,
+  ManageCredentials,
+  ManageShares,
+  ImportCredentials,
+  ManageTotp,
+} from '../modules/vault/index.js';
+import {
+  AccountsController,
+  PlatformsController,
+} from '../modules/vault/interface/accounts.controller.js';
+import { AccountSharesController } from '../modules/vault/interface/shares.controller.js';
+import {
+  AccountCredentialsController,
+  CredentialsController,
+} from '../modules/vault/interface/credentials.controller.js';
+import { CredentialImportController } from '../modules/vault/interface/credential-import.controller.js';
+import { TotpController } from '../modules/vault/interface/totp.controller.js';
 import { CsrfGuard } from '../shared/http/csrf.guard.js';
 import { RateLimitGuard } from '../shared/http/rate-limit.guard.js';
 import {
@@ -68,6 +88,12 @@ export class AppModule {
       { provide: ListInvitations, useValue: container.listInvitations },
       { provide: ResendInvitation, useValue: container.resendInvitation },
       { provide: ManageRoles, useValue: container.manageRoles },
+      { provide: RotateDataKey, useValue: container.rotateDataKey },
+      { provide: ManageAccounts, useValue: container.manageAccounts },
+      { provide: ManageCredentials, useValue: container.manageCredentials },
+      { provide: ManageShares, useValue: container.manageShares },
+      { provide: ImportCredentials, useValue: container.importCredentials },
+      { provide: ManageTotp, useValue: container.manageTotp },
       { provide: IdempotencyService, useValue: container.idempotency },
       { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
@@ -80,7 +106,15 @@ export class AppModule {
         MeController,
         InvitationsController,
         RolesController,
+        DataKeyController,
         UsersController,
+        PlatformsController,
+        AccountsController,
+        AccountCredentialsController,
+        AccountSharesController,
+        CredentialsController,
+        CredentialImportController,
+        TotpController,
       ],
       providers,
     };

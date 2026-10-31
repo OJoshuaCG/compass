@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
-/** Adaptadores de gestión de claves aptos para producción. Vacía hasta que exista el KMS gestionado (TODO L1). */
-const PRODUCTION_KMS_ADAPTERS: readonly string[] = [];
+import { parseTrustProxy } from './trust-proxy.js';
+import type { TrustProxySetting } from './trust-proxy.js';
+
+/** Adaptadores de gestión de claves aptos para producción: solo el KMS gestionado (ADR 0020). */
+const PRODUCTION_KMS_ADAPTERS: readonly string[] = ['aws'];
 
 const envSchema = z
   .object({
@@ -13,18 +16,33 @@ const envSchema = z
       .default('info'),
     DATABASE_URL: z.string().min(1).optional(),
     LOCAL_KMS_KEY_FILE: z.string().min(1).default('.local-kms/kek.key'),
-    /** Adaptador de gestión de claves. Hoy solo existe el local (archivo en disco), que no es apto para producción. */
-    KMS_ADAPTER: z.enum(['local']).default('local'),
+    /** Adaptador de gestión de claves: `local` (archivo en disco, solo desarrollo) o `aws` (AWS KMS). */
+    KMS_ADAPTER: z.enum(['local', 'aws']).default('local'),
+    /** Id, ARN o alias de la clave de AWS KMS que envuelve las DEK. Obligatoria con `KMS_ADAPTER=aws`. */
+    AWS_KMS_KEY_ID: z.string().min(1).optional(),
+    /** Región de AWS KMS. Obligatoria con `KMS_ADAPTER=aws`. Las credenciales las resuelve el SDK, no esta configuración. */
+    AWS_REGION: z.string().min(1).optional(),
     /** Origen del navegador que usa la API (verificación de `Origin` contra CSRF y enlaces de correo). */
     APP_ORIGIN: z.url().default('http://localhost:5173'),
     /** Carpeta de la SPA compilada; si se omite, la API no sirve el frontend (útil en desarrollo con Vite). */
     WEB_DIST_DIR: z.string().min(1).optional(),
     DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
-    /** Solo detrás de un balanceador de confianza: usa `X-Forwarded-For` para la IP del cliente. */
+    /**
+     * Solo detrás de un balanceador de confianza: usa `X-Forwarded-For` para la IP del cliente.
+     * `false`, `true` (toda la cadena), un número de saltos o una lista de IP/CIDR de los proxies.
+     */
     TRUST_PROXY: z
-      .enum(['true', 'false'])
+      .string()
       .default('false')
-      .transform((value) => value === 'true'),
+      .transform((value, ctx): TrustProxySetting => {
+        const setting = parseTrustProxy(value);
+        if (setting === undefined) {
+          // No se repite el valor: es configuración de red y no hay motivo para escribirla en un error.
+          ctx.addIssue({ code: 'custom', message: 'invalid trust proxy setting' });
+          return z.NEVER;
+        }
+        return setting;
+      }),
     /** `log` escribe el enlace en el registro (solo desarrollo); `smtp` envía por el correo del dominio propio. */
     MAIL_TRANSPORT: z.enum(['log', 'smtp']).default('log'),
     SMTP_HOST: z.string().min(1).optional(),
@@ -35,6 +53,17 @@ const envSchema = z
     MAIL_FROM: z.string().min(3).optional(),
     /** Nombre que el autenticador muestra al registrar una llave de acceso. */
     WEBAUTHN_RP_NAME: z.string().min(1).max(100).default('IAM'),
+    /**
+     * Publicador de eventos del outbox dentro de la API (ADR 0035). Apagado salvo que se active
+     * expresamente: un manejador mal configurado no debe empezar a actuar por un despliegue.
+     * Se compara el texto: `z.coerce.boolean()` leería "false" como verdadero.
+     */
+    OUTBOX_WORKER_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    /** Pausa entre pasadas del publicador. Mínimo 500 ms para no saturar la base; máximo 60 s para acotar la latencia. */
+    OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(500).max(60000).default(5000),
   })
   .superRefine((env, ctx) => {
     if (env.MAIL_TRANSPORT === 'smtp') {
@@ -56,6 +85,12 @@ const envSchema = z
         path: ['MAIL_TRANSPORT'],
         message: 'smtp is required in production',
       });
+    }
+    if (env.KMS_ADAPTER === 'aws') {
+      for (const key of ['AWS_KMS_KEY_ID', 'AWS_REGION'] as const) {
+        if (env[key] === undefined)
+          ctx.addIssue({ code: 'custom', path: [key], message: 'required' });
+      }
     }
     // La KEK local vive en un archivo: en producción debe usarse el KMS gestionado (TODO L1). La
     // comprobación del adaptador es una segunda barrera; esta falla antes, con un mensaje de configuración.

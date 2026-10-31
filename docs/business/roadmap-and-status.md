@@ -31,13 +31,13 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | --- | --- | --- |
 | 0 · Fundaciones | Una base técnica segura, sin pantallas de negocio todavía | **Hecho** (con una observación, ver sección 3) |
 | 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Implementada en lo esencial, con pendientes** (el segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia; faltan los límites de intentos compartidos y otros pendientes; ver sección 4.1) |
-| 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **No iniciada.** Planificada en siete porciones (ver sección 4.2) |
+| 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **En curso.** Ya funcionan cuentas, credenciales y revelado, compartición, segundo factor por clave manual y por imagen, y la importación por CSV y desde Google Authenticator; faltan la búsqueda avanzada y la entrega por celular del registro del segundo factor (ver sección 4.2) |
 | 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente |
 | Puerta de producción | Prueba de intrusión, simulacro de restauración y procedimientos ensayados | Pendiente |
 | 2 · Inicio de sesión único (OIDC) | Que las herramientas internas usen este sistema para iniciar sesión | Pendiente |
 | 3 · SAML y SCIM | Entrada a Meta Business y altas y bajas automáticas en otras plataformas | Pendiente |
-| 4 · Correos | Lectura automática de códigos que llegan por correo | Pendiente |
-| 5 · SMS | Lectura de códigos por mensaje de texto | Pendiente |
+| 4 · Correos | Lectura automática de códigos que llegan por correo | Adelantada por el dueño (2026-10-30), en propuesta; ver [`vault.md`](vault.md) sección 14 |
+| 5 · SMS | Lectura de códigos por mensaje de texto | Adelantada por el dueño (2026-10-30), en propuesta con proveedor de prueba; el real sigue sin elegir |
 | 6 · Extensión de navegador | Autocompletado de usuario y segundo factor | Pendiente |
 | 7 · Broker de sesiones | Iniciar sesión en una plataforma sin ver la contraseña | Pendiente |
 
@@ -51,7 +51,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | Auditoría encadenada | La evidencia nace a prueba de manipulación |
 | Aislamiento entre organizaciones en la base de datos | Aunque hoy hay una sola organización, no habrá que migrar datos al añadir otra |
 | Interfaz base con tema oscuro y dos idiomas (español de México e inglés) | Todas las pantallas nacen bilingües y accesibles |
-| Documentación de decisiones, arquitectura, amenazas y procedimientos | Las decisiones quedan registradas (ADR 0001 a 0020) |
+| Documentación de decisiones, arquitectura, amenazas y procedimientos | Las decisiones quedan registradas (ADR 0001 a 0038) |
 | Verificación automática (CI) | Cada cambio se comprueba solo antes de aceptarse |
 
 **Criterio de salida:** CI completo en verde; cifrado, auditoría y contexto de organización con pruebas; aislamiento por organización activo; esqueleto de interfaz con tokens oscuros e idiomas; ADR 001 a 020 escritos.
@@ -85,9 +85,9 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 | Passkeys | Quien tiene passkeys ve, tras la contraseña, la opción de usar una passkey en lugar del código de la aplicación autenticadora. Son opcionales para todas las personas, resistentes al phishing, y cada persona puede tener varias (hasta 10), con nombre. Agregar o quitar una exige haber confirmado la identidad hace poco, y hay una pantalla de seguridad para gestionarlas. Los fallos cuentan en el mismo límite de intentos que el código. Cada alta, baja e ingreso con passkey queda en la auditoría |
 | Correo de invitación | Sale del servidor de correo del dominio propio de la organización, con conexión cifrada obligatoria y certificado verificado. Se redacta en español de México o en inglés de Estados Unidos, el enlace lleva el token de modo que no queda en los registros de acceso y la fecha de vencimiento se indica en hora universal. Los errores del proveedor no se muestran porque podrían citar al destinatario o el contenido. En producción el envío real es obligatorio |
 | Cambio obligatorio de la contraseña inicial | En su primer ingreso, la Raíz debe cambiar la contraseña inicial antes de registrar su segundo factor. El cambio exige la contraseña actual, aplica la política de contraseñas, cuenta los intentos fallidos con el mismo límite y cierra las demás sesiones de la persona |
-| Gestión de personas | Quien gestiona a una persona puede suspenderla, reactivarla, desactivarla, cambiarle el rango o transferirla a otro responsable. Suspender y desactivar cierran sus sesiones; desactivar reasigna a sus subordinados activos y revoca las invitaciones pendientes que dejó. La Raíz queda protegida de todas estas acciones. Cada acción se audita y la pestaña de gestión de equipo de la página de Usuarios las ofrece |
+| Gestión de personas | Quien gestiona a una persona puede suspenderla, reactivarla, desactivarla, cambiarle el rango o transferirla a otro responsable. Suspender y desactivar cierran sus sesiones; desactivar reasigna a sus subordinados activos y revoca las invitaciones pendientes que dejó. La Raíz queda protegida de todas estas acciones, y la única persona Administradora activa no se puede bajar de rango, suspender ni desactivar. Al bajar de rango se retiran los roles que excedan el nuevo tope (y, si no queda ninguno, se asigna la plantilla del nuevo rango); subir de rango exige un motivo; quien hace el cambio ve las comparticiones que la persona otorgó, que no se revocan solas, y la persona recibe un correo con el nombre de quien actuó. Los grupos siguen diferidos. Cada acción se audita y la pestaña de gestión de equipo de la página de Usuarios las ofrece |
 | Invitaciones | Quien tiene el permiso de invitar crea una invitación según la matriz de creación, sin poder otorgar permisos que no tiene. El enlace llega por correo, vence a las 72 horas y es de un solo uso. Quien invita no lo ve ni conoce la contraseña. Al aceptar se revalidan los roles y que quien invitó siga activo. Se puede reenviar una invitación (solo quien la envió o la Raíz): el enlace anterior queda invalidado y se envía uno nuevo con otras 72 horas. Una pestaña de invitaciones muestra las pendientes y señala las vencidas |
-| Roles personalizados | Quien puede gestionar roles crea roles con permisos que no excedan los suyos y los archiva. Las plantillas del sistema no se archivan; un rol archivado deja de otorgar permisos y no sirve en invitaciones nuevas. Al invitar se puede elegir un rol personalizado de forma opcional |
+| Roles personalizados | Quien puede gestionar roles crea roles con permisos que no excedan los suyos, los edita (nombre y permisos, solo si tiene todos los permisos que el rol incluye) y los archiva. Las plantillas del sistema no se archivan; un rol archivado deja de otorgar permisos y no sirve en invitaciones nuevas. Al invitar se puede elegir un rol personalizado de forma opcional |
 | Sesiones propias y ajenas | Cada persona ve sus sesiones, con dispositivo, dirección de red y última actividad, y cierra las demás. Quien gestiona a una persona puede cerrar todas sus sesiones, salvo las de la Raíz. Al salir o perder la sesión, las demás pestañas del navegador pasan al ingreso en cerca de un segundo. Ambas acciones se auditan |
 | Protección contra reintentos de creación | Las peticiones que crean recursos exigen una clave de reintento; repetir la misma petición dentro de 24 horas devuelve la misma respuesta sin crear nada de nuevo, y usar la clave con otra petición se rechaza. Hoy se aplica a invitaciones, reenvíos y roles |
 | Alta de la persona invitada | Contraseña (mínimo 12 caracteres, sin reglas de composición, se rechazan las comunes y las que contienen datos personales), segundo factor obligatorio con confirmación y 10 códigos de recuperación que se muestran una sola vez. Solo entonces la persona queda activa |
@@ -95,7 +95,7 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 | Protección contra fuerza bruta | Retraso progresivo y bloqueo temporal de 15 minutos tras 10 intentos fallidos, nunca permanente, contado por correo y por usuario. Además, un límite por dirección de red en las pantallas de acceso e invitación |
 | Sesiones | Identificador de sesión protegido, caducidad por inactividad de 30 minutos y absoluta de 12 horas, cierre de sesión que la revoca en el servidor y protección contra solicitudes desde otros sitios. Una persona suspendida o dada de baja deja de poder usar su sesión |
 | Reautenticación | Un factor verificado en los últimos 5 minutos habilita las acciones sensibles. El motor de autorización exige reautenticación, motivo escrito o auditoría crítica según la acción. Solo se acepta el código de la aplicación autenticadora, no el de recuperación; el flujo completo se prueba en un navegador real |
-| Autorización | Los tres ejes, la matriz de jerarquía y el catálogo de 27 permisos con sus techos de rango. Toda negación se audita con su código de motivo, aunque la acción se revierta |
+| Autorización | Los tres ejes, la matriz de jerarquía y el catálogo de 28 permisos con sus techos de rango. Toda negación se audita con su código de motivo, aunque la acción se revierta |
 | Directorio de personas | Cualquier persona activa busca nombre y correo de las demás personas activas, con orden, límite y paginación |
 | Interfaz | Pantallas de ingreso (con la opción de passkey), verificación en dos pasos, registro del segundo factor (código QR y clave), cambio de contraseña, aceptación de invitación, directorio con la opción de invitar, gestión de equipo, invitaciones pendientes, roles, mis sesiones, seguridad (passkeys) y diálogo de reautenticación |
 
@@ -110,9 +110,8 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores; no entró en esta entrega |
 | Dominio de envío del correo | Para que las invitaciones lleguen a la bandeja de entrada, el dominio de la organización necesita registros de autenticación del remitente (SPF, DKIM y DMARC) en su configuración de DNS. Es una tarea del equipo, fuera del sistema |
 | Limpieza de datos temporales vencidos | Las claves de la protección contra reintentos y los desafíos de passkeys vencidos aún no se borran (falta una tarea de limpieza). Además, un reintento dentro de las 24 horas no vuelve a comprobar los permisos de quien lo hace |
-| Edición de roles personalizados | Se pueden crear y archivar, pero no editar un rol ya creado |
 | Transferencia de la Raíz | No existe. Las demás acciones de gestión de personas ya funcionan |
-| Cierre automático de sesiones al cambiar roles y avisos por correo | La acción de cambiar roles aún no existe. Tampoco hay avisos por correo (dispositivo nuevo, uso de un código de recuperación, cambios de factores) |
+| Cierre automático de sesiones al cambiar roles y avisos por correo | La acción de cambiar roles aún no existe. Los avisos por correo son parciales: la persona ya recibe el de uso de un código de recuperación, el de alta o baja de una llave de acceso y el de baja de su aplicación autenticadora (cuando un código de emergencia restablece su segundo factor); no existen todavía, porque no hay el flujo que los origina, el de dispositivo nuevo y el de regeneración de códigos de recuperación (ver `odd/tasks/security-notices.md`) |
 | Reautenticación con código de recuperación | No está soportada; solo se acepta el código de la aplicación autenticadora |
 | Ejecución de las pruebas en la verificación automática (CI) de GitHub | Nunca se ha ejecutado. Las pruebas pasan en el entorno local. El dueño la despriorizó ("no es primordial ni la requerimos"); no está bloqueada, y el repositorio ya tiene remoto |
 | Passkeys: reautenticación y alta inicial | La reautenticación de 5 minutos solo acepta el código de la aplicación autenticadora, y las passkeys se agregan después del alta inicial, que usa la aplicación. Revisadas por dos revisores ciegos; sus hallazgos están corregidos |
@@ -121,19 +120,19 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 
 | Criterio del plan | Estado | Detalle |
 | --- | --- | --- |
-| Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora |
+| Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora; la passkey es una alternativa opcional, no obligatoria (ADR 0028) |
 | Entrada con passkey | Cumplido | Funciona de punta a punta, probada en un navegador real con un autenticador virtual. Es opcional para todas las personas |
-| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 27 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
+| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 28 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub; despriorizada por el dueño |
 
 **Conclusión.** La fase 1a funciona en lo esencial, pero no se da por cerrada: la entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados, y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y el procedimiento de caída total de los códigos de emergencia (la recuperación de una Raíz que pierde contraseña y factores ya existe), que deben resolverse antes de la puerta de producción. La fase 1b no ha empezado.
 
-### 4.2 Fase 1b: Bóveda y 2FA (no iniciada)
+### 4.2 Fase 1b: Bóveda y 2FA (en curso)
 
-**Estado.** Las tablas y el cifrado existen desde la fase 0, pero todavía no hay casos de uso, pantallas ni reglas de la bóveda en funcionamiento. El trabajo está planificado en siete porciones, en este orden: cuentas y acceso efectivo; credenciales y revelación; compartición y grupos; segundo factor en el servidor; registro del segundo factor por captura, importación y celular; búsqueda avanzada; importación por CSV. Sigue vigente que **no debe cargarse ninguna credencial real** hasta cerrar la fase 1 y pasar la prueba de intrusión externa.
+**Estado.** Las tablas y el cifrado existen desde la fase 0 y la mayor parte de las siete porciones ya tiene reglas y pantallas en funcionamiento: cuentas, credenciales con revelado auditado, compartición, segundo factor por clave manual o imagen del QR, e importación desde Google Authenticator y por CSV con previsualización. También funcionan la alerta a la Raíz por superar el límite de revelaciones y el aviso de segundo factor sin confirmar. Faltan la búsqueda avanzada y la entrega por celular del registro del segundo factor. Las porciones, en este orden: cuentas y acceso efectivo; credenciales y revelación; compartición y grupos; segundo factor en el servidor; registro del segundo factor por captura, importación y celular; búsqueda avanzada; importación por CSV. Sigue vigente que **no debe cargarse ninguna credencial real** hasta cerrar la fase 1 y pasar la prueba de intrusión externa.
 
-Decisiones abiertas de esta fase: qué biblioteca se aprobará para leer códigos QR en el navegador; el límite de revelaciones por persona y hora (el plan propone 30) y cómo se avisa al superarlo; y el largo mínimo y el formato del motivo escrito al revelar.
+Decisiones ya tomadas: la biblioteca para leer códigos QR en el navegador; el límite de 30 revelaciones por persona y hora, con aviso a la Raíz; y el motivo escrito al revelar, de texto libre entre 6 y 500 caracteres.
 
 | Qué entrega | Documento donde se explica |
 | --- | --- |
@@ -164,7 +163,7 @@ Antes de cargar credenciales reales, y después de completar 1a, 1b y 1c, se deb
 | --- | --- |
 | Prueba de intrusión externa independiente | Sin hallazgos altos ni críticos abiertos. Cubre autorización, aislamiento, cifrado, sesiones y flujos de segundo factor |
 | Simulacro de restauración exitoso | Restauración completa en un entorno aislado, incluido abrir los secretos con las claves de cifrado |
-| Procedimientos de incidentes ensayados | Los cinco procedimientos de [`../runbooks/`](../runbooks/README.md) más el de caída total, que aún no está redactado |
+| Procedimientos de incidentes ensayados | Los procedimientos de incidentes y recuperación de [`../runbooks/`](../runbooks/README.md), incluido el de caída total. Los catorce están redactados como borrador y ninguno se ha ensayado |
 
 **Regla:** no se cargan credenciales reales hasta cerrar los hallazgos altos y críticos. La prueba de intrusión se repite antes de cada fase de inicio de sesión único.
 
@@ -211,7 +210,7 @@ La documentación del repositorio solo registra el cierre de dos de las decision
 
 | N.º | Decisión | Por qué importa | Estado según la documentación |
 | --- | --- | --- | --- |
-| 1 | Proveedor de nube (AWS es la referencia) | Define el servicio de claves, la base de datos gestionada y el correo | Abierta (el ADR de referencia indica confirmación pendiente) |
+| 1 | Proveedor de nube (AWS es la referencia) | Define el servicio de claves, la base de datos gestionada y el correo | Cerrada el 2026-10-28: los servidores en Linode, con el servicio de claves de AWS |
 | 2 | Escala esperada el primer año (usuarios, cuentas y revelaciones diarias) | Ajusta límites, vigencias y tamaño de la infraestructura | Abierta |
 | 3 | Disponibilidad requerida (horario y tolerancia a caídas) | Valida el objetivo de pérdida máxima de 5 minutos y de recuperación de 4 horas | Abierta |
 | 4 | Subdominio para los alias de las cuentas, con su configuración de DNS | Permite crear cada cuenta con su correo definitivo desde el primer día | Abierta |
@@ -240,6 +239,6 @@ Además de las decisiones anteriores, estos puntos no están definidos por el pl
 | 1 | Cuándo se ejecutará la verificación automática en GitHub y si el criterio "CI completo en verde" se considera cumplido antes de esa ejecución | Las fases 0 y 1a se consideran avanzadas, pero esa ejecución nunca ha ocurrido. El dueño la despriorizó el 2026-10-27; el repositorio ya tiene remoto |
 | 2 | Quién es el equipo de guardia para incidentes | Los procedimientos sugieren responsables, pero el plan no fija un equipo de guardia |
 | 3 | Cuándo se resuelven las dos decisiones técnicas que siguen en estado de propuesta: los bloqueos de auditoría en transacciones largas y la retención de auditoría | La auditoría de las negaciones ya quedó resuelta y aceptada en la fase 1a. Las dos restantes afectan a la auditoría de acciones largas y a cuánto tiempo se conserva. Ver [`docs/adr/`](../adr/README.md) |
-| 4 | Qué documento fija el procedimiento de caída total | El plan lo menciona y el repositorio todavía no lo tiene redactado |
+| 4 | Qué documento fija el procedimiento de caída total | Ya hay un borrador en [`../runbooks/total-outage.md`](../runbooks/total-outage.md), sin ensayar. Falta definir la administración directa de la base de datos cuando no quedan códigos de emergencia y la política de los sobres sellados |
 | 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin el procedimiento de caída total de los códigos de emergencia | Las passkeys, los códigos de emergencia y la recuperación de la Raíz ya existen; esos dos pendientes siguen abiertos |
 | 6 | Cuál es el dominio de envío del correo y quién configura sus registros de autenticación del remitente | Se decidió que el correo sale del dominio propio de la organización; el dominio concreto y su configuración de DNS dependen del equipo |

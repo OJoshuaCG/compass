@@ -42,7 +42,8 @@ const passkey = (overrides: Partial<Passkey>): Passkey => ({
 const LAPTOP = passkey({});
 const KEY = passkey({ id: KEY_ID, name: 'Llave USB', lastUsedAt: null });
 
-const listOf = (...items: Passkey[]) => jsonResponse({ data: items });
+const listOf = (...items: Passkey[]) =>
+  jsonResponse({ data: items, page: { nextCursor: null, limit: 25 } });
 const mine = (api: ReturnType<typeof stubApi>) => api.callsTo('GET', '/me/passkeys');
 const removeLabel = (name: string) => es.security['action.removeLabel'].replace('{{name}}', name);
 const addButton = () => screen.queryByRole('button', { name: es.security['action.add'] });

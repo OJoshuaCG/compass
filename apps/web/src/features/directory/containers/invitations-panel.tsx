@@ -1,13 +1,18 @@
 import { ErrorCode, type PendingInvitation } from '@iam/contracts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError, useAsyncAction } from '../../../shared/api';
+import {
+  ApiError,
+  useAsyncAction,
+  useFixedOrderTable,
+  useRateLimitCooldown,
+} from '../../../shared/api';
 import { useMe } from '../../../shared/auth';
 import { ErrorAlert, useErrorMessage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/toast';
-import { directoryKeys, fetchPendingInvitations, resendInvitation } from '../api/directory-api';
+import { directoryKeys, fetchPendingInvitationsPage, resendInvitation } from '../api/directory-api';
 import { InvitationsTable } from '../ui/invitations-table';
 
 /**
@@ -22,15 +27,17 @@ export function InvitationsPanel() {
   const timeZone = useMe()?.user.timezone;
   const [resendingId, setResendingId] = useState<string | null>(null);
   const resend = useAsyncAction((invitation: PendingInvitation) => resendInvitation(invitation.id));
+  const cooldown = useRateLimitCooldown(resend.error);
 
-  const query = useQuery({
+  // Otra persona (o la Raíz) puede haberla aceptado o reenviado: se recarga al volver.
+  const table = useFixedOrderTable({
     queryKey: directoryKeys.invitations(),
-    queryFn: ({ signal }) => fetchPendingInvitations(signal),
-    // Otra persona (o la Raíz) puede haberla aceptado o reenviado: se recarga al volver.
-    staleTime: 0,
+    fetchPage: fetchPendingInvitationsPage,
   });
 
   async function onResend(invitation: PendingInvitation) {
+    // 429: no se reenvía mientras corre la espera que ya muestra el aviso.
+    if (cooldown.secondsLeft > 0) return;
     setResendingId(invitation.id);
     const result = await resend.run(invitation);
     setResendingId(null);
@@ -45,24 +52,23 @@ export function InvitationsPanel() {
     }
   }
 
-  const status = query.isPending ? 'loading' : query.isError ? 'error' : 'success';
-
   return (
     <div className="flex flex-col gap-4">
-      {resend.error !== undefined ? <ErrorAlert error={resend.error} /> : null}
+      {resend.error !== undefined ? (
+        <ErrorAlert error={resend.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
       <InvitationsTable
-        invitations={query.data ?? []}
-        status={status}
-        errorMessage={errorMessage(query.error)}
-        onRetry={() => {
-          void query.refetch();
-        }}
+        invitations={table.rows}
+        status={table.status}
+        errorMessage={errorMessage(table.error)}
+        onRetry={table.retry}
         onResend={(invitation) => {
           void onResend(invitation);
         }}
         resendingId={resendingId}
         timeZone={timeZone}
-        refreshing={query.isFetching && !query.isPending}
+        refreshing={table.refreshing}
+        paging={table}
       />
     </div>
   );

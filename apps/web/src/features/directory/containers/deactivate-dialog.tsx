@@ -2,7 +2,7 @@ import type { ManagedUser } from '@iam/contracts';
 import { ConfirmDialog } from '@iam/ui';
 import { useTranslation } from 'react-i18next';
 
-import { useAsyncAction } from '../../../shared/api';
+import { useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
 import { ErrorAlert } from '../../../shared/i18n';
 import { teamApi } from '../api/team-api';
 
@@ -20,8 +20,10 @@ export type DeactivateDialogProps = {
 export function DeactivateDialog({ person, onClose, onDone }: DeactivateDialogProps) {
   const { t } = useTranslation(['directory', 'common']);
   const action = useAsyncAction(() => teamApi.deactivate(person.id));
+  const cooldown = useRateLimitCooldown(action.error);
 
   async function confirm() {
+    if (cooldown.secondsLeft > 0) return;
     const result = await action.run();
     if (result.ok) {
       onDone(t('team.toast.deactivated', { ns: 'directory', name: person.displayName }));
@@ -40,11 +42,14 @@ export function DeactivateDialog({ person, onClose, onDone }: DeactivateDialogPr
       cancelLabel={t('actions.cancel', { ns: 'common' })}
       tone="danger"
       loading={action.pending}
+      confirmDisabled={cooldown.secondsLeft > 0}
       onConfirm={() => {
         void confirm();
       }}
     >
-      {action.error !== undefined ? <ErrorAlert error={action.error} /> : null}
+      {action.error !== undefined ? (
+        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
     </ConfirmDialog>
   );
 }

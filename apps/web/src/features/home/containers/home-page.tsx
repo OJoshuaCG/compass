@@ -24,14 +24,14 @@ import { useTranslation } from 'react-i18next';
 
 import { useMe, usePermission } from '../../../shared/auth';
 import { formatDateTime, formatLongDate } from '../../../shared/lib';
-import { directoryKeys, fetchPendingInvitations, fetchUsersPage } from '../../directory';
-import { fetchMyPasskeys, passkeysKeys } from '../../security';
-import { fetchMySessions, sessionsKeys } from '../../sessions';
+import { directoryKeys, fetchPendingInvitationsPage, fetchUsersPage } from '../../directory';
+import { fetchMyPasskeysPage, passkeysKeys } from '../../security';
+import { fetchMySessionsPage, sessionsKeys } from '../../sessions';
 import { buildAttention, countInvitations, type AttentionItem } from '../model/attention';
 import { AttentionRow } from '../ui/attention-row';
 
-/** El conteo del directorio se acota a una página: más allá se muestra "100+". */
-const PEOPLE_LIMIT = 100;
+/** Cada resumen se acota a una página (el máximo del servidor); en personas, más allá se muestra "100+". */
+const SUMMARY_LIMIT = 100;
 
 const rowAction = buttonVariants({ variant: 'secondary', size: 'sm' });
 
@@ -84,20 +84,25 @@ export function HomePage() {
 
   const people = useQuery({
     queryKey: [...directoryKeys.users(), 'home-count'],
-    queryFn: ({ signal }) => fetchUsersPage({ limit: PEOPLE_LIMIT }, signal),
+    queryFn: ({ signal }) => fetchUsersPage({ limit: SUMMARY_LIMIT }, signal),
   });
+  // Las listas ahora se paginan en el servidor: el Inicio resume solo la primera página (máximo
+  // permitido) con claves propias, para no mezclar su forma con la caché de las tablas.
   const invitations = useQuery({
-    queryKey: directoryKeys.invitations(),
-    queryFn: ({ signal }) => fetchPendingInvitations(signal),
+    queryKey: [...directoryKeys.invitations(), 'home'],
+    queryFn: ({ signal }) => fetchPendingInvitationsPage({ limit: SUMMARY_LIMIT }, signal),
+    select: (page) => page.data,
     enabled: canInvite,
   });
   const sessions = useQuery({
-    queryKey: sessionsKeys.mine(),
-    queryFn: ({ signal }) => fetchMySessions(signal),
+    queryKey: [...sessionsKeys.mine(), 'home'],
+    queryFn: ({ signal }) => fetchMySessionsPage({ limit: SUMMARY_LIMIT }, signal),
+    select: (page) => page.data,
   });
   const passkeys = useQuery({
-    queryKey: passkeysKeys.mine(),
-    queryFn: ({ signal }) => fetchMyPasskeys(signal),
+    queryKey: [...passkeysKeys.mine(), 'home'],
+    queryFn: ({ signal }) => fetchMyPasskeysPage({ limit: SUMMARY_LIMIT }, signal),
+    select: (page) => page.data,
   });
 
   const attention = useMemo(

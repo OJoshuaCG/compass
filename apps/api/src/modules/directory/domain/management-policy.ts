@@ -66,3 +66,32 @@ export function canChangeRank(input: {
   const demotion = newRank > target.rank;
   return !(demotion && input.targetHasReports);
 }
+
+/**
+ * Subir de rango es ganar autoridad: el número de rango baja (3 Operador -> 2 Líder). El motivo del
+ * cambio solo es obligatorio en este sentido, porque es el que amplía lo que la persona puede hacer.
+ */
+export function isRankPromotion(fromRank: Rank, toRank: Rank): boolean {
+  return toRank < fromRank;
+}
+
+/**
+ * Protección del último administrador: la organización debe conservar al menos una persona ACTIVA de
+ * rango 1. La Raíz (rango 0) no cuenta aunque pueda actuar como administradora: ya está protegida
+ * por sí misma. `newRank` es `null` cuando la acción no cambia el rango (suspender o dar de baja).
+ *
+ * `activeAdministratorCount` debe leerse bajo el bloqueo de jerarquía; si no, dos acciones
+ * concurrentes sobre dos administradores verían cada una "queda otra" y dejarían a cero.
+ */
+export function wouldLeaveNoActiveAdministrator(input: {
+  readonly target: UserSubject;
+  readonly newRank: Rank | null;
+  readonly activeAdministratorCount: number;
+}): boolean {
+  const { target, newRank } = input;
+  const targetIsActiveAdministrator =
+    target.status === 'active' && target.rank === RANK.ADMINISTRATOR;
+  if (!targetIsActiveAdministrator) return false;
+  if (newRank === RANK.ADMINISTRATOR) return false; // sigue siendo administradora
+  return input.activeAdministratorCount <= 1;
+}

@@ -121,6 +121,50 @@ describe('ConfirmDialog behavior', () => {
     await user.keyboard('{Escape}');
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('ignores Escape and disables Cancel while loading, so an in-flight result is not lost', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    render(
+      <ConfirmDialog
+        open
+        onOpenChange={onOpenChange}
+        title="Delete?"
+        description="d"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={vi.fn()}
+        loading
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await user.keyboard('{Escape}');
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Delete?' })).toBeInTheDocument();
+  });
+
+  it('disables only the confirm button with confirmDisabled and still allows closing', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    const onOpenChange = vi.fn();
+    render(
+      <ConfirmDialog
+        open
+        onOpenChange={onOpenChange}
+        title="Delete?"
+        description="d"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={onConfirm}
+        confirmDisabled
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(onConfirm).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 });
 
 describe('new form components accessibility (axe-core)', () => {

@@ -1,5 +1,10 @@
-import { acceptInvitationRequestSchema, createInvitationRequestSchema } from '@iam/contracts';
+import {
+  acceptInvitationRequestSchema,
+  createInvitationRequestSchema,
+  fixedOrderPageQuerySchema,
+} from '@iam/contracts';
 import type {
+  FixedOrderPageQuery,
   PendingInvitation,
   AcceptInvitationRequest,
   AcceptInvitationResponse,
@@ -7,13 +12,14 @@ import type {
   CreateInvitationResponse,
   InvitationPreviewResponse,
 } from '@iam/contracts';
-import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { Idempotent, Public, RateLimited, unwrap } from '../../../shared/http/http-decorators.js';
 import { setSessionCookie } from './session-cookie.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
+import { asUserId } from '../../../shared/kernel/index.js';
 import {
   AcceptInvitation,
   CreateInvitation,
@@ -36,10 +42,15 @@ export class InvitationsController {
   ) {}
 
   @Get()
-  async pending(): Promise<{ data: PendingInvitation[] }> {
-    const rows = await this.listInvitations.execute();
+  async pending(
+    @Query(new ZodValidationPipe(fixedOrderPageQuerySchema)) query: FixedOrderPageQuery,
+  ): Promise<{ data: PendingInvitation[]; page: { nextCursor: string | null; limit: number } }> {
+    const page = await this.listInvitations.execute({
+      limit: query.limit,
+      cursor: query.cursor ?? null,
+    });
     return {
-      data: rows.map((row) => ({
+      data: page.rows.map((row) => ({
         id: row.id,
         email: row.email,
         rank: row.rank,
@@ -47,6 +58,7 @@ export class InvitationsController {
         expiresAt: row.expiresAt.toISOString(),
         expired: row.expired,
       })),
+      page: { nextCursor: page.nextCursor, limit: query.limit },
     };
   }
 
@@ -74,6 +86,7 @@ export class InvitationsController {
         email: body.email,
         rank: body.rank,
         roleIds: body.roleIds,
+        ...(body.managerId === undefined ? {} : { managerId: asUserId(body.managerId) }),
       }),
     );
     return {

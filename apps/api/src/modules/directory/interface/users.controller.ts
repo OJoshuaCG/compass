@@ -9,6 +9,7 @@ import type {
   ChangeRankRequest,
   DirectoryUser,
   ManagedUser,
+  RankChangeResponse,
   TransferManagerRequest,
 } from '@iam/contracts';
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
@@ -83,13 +84,38 @@ export class UsersController {
     unwrap(await this.manageUsers.revokeSessions(asUserId(id)));
   }
 
+  /**
+   * Responde 200 con el resultado (roles quitados, plantilla asignada o saltada y comparticiones
+   * vivas, estas últimas solo con detalle si quien actúa tiene permiso sobre la bóveda). NO lleva
+   * `@Idempotent()`: la respuesta guardada 24 horas se reproduciría sin volver a autorizar y
+   * devolvería el detalle de comparticiones a quien ya perdió el permiso. Una repetición recibe
+   * `USER.INVALID_STATE` (mismo rango); lo que se quitó queda en la auditoría. La respuesta solo
+   * contiene ids, nombres de rol y niveles, ningún secreto.
+   */
   @Post(':id/rank')
-  @HttpCode(204)
+  @HttpCode(200)
   async changeRank(
     @Param('id', new ZodValidationPipe(idSchema)) id: string,
     @Body(new ZodValidationPipe(changeRankRequestSchema)) body: ChangeRankRequest,
-  ): Promise<void> {
-    unwrap(await this.manageUsers.changeRank(asUserId(id), body.rank));
+  ): Promise<RankChangeResponse> {
+    const outcome = unwrap(await this.manageUsers.changeRank(asUserId(id), body.rank, body.reason));
+    return {
+      removedRoles: outcome.removedRoles.map((role) => ({ id: role.id, name: role.name })),
+      assignedRole:
+        outcome.assignedRole === null
+          ? null
+          : { id: outcome.assignedRole.id, name: outcome.assignedRole.name },
+      templateSkipped: outcome.templateSkipped,
+      sharedAccounts: outcome.sharedAccounts.map((share) => ({
+        shareId: share.shareId,
+        accountId: share.accountId,
+        granteeType: share.granteeType,
+        granteeId: share.granteeId,
+        level: share.level,
+        expiresAt: share.expiresAt === null ? null : share.expiresAt.toISOString(),
+      })),
+      sharedAccountCount: outcome.sharedAccountCount,
+    };
   }
 
   @Post(':id/manager')

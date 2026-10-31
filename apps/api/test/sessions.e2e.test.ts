@@ -164,3 +164,60 @@ describe('what counts as a live session', () => {
     expect((await idle.get('/me')).status).toBe(401);
   });
 });
+
+describe('paginating my sessions', () => {
+  type Page = { data: SessionSummary[]; page: { nextCursor: string | null } };
+
+  // Las pruebas anteriores adelantan el reloj compartido: se parte de sesiones recién abiertas.
+  let client: TestClient;
+
+  beforeAll(async () => {
+    for (let index = 0; index < 11; index += 1) {
+      client = await signIn(
+        env,
+        'b@sess.test',
+        adminB.secret,
+        STRONG_PASSWORD,
+        `198.51.100.${String(100 + index)}`,
+      );
+    }
+  });
+
+  it('walks every live session once, newest created first, even if one is touched meanwhile', async () => {
+    const everything = await client.get<Page>('/me/sessions?limit=100');
+    expect(everything.body.data.length).toBeGreaterThan(10);
+
+    const firstPage = await client.get<Page>('/me/sessions?limit=10');
+    expect(firstPage.body.page.nextCursor).not.toBeNull();
+    // Tocar una sesión (last_seen_at) entre páginas no debe moverla de lugar en el recorrido.
+    // Con la hora del reloj de prueba: la vigencia por inactividad se calcula con él, no con `now()`.
+    await env.db.admin.query('update sessions set last_seen_at = $2 where id = $1', [
+      everything.body.data.at(-1)?.id ?? '',
+      env.clock.now(),
+    ]);
+    const secondPage = await client.get<Page>(
+      `/me/sessions?limit=10&cursor=${encodeURIComponent(firstPage.body.page.nextCursor ?? '')}`,
+    );
+    const walked = [...firstPage.body.data, ...secondPage.body.data].map((s) => s.id);
+    expect(walked).toEqual(everything.body.data.map((s) => s.id));
+    const created = everything.body.data.map((s) => Date.parse(s.createdAt));
+    expect(created).toEqual([...created].sort((left, right) => right - left));
+  });
+
+  it('a tampered cursor falls back to the first page instead of failing', async () => {
+    const first = await client.get<Page>('/me/sessions?limit=10');
+    const uuid = '0198cccc-0000-7000-8000-000000000001';
+    for (const value of [
+      ['yesterday', uuid],
+      ['2030-01-01 00:00:00+00', 'not-a-uuid'],
+      { not: 'a tuple' },
+    ]) {
+      const cursor = Buffer.from(JSON.stringify(value)).toString('base64url');
+      const response = await client.get<Page>(
+        `/me/sessions?limit=10&cursor=${encodeURIComponent(cursor)}`,
+      );
+      expect(response.status).toBe(200);
+      expect(response.body.data.map((s) => s.id)).toEqual(first.body.data.map((s) => s.id));
+    }
+  });
+});

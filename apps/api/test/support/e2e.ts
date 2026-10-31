@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 import { generateSync } from 'otplib';
 import { Pool } from 'pg';
+import type { DestinationStream, Logger } from 'pino';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 import { buildContainer } from '../../src/app/container.js';
@@ -33,6 +34,7 @@ export interface E2eEnvironment {
   readonly container: Container;
   readonly clock: ManualClock;
   readonly mailer: InMemoryMailer;
+  readonly logger: Logger;
   readonly adminPool: Pool;
   bootstrapOrganization(input: {
     slug: string;
@@ -45,12 +47,23 @@ export interface E2eEnvironment {
 }
 
 /** Levanta la API completa (Nest + Fastify) contra un PostgreSQL real, con reloj y correo controlables. */
-export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvironment> {
+export interface StartEnvironmentOptions {
+  /** Captura los logs a nivel `trace`; sin ella los logs se silencian (o siguen `E2E_LOG`). */
+  readonly logDestination?: DestinationStream;
+}
+
+export async function startEnvironment(
+  clusterAdminUrl: string,
+  options: StartEnvironmentOptions = {},
+): Promise<E2eEnvironment> {
   const db = await createTestDatabase(clusterAdminUrl);
   const kekDir = mkdtempSync(join(tmpdir(), 'iam-e2e-kek-'));
   const clock = new ManualClock(new Date());
   const mailer = new InMemoryMailer();
-  const logger = createLogger({ level: process.env['E2E_LOG'] ?? 'silent' });
+  const logger = createLogger({
+    level: options.logDestination === undefined ? (process.env['E2E_LOG'] ?? 'silent') : 'trace',
+    ...(options.logDestination === undefined ? {} : { destination: options.logDestination }),
+  });
   const container = buildContainer({
     pool: db.appPool,
     independentPool: db.independentPool,
@@ -82,6 +95,7 @@ export async function startEnvironment(clusterAdminUrl: string): Promise<E2eEnvi
     container,
     clock,
     mailer,
+    logger,
     adminPool,
     async bootstrapOrganization(input) {
       const result = await bootstrap.execute({
@@ -129,7 +143,7 @@ export class TestClient {
   ) {}
 
   async request<T = unknown>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH',
     url: string,
     payload?: unknown,
     headers: Record<string, string> = {},
@@ -140,8 +154,8 @@ export class TestClient {
       ...(payload === undefined ? {} : { payload: payload as object }),
       remoteAddress: this.ip,
       headers: {
-        // Como el cliente real: cada POST lleva una clave de idempotencia nueva salvo que se indique.
-        ...(method === 'POST'
+        // Como el cliente real: cada escritura lleva una clave de idempotencia nueva salvo que se indique.
+        ...(method !== 'GET'
           ? { 'x-requested-with': 'test', origin: APP_ORIGIN, 'idempotency-key': randomUUID() }
           : {}),
         ...(this.cookie === null ? {} : { cookie: `__Host-session=${this.cookie}` }),
@@ -162,6 +176,8 @@ export class TestClient {
   get = <T = unknown>(url: string) => this.request<T>('GET', url);
   post = <T = unknown>(url: string, payload?: unknown, headers?: Record<string, string>) =>
     this.request<T>('POST', url, payload ?? {}, headers);
+  patch = <T = unknown>(url: string, payload?: unknown, headers?: Record<string, string>) =>
+    this.request<T>('PATCH', url, payload ?? {}, headers);
 }
 
 export interface EnrolledSession {
@@ -215,12 +231,19 @@ export async function signIn(
 export async function inviteAndOnboard(
   env: E2eEnvironment,
   inviter: TestClient,
-  input: { email: string; rank: 1 | 2 | 3; roleIds?: string[]; name?: string },
+  input: {
+    email: string;
+    rank: 1 | 2 | 3;
+    roleIds?: string[];
+    name?: string;
+    managerId?: string;
+  },
 ): Promise<EnrolledSession> {
   const created = await inviter.post('/invitations', {
     email: input.email,
     rank: input.rank,
     roleIds: input.roleIds ?? [],
+    ...(input.managerId === undefined ? {} : { managerId: input.managerId }),
   });
   if (created.status !== 201) throw new Error(`invite failed: ${String(created.status)}`);
   const token = env.mailer.last?.token ?? '';

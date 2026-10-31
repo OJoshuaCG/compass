@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useAsyncAction } from '../../../shared/api';
+import { useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
 import { ErrorAlert } from '../../../shared/i18n';
 import { useDebouncedCommit } from '../../../shared/lib';
 import { directoryKeys } from '../api/directory-api';
@@ -25,6 +25,7 @@ function TransferManagerForm({ person, onClose, onDone }: TransferManagerDialogP
   const action = useAsyncAction((managerId: string) =>
     teamApi.transferManager(person.id, managerId),
   );
+  const cooldown = useRateLimitCooldown(action.error);
 
   // Se busca en el directorio visible; la lista solo muestra a quienes tienen rango superior.
   const candidates = useQuery({
@@ -51,7 +52,9 @@ function TransferManagerForm({ person, onClose, onDone }: TransferManagerDialogP
       }}
       className="flex flex-col gap-4"
     >
-      {action.error !== undefined ? <ErrorAlert error={action.error} /> : null}
+      {action.error !== undefined ? (
+        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
       <SearchInput
         label={t('transfer.search', { ns: 'directory' })}
         clearLabel={t('search.clear', { ns: 'common' })}
@@ -83,7 +86,11 @@ function TransferManagerForm({ person, onClose, onDone }: TransferManagerDialogP
           options={eligible.map((candidate) => ({
             value: candidate.id,
             label: candidate.displayName,
-            description: `${candidate.email} · ${t(`rank.${String(candidate.rank)}`, { ns: 'common' })}`,
+            description: t('transfer.candidateDescription', {
+              ns: 'directory',
+              email: candidate.email,
+              rank: t(`rank.${String(candidate.rank)}`, { ns: 'common' }),
+            }),
           }))}
           value={selected}
           onValueChange={setSelected}
@@ -93,7 +100,11 @@ function TransferManagerForm({ person, onClose, onDone }: TransferManagerDialogP
         <Button variant="secondary" onClick={onClose}>
           {t('actions.cancel', { ns: 'common' })}
         </Button>
-        <Button type="submit" loading={action.pending} disabled={selected === undefined}>
+        <Button
+          type="submit"
+          loading={action.pending}
+          disabled={selected === undefined || cooldown.secondsLeft > 0}
+        >
           {t('transfer.submit', { ns: 'directory' })}
         </Button>
       </div>

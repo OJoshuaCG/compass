@@ -81,6 +81,12 @@ export class InMemoryUserDirectory implements UserDirectory {
     return Promise.resolve(moved);
   }
 
+  countActiveByRank(rank: Rank): Promise<number> {
+    return Promise.resolve(
+      [...this.users.values()].filter((u) => u.rank === rank && u.status === 'active').length,
+    );
+  }
+
   listManaged(): Promise<ManagedPage> {
     return Promise.resolve({ rows: [], nextCursor: null });
   }
@@ -92,6 +98,20 @@ export class InMemoryUserDirectory implements UserDirectory {
       [...this.users.values()]
         .filter((u) => u.rank === 1 && u.status === 'active')
         .map((u) => ({ email: u.email, locale: u.locale })),
+    );
+  }
+
+  listRootContacts(): Promise<
+    readonly {
+      readonly id: UserId;
+      readonly email: string;
+      readonly locale: 'es-MX' | 'en-US';
+    }[]
+  > {
+    return Promise.resolve(
+      [...this.users.values()]
+        .filter((u) => u.rank === 0 && u.status === 'active')
+        .map((u) => ({ id: u.id, email: u.email, locale: u.locale })),
     );
   }
 

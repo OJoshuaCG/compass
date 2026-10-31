@@ -1,25 +1,27 @@
 import type { Role } from '@iam/contracts';
 import { Button, PageHeader, Spinner } from '@iam/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useFixedOrderTable } from '../../../shared/api';
 import { useMe } from '../../../shared/auth';
 import { useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useToast } from '../../../shared/toast';
-import { fetchRoles, rolesKeys } from '../api/roles-api';
+import { fetchRolesPage, rolesKeys } from '../api/roles-api';
 import { RolesTable } from '../ui/roles-table';
 
 import { ArchiveRoleDialog } from './archive-role-dialog';
 import { CreateRoleDialog } from './create-role-dialog';
+import { EditRoleDialog } from './edit-role-dialog';
 import { ViewRoleDialog } from './view-role-dialog';
 
-type DialogState = { kind: 'view' | 'archive'; role: Role } | { kind: 'create' } | null;
+type DialogState = { kind: 'view' | 'edit' | 'archive'; role: Role } | { kind: 'create' } | null;
 
 /**
- * Container de `/roles`: la `DataTable` estándar de roles, "Crear rol" y "Archivar" (con
- * confirmación, solo en los personalizados). Tras cada cambio: aviso y recarga de la lista.
+ * Container de `/roles`: la `DataTable` estándar de roles, "Crear rol", "Editar" y "Archivar"
+ * (este con confirmación; ambos solo en los personalizados). Tras cada cambio: aviso y recarga.
  */
 export function RolesPage() {
   const catalogReady = useLazyCatalog('roles');
@@ -30,15 +32,10 @@ export function RolesPage() {
   const me = useMe();
   const [dialog, setDialog] = useState<DialogState>(null);
 
-  const query = useQuery({
-    queryKey: rolesKeys.list(),
-    queryFn: ({ signal }) => fetchRoles(signal),
-    staleTime: 0,
-  });
+  const table = useFixedOrderTable({ queryKey: rolesKeys.list(), fetchPage: fetchRolesPage });
 
   if (!catalogReady) return <Spinner label={t('state.loading', { ns: 'common' })} />;
 
-  const status = query.isPending ? 'loading' : query.isError ? 'error' : 'success';
   const close = () => {
     setDialog(null);
   };
@@ -65,19 +62,21 @@ export function RolesPage() {
         }
       />
       <RolesTable
-        roles={query.data ?? []}
-        status={status}
-        errorMessage={errorMessage(query.error)}
-        onRetry={() => {
-          void query.refetch();
-        }}
+        roles={table.rows}
+        status={table.status}
+        errorMessage={errorMessage(table.error)}
+        onRetry={table.retry}
         onView={(role) => {
           setDialog({ kind: 'view', role });
+        }}
+        onEdit={(role) => {
+          setDialog({ kind: 'edit', role });
         }}
         onArchive={(role) => {
           setDialog({ kind: 'archive', role });
         }}
-        refreshing={query.isFetching && !query.isPending}
+        refreshing={table.refreshing}
+        paging={table}
       />
       <CreateRoleDialog
         open={dialog?.kind === 'create'}
@@ -90,6 +89,16 @@ export function RolesPage() {
         }}
       />
       {dialog?.kind === 'view' ? <ViewRoleDialog role={dialog.role} onClose={close} /> : null}
+      {dialog?.kind === 'edit' ? (
+        <EditRoleDialog
+          role={dialog.role}
+          available={me?.permissions ?? []}
+          onClose={close}
+          onUpdated={(name) => {
+            done(t('edit.toast', { ns: 'roles', name }));
+          }}
+        />
+      ) : null}
       {dialog?.kind === 'archive' ? (
         <ArchiveRoleDialog
           role={dialog.role}

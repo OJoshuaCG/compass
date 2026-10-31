@@ -1,4 +1,4 @@
-import type { ManagedUser, ProblemDetails } from '@iam/contracts';
+import type { ManagedUser, ProblemDetails, RankChangeResponse } from '@iam/contracts';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import {
@@ -217,6 +217,14 @@ describe('deactivating a person', () => {
 });
 
 describe('changing a rank', () => {
+  const openSessionCount = async (userId: string): Promise<number> => {
+    const result = await env.db.admin.query(
+      'select 1 from sessions where user_id = $1 and revoked_at is null',
+      [userId],
+    );
+    return result.rowCount ?? 0;
+  };
+
   it('requires a recent reauthentication', async () => {
     const target = await idOf('l2@team.test');
     const response = await root.client.post<ProblemDetails>(`/users/${target}/rank`, { rank: 3 });
@@ -227,9 +235,41 @@ describe('changing a rank', () => {
 
   it('lowers someone without reports and audits the change', async () => {
     const target = await idOf('l2@team.test');
+    const sessionsBefore = await env.db.admin.query(
+      'select 1 from sessions where user_id = $1 and revoked_at is null',
+      [target],
+    );
+    // Sin una sesión abierta de partida, comprobar que se cierran no probaría nada.
+    expect(sessionsBefore.rowCount).toBeGreaterThan(0);
     expect((await reauth(root)).status).toBe(204);
-    expect((await root.client.post(`/users/${target}/rank`, { rank: 3 })).status).toBe(204);
+    // El cambio de rango no es idempotente por clave: una repetición con la misma clave no reproduce
+    // la respuesta guardada (que no se volvería a autorizar), sino que recibe USER.INVALID_STATE.
+    const headers = { 'idempotency-key': 'rank-change-repeat-0001' };
+    const changed = await root.client.post<RankChangeResponse>(
+      `/users/${target}/rank`,
+      { rank: 3 },
+      headers,
+    );
+    expect(changed.status).toBe(200);
+    const repeated = await root.client.post<ProblemDetails>(
+      `/users/${target}/rank`,
+      { rank: 3 },
+      headers,
+    );
+    expect(repeated.status).toBe(409);
+    expect(repeated.body.code).toBe('USER.INVALID_STATE');
+    expect(repeated.headers['idempotent-replayed']).toBeUndefined();
+    // La plantilla de Líder excede el tope de Operador: se retira y se asigna la de Operador.
+    expect(changed.body.removedRoles.map((role) => role.name)).toContain('Leader');
+    expect(changed.body.assignedRole?.name).toBe('Operator');
+    expect(changed.body.templateSkipped).toBe(false);
+    expect(Array.isArray(changed.body.sharedAccounts)).toBe(true);
     expect((await row('l2@team.test'))?.rank).toBe(3);
+    const openSessions = await env.db.admin.query(
+      'select 1 from sessions where user_id = $1 and revoked_at is null',
+      [target],
+    );
+    expect(openSessions.rowCount).toBe(0);
     expect((await audit('user.rank_changed'))[0]?.metadata).toMatchObject({
       fromRank: 2,
       toRank: 3,
@@ -242,6 +282,8 @@ describe('changing a rank', () => {
     expect(response.status).toBe(409);
     expect(response.body.code).toBe('USER.HAS_REPORTS');
     expect((await row('l1@team.test'))?.rank).toBe(2);
+    // Un cambio rechazado no debe cerrar sesiones: la revocación solo acompaña a un cambio efectivo.
+    expect(await openSessionCount(target)).toBeGreaterThan(0);
   });
 
   it('never lets someone reach the rank of their responsible or above', async () => {
@@ -249,6 +291,43 @@ describe('changing a rank', () => {
     const response = await root.client.post<ProblemDetails>(`/users/${target}/rank`, { rank: 1 });
     expect(response.status).toBe(422);
     expect(response.body.code).toBe('USER.MANAGER_RANK_INVALID');
+    expect(await openSessionCount(target)).toBeGreaterThan(0);
+  });
+
+  it('rejects the same rank as an invalid state', async () => {
+    const target = await idOf('l1@team.test');
+    const response = await root.client.post<ProblemDetails>(`/users/${target}/rank`, { rank: 2 });
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe('USER.INVALID_STATE');
+  });
+
+  // SENSIBLE (revisión humana): promover sin motivo se rechaza, se audita y no cambia nada.
+  it('requires a reason to promote and audits the refusal', async () => {
+    const target = await idOf('l2@team.test'); // ya es Operador (rango 3) tras la prueba anterior
+    const response = await root.client.post<ProblemDetails>(`/users/${target}/rank`, { rank: 2 });
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe('USER.RANK_REASON_REQUIRED');
+    expect((await row('l2@team.test'))?.rank).toBe(3);
+    // Las negaciones del caso de uso quedan registradas como `authz.denied` con su código de motivo.
+    const denials = await audit('authz.denied');
+    expect(denials.some((event) => event.reason_code === 'USER.RANK_REASON_REQUIRED')).toBe(true);
+  });
+
+  it('promotes with a reason and stores it in the audit trail', async () => {
+    const target = await idOf('l2@team.test');
+    const response = await root.client.post<RankChangeResponse>(`/users/${target}/rank`, {
+      rank: 2,
+      reason: 'Asume el equipo de campo',
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.removedRoles).toEqual([]);
+    expect((await row('l2@team.test'))?.rank).toBe(2);
+    const events = await audit('user.rank_changed');
+    expect(events.at(-1)?.metadata).toMatchObject({
+      fromRank: 3,
+      toRank: 2,
+      reason: 'Asume el equipo de campo',
+    });
   });
 
   it('an Administrator cannot change ranks: the permission is not theirs', async () => {
@@ -283,7 +362,7 @@ describe('transferring the responsible', () => {
   it('refuses a responsible with the same or less authority than the person', async () => {
     const target = await idOf('o1@team.test');
     const response = await adminA.client.post<ProblemDetails>(`/users/${target}/manager`, {
-      managerId: await idOf('l2@team.test'), // ahora Operador (rango 3), igual que el objetivo
+      managerId: await idOf('o2@team.test'), // Operador (rango 3), igual que el objetivo
     });
     expect(response.status).toBe(422);
     expect(response.body.code).toBe('USER.MANAGER_RANK_INVALID');

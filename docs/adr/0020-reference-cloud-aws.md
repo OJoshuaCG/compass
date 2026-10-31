@@ -1,10 +1,12 @@
 # ADR 0020: Nube de referencia AWS, adaptadores intercambiables
 
-- **Estado**: Aceptada con confirmación pendiente
+- **Estado**: Aceptada (2026-10-28, `TODO.md` C1)
 - **Fecha**: 2026-10-26
 - **Referencias**: [`plan.md`](../../plan.md) secciones "Infraestructura, despliegue y operación" y "Decisiones pendientes del equipo" (proveedor de nube); [`docs/backend.md`](../backend.md) §6.3.
 
-> **Confirmación pendiente**: el proveedor de nube sigue en las decisiones pendientes del plan ("AWS es la referencia del plan; confirmar o elegir GCP o Azure"). Esta decisión fija la arquitectura para que **no dependa** del proveedor; no cierra la elección del proveedor. Se actualizará el estado a "Aceptada" cuando el equipo confirme.
+> **Confirmada (2026-10-28)**: el dueño confirmó el despliegue en Dokploy con Docker, PostgreSQL en un servidor dedicado y los servidores en Linode, con AWS solo para el KMS. La decisión sigue fijando una arquitectura que **no depende** del proveedor: los servicios externos van detrás de puertos.
+
+> **Alcance real del despliegue (2026-10-28)**: la lista de servicios de la sección "Decisión" es la referencia original. Lo acordado para desplegar es Dokploy con Docker, PostgreSQL en un servidor dedicado y, de AWS, solo el KMS; ver la [adenda](#adenda-2026-10-28-adaptador-de-aws-kms-l1) y [`docs/deployment.md`](../deployment.md).
 
 ## Contexto
 
@@ -24,3 +26,13 @@ AWS es la referencia de despliegue con servicios gestionados: ECS Fargate (API y
 - **Positivas**: operación reducida; el dominio no depende del proveedor.
 - **Negativas o costos**: hasta confirmar, el runbook y las tarifas del KMS son de referencia AWS; cambiar de proveedor implica nuevos adaptadores y revisar los runbooks.
 - **Verificación**: ningún módulo de dominio importa SDK de proveedor (lint de límites); el adaptador local se niega a arrancar con `NODE_ENV=production`.
+
+## Adenda (2026-10-28): adaptador de AWS KMS (L1)
+
+El dueño aprobó solo el paquete `@aws-sdk/client-kms` (versión exacta, con la espera de 7 días) y confirmó que el despliegue usa Dokploy con Docker y PostgreSQL en un servidor dedicado, no los servicios gestionados de AWS salvo el KMS. Implementado en `apps/api/src/modules/crypto/infrastructure/aws-key-management.ts`:
+
+- **Una sola clave de plataforma** (`AWS_KMS_KEY_ID`) envuelve las DEK de todas las organizaciones; el aislamiento entre organizaciones lo da el contexto de cifrado `organization_id`, que KMS autentica. La KEK por organización que menciona la decisión queda como refinamiento posterior.
+- `keyRef` guarda el ARN que devuelve KMS al generar la DEK, de modo que abrirla apunta a esa clave aunque el alias configurado cambie de destino.
+- Las credenciales las resuelve el SDK (variables de entorno o rol IAM); la configuración solo lleva el id de la clave y la región (`AWS_KMS_KEY_ID`, `AWS_REGION`, obligatorias con `KMS_ADAPTER=aws`). Producción solo acepta `KMS_ADAPTER=aws`.
+- Cada llamada a KMS vence a los 5 s y los errores salen genéricos, sin el detalle de AWS.
+- **Límites conocidos**: no se probó contra AWS real (las pruebas usan un cliente simulado); la API de HTTP ejecuta al arrancar una sonda (genera y abre una DEK desechable con contexto `startup-probe`) y se niega a arrancar si falla, así un permiso `kms:GenerateDataKey`/`kms:Decrypt` faltante o una clave deshabilitada se ve en el despliegue y no con el primer secreto (el recifrado no la ejecuta; si la política de la clave restringe `kms:EncryptionContext:organization_id` a organizaciones conocidas, hay que permitir también `startup-probe`); el error original de KMS no se registra, solo se oculta.

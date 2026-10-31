@@ -24,6 +24,7 @@ export const PERMISSIONS = [
   'account.archive',
   'credential.create',
   'credential.update',
+  'credential.restore_version',
   'credential.reveal_password',
   'credential.use_totp',
   'credential.export_totp',
@@ -31,6 +32,9 @@ export const PERMISSIONS = [
   'access_request.approve',
   'rotation.manage',
   'audit.read_scope',
+  'inbound.read_codes',
+  'inbound.configure',
+  'inbound.reveal_reset',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

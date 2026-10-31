@@ -37,6 +37,11 @@ const LOCK_KEY = 7_283_461_901;
 
 const defaultDirectory = new URL('../migrations/', import.meta.url);
 
+/**
+ * Huella SHA-256 del SQL para detectar migraciones aplicadas que se editaron después. Es una
+ * verificación de integridad sobre texto público, no cifra ni protege ningún secreto: por eso esta
+ * importación de `node:crypto` queda fuera de la regla "solo el módulo de criptografía" (C6).
+ */
 export function checksumOf(sql: string): string {
   return createHash('sha256').update(sql, 'utf8').digest('hex');
 }

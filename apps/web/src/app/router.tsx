@@ -116,6 +116,33 @@ const rolesRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/roles-route'), 'RolesRoute'),
 });
 
+const accountsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/accounts',
+  component: lazyRouteComponent(() => import('../routes/accounts-route'), 'AccountsRoute'),
+});
+
+const credentialsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/accounts/$accountId/credentials',
+  component: lazyRouteComponent(() => import('../routes/credentials-route'), 'CredentialsRoute'),
+});
+
+const credentialImportRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/credentials/import',
+  component: lazyRouteComponent(
+    () => import('../routes/credential-import-route'),
+    'CredentialImportRoute',
+  ),
+});
+
+const sharesRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/accounts/$accountId/shares',
+  component: lazyRouteComponent(() => import('../routes/shares-route'), 'SharesRoute'),
+});
+
 // El catálogo solo existe en desarrollo: en producción el `import()` queda como código muerto
 // (se elimina del bundle) y la ruta responde 404.
 const loadCatalog = import.meta.env.DEV
@@ -166,6 +193,10 @@ const routeTree = rootRoute.addChildren([
     sessionsRoute,
     securityRoute,
     rolesRoute,
+    accountsRoute,
+    credentialsRoute,
+    credentialImportRoute,
+    sharesRoute,
     catalogRoute,
     vaultPreviewRoute,
   ]),

@@ -15,7 +15,7 @@ declare module 'vitest' {
 // Un contenedor para toda la ejecución. Los roles son del clúster: se crean aquí una sola vez
 // (archivos en paralelo competirían por `create role`); cada archivo de prueba crea su base.
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  const container = await new PostgreSqlContainer('postgres:17-alpine').start();
+  const container = await new PostgreSqlContainer('postgres:18-alpine').start();
   const adminUrl = container.getConnectionUri();
   await bootstrapRoles({ connectionString: adminUrl });
   const admin = new Client({ connectionString: adminUrl });

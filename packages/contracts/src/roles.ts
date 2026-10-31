@@ -20,3 +20,13 @@ export const createRoleRequestSchema = z.object({
   permissions: z.array(permissionSchema).min(1).max(PERMISSIONS.length),
 });
 export type CreateRoleRequest = z.infer<typeof createRoleRequestSchema>;
+
+/**
+ * Reemplazo completo del nombre y los permisos de un rol personalizado. Quien edita debe tener tanto los
+ * permisos que quita como los que pone: editar un rol ya asignado equivale a escalar a sus titulares.
+ */
+export const updateRoleRequestSchema = z.object({
+  name: safeText({ max: 100, min: 1 }),
+  permissions: z.array(permissionSchema).min(1).max(PERMISSIONS.length),
+});
+export type UpdateRoleRequest = z.infer<typeof updateRoleRequestSchema>;

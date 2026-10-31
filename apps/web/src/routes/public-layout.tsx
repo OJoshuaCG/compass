@@ -1,4 +1,4 @@
-import { Brand } from '@iam/ui';
+import { Brand, MAIN_CONTENT_CLASS, MAIN_CONTENT_ID, SkipLink } from '@iam/ui';
 import { Outlet } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
@@ -12,11 +12,16 @@ export function PublicLayout() {
   const { t } = useTranslation('common');
   return (
     <div className="flex min-h-dvh flex-col bg-nav text-nav-text [&_header_:focus-visible]:outline-nav-focus">
+      <SkipLink label={t('nav.skipToContent')} />
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4">
         <Brand name={t('app.name')} />
         <LanguageSwitcher inverse />
       </header>
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-8 text-text">
+      <main
+        id={MAIN_CONTENT_ID}
+        tabIndex={-1}
+        className={`${MAIN_CONTENT_CLASS} mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-8 text-text`}
+      >
         <Outlet />
       </main>
     </div>

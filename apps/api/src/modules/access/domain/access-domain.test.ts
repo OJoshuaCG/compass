@@ -7,8 +7,8 @@ import type { Rank } from '../../../shared/kernel/index.js';
 import { decide } from './decision.js';
 import type { DecisionInput } from './decision.js';
 import { effectivePermissions } from './effective-permissions.js';
-import { PERMISSION_CEILING, REAUTH_WINDOW_MS } from './permission-catalog.js';
-import { checkRoleAssignment, isSubsetOfCreator } from './role-assignment.js';
+import { PERMISSION_CEILING, REAUTH_WINDOW_MS, policyFor } from './permission-catalog.js';
+import { checkRoleAssignment, isSubsetOfCreator, rolesExceedingRank } from './role-assignment.js';
 import { SYSTEM_ROLES, systemRole } from './system-roles.js';
 
 const RANKS: readonly Rank[] = [0, 1, 2, 3];
@@ -35,6 +35,7 @@ const PLAN_CEILINGS: ReadonlyArray<readonly [string, Rank]> = [
   ['account.archive', 2],
   ['credential.create', 3],
   ['credential.update', 3],
+  ['credential.restore_version', 3],
   ['credential.reveal_password', 3],
   ['credential.use_totp', 3],
   ['credential.export_totp', 2],
@@ -42,12 +43,15 @@ const PLAN_CEILINGS: ReadonlyArray<readonly [string, Rank]> = [
   ['access_request.approve', 2],
   ['rotation.manage', 2],
   ['audit.read_scope', 2],
+  ['inbound.read_codes', 3],
+  ['inbound.configure', 2],
+  ['inbound.reveal_reset', 1],
 ];
 
 describe('permission catalog', () => {
-  it('has the 27 permissions of the plan, each with the ceiling the plan states', () => {
-    expect(PERMISSIONS).toHaveLength(27);
-    expect(PLAN_CEILINGS).toHaveLength(27);
+  it('has the 31 permissions of the catalog (27 of the plan, credential.restore_version and the three inbound ones), each with its ceiling', () => {
+    expect(PERMISSIONS).toHaveLength(31);
+    expect(PLAN_CEILINGS).toHaveLength(31);
     for (const [permission, ceiling] of PLAN_CEILINGS) {
       expect(PERMISSION_CEILING[permission as Permission], permission).toBe(ceiling);
     }
@@ -61,6 +65,34 @@ describe('permission catalog', () => {
 describe('system role templates', () => {
   it('Root has every permission', () => {
     expect(new Set(systemRole('root').permissions)).toEqual(new Set(PERMISSIONS));
+  });
+
+  // SENSIBLE (revisión humana): quién puede ver restablecimientos de códigos entrantes (ADR 0045).
+  it('gives inbound reset reveal only to Root and Administrator, and configuration to Leader and above', () => {
+    const roleHolds = (
+      key: 'root' | 'administrator' | 'leader' | 'operator',
+      permission: Permission,
+    ) => systemRole(key).permissions.includes(permission);
+
+    expect(roleHolds('root', 'inbound.reveal_reset')).toBe(true);
+    expect(roleHolds('administrator', 'inbound.reveal_reset')).toBe(true);
+    expect(roleHolds('leader', 'inbound.reveal_reset')).toBe(false);
+    expect(roleHolds('operator', 'inbound.reveal_reset')).toBe(false);
+
+    expect(roleHolds('leader', 'inbound.configure')).toBe(true);
+    expect(roleHolds('operator', 'inbound.configure')).toBe(false);
+
+    for (const key of ['root', 'administrator', 'leader', 'operator'] as const) {
+      expect(roleHolds(key, 'inbound.read_codes'), key).toBe(true);
+    }
+  });
+
+  it('requires re-authentication, a written reason and a critical audit event to reveal a reset', () => {
+    expect(policyFor('inbound.reveal_reset')).toEqual({
+      reauth: true,
+      writtenReason: true,
+      criticalAudit: true,
+    });
   });
 
   it('Administrator has everything except organization settings', () => {
@@ -299,5 +331,27 @@ describe('decision engine', () => {
         reason: 'PERMISSION',
       });
     });
+  });
+});
+
+describe('roles exceeding a rank ceiling', () => {
+  const leaderRole = { name: 'leader', permissions: systemRole('leader').permissions };
+  const operatorRole = { name: 'operator', permissions: systemRole('operator').permissions };
+  const emptyRole = { name: 'empty', permissions: [] as readonly Permission[] };
+
+  it('keeps every role when the rank does not go down', () => {
+    expect(rolesExceedingRank([leaderRole, operatorRole], 2)).toEqual([]);
+  });
+
+  it('removes the whole role when any permission is above the new ceiling', () => {
+    expect(rolesExceedingRank([leaderRole, operatorRole, emptyRole], 3)).toEqual([leaderRole]);
+  });
+
+  it('removes administrator roles for a leader', () => {
+    const administratorRole = {
+      name: 'admin',
+      permissions: systemRole('administrator').permissions,
+    };
+    expect(rolesExceedingRank([administratorRole], 2)).toEqual([administratorRole]);
   });
 });

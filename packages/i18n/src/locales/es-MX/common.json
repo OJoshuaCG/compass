@@ -9,12 +9,9 @@
   "language.en-US": "English (US)",
   "home.title": "Inicio",
   "actions.cancel": "Cancelar",
-  "actions.confirm": "Confirmar",
   "actions.retry": "Reintentar",
   "actions.close": "Cerrar",
-  "actions.save": "Guardar",
   "actions.delete": "Eliminar",
-  "actions.rowMenu": "Acciones de la fila",
   "state.loading": "Cargando",
   "search.label": "Buscar",
   "search.clear": "Borrar búsqueda",
@@ -36,7 +33,6 @@
   "status.pending": "Pendiente",
   "status.failed": "Con error",
   "status.inactive": "Inactivo",
-  "status.info": "En revisión",
   "catalog.title": "Catálogo de componentes",
   "catalog.description": "Vista solo para desarrollo: muestra los componentes compartidos con sus estados.",
   "catalog.section.buttons": "Botones",
@@ -162,5 +158,6 @@
   "vaultPreview.rotatedAgo_one": "Hace {{count}} día",
   "vaultPreview.rotatedAgo_other": "Hace {{count}} días",
   "vaultPreview.empty.title": "Sin cuentas",
-  "vaultPreview.empty.description": "Cuando te compartan una cuenta aparecerá aquí."
+  "vaultPreview.empty.description": "Cuando te compartan una cuenta aparecerá aquí.",
+  "nav.accounts": "Cuentas"
 }

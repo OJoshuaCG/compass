@@ -4,8 +4,14 @@
  * - Baja lógica (`revoked_at`): el rol de la aplicación no tiene DELETE sobre credenciales.
  * - El contador solo avanza: una repetición o un clon de la llave no se acepta.
  */
-import type { UserId } from '../../../shared/kernel/index.js';
-import { asUserId } from '../../../shared/kernel/index.js';
+import type { KeysetPage, KeysetRequest, UserId } from '../../../shared/kernel/index.js';
+import {
+  asUserId,
+  decodeKeysetCursor,
+  isTimestampTextPart,
+  isUuidPart,
+  toKeysetPage,
+} from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type { PasskeyRecord, PasskeyRepository } from '../application/ports/identity-ports.js';
 
@@ -23,6 +29,18 @@ interface Row {
 
 const UNIQUE_VIOLATION = '23505';
 
+const toRecord = (row: Row): PasskeyRecord => ({
+  id: row.id,
+  userId: asUserId(row.user_id),
+  credentialId: row.credential_id.toString('base64url'),
+  publicKey: new Uint8Array(row.public_key),
+  counter: Number(row.sign_count),
+  transports: row.transports,
+  name: row.name,
+  createdAt: row.created_at,
+  lastUsedAt: row.last_used_at,
+});
+
 export class PgPasskeyRepository implements PasskeyRepository {
   constructor(private readonly transactions: TransactionProvider) {}
 
@@ -33,17 +51,30 @@ export class PgPasskeyRepository implements PasskeyRepository {
         order by created_at, id`,
       [userId],
     );
-    return result.rows.map((row) => ({
-      id: row.id,
-      userId: asUserId(row.user_id),
-      credentialId: row.credential_id.toString('base64url'),
-      publicKey: new Uint8Array(row.public_key),
-      counter: Number(row.sign_count),
-      transports: row.transports,
-      name: row.name,
-      createdAt: row.created_at,
-      lastUsedAt: row.last_used_at,
-    }));
+    return result.rows.map(toRecord);
+  }
+
+  async listLivePage(userId: UserId, page: KeysetRequest): Promise<KeysetPage<PasskeyRecord>> {
+    const params: unknown[] = [userId];
+    let afterCursor = '';
+    const after = decodeKeysetCursor(page.cursor, [isTimestampTextPart, isUuidPart]);
+    if (after !== null) {
+      params.push(after[0], after[1]);
+      afterCursor = 'and (created_at, id) > ($2::timestamptz, $3::uuid)';
+    }
+    params.push(page.limit + 1);
+    // La marca de tiempo viaja como texto en el cursor para no perder los microsegundos.
+    const result = await this.transactions.current().query<Row & { created_text: string }>(
+      `select id, user_id, credential_id, public_key, sign_count, transports, name, created_at,
+              created_at::text as created_text, last_used_at
+         from webauthn_credentials
+        where user_id = $1 and revoked_at is null ${afterCursor}
+        order by created_at, id
+        limit $${String(params.length)}`,
+      params,
+    );
+    const keyset = toKeysetPage(result.rows, page.limit, (row) => [row.created_text, row.id]);
+    return { rows: keyset.rows.map(toRecord), nextCursor: keyset.nextCursor };
   }
 
   async insert(input: {

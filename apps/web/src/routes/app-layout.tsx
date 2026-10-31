@@ -10,6 +10,7 @@ import {
   MonitorSmartphone,
   ShieldCheck,
   Users,
+  Vault,
   type LucideIcon,
 } from '@iam/ui';
 import { Link, Outlet } from '@tanstack/react-router';
@@ -32,7 +33,7 @@ function NavItem({
   exact,
   children,
 }: {
-  to: '/' | '/vault' | '/users' | '/sessions' | '/security' | '/roles' | '/catalog';
+  to: '/' | '/vault' | '/users' | '/sessions' | '/security' | '/accounts' | '/roles' | '/catalog';
   icon: LucideIcon;
   exact?: boolean;
   children: ReactNode;
@@ -93,6 +94,9 @@ export function AppLayout() {
             </NavItem>
             <NavItem to="/security" icon={ShieldCheck}>
               {t('nav.security')}
+            </NavItem>
+            <NavItem to="/accounts" icon={Vault}>
+              {t('nav.accounts')}
             </NavItem>
             {canManageRoles ? (
               <NavItem to="/roles" icon={KeyRound}>

@@ -63,7 +63,13 @@ function ReauthForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       {errorMessage !== undefined ? <Alert tone="danger">{errorMessage}</Alert> : null}
-      {cooldownLabel !== undefined ? <Alert tone="warning">{cooldownLabel}</Alert> : null}
+      {/* La cuenta regresiva va fuera de un `role="alert"`: dentro, cada segundo re-anunciaría el
+          aviso completo. `role="timer"` no es asertivo, así el contador sigue visible sin ruido. */}
+      {cooldownLabel !== undefined ? (
+        <p role="timer" aria-live="off" className="text-sm text-text-secondary">
+          {cooldownLabel}
+        </p>
+      ) : null}
       <FormField label={labels.codeLabel} required>
         {(control) => (
           <CodeInput

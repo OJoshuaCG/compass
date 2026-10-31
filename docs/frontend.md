@@ -240,6 +240,8 @@ Los botones tienen estados normal, hover, foco visible, activo, deshabilitado y 
 
 El estado nunca se comunica solo con el color: siempre ícono o texto (regla del plan). La insignia de estado lo garantiza (ícono, etiqueta y color).
 
+El aviso en línea fija su rol por tono: el de error (`danger`) es `role="alert"` y es el único asertivo; los de información, advertencia y éxito son `role="status"` (cortés), para que las notas fijas no interrumpan al lector de pantalla al abrir un diálogo. Una prueba en `packages/ui` fija el rol de cada tono.
+
 ## 6. La tabla estándar de datos
 
 **Toda tabla de la aplicación usa la tabla de datos estándar.** No hay tablas hechas a mano. Un solo organismo garantiza que el orden, la paginación, los estados vacío y de error y la accesibilidad sean idénticos en todas partes.
@@ -259,6 +261,8 @@ De arriba abajo, la tabla tiene cuatro zonas:
 - **Límite de objetos por página**: selector con valores fijos 10 · 25 · 50 · 100, por defecto 25. Ninguna tabla carga más de 100 filas.
 - **Paginación en el pie**: botones "Anterior/Siguiente", rango visible y el selector de filas por página.
 - **Paginación por cursor** (decisión del plan): el pie ofrece Anterior/Siguiente y no números de página ni salto a la página N. El componente guarda en memoria la pila de cursores para poder retroceder. Un total exacto solo se muestra si el endpoint lo entrega; no se calcula con desplazamiento numérico.
+- **Listados de orden fijo** (sesiones, passkeys, roles e invitaciones pendientes): no ordenan ni buscan, así que su único estado es el tamaño de página, que vive en memoria (`useFixedOrderTable`, sobre `useTableQuery`) y no en la URL. Siempre se recargan al volver a la pantalla. El selector de invitar necesita todos los roles personalizados: recorre las páginas hasta agotar el cursor.
+- **Pie siempre visible**: la tabla muestra el pie de paginación aunque haya una sola página (no existe forma de ocultarlo), porque los listados pueden crecer. Los listados que el servidor devuelve completos y sin cursor (comparticiones de una cuenta, credenciales de una cuenta e historial de versiones) se paginan en memoria con `useClientPagination` (`shared/lib`); si alguno llega a necesitar paginación del servidor, requiere un cambio de API.
 - **Estado en la URL**: orden, dirección, límite, búsqueda y filtros viven en los parámetros de búsqueda del enrutador (validados con Zod). Así recargar o compartir el enlace conserva la vista. El cursor **no** va en la URL (caduca y no es compartible).
 - **Estados**: cargando (esqueleto con las mismas columnas, sin saltos de layout), vacío (con acción sugerida), vacío por filtros (con botón "Limpiar filtros") y error (mensaje traducido del código de la API y "Reintentar").
 - **Cambio de página sin parpadeo**: se conserva la página anterior mientras llega la siguiente, con un indicador de carga sutil.
@@ -335,9 +339,13 @@ Un solo cliente en `shared/api`:
 Todo lo del plan, convertido en reglas verificables:
 
 - **CSP estricta** definida por el backend: sin ejecución de código en línea ni evaluación dinámica; scripts solo del propio origen; sin incrustación en otros sitios; conexiones solo al propio origen. Por eso los estilos son clases de Tailwind (sin estilos en línea) y las fuentes se autoalojan.
+- **`Permissions-Policy`** definida por el backend junto a la CSP (HDR-1): solo `display-capture=(self)` (alta de TOTP por captura de pestaña, ADR 0017); cámara, micrófono, geolocalización, pagos, USB, serie y Bluetooth se niegan. El alta con cámara (v1.1) abrirá `camera=(self)` en el mismo cambio que la construya.
 - **Trusted Types activado.** Prohibido insertar HTML a mano y evaluar código dinámico (lint como error). Si alguna vez hace falta HTML, solo con una política de Trusted Types revisada.
 - **Nada sensible en `localStorage`, `sessionStorage` ni IndexedDB.** Preferencias no sensibles (por ejemplo, filas por página) sí pueden usar `localStorage`, siempre con manejo de fallos.
 - **Secretos revelados**: viven en el estado local del revelador de secretos, **nunca** en la caché de TanStack Query, en un contexto global ni en la URL. Se descartan al ocultar (30 s), al desmontar o al cerrar sesión. Las peticiones de revelación van con la cabecera de no almacenamiento en caché (backend) y la mutación se configura para no conservar resultados.
+- **Alta de TOTP por imagen e importación de Google Authenticator** (`features/credentials`): la imagen se decodifica en el navegador y nunca se sube. Una exportación `otpauth-migration://` se lee con un decodificador de protobuf escrito a mano (sin dependencias, con límites de tamaño, de entradas y de longitud de texto; cualquier violación da un error sin contenido). Solo se importan cuentas TOTP que el servidor acepta (clave de al menos 128 bits, SHA1/SHA256/SHA512, 6 u 8 dígitos); las HOTP y las no compatibles se omiten y se cuentan en un aviso. Con una sola cuenta importable se usa igual que un QR normal; con varias, la persona elige una en un grupo de radios, porque cada credencial lleva un solo segundo factor. Las cuentas con sus secretos viven solo en el estado local del lector y se descartan al elegir, cancelar, leer otra imagen o desmontar.
+- **Importación de credenciales por CSV** (`features/credentials`, ruta diferida `/credentials/import`): el archivo se revisa en el cliente (extensión `.csv` y 1 000 000 bytes) antes de leerlo con `File.text()`, así que uno enorme ni siquiera entra en memoria. El texto lleva contraseñas, por eso vive solo en una referencia del componente (no en un estado que se pinte, ni en Query, ni en la URL, ni en el almacenamiento) y se descarta al cancelar, al terminar, ante un error de la vista previa y al desmontar; las peticiones usan `useAsyncAction`, no `useMutation`, para que la caché de mutaciones no conserve el cuerpo. La vista previa solo muestra línea, plataforma, cuenta, etiqueta, estado y códigos (nunca usuario ni contraseña, aunque el servidor los devolviera: el esquema los descarta). Como el archivo admite 500 filas y ninguna tabla pinta más de 100, la tabla estándar se pagina en memoria con su pie habitual. «Importar» se habilita solo sin filas inválidas (la confirmación es todo o nada) y con al menos una fila válida; un 422 de la confirmación enumera las líneas rechazadas con su código traducido y bloquea reenviar el mismo archivo. Los errores de todo el archivo reutilizan los textos `CREDENTIAL_IMPORT.*` del catálogo de errores.
+- **Códigos de recuperación** (`features/auth`, `RecoveryCodesPanel`): viven solo en el estado local del panel. «Descargar .txt» genera el archivo en el navegador (Blob y `URL.createObjectURL`, que se revoca con `URL.revokeObjectURL` tras un retardo corto de 5 s, también si el clic lanza, porque Firefox y Safari resuelven la descarga de forma asíncrona); el nombre es fijo (`recovery-codes.txt`) y el contenido lleva solo un encabezado genérico traducido, una advertencia de guardarlo en un lugar seguro y los códigos, uno por línea, sin correo, nombre ni fecha. No usa almacenamiento, caché de Query ni registros. Descargar no marca «Ya los guardé» ni desactiva el aviso al salir: la persona lo confirma.
 - **Portapapeles**: al copiar un secreto se limpia a los 30 s (mejor esfuerzo, documentado en la UI).
 - **Sesión**: cierre por inactividad sincronizado entre pestañas con un canal de difusión del navegador; al expirar se limpian estados sensibles.
 - **Registros**: prohibido escribir en la consola respuestas de rutas sensibles; la regla de lint contra la consola es un error en producción.
@@ -368,6 +376,8 @@ Todo lo del plan, convertido en reglas verificables:
 | E2E | Playwright | Flujos críticos del plan (invitación, passkey, compartir, revelar, 2FA, baja) |
 
 - Se prueban **comportamientos**, no implementación: se busca por rol, etiqueta o texto traducido, nunca por clase CSS.
+- **Accesibilidad en navegador real:** `e2e/tests/wcag.spec.ts` ejecuta `@axe-core/playwright` en Chrome con las etiquetas `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` y `wcag22aa` sobre el inicio de sesión (anónimo), el directorio de usuarios, las cuentas, la seguridad y las credenciales de una cuenta, en inglés y en español (es-MX). A diferencia de jsdom, aquí sí se evalúa el contraste de color. Falla ante cualquier violación e imprime regla, impacto y selectores, sin HTML ni textos. No excluye reglas ni selectores: un falso positivo se reporta y se decide aparte.
+- **Por qué no hay `eslint-plugin-jsx-a11y`:** no se instaló porque su rango de peer solo llega a ESLint 9 y el repositorio usa ESLint 10. La accesibilidad estática queda cubierta por las pruebas de componente con axe y por la comprobación e2e anterior.
 - La tabla de datos tiene su propia suite: orden, límite, paginación por cursor, estados vacío, de error y de carga, y teclado.
 - Las pruebas de secretos verifican que un valor revelado no queda en la caché de Query ni en el almacenamiento del navegador tras ocultarlo.
 
@@ -466,9 +476,9 @@ Las reglas que un agente debe respetar al trabajar en `apps/web` son estas. Si s
 
 Definición de terminado: pruebas de componente y de accesibilidad en verde; paridad de claves i18n, contraste de tokens y límites de arquitectura en verde.
 
-## 18. Estado de la fase 1a (identidad)
+## 18. Estado de las pantallas (fase 1a y bóveda de la fase 1b)
 
-La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y `apps/web/src/features/directory`, con las rutas definidas en `apps/web/src/app/router.tsx`:
+La web implementa las pantallas de la fase 1a (identidad) en `apps/web/src/features/auth`, `directory`, `security`, `sessions` y `roles`, y las de la bóveda (fase 1b, en curso) en `accounts`, `credentials` y `shares`, con las rutas definidas en `apps/web/src/app/router.tsx`:
 
 | Pantalla o pieza | Dónde vive | Estado |
 | --- | --- | --- |
@@ -476,8 +486,8 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Verificación en dos pasos (código de la aplicación o código de recuperación) | `features/auth` | Funciona |
 | Registro del segundo factor (código QR y clave) y entrega única de los 10 códigos de recuperación | `features/auth` | Funciona |
 | Aceptación de invitación (contraseña con indicador de fortaleza) | `features/auth` | Funciona |
-| Directorio de personas con búsqueda, orden y paginación por cursor, y diálogo para invitar | `features/directory` | Funciona. Solo ofrece los rangos que quien invita puede crear; el diálogo incluye la elección opcional de "Roles" (roles personalizados). Una pestaña "Invitaciones" lista las pendientes (con las vencidas señaladas) y permite reenviar |
-| Diálogo de reautenticación (abre ante el error de reautenticación requerida y reintenta la acción una vez) | `shared/auth` y `shared/api` | Funciona con el código de la aplicación; no admite código de recuperación. La suite de Chrome cubre el flujo completo (cambiar rango, diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción) |
+| Directorio de personas con búsqueda, orden y paginación por cursor, y diálogo para invitar | `features/directory` | Funciona. Solo ofrece los rangos que quien invita puede crear; el diálogo incluye la elección opcional de "Responsable" (lista del subárbol de quien invita, activos y de rango superior al del invitado; por defecto, quien invita, y entonces no se envía `managerId`) y de "Roles" (roles personalizados). Una pestaña "Invitaciones" lista las pendientes (con las vencidas señaladas) y permite reenviar |
+| Diálogo de reautenticación (abre ante el error de reautenticación requerida y reintenta la acción una vez) | `shared/auth` y `shared/api` | Funciona con el código de la aplicación o, si la persona tiene passkeys, con una passkey (`shared/auth/passkey-reauth.ts`; el diálogo la ofrece solo si la persona tiene alguna); no admite código de recuperación. La suite de Chrome cubre el flujo completo (cambiar rango, diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción) |
 | Cambio de contraseña (ruta `/password/change`; es obligatorio para la Raíz tras su primer ingreso con la contraseña inicial: mientras no se cambia, el ingreso lleva a esta pantalla y el registro del segundo factor se rechaza con `AUTH.PASSWORD_CHANGE_REQUIRED`) | `features/auth` | Funciona |
 | Gestión de equipo (pestaña en la página de Usuarios, junto al directorio) con acciones por fila: suspender, reactivar, cambiar rango (con reautenticación), transferir responsable y desactivar (con diálogo de confirmación) | `features/directory` | Funciona. Lista el subárbol de quien consulta (la Raíz ve a todos) con su estado y su responsable |
 | Cierre de sesión | `shared/auth` | Funciona |
@@ -486,8 +496,17 @@ La web implementa las pantallas de la fase 1a en `apps/web/src/features/auth` y 
 | Mis sesiones (ruta `/sessions`: lista con la sesión actual señalada y cierre de las demás) | `features/sessions` | Funciona |
 | "Cerrar sesiones" en el menú de fila de la gestión de equipo | `features/directory` | Funciona |
 | Sincronización entre pestañas (`BroadcastChannel`; el único mensaje es el nombre de un evento, nunca datos) | `shared/auth` | Funciona. Tras cerrar sesión o perderla, las otras pestañas del mismo navegador pasan al ingreso en cerca de un segundo |
-| Pantalla de roles (ruta `/roles`: crear solo con los permisos propios de quien crea; archivar con confirmación) | `features/roles` | Funciona |
+| Pantalla de roles (ruta `/roles`: crear solo con los permisos propios de quien crea; editar nombre y permisos de un rol personalizado, con aviso y sin poder guardar si el rol incluye permisos que quien edita no tiene; archivar con confirmación) | `features/roles` | Funciona |
 | Restablecer factores de otra persona | Sin implementar | Pendiente |
+| Cuentas (ruta `/accounts`, ruta diferida): inventario y «Mis cuentas» en la tabla estándar; crear, editar y archivar cuentas con diálogo | `features/accounts` | Funciona |
+| Credenciales de una cuenta (ruta `/accounts/$accountId/credentials`): tabla, alta, cambio de contraseña, revelado con motivo y reautenticación, y historial de versiones con «Restaurar» en las versiones anteriores (la vigente no lo ofrece) | `features/credentials` | Funciona |
+| Segundo factor de una credencial: registro por clave manual o por imagen del QR (archivo, portapapeles o captura de pestaña), confirmación, código bajo demanda, exportar y retirar; admite la importación desde Google Authenticator | `features/credentials` | Funciona. Falta la entrega por celular |
+| Compartición (ruta `/accounts/$accountId/shares`): tabla de accesos, diálogo para compartir y revocación con confirmación | `features/shares` | Funciona |
+| Importación de credenciales por CSV (ruta `/credentials/import`, ruta diferida; enlace «Importar desde CSV» en Cuentas para quien tiene `account.create` y `credential.create`): elegir el archivo, previsualizar en la tabla estándar, confirmar y ver los conteos | `features/credentials` | Funciona (O2b, pruebas escritas sin ejecutar). Ver §9 para el manejo del texto del archivo |
+
+**Diálogos de confirmación.** `ConfirmDialog` (`packages/ui/src/molecules/confirm-dialog.tsx`) tiene dos estados distintos: `loading` mientras la mutación corre (el botón de confirmar queda en carga, Cancelar se deshabilita y el diálogo **no se cierra** con Escape ni al hacer clic fuera) y `confirmDisabled`, que solo inhabilita la confirmación y deja Cancelar y Escape disponibles; se usa, por ejemplo, durante la espera por límite de peticiones.
+
+**Espera por límite de peticiones (429).** Los diálogos de confirmación y los formularios de la bóveda y la gestión de personas usan `useRateLimitCooldown` (`shared/api`) con el error de la acción: mientras `secondsLeft > 0` no se reenvía y la alerta de error muestra la cuenta regresiva. Referencia: `features/shares/containers/revoke-share-dialog.tsx` (el controlador ignora la confirmación durante la espera); `features/credentials/containers/restore-version-dialog.tsx` y `features/sessions/containers/close-session-dialog.tsx` además pasan `confirmDisabled`.
 
 El cliente HTTP envía una clave de idempotencia en las peticiones que crean recursos y el backend ya la aplica (ver [`backend.md`](backend.md) §7.2.1).
 

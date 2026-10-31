@@ -46,6 +46,23 @@ describe('createApp', () => {
     expect(csp).not.toContain('unsafe-eval');
   });
 
+  it('sends a Permissions-Policy that allows only display-capture for the own origin', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/health/live' });
+    const policy = String(res.headers['permissions-policy']);
+
+    expect(policy).toContain('display-capture=(self)');
+    expect(policy).toContain('camera=()');
+    expect(policy).toContain('microphone=()');
+    expect(policy).toContain('geolocation=()');
+  });
+
+  it('sends the Permissions-Policy also on problem responses', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/missing' });
+
+    expect(res.statusCode).toBe(404);
+    expect(String(res.headers['permissions-policy'])).toContain('display-capture=(self)');
+  });
+
   it('answers an unknown route as RFC 9457 problem details with the request id', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/missing' });
 

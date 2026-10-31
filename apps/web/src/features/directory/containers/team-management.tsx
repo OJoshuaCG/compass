@@ -13,7 +13,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useAsyncAction, useTableQuery, type TableSearch } from '../../../shared/api';
+import {
+  useAsyncAction,
+  useRateLimitCooldown,
+  useTableQuery,
+  type TableSearch,
+} from '../../../shared/api';
 import { ErrorAlert, useDataTableLabels, useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useDebouncedCommit } from '../../../shared/lib';
@@ -64,6 +69,7 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
   const direct = useAsyncAction((kind: 'suspend' | 'reactivate', person: ManagedUser) =>
     kind === 'suspend' ? teamApi.suspend(person.id) : teamApi.reactivate(person.id),
   );
+  const cooldown = useRateLimitCooldown(direct.error);
 
   const table = useTableQuery<ManagedUser>({
     queryKey: directoryKeys.managed(),
@@ -81,6 +87,8 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
   }
 
   async function runDirect(kind: 'suspend' | 'reactivate', person: ManagedUser) {
+    // 429: no se reenvía mientras corre la espera que ya muestra el aviso.
+    if (cooldown.secondsLeft > 0) return;
     const result = await direct.run(kind, person);
     if (result.ok) {
       done(
@@ -167,7 +175,9 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
 
   return (
     <div className="flex flex-col gap-4">
-      {direct.error !== undefined ? <ErrorAlert error={direct.error} /> : null}
+      {direct.error !== undefined ? (
+        <ErrorAlert error={direct.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
       <DataTable<ManagedUser>
         caption={t('team.caption', { ns: 'directory' })}
         columns={columns}

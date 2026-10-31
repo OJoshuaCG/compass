@@ -10,6 +10,8 @@ import { ProblemDetailsFilter } from '../shared/http/problem-details.filter.js';
 import { AppModule } from './app.module.js';
 import { serveWebApp } from './serve-web.js';
 import type { Container } from './container.js';
+import { toFastifyTrustProxy } from './trust-proxy.js';
+import type { TrustProxySetting } from './trust-proxy.js';
 
 /**
  * CSP estricta (docs/frontend.md §9): sin `unsafe-inline` ni `unsafe-eval`, scripts solo del
@@ -33,13 +35,31 @@ export const CONTENT_SECURITY_POLICY = {
   requireTrustedTypesFor: ["'script'"],
 } as const;
 
+/**
+ * Permissions-Policy: la plataforma solo necesita capturar una pestaña (método de alta de TOTP por
+ * captura, ADR 0017), así que `display-capture` se limita al propio origen y el resto de funciones
+ * sensibles del navegador se niega. Si el alta con cámara (v1.1) se construye, `camera` se abre aquí
+ * a `(self)` y no antes. Helmet no emite esta cabecera.
+ */
+export const PERMISSIONS_POLICY = [
+  'display-capture=(self)',
+  'camera=()',
+  'microphone=()',
+  'geolocation=()',
+  'payment=()',
+  'usb=()',
+  'serial=()',
+  'bluetooth=()',
+].join(', ');
+
 export interface CreateAppOptions {
   readonly logger: Logger;
   /** Sin contenedor solo se monta la comprobación de vida (útil para probar cabeceras sin base de datos). */
   readonly container?: Container;
   /** Origen del navegador permitido para las peticiones que modifican (verificación de `Origin`). */
   readonly appOrigin?: string;
-  readonly trustProxy?: boolean;
+  /** Proxies de confianza para `X-Forwarded-For`; por defecto ninguno (ver `parseTrustProxy`). */
+  readonly trustProxy?: TrustProxySetting;
   /** Carpeta con la SPA compilada (`apps/web/dist`); si se indica, la API la sirve en el mismo origen. */
   readonly webDistDir?: string;
 }
@@ -49,7 +69,7 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
     // El identificador lo genera siempre el servidor: no se confía en uno enviado por el cliente.
     genReqId: () => uuidv7(),
     requestIdHeader: false,
-    trustProxy: options.trustProxy ?? false,
+    trustProxy: toFastifyTrustProxy(options.trustProxy),
   });
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule.register(options.container ?? null, options.appOrigin ?? 'http://localhost:5173'),
@@ -68,6 +88,7 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
     .getInstance()
     .addHook('onSend', (request, reply, _payload, done) => {
       void reply.header('x-request-id', request.id);
+      void reply.header('permissions-policy', PERMISSIONS_POLICY);
       done();
     });
   return app;

@@ -1,10 +1,9 @@
 import type { DirectorySortField } from '@iam/contracts';
 
-import { DomainError, RANK } from '../../../shared/kernel/index.js';
-import type { RequestContextReader } from '../../../shared/kernel/index.js';
+import { RANK } from '../../../shared/kernel/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
 import type { ManagedPage, UserDirectory } from './ports/user-directory.js';
-import type { ListDirectoryQuery } from './list-directory.js';
+import type { ListDirectoryQuery, MemberAuthorizer } from './list-directory.js';
 
 export type ListManagedQuery = ListDirectoryQuery & {
   readonly sort?: DirectorySortField | undefined;
@@ -20,19 +19,15 @@ export class ListManaged {
     private readonly deps: {
       readonly directory: UserDirectory;
       readonly uow: UnitOfWork;
-      readonly context: RequestContextReader;
+      readonly authorizer: MemberAuthorizer;
     },
   ) {}
 
   execute(query: ListManagedQuery): Promise<ManagedPage> {
-    const { directory, uow, context } = this.deps;
+    const { directory, uow, authorizer } = this.deps;
     const search = query.search?.trim() ?? '';
     return uow.run(async () => {
-      const actorId = context.current().actorId;
-      const actor = actorId === null ? null : await directory.findById(actorId);
-      if (actor?.status !== 'active') {
-        throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
-      }
+      const actor = await authorizer.requireActiveMember();
       return directory.listManaged(
         { id: actor.id, isRoot: actor.rank === RANK.ROOT },
         {

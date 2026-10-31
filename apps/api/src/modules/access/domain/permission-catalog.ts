@@ -27,6 +27,7 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'account.archive': 2,
   'credential.create': 3,
   'credential.update': 3,
+  'credential.restore_version': 3,
   'credential.reveal_password': 3,
   'credential.use_totp': 3,
   'credential.export_totp': 2,
@@ -34,6 +35,10 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'access_request.approve': 2,
   'rotation.manage': 2,
   'audit.read_scope': 2,
+  // Códigos entrantes (ADR 0045). Ver restablecimientos es solo de Raíz y Administrador (techo 1).
+  'inbound.read_codes': 3,
+  'inbound.configure': 2,
+  'inbound.reveal_reset': 1,
 };
 
 export const rankAllows = (permission: Permission, rank: Rank): boolean =>
@@ -60,12 +65,15 @@ const NONE: ActionPolicy = { reauth: false, writtenReason: false, criticalAudit:
  */
 export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> = {
   'org.settings': { reauth: true, writtenReason: false, criticalAudit: true },
+  'platform.manage': { reauth: true, writtenReason: false, criticalAudit: true },
   'sso.clients.manage': { reauth: true, writtenReason: false, criticalAudit: false },
   'user.change_rank': { reauth: true, writtenReason: false, criticalAudit: false },
   'role.assign': { reauth: true, writtenReason: false, criticalAudit: false },
   'vault.emergency_access': { reauth: true, writtenReason: true, criticalAudit: true },
   'credential.reveal_password': { reauth: true, writtenReason: true, criticalAudit: false },
   'credential.export_totp': { reauth: true, writtenReason: true, criticalAudit: true },
+  // Un restablecimiento (código o enlace) abre una cuenta ajena: mismo molde que exportar el 2FA.
+  'inbound.reveal_reset': { reauth: true, writtenReason: true, criticalAudit: true },
 };
 
 export const policyFor = (permission: Permission): ActionPolicy =>

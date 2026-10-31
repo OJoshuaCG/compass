@@ -7,14 +7,17 @@
  * - Una invitación es de un solo uso y vence a las 72 horas; todas las causas de rechazo se
  *   responden igual (no enumeración).
  */
-import { DomainError, err, ok } from '../../../shared/kernel/index.js';
+import { DomainError, RANK, err, ok } from '../../../shared/kernel/index.js';
 import type {
   Clock,
   IdGenerator,
+  KeysetPage,
+  KeysetRequest,
   OrganizationId,
   Rank,
   RequestContextReader,
   Result,
+  UserId,
 } from '../../../shared/kernel/index.js';
 import { checkRoleAssignment, effectivePermissions, SYSTEM_ROLES } from '../../access/index.js';
 import type { Authorizer, RoleRepository } from '../../access/index.js';
@@ -66,10 +69,21 @@ export interface CreateInvitationDeps {
 export class CreateInvitation {
   constructor(private readonly deps: CreateInvitationDeps) {}
 
+  /** Niega por una regla de responsable y deja el rastro de la negación (transacción independiente). */
+  private async refuseManager(
+    code: 'AUTHZ.HIERARCHY.NOT_IN_SUBTREE' | 'USER.MANAGER_RANK_INVALID',
+    message: string,
+  ): Promise<Result<never, DomainError>> {
+    await this.deps.authorizer.auditDenial({ code, permission: 'user.invite' });
+    return err(new DomainError(code, message));
+  }
+
   execute(input: {
     readonly email: string;
     readonly rank: 1 | 2 | 3;
     readonly roleIds: readonly string[];
+    /** Responsable del invitado; si falta, lo es quien invita (ADR 0009, decisión C12-1). */
+    readonly managerId?: UserId;
   }): Promise<Result<InvitationSummary, DomainError>> {
     const {
       context,
@@ -100,6 +114,32 @@ export class CreateInvitation {
           permission: 'user.invite',
         });
         return err(new DomainError('AUTHZ.CREATION_NOT_ALLOWED', 'Rank not allowed for your role'));
+      }
+
+      // 2b) Responsable del invitado: quien invita, o alguien de su subárbol con más autoridad que
+      // el invitado. El motivo exacto no se distingue hacia afuera (no enumeración de usuarios).
+      let managerId: UserId = actor.id;
+      if (input.managerId !== undefined && input.managerId !== actor.id) {
+        // Las reglas de jerarquía se comprueban con lecturas: se serializa contra otras mutaciones.
+        await directory.lockHierarchy();
+        const manager = await directory.findById(input.managerId);
+        if (manager?.status !== 'active') {
+          return this.refuseManager('AUTHZ.HIERARCHY.NOT_IN_SUBTREE', 'Action not allowed');
+        }
+        // El alcance se comprueba ANTES que el rango: si no, la diferencia entre 403 y 422 le
+        // diría a quien invita que un usuario ajeno a su subárbol existe y cuál es su rango.
+        const reachable =
+          actor.rank === RANK.ROOT || (await directory.isInSubtree(actor.id, manager.id));
+        if (!reachable) {
+          return this.refuseManager('AUTHZ.HIERARCHY.NOT_IN_SUBTREE', 'Action not allowed');
+        }
+        if (manager.rank >= input.rank) {
+          return this.refuseManager(
+            'USER.MANAGER_RANK_INVALID',
+            'The responsible must have more authority than the invitee',
+          );
+        }
+        managerId = manager.id;
       }
 
       // 3) No escalamiento de roles.
@@ -144,7 +184,7 @@ export class CreateInvitation {
         email: input.email,
         rank: input.rank,
         invitedBy: actor.id,
-        managedBy: actor.id,
+        managedBy: managerId,
         roleIds: input.roleIds,
         tokenHash: primitives.sha256(encoder.encode(token)),
         expiresAt,
@@ -186,23 +226,28 @@ export class ListInvitations {
   ) {}
 
   /** Las invitaciones pendientes de quien consulta; la Raíz ve las de toda la organización. */
-  execute(): Promise<readonly (Omit<InvitationSummary, 'rank'> & PendingExtras)[]> {
+  execute(
+    page: KeysetRequest,
+  ): Promise<KeysetPage<Omit<InvitationSummary, 'rank'> & PendingExtras>> {
     const { context, uow, authorizer, directory, invitations, clock } = this.deps;
     return uow.run(async () => {
       await authorizer.require({ permission: 'user.invite' });
       const actorId = context.current().actorId;
       const actor = actorId === null ? null : await directory.findById(actorId);
       if (actor === null) throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
-      const pending = await invitations.listPending(actor.rank === 0 ? null : actor.id);
+      const pending = await invitations.listPending(actor.rank === 0 ? null : actor.id, page);
       const now = clock.now();
-      return pending.map((row) => ({
-        id: row.id,
-        email: row.email,
-        rank: row.rank as 1 | 2 | 3,
-        createdAt: row.createdAt,
-        expiresAt: row.expiresAt,
-        expired: row.expiresAt <= now,
-      }));
+      return {
+        rows: pending.rows.map((row) => ({
+          id: row.id,
+          email: row.email,
+          rank: row.rank as 1 | 2 | 3,
+          createdAt: row.createdAt,
+          expiresAt: row.expiresAt,
+          expired: row.expiresAt <= now,
+        })),
+        nextCursor: pending.nextCursor,
+      };
     });
   }
 }
@@ -413,6 +458,9 @@ export class AcceptInvitation {
         // Los roles se revalidan AHORA: entre invitar y aceptar pueden haber pasado 72 horas y el
         // responsable pudo perder permisos, o el rol cambiar o archivarse. Todo se ve igual que una
         // invitación inválida (no se revela por qué).
+        // Se serializa contra traspasos y cambios de rango: sin el candado, un traspaso concurrente
+        // podría confirmarse entre la comprobación del subárbol y el alta del usuario.
+        await directory.lockHierarchy();
         const inviter = await directory.findById(invitation.invitedBy);
         if (inviter?.status !== 'active') return err(invalidInvitation());
         const requested = await roles.findByIds(invitation.roleIds);
@@ -437,6 +485,15 @@ export class AcceptInvitation {
             targetRank: invitation.rank,
           });
           if (denial !== null) return err(invalidInvitation());
+        }
+        // Si quien invita eligió a otra persona como responsable, esa persona debe seguir bajo su
+        // alcance: en 72 horas pudo ser transferida fuera de su subárbol (la Raíz alcanza a todos).
+        if (
+          invitation.managedBy !== invitation.invitedBy &&
+          inviter.rank !== RANK.ROOT &&
+          !(await directory.isInSubtree(inviter.id, invitation.managedBy))
+        ) {
+          return err(invalidInvitation());
         }
 
         const created = await createUser.execute({

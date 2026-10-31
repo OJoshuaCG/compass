@@ -27,29 +27,28 @@ const users = (count: number, nextCursor: string | null = null) =>
     page: { nextCursor, limit: 100 },
   });
 
+/** Una sola página, con la forma paginada que devuelven ahora todas las listas. */
+const onePage = (data: unknown[]) => jsonResponse({ data, page: { nextCursor: null, limit: 100 } });
+
 function setup(permissions: Permission[] = []) {
   return stubApi({
     'GET /me': jsonResponse(meFixture({ permissions })),
     'GET /users': users(3),
-    'GET /invitations': jsonResponse({
-      data: [
-        {
-          id: '11111111-1111-4111-8111-111111111111',
-          email: 'vencida@example.com',
-          rank: 3,
-          createdAt: '2030-01-01T00:00:00.000Z',
-          expiresAt: '2030-01-04T00:00:00.000Z',
-          expired: true,
-        },
-      ],
-    }),
-    'GET /me/sessions': jsonResponse({
-      data: [
-        { ...SESSION, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', current: true },
-        { ...SESSION, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', current: false },
-      ],
-    }),
-    'GET /me/passkeys': jsonResponse({ data: [] }),
+    'GET /invitations': onePage([
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        email: 'vencida@example.com',
+        rank: 3,
+        createdAt: '2030-01-01T00:00:00.000Z',
+        expiresAt: '2030-01-04T00:00:00.000Z',
+        expired: true,
+      },
+    ]),
+    'GET /me/sessions': onePage([
+      { ...SESSION, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', current: true },
+      { ...SESSION, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', current: false },
+    ]),
+    'GET /me/passkeys': onePage([]),
   });
 }
 
@@ -102,8 +101,8 @@ describe('home screen', () => {
     stubApi({
       'GET /me': jsonResponse(meFixture()),
       'GET /users': users(100, 'next'),
-      'GET /me/sessions': jsonResponse({ data: [] }),
-      'GET /me/passkeys': jsonResponse({ data: [] }),
+      'GET /me/sessions': onePage([]),
+      'GET /me/passkeys': onePage([]),
     });
     renderApp('/');
     const people = await screen.findByRole('region', { name: c['home.stats.people'] });

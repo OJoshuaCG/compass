@@ -10,6 +10,7 @@
     "stack": "tsx scripts/stack.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@iam/api": "workspace:*",
     "@iam/config": "workspace:*",
     "@iam/db": "workspace:*",

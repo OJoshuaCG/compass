@@ -9,12 +9,9 @@
   "language.en-US": "English (US)",
   "home.title": "Home",
   "actions.cancel": "Cancel",
-  "actions.confirm": "Confirm",
   "actions.retry": "Retry",
   "actions.close": "Close",
-  "actions.save": "Save",
   "actions.delete": "Delete",
-  "actions.rowMenu": "Row actions",
   "state.loading": "Loading",
   "search.label": "Search",
   "search.clear": "Clear search",
@@ -36,7 +33,6 @@
   "status.pending": "Pending",
   "status.failed": "Failed",
   "status.inactive": "Inactive",
-  "status.info": "In review",
   "catalog.title": "Component catalog",
   "catalog.description": "Development-only view: shows the shared components and their states.",
   "catalog.section.buttons": "Buttons",
@@ -162,5 +158,6 @@
   "vaultPreview.rotatedAgo_one": "{{count}} day ago",
   "vaultPreview.rotatedAgo_other": "{{count}} days ago",
   "vaultPreview.empty.title": "No accounts",
-  "vaultPreview.empty.description": "Accounts shared with you will show up here."
+  "vaultPreview.empty.description": "Accounts shared with you will show up here.",
+  "nav.accounts": "Accounts"
 }

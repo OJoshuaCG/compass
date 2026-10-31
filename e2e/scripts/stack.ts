@@ -45,7 +45,7 @@ const withCredentials = (
   return url.toString();
 };
 
-const container = await new PostgreSqlContainer('postgres:17-alpine').start();
+const container = await new PostgreSqlContainer('postgres:18-alpine').start();
 const clusterUrl = container.getConnectionUri();
 const database = 'iam_e2e';
 

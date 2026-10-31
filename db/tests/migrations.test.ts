@@ -139,9 +139,9 @@ describe('roles and ownership', () => {
         rolsuper: boolean;
         rolcreaterole: boolean;
       }>(
-        "select rolname, rolbypassrls, rolsuper, rolcreaterole from pg_roles where rolname in ('iam_app','iam_migrator','iam_auth_reader')",
+        "select rolname, rolbypassrls, rolsuper, rolcreaterole from pg_roles where rolname in ('iam_app','iam_migrator','iam_auth_reader','iam_inbound_worker')",
       );
-      expect(roles.rowCount).toBe(3);
+      expect(roles.rowCount).toBe(4);
       for (const r of roles.rows) {
         expect(r.rolbypassrls, r.rolname).toBe(false);
         expect(r.rolsuper, r.rolname).toBe(false);
@@ -165,9 +165,9 @@ describe('role bootstrap', () => {
     const admin = await connect(db.adminUrl);
     try {
       const { rows } = await admin.query<{ n: string }>(
-        "select count(*)::text as n from pg_roles where rolname in ('iam_app','iam_migrator','iam_auth_reader')",
+        "select count(*)::text as n from pg_roles where rolname in ('iam_app','iam_migrator','iam_auth_reader','iam_inbound_worker')",
       );
-      expect(rows[0]?.n).toBe('3');
+      expect(rows[0]?.n).toBe('4');
     } finally {
       await admin.end();
     }

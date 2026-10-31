@@ -1,4 +1,10 @@
-export { AppShell, MAIN_CONTENT_ID, type AppShellProps } from './app-shell';
+export {
+  AppShell,
+  MAIN_CONTENT_CLASS,
+  MAIN_CONTENT_ID,
+  SkipLink,
+  type AppShellProps,
+} from './app-shell';
 export {
   DataTable,
   nextSort,

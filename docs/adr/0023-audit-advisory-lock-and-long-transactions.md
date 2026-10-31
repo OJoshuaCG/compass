@@ -33,6 +33,14 @@ Se acepta la **opción 1**. En el código ya es así por diseño: el lock se tom
 - **Negativas o costos**: el orden de pasos dentro del caso de uso se vuelve parte del contrato (el lock va al final); hay que manejar el timeout (falla cerrada de la acción).
 - **Implementado (2026-10-27, G6)**: `lock_timeout` de 5 s local a la transacción en `PgAuditEventRepository`; el 55P03 se traduce a `AUDIT.LOCK_TIMEOUT` (503), con prueba de integración. El límite no se restablece: el evento debe seguir siendo lo último que escribe cada caso de uso.
 - **Pendiente**:
-  - Medir con transacciones concurrentes la latencia p95 de las acciones sensibles para confirmar o ajustar los 5 s. Ya existe la prueba de no bifurcación (`db/tests/audit.test.ts`), pero no mide latencia.
+  - ~~Medir la latencia p95 con transacciones concurrentes~~ **Hecho (2026-10-28)** en `db/tests/audit-latency.test.ts`: una escritura auditada por transacción, misma organización, `lock_timeout` de 5 s, 20 transacciones por escritor, PostgreSQL 18 en contenedor local (no el servidor dedicado, así que sirve para detectar contención y no para dimensionar capacidad).
+
+    | Escritores | Transacciones | p50 | p95 | p99 | Máximo |
+    | --- | --- | --- | --- | --- | --- |
+    | 5 | 100 | 10,7 ms | 18,1 ms | 28,2 ms | 33,4 ms |
+    | 20 | 400 | 58 ms | 192,9 ms | 216,8 ms | 228,5 ms |
+    | 50 | 1 000 | 116,2 ms | 385,7 ms | 471,7 ms | 487,8 ms |
+
+    Lectura: la espera crece de forma casi lineal con los escritores, que es lo esperado de un lock que serializa la cadena (cada escritura aporta unos 8 a 10 ms de cola). Con 50 escritores simultáneos y sin pausa el peor caso medido es de 0,49 s, unas diez veces por debajo de los 5 s; no hubo ningún `lock_timeout` vencido y la cadena verificó íntegra en los tres niveles. Se **confirma el `lock_timeout` de 5 s** y no se activa el plan B. La prueba falla si el p99 pasa de la mitad del límite. No se midió una mezcla con transacciones largas como `DeactivateUser`, que retienen el lock más tiempo: queda como medición pendiente antes de la fase 1b. **Prueba mixta escrita (2026-10-29)** en `db/tests/audit-latency-mixed.test.ts` (40 escritores cortos y 10 largos que leen y bloquean antes de auditar); resultados (medido el 2026-10-29 con Podman local: escritores cortos (40, 800 transacciones) p95 157 ms y máximo 251 ms; largos (10, 100 transacciones) p95 92 ms y máximo 252 ms; ninguno cerca del `lock_timeout` de 5 s y sin rupturas de la cadena). Sus cifras de aprobación (p95 < 1 s y máximo < 4 s, es decir, `lock_timeout` menos 1 s de margen) son una propuesta pendiente de confirmar por el equipo.
   - `DeactivateUser` cumple la regla 1 (verificado el 2026-10-27: la auditoría es el último paso; el bloqueo de jerarquía es un lock aparte y temprano).
   - Decidir cómo se agrupan las negaciones repetidas para que una ráfaga no sature el lock de la organización (el ADR 0022 lo deja abierto).

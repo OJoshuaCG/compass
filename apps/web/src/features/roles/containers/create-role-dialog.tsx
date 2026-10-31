@@ -9,7 +9,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError, applyFieldErrors, useAsyncAction } from '../../../shared/api';
+import {
+  ApiError,
+  applyFieldErrors,
+  useAsyncAction,
+  useRateLimitCooldown,
+} from '../../../shared/api';
 import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
 import { createRole } from '../api/roles-api';
 import { groupPermissions } from '../model/permission-groups';
@@ -27,6 +32,7 @@ function CreateRoleForm({ available, onCancel, onCreated }: CreateRoleFormProps)
   const validationMessage = useValidationMessage();
   // Sin secretos en juego: pero se evita la caché de mutaciones igual que en el resto de formularios.
   const action = useAsyncAction((body: CreateRoleRequest) => createRole(body));
+  const cooldown = useRateLimitCooldown(action.error);
 
   const {
     register,
@@ -84,7 +90,9 @@ function CreateRoleForm({ available, onCancel, onCreated }: CreateRoleFormProps)
       }}
       className="flex flex-col gap-4"
     >
-      {action.error !== undefined ? <ErrorAlert error={action.error} /> : null}
+      {action.error !== undefined ? (
+        <ErrorAlert error={action.error} secondsLeft={cooldown.secondsLeft} />
+      ) : null}
       <FormField
         label={t('create.name', { ns: 'roles' })}
         required
@@ -121,7 +129,7 @@ function CreateRoleForm({ available, onCancel, onCreated }: CreateRoleFormProps)
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}
         </Button>
-        <Button type="submit" loading={action.pending}>
+        <Button type="submit" loading={action.pending} disabled={cooldown.secondsLeft > 0}>
           {t('create.submit', { ns: 'roles' })}
         </Button>
       </div>

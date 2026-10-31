@@ -1,12 +1,16 @@
 import {
+  loadAccountsCatalog,
+  loadCredentialsCatalog,
   loadDirectoryCatalog,
   loadRolesCatalog,
   loadSecurityCatalog,
   loadSessionsCatalog,
+  loadSharesCatalog,
   resources,
 } from '@iam/i18n';
 import type { QueryClient } from '@tanstack/react-query';
-import { screen } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import type { UserEvent } from '@testing-library/user-event';
 import { expect } from 'vitest';
 
 export const es = {
@@ -18,6 +22,9 @@ export const es = {
   sessions: (await loadSessionsCatalog())['es-MX'],
   roles: (await loadRolesCatalog())['es-MX'],
   security: (await loadSecurityCatalog())['es-MX'],
+  accounts: (await loadAccountsCatalog())['es-MX'],
+  credentials: (await loadCredentialsCatalog())['es-MX'],
+  shares: (await loadSharesCatalog())['es-MX'],
 };
 
 /**
@@ -25,7 +32,24 @@ export const es = {
  * `<label>`, así que se busca por prefijo en vez de por texto exacto.
  */
 export function field(label: string): HTMLElement {
-  return screen.getByLabelText(new RegExp(`^${label}`));
+  // Se escapan los metacaracteres: una etiqueta como "Caduca el (opcional)" no es un grupo de regex.
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return screen.getByLabelText(new RegExp(`^${escapedLabel}`));
+}
+
+/**
+ * Textos que las regiones `status` de un contenedor anuncian en este momento. El botón de copiar
+ * mantiene siempre montada una región vacía (solo habla al copiar), así que "no hay anuncio
+ * duplicado" se comprueba con esta lista vacía y no con la ausencia de la región.
+ * Los avisos `Alert` de tono info, warning y success también son `status`: se usa solo en fases
+ * donde esas notas fijas ya no están montadas (contraseña, código o clave visibles). Si una nota
+ * apareciera ahí, la lista dejaría de estar vacía y la prueba fallaría, que es lo que se quiere.
+ */
+export function announcedStatusTexts(container: HTMLElement): string[] {
+  return within(container)
+    .queryAllByRole('status', { hidden: true })
+    .map((region) => region.textContent)
+    .filter((text) => text !== '');
 }
 
 /**
@@ -55,4 +79,43 @@ export function expectNoSecretsStored(queryClient: QueryClient, secrets: readonl
     expect(storage, `web storage leaks ${secret}`).not.toContain(secret);
   }
   expect(window.sessionStorage.length).toBe(0);
+}
+
+/**
+ * Abre el menú "⋯" de una fila por el nombre de su botón. El menú se descarga en diferido y mientras
+ * tanto el botón está deshabilitado, así que se espera a que se habilite antes de pulsarlo.
+ */
+export async function openRowMenu(user: UserEvent, menuLabel: string): Promise<HTMLElement> {
+  const trigger = await waitFor(() => {
+    const button = screen.getByRole('button', { name: menuLabel });
+    expect(button).toBeEnabled();
+    return button;
+  });
+  await user.click(trigger);
+  return trigger;
+}
+
+/** Abre el menú de una fila y elige una de sus opciones por su nombre visible. */
+export async function chooseRowMenuAction(
+  user: UserEvent,
+  menuLabel: string,
+  itemName: string,
+): Promise<void> {
+  await openRowMenu(user, menuLabel);
+  await user.click(await screen.findByRole('menuitem', { name: itemName }));
+}
+
+/**
+ * Textos de las opciones del menú, en orden. Lo cierra al terminar: abierto, Radix oculta el resto
+ * de la página a las consultas por rol y las comprobaciones posteriores pasarían en falso.
+ */
+export async function rowMenuItemTexts(user: UserEvent, menuLabel: string): Promise<string[]> {
+  await openRowMenu(user, menuLabel);
+  const items = await screen.findAllByRole('menuitem');
+  const texts = items.map((item) => item.textContent);
+  await user.keyboard('{Escape}');
+  await waitFor(() => {
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+  return texts;
 }

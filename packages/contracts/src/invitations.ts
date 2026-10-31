@@ -10,6 +10,8 @@ export const createInvitationRequestSchema = z.object({
   rank: invitableRankSchema,
   /** Roles que recibirá el invitado; deben respetar el no escalamiento. */
   roleIds: z.array(z.uuid()).max(20).default([]),
+  /** Responsable del invitado; si se omite, lo es quien invita. Debe estar en el subárbol de quien invita. */
+  managerId: z.uuid().optional(),
 });
 export type CreateInvitationRequest = z.infer<typeof createInvitationRequestSchema>;
 

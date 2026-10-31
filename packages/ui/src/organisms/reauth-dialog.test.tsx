@@ -51,6 +51,25 @@ describe('ReauthDialog', () => {
     expect(onUse).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the cooldown as a timer outside any alert', () => {
+    render(
+      <ReauthDialog
+        open
+        labels={labels}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        errorMessage="Too many attempts"
+        cooldownLabel="Try again in 30 s."
+      />,
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Too many attempts');
+    expect(alert).not.toHaveTextContent('30');
+    const timer = screen.getByRole('timer');
+    expect(timer).toHaveTextContent('Try again in 30 s.');
+    expect(alert).not.toContainElement(timer);
+  });
+
   it('cancels with the button and with Escape', async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();

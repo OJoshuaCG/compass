@@ -3,6 +3,7 @@ import { Button, DataTable, EmptyState, StatusBadge, type Column } from '@iam/ui
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { TablePaging } from '../../../shared/api';
 import { useDataTableLabels } from '../../../shared/i18n';
 import { formatDateTime } from '../../../shared/lib';
 
@@ -19,6 +20,8 @@ export type InvitationsTableProps = {
   timeZone: string | undefined;
   /** Hay una recarga en curso conservando las filas anteriores. */
   refreshing: boolean;
+  /** Tamaño y navegación de página que entrega el container. */
+  paging: TablePaging;
 };
 
 /**
@@ -34,6 +37,7 @@ export function InvitationsTable({
   resendingId,
   timeZone,
   refreshing,
+  paging,
 }: InvitationsTableProps) {
   const { t, i18n } = useTranslation(['directory', 'common']);
   const labels = useDataTableLabels();
@@ -84,15 +88,9 @@ export function InvitationsTable({
       getRowId={(row) => row.id}
       status={status}
       onSortChange={() => undefined}
-      limit={10}
-      onLimitChange={() => undefined}
-      pagination={{
-        hasPrevious: false,
-        hasNext: false,
-        onPrevious: () => undefined,
-        onNext: () => undefined,
-      }}
-      hidePagination
+      limit={paging.limit}
+      onLimitChange={paging.onLimitChange}
+      pagination={paging.pagination}
       refreshing={refreshing}
       labels={labels}
       emptyState={

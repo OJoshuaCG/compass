@@ -7,4 +7,4 @@ export {
 } from './containers/users-page';
 export { creatableRanks } from './model/creatable-ranks';
 // Lecturas que el Inicio resume; comparten claves de caché con las pantallas del directorio.
-export { directoryKeys, fetchPendingInvitations, fetchUsersPage } from './api/directory-api';
+export { directoryKeys, fetchPendingInvitationsPage, fetchUsersPage } from './api/directory-api';

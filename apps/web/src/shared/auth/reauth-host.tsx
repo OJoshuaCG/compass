@@ -1,7 +1,7 @@
 import { passkeySchema } from '@iam/contracts';
 import { ReauthDialog } from '@iam/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useSyncExternalStore } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
@@ -39,14 +39,38 @@ export function ReauthHost() {
   const cooldown = useRateLimitCooldown(submit.error ?? passkeySubmit.error);
 
   // La llave solo se ofrece a quien tiene alguna: así no se pide un desafío que fallaría y quedaría
-  // auditado como intento fallido.
-  const passkeys = useQuery({
-    queryKey: MY_PASSKEYS_KEY,
-    queryFn: async ({ signal }) =>
-      (await apiClient.get('/me/passkeys', passkeysResponseSchema, { signal })).data,
-    enabled: open,
-  });
-  const hasPasskeys = (passkeys.data?.length ?? 0) > 0;
+  // auditado como intento fallido. Se consulta con `queryClient.query` solo mientras hay una solicitud
+  // abierta: un `useQuery` deshabilitado igual registraría una entrada vacía en la caché, y este
+  // componente vive siempre montado, así que la volvería a crear justo después de limpiar la caché al
+  // cerrar sesión. El resultado queda atado a la solicitud que lo pidió, para no ofrecer la llave de
+  // un diálogo anterior.
+  const openRequestId = open ? reauthCoordinator.currentId() : null;
+  const [passkeyOffer, setPasskeyOffer] = useState<{
+    requestId: number;
+    available: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (openRequestId === null) return;
+    let cancelled = false;
+    void queryClient
+      .query({
+        queryKey: MY_PASSKEYS_KEY,
+        queryFn: async ({ signal }) =>
+          (await apiClient.get('/me/passkeys', passkeysResponseSchema, { signal })).data,
+        staleTime: 0,
+      })
+      .then((passkeys) => {
+        if (!cancelled)
+          setPasskeyOffer({ requestId: openRequestId, available: passkeys.length > 0 });
+      })
+      .catch(() => {
+        // Sin lista no se ofrece la llave; el código TOTP sigue disponible.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openRequestId, queryClient]);
+  const hasPasskeys = passkeyOffer?.requestId === openRequestId && passkeyOffer.available;
 
   const { reset } = submit;
   const { reset: resetPasskey } = passkeySubmit;

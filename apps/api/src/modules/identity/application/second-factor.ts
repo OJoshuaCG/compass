@@ -16,6 +16,7 @@ import type { CryptoPrimitives, SecretCipher, SecretContext } from '../../crypto
 import type { UserDirectory } from '../../directory/index.js';
 import type { Mailer } from '../../notification/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
+import { totpSecretContext } from '../domain/totp-secret-context.js';
 import {
   formatRecoveryCode,
   normalizeRecoveryCode,
@@ -32,6 +33,9 @@ import type {
   TotpFactorRecord,
   WebAuthnEngine,
 } from './ports/identity-ports.js';
+import type { SecurityNoticeQueue } from './ports/security-notice-queue.js';
+import { sendSecurityNotice } from './security-notice.js';
+import type { SecurityNoticeDeps, SecurityNoticePlan } from './security-notice.js';
 
 export interface SecondFactorDeps {
   readonly context: RequestContextReader;
@@ -47,6 +51,9 @@ export interface SecondFactorDeps {
   readonly clock: Clock;
   /** Para avisar a los Administradores cuando se usa un código de emergencia. */
   readonly mailer: Mailer;
+  readonly reportLost?: SecurityNoticeDeps['reportLost'];
+  /** Aviso a la persona por la baja de su app de autenticación; se escribe en la transacción (ADR 0035). */
+  readonly securityNotices: SecurityNoticeQueue;
   readonly passkeys: PasskeyRepository;
   readonly challenges: ChallengeStore;
   readonly webauthn: WebAuthnEngine;
@@ -192,6 +199,11 @@ export class SecondFactor {
         // recibir igualmente su cookie nueva o quedaría fuera con el código ya consumido.
       }
     }
+    // Un código ordinario no avisa a los Administradores, pero la persona sí debe enterarse (TODO G5):
+    // si alguien más lo usó, es la única señal que tiene. `sendSecurityNotice` nunca lanza.
+    if (outcome.value.notice !== null) {
+      await sendSecurityNotice(this.deps, outcome.value.notice);
+    }
     return ok({ sessionToken: outcome.value.sessionToken });
   }
 
@@ -200,11 +212,13 @@ export class SecondFactor {
       {
         sessionToken: string;
         alert: { requestId: string; usedAt: Date; recipients: readonly AdminContact[] } | null;
+        notice: SecurityNoticePlan | null;
       },
       DomainError
     >
   > {
-    const { directory, credentials, sessions, tokens, primitives, audit, clock } = this.deps;
+    const { directory, credentials, sessions, tokens, primitives, audit, clock, securityNotices } =
+      this.deps;
     const { user, sessionId, requestId } = await this.currentUser();
     const blocked = await this.checkThrottle(user.id);
     if (blocked !== null) return err(blocked);
@@ -218,11 +232,30 @@ export class SecondFactor {
       await sessions.setMfa(sessionId, now);
       const sessionToken = await tokens.rotateToken(sessionId);
       await audit.record(this.event('auth.recovery_code_used', 'success', user.id, requestId));
-      return ok({ sessionToken, alert: null });
+      return ok({
+        sessionToken,
+        alert: null,
+        notice: {
+          kind: 'recovery_code_used',
+          userId: user.id,
+          to: user.email,
+          locale: user.locale,
+          occurredAt: now,
+          requestId,
+        },
+      });
     }
     // Código de emergencia: la persona queda sin factor y de vuelta en el alta del 2FA, también en la
     // sesión que lo usó (aunque ya estuviera completa).
+    // Se mira ANTES de revocar: solo se avisa la baja de la app de autenticación si la persona tenía una
+    // verificada (quien solo tenía llaves de acceso no pierde ninguna app, y ese caso no es este aviso).
+    const totpFactor = await credentials.findTotpFactor(user.id);
+    const hadVerifiedTotp = totpFactor?.verifiedAt !== undefined && totpFactor.verifiedAt !== null;
     await credentials.revokeSecondFactor(user.id, now);
+    if (hadVerifiedTotp) {
+      // Misma transacción que la revocación: no hay baja sin aviso ni aviso sin baja.
+      await securityNotices.enqueue({ userId: user.id, kind: 'totp_removed', occurredAt: now });
+    }
     await directory.setStatus(user.id, 'invited');
     await sessions.revokeOthersOfUser(user.id, sessionId, now);
     await sessions.clearMfa(sessionId);
@@ -233,7 +266,7 @@ export class SecondFactor {
       ...this.event('auth.emergency_code_used', 'success', user.id, requestId),
       metadata: { alertRecipients: recipients.length },
     });
-    return ok({ sessionToken, alert: { requestId, usedAt: now, recipients } });
+    return ok({ sessionToken, alert: { requestId, usedAt: now, recipients }, notice: null });
   }
 
   /**
@@ -428,7 +461,7 @@ export class SecondFactor {
     organizationId: SecretContext['organizationId'],
     userId: UserId,
   ): SecretContext {
-    return { organizationId, resourceId: userId, field: 'totp_secret', version: 1 };
+    return totpSecretContext(organizationId, userId);
   }
 
   /**

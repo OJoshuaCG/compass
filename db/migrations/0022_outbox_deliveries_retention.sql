@@ -1,0 +1,23 @@
+-- 0022: retention of published outbox events (TODO G1, task D6, ADR 0035).
+--
+-- The purge-expired command now deletes the outbox events published more than 7 days ago together
+-- with their delivery receipts. Receipts go first and events second, so no orphan receipt is left
+-- (there is no foreign key between the two tables on purpose: see 0019).
+--
+-- What this migration does, and nothing else:
+--  * Grants DELETE on outbox_deliveries to iam_app. 0019 left it out "until the retention is
+--    decided"; this is that decision. outbox_events already grants DELETE to iam_app since 0003.
+--  * Adds no policy and no function: outbox_deliveries_tenant_isolation (0019) is `for all`, so its
+--    USING clause already confines a DELETE to the organization in app.org_id, exactly as it does
+--    for select. The job walks the organizations with auth.list_organization_ids() (0014) and sets
+--    app.org_id for each one, so the isolation is the normal one.
+--
+-- What it does NOT do, on purpose:
+--  * No UPDATE: receipts are never edited.
+--  * No access for any other role, and no change to the isolation of either table.
+--  * The grant does not decide WHICH rows get deleted: the purge only deletes receipts of events
+--    that are published and older than the cutoff. Dead letters (published_at null and
+--    next_attempt_at = 'infinity') and unpublished events are never selected, so a human can still
+--    review them.
+
+grant delete on outbox_deliveries to iam_app;

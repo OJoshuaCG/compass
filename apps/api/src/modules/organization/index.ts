@@ -4,4 +4,3 @@ export { PgUnitOfWork } from './infrastructure/pg-unit-of-work.js';
 export type { TransactionProvider } from './infrastructure/pg-unit-of-work.js';
 export type { ScopeContext, TenantScope } from './application/ports/tenant-scope.js';
 export { PgTenantScope } from './infrastructure/pg-tenant-scope.js';
-export { PgOrganizationLister } from './infrastructure/pg-organization-lister.js';

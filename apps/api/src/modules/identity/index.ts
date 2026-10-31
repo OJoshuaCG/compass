@@ -17,7 +17,6 @@ export {
 } from './domain/recovery-codes.js';
 export { Passkeys } from './application/passkeys.js';
 export { PgChallengeStore } from './infrastructure/pg-challenge-store.js';
-export { PgExpiredChallengesPurger } from './infrastructure/pg-expired-challenges-purger.js';
 export { PgPasskeyRepository } from './infrastructure/pg-passkey-repository.js';
 export { SimpleWebAuthnEngine } from './infrastructure/simplewebauthn-engine.js';
 export type { WebAuthnConfig } from './infrastructure/simplewebauthn-engine.js';
@@ -36,6 +35,23 @@ export type {
   TotpEngine,
 } from './application/ports/identity-ports.js';
 export { SecondFactor } from './application/second-factor.js';
+export { NotifySecurityNotice } from './application/notify-security-notice.js';
+export type {
+  NotifySecurityNoticeDeps,
+  SecurityNoticeDeliveries,
+  SecurityNoticeOutboxEvent,
+} from './application/notify-security-notice.js';
+export type {
+  SecurityNoticeEvent,
+  SecurityNoticeQueue,
+} from './application/ports/security-notice-queue.js';
+export {
+  SECURITY_NOTICE_EVENT_TYPE,
+  SecurityNoticeDeliveryError,
+  SecurityNoticePayloadError,
+  securityNoticeHandlerKey,
+} from './domain/security-notice-event.js';
+export { PgSecurityNoticeQueue } from './infrastructure/pg-security-notice-queue.js';
 export { SessionService } from './application/session-service.js';
 export type { AuthenticatedPrincipal, IssuedSession } from './application/session-service.js';
 export { evaluatePassword, personalTokens } from './domain/password-policy.js';
@@ -53,3 +69,4 @@ export { PgPreAuthLookup } from './infrastructure/pg-pre-auth-lookup.js';
 export { PgSessionRepository } from './infrastructure/pg-session-repository.js';
 export { ZxcvbnPasswordStrength } from './infrastructure/zxcvbn-password-strength.js';
 export type { Argon2Params } from './infrastructure/argon2-password-hasher.js';
+export { ReencryptTotpSecrets } from './application/reencrypt-totp-secrets.js';

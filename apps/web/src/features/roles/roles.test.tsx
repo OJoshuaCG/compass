@@ -30,6 +30,7 @@ const MINE: Permission[] = ['role.manage', 'user.invite', 'user.update', 'audit.
 const label = (permission: string) =>
   (es.roles as Record<string, string>)[`permission.${permission}`] ?? permission;
 const archiveLabel = (name: string) => es.roles['action.archiveLabel'].replace('{{name}}', name);
+const editLabel = (name: string) => es.roles['action.editLabel'].replace('{{name}}', name);
 const viewLabel = (name: string) => es.roles['action.viewLabel'].replace('{{name}}', name);
 const rolesCalls = (api: ReturnType<typeof stubApi>) => api.callsTo('GET', '/roles');
 
@@ -39,7 +40,7 @@ function setup(
 ) {
   return stubApi({
     'GET /me': jsonResponse(meFixture({ permissions, rank: 1 })),
-    'GET /roles': jsonResponse({ data: [SYSTEM, CUSTOM] }),
+    'GET /roles': jsonResponse({ data: [SYSTEM, CUSTOM], page: { nextCursor: null, limit: 25 } }),
     ...extra,
   });
 }
@@ -93,7 +94,10 @@ describe('roles table', () => {
     const user = userEvent.setup();
     let mode: 'empty' | 'fail' = 'fail';
     setup({
-      'GET /roles': () => (mode === 'fail' ? problem(500, 'INTERNAL') : jsonResponse({ data: [] })),
+      'GET /roles': () =>
+        mode === 'fail'
+          ? problem(500, 'INTERNAL')
+          : jsonResponse({ data: [], page: { nextCursor: null, limit: 25 } }),
     });
     renderApp('/roles');
     const alert = await screen.findByRole('alert');
@@ -135,7 +139,11 @@ describe('create role', () => {
     const user = userEvent.setup();
     let created = false;
     const api = setup({
-      'GET /roles': () => jsonResponse({ data: created ? [SYSTEM, CUSTOM] : [SYSTEM] }),
+      'GET /roles': () =>
+        jsonResponse({
+          data: created ? [SYSTEM, CUSTOM] : [SYSTEM],
+          page: { nextCursor: null, limit: 25 },
+        }),
       'POST /roles': () => {
         created = true;
         return jsonResponse({ ...CUSTOM, id: NEW_ID, name: 'Nuevo rol' }, 201);
@@ -270,7 +278,11 @@ describe('archive role', () => {
     const user = userEvent.setup();
     let archived = false;
     const api = setup({
-      'GET /roles': () => jsonResponse({ data: archived ? [SYSTEM] : [SYSTEM, CUSTOM] }),
+      'GET /roles': () =>
+        jsonResponse({
+          data: archived ? [SYSTEM] : [SYSTEM, CUSTOM],
+          page: { nextCursor: null, limit: 25 },
+        }),
       [`POST /roles/${CUSTOM_ID}/archive`]: () => {
         archived = true;
         return noContent();
@@ -327,6 +339,29 @@ describe('archive role', () => {
     );
   });
 
+  it('shows the wait time on a 429 and does not resend while it runs', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      [`POST /roles/${CUSTOM_ID}/archive`]: problem(429, 'RATE_LIMITED', {
+        headers: { 'Retry-After': '30' },
+      }),
+    });
+    renderApp('/roles');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: archiveLabel('Soporte') }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
+    expect(alert).not.toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(within(dialog).getByRole('timer')).toHaveTextContent(
+      es.errors.retryIn.replace('{{seconds}}', '30'),
+    );
+
+    await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
+    expect(api.callsTo('POST', `/roles/${CUSTOM_ID}/archive`)).toHaveLength(1);
+  });
+
   it('treats a 404 (already gone) as archived and refreshes', async () => {
     const user = userEvent.setup();
     const api = setup({ [`POST /roles/${CUSTOM_ID}/archive`]: problem(404, 'NOT_FOUND') });
@@ -340,6 +375,156 @@ describe('archive role', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
       expect(rolesCalls(api).length).toBeGreaterThan(before);
     });
+  });
+});
+
+describe('edit role', () => {
+  // Quien edita debe tener TODOS los permisos actuales del rol (ADR 0012): a `Soporte` le suma uno.
+  const EDITOR: Permission[] = [...MINE, 'credential.use_totp'];
+  const editTitle = (name: string) => es.roles['edit.title'].replace('{{name}}', name);
+
+  async function openEdit(user: ReturnType<typeof userEvent.setup>) {
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: editLabel('Soporte') }));
+    return screen.findByRole('dialog', { name: editTitle('Soporte') });
+  }
+
+  it('offers Edit for custom roles only', async () => {
+    setup({}, EDITOR);
+    renderApp('/roles');
+    await rowsLoaded();
+    expect(screen.getByRole('button', { name: editLabel('Soporte') })).toBeVisible();
+    expect(screen.queryByRole('button', { name: editLabel('Administrador base') })).toBeNull();
+  });
+
+  it('opens with the current name and permissions and sends the full replacement', async () => {
+    const user = userEvent.setup();
+    let updated = false;
+    const api = setup(
+      {
+        'GET /roles': () =>
+          jsonResponse({
+            data: [SYSTEM, updated ? { ...CUSTOM, name: 'Soporte N2' } : CUSTOM],
+            page: { nextCursor: null, limit: 25 },
+          }),
+        [`PATCH /roles/${CUSTOM_ID}`]: () => {
+          updated = true;
+          return jsonResponse({ ...CUSTOM, name: 'Soporte N2', permissions: ['user.invite'] });
+        },
+      },
+      EDITOR,
+    );
+    renderApp('/roles');
+    const dialog = await openEdit(user);
+    expect(field(es.roles['create.name'])).toHaveValue('Soporte');
+    for (const permission of CUSTOM.permissions) {
+      expect(within(dialog).getByRole('checkbox', { name: label(permission) })).toBeChecked();
+    }
+    expect(within(dialog).getByRole('checkbox', { name: label('user.update') })).not.toBeChecked();
+    expect(await axeViolations(dialog)).toEqual([]);
+
+    await user.clear(field(es.roles['create.name']));
+    await user.type(field(es.roles['create.name']), 'Soporte N2');
+    await user.click(within(dialog).getByRole('checkbox', { name: label('audit.read_scope') }));
+    await user.click(within(dialog).getByRole('checkbox', { name: label('credential.use_totp') }));
+    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
+
+    expect(
+      await screen.findByText(es.roles['edit.toast'].replace('{{name}}', 'Soporte N2')),
+    ).toBeInTheDocument();
+    const call = api.callsTo('PATCH', `/roles/${CUSTOM_ID}`)[0];
+    expect(call?.body).toEqual({ name: 'Soporte N2', permissions: ['user.invite'] });
+    expect(call?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(call?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.getByRole('cell', { name: 'Soporte N2' })).toBeInTheDocument();
+    });
+  });
+
+  it('cancelling sends nothing', async () => {
+    const user = userEvent.setup();
+    const api = setup({ [`PATCH /roles/${CUSTOM_ID}`]: jsonResponse(CUSTOM) }, EDITOR);
+    renderApp('/roles');
+    const dialog = await openEdit(user);
+    await user.click(within(dialog).getByRole('button', { name: es.common['actions.cancel'] }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(api.callsTo('PATCH', `/roles/${CUSTOM_ID}`)).toHaveLength(0);
+  });
+
+  it('requires at least one permission and sends nothing', async () => {
+    const user = userEvent.setup();
+    const api = setup({ [`PATCH /roles/${CUSTOM_ID}`]: jsonResponse(CUSTOM) }, EDITOR);
+    renderApp('/roles');
+    const dialog = await openEdit(user);
+    for (const permission of CUSTOM.permissions) {
+      await user.click(within(dialog).getByRole('checkbox', { name: label(permission) }));
+    }
+    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
+    const alerts = await within(dialog).findAllByRole('alert');
+    expect(alerts.map((a) => a.textContent)).toContain(es.roles['create.permissionsRequired']);
+    expect(api.callsTo('PATCH', `/roles/${CUSTOM_ID}`)).toHaveLength(0);
+  });
+
+  it('shows ROLE.NAME_TAKEN on the name field and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    setup({ [`PATCH /roles/${CUSTOM_ID}`]: problem(409, 'ROLE.NAME_TAKEN') }, EDITOR);
+    renderApp('/roles');
+    const dialog = await openEdit(user);
+    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
+    await waitFor(() => {
+      expect(field(es.roles['create.name'])).toHaveAttribute('aria-invalid', 'true');
+    });
+    expect(within(dialog).getByText(es.errors['ROLE.NAME_TAKEN'])).toBeVisible();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows AUTHZ.ROLE_ESCALATION from the server in the dialog', async () => {
+    const user = userEvent.setup();
+    setup({ [`PATCH /roles/${CUSTOM_ID}`]: problem(403, 'AUTHZ.ROLE_ESCALATION') }, EDITOR);
+    renderApp('/roles');
+    const dialog = await openEdit(user);
+    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      es.errors['AUTHZ.ROLE_ESCALATION'],
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('disables the submit button during a 429 and shows the wait time', async () => {
+    const user = userEvent.setup();
+    setup(
+      {
+        [`PATCH /roles/${CUSTOM_ID}`]: problem(429, 'RATE_LIMITED', {
+          headers: { 'Retry-After': '30' },
+        }),
+      },
+      EDITOR,
+    );
+    renderApp('/roles');
+    const dialog = await openEdit(user);
+    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
+    expect(alert).not.toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(within(dialog).getByRole('timer')).toHaveTextContent(
+      es.errors.retryIn.replace('{{seconds}}', '30'),
+    );
+    expect(within(dialog).getByRole('button', { name: es.roles['edit.submit'] })).toBeDisabled();
+  });
+
+  it('warns and blocks saving when the role has permissions the editor lacks', async () => {
+    const user = userEvent.setup();
+    // MINE no incluye `credential.use_totp`, que `Soporte` sí tiene.
+    const api = setup({ [`PATCH /roles/${CUSTOM_ID}`]: jsonResponse(CUSTOM) });
+    renderApp('/roles');
+    const dialog = await openEdit(user);
+    expect(within(dialog).getByText(es.roles['edit.missingPermissions'])).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: es.roles['edit.submit'] })).toBeDisabled();
+    expect(api.callsTo('PATCH', `/roles/${CUSTOM_ID}`)).toHaveLength(0);
+    expect(await axeViolations(dialog)).toEqual([]);
   });
 });
 

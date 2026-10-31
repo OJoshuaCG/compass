@@ -4,6 +4,10 @@ export type { AuditLog } from './application/record-audit-event.js';
 export { VerifyAuditChain } from './application/verify-audit-chain.js';
 export type { AuditEventRepository } from './application/ports/audit-event-repository.js';
 export type {
+  AuditEventCountQuery,
+  AuditEventCounter,
+} from './application/ports/audit-event-counter.js';
+export type {
   AuditEvent,
   AuditEventInput,
   AuditMetadata,

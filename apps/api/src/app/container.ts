@@ -5,7 +5,13 @@
 import type { Pool } from 'pg';
 import type { Logger } from 'pino';
 
-import { Authorizer, ManageRoles, PgRoleRepository } from '../modules/access/index.js';
+import {
+  Authorizer,
+  DenialGrouper,
+  ManageRoles,
+  PgRoleRepository,
+  RankRoleAdjuster,
+} from '../modules/access/index.js';
 import { PgAuditEventRepository, RecordAuditEvent } from '../modules/audit/index.js';
 import {
   DataKeyResolver,
@@ -16,12 +22,25 @@ import {
 } from '../modules/crypto/index.js';
 import type { KeyManagementPort } from '../modules/crypto/index.js';
 import { IdempotencyService, PgIdempotencyStore } from '../modules/idempotency/index.js';
+import { PgOrganizationLister, RotateDataKey } from '../modules/maintenance/index.js';
+import {
+  OutboxHandlerRegistry,
+  OutboxPoller,
+  OutboxWorker,
+  PgOutboxDeliveryReceipts,
+  PgOutboxRepository,
+} from '../modules/outbox/index.js';
+import type { OutboxRunOptions } from '../modules/outbox/index.js';
 import {
   CreateUser,
   ListDirectory,
   ListManaged,
   ManageUsers,
+  NotifyRankChanged,
+  PgRankChangeNoticeQueue,
   PgUserDirectory,
+  RANK_CHANGE_NOTICE_EVENT_TYPE,
+  rankChangeNoticeHandlerKey,
 } from '../modules/directory/index.js';
 import {
   AcceptInvitation,
@@ -40,18 +59,43 @@ import {
   InMemoryLoginAttemptStore,
   Login,
   Logout,
+  NotifySecurityNotice,
   OtplibTotpEngine,
   PgCredentialRepository,
   PgInvitationRepository,
   PgPreAuthLookup,
+  PgSecurityNoticeQueue,
   PgSessionRepository,
   PreviewInvitation,
+  SECURITY_NOTICE_EVENT_TYPE,
   SecondFactor,
+  securityNoticeHandlerKey,
   SessionService,
   ZxcvbnPasswordStrength,
 } from '../modules/identity/index.js';
 import type { Argon2Params } from '../modules/identity/index.js';
 import type { Mailer } from '../modules/notification/index.js';
+import {
+  ManageAccounts,
+  ManageShares,
+  ManageCredentials,
+  EnqueuePendingTotpNotices,
+  ImportCredentials,
+  InMemoryTotpConfirmAttemptStore,
+  ManageTotp,
+  NotifyPendingTotpUnconfirmed,
+  NotifyRevealLimitExceeded,
+  OtplibTotpGenerator,
+  PENDING_TOTP_NOTICE_EVENT_TYPE,
+  PgAccountRepository,
+  PgPendingTotpNoticeStore,
+  PgTotpRepository,
+  PgShareRepository,
+  PgVaultCredentialRepository,
+  pendingTotpNoticeHandlerKey,
+  REVEAL_LIMIT_NOTICE_EVENT_TYPE,
+  revealLimitNoticeHandlerKey,
+} from '../modules/vault/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
 import type { Clock } from '../shared/kernel/index.js';
 import { AsyncLocalRequestContext } from '../shared/infrastructure/async-local-request-context.js';
@@ -72,10 +116,19 @@ export interface ContainerOptions {
   readonly argon2?: Argon2Params;
   /** Solo para pruebas: reloj controlable. */
   readonly clock?: Clock;
+  /** Pausa entre pasadas del publicador del outbox (ms); ver `OUTBOX_POLL_INTERVAL_MS`. */
+  readonly outboxPollIntervalMs?: number;
 }
 
+/** Pausa por defecto entre pasadas del publicador; la configuración de la API la sobrescribe. */
+const DEFAULT_OUTBOX_POLL_INTERVAL_MS = 5000;
+
 export function buildContainer(options: ContainerOptions) {
-  const { pool, independentPool, mailer, kms } = options;
+  const { pool, independentPool, mailer, kms, logger } = options;
+  // Único rastro de un aviso de seguridad que ni salió ni pudo auditarse: solo el tipo, sin destinatario.
+  const reportNoticeLost = (kind: string): void => {
+    logger.error({ kind }, 'security notice lost: delivery and its audit event both failed');
+  };
   const clock = options.clock ?? new SystemClock();
   const ids = new UuidV7Generator();
   const primitives = new NodeCryptoPrimitives();
@@ -95,8 +148,9 @@ export function buildContainer(options: ContainerOptions) {
   const cipher = new SecretCipher({ keys, primitives });
 
   // audit
+  const auditEvents = new PgAuditEventRepository(uow);
   const audit = new RecordAuditEvent({
-    repository: new PgAuditEventRepository(uow),
+    repository: auditEvents,
     context: requestContext,
     ids,
   });
@@ -110,11 +164,13 @@ export function buildContainer(options: ContainerOptions) {
     roles,
     audit,
     clock,
+    denialGrouper: new DenialGrouper(clock),
     independently,
   });
   const createUser = new CreateUser({ directory, ids });
-  const listDirectory = new ListDirectory({ directory, uow, context: requestContext });
-  const listManaged = new ListManaged({ directory, uow, context: requestContext });
+  const listDirectory = new ListDirectory({ directory, uow, authorizer });
+  const listManaged = new ListManaged({ directory, uow, authorizer });
+  const shareRepository = new PgShareRepository(uow);
 
   // identity
   const lookup = new PgPreAuthLookup(pool);
@@ -149,9 +205,135 @@ export function buildContainer(options: ContainerOptions) {
     clock,
   });
 
+  // outbox: cada módulo registra sus manejadores en `outboxHandlers` antes de llamar a
+  // `outboxPoller.start()`. Un tipo sin manejador espera pendiente, sin gastar intentos, hasta que se registre.
+  const outboxHandlers = new OutboxHandlerRegistry();
+  const outboxDeliveryReceipts = new PgOutboxDeliveryReceipts(uow, uow);
+  // Aviso a la Raíz por superar el tope de revelaciones (ADR 0031, R2a). Usa el puerto de correo existente.
+  const notifyRevealLimitExceeded = new NotifyRevealLimitExceeded({
+    directory,
+    mailer,
+    clock,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, revealLimitNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, revealLimitNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(REVEAL_LIMIT_NOTICE_EVENT_TYPE, (event) =>
+    notifyRevealLimitExceeded.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Aviso a la persona cuyo rango cambió, con el nombre de quien lo hizo.
+  const notifyRankChanged = new NotifyRankChanged({
+    directory,
+    mailer,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, rankChangeNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, rankChangeNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(RANK_CHANGE_NOTICE_EVENT_TYPE, (event) =>
+    notifyRankChanged.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Aviso de seguridad a la dueña de la cuenta (hoy: baja de su app de autenticación). Solo a ella.
+  const notifySecurityNotice = new NotifySecurityNotice({
+    directory,
+    mailer,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, securityNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, securityNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(SECURITY_NOTICE_EVENT_TYPE, (event) =>
+    notifySecurityNotice.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Aviso a quien registró un segundo factor que lleva 24 h sin confirmar (S10). Solo a quien lo registró.
+  const notifyPendingTotpUnconfirmed = new NotifyPendingTotpUnconfirmed({
+    directory,
+    totps: new PgTotpRepository(uow),
+    credentials: new PgVaultCredentialRepository(uow),
+    mailer,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, pendingTotpNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, pendingTotpNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(PENDING_TOTP_NOTICE_EVENT_TYPE, (event) =>
+    notifyPendingTotpUnconfirmed.handle({ eventId: event.id, payload: event.payload }),
+  );
+  const organizationLister = new PgOrganizationLister(pool);
+  const outboxWorker = new OutboxWorker({
+    organizations: organizationLister,
+    repository: new PgOutboxRepository(uow),
+    scope,
+    handlers: outboxHandlers,
+    ids,
+    clock,
+    logger,
+  });
+  // Barrido de segundos factores pendientes: encola los avisos vencidos (misma transacción que la marca
+  // `pending_notice_at`) ANTES de cada pasada del trabajador, que los entrega. Corre solo con el sondeo
+  // (`OUTBOX_WORKER_ENABLED`) y, aunque falle, no impide que el trabajador publique lo ya encolado.
+  const enqueuePendingTotpNotices = new EnqueuePendingTotpNotices({
+    organizations: organizationLister,
+    store: new PgPendingTotpNoticeStore(uow),
+    scope,
+    ids,
+    clock,
+  });
+  const outboxPassRunner = {
+    async runOnce(runOptions: OutboxRunOptions = {}) {
+      try {
+        const sweep = await enqueuePendingTotpNotices.executeIfDue(
+          runOptions.isStopping === undefined ? {} : { isStopping: runOptions.isStopping },
+        );
+        if (sweep !== null && sweep.enqueued > 0) {
+          logger.info(
+            { enqueued: sweep.enqueued, outcome: 'pending_totp_notices_enqueued' },
+            'pending totp notices enqueued',
+          );
+        }
+        if (sweep !== null && sweep.failedOrganizations > 0) {
+          logger.error(
+            {
+              failedOrganizations: sweep.failedOrganizations,
+              outcome: 'pending_totp_sweep_organization_failed',
+            },
+            'pending totp sweep failed for some organizations',
+          );
+        }
+      } catch (error) {
+        // Solo el nombre del error: el mensaje puede arrastrar datos.
+        logger.error(
+          {
+            outcome: 'pending_totp_sweep_failed',
+            errorName: error instanceof Error ? error.name : 'UnknownError',
+          },
+          'pending totp sweep failed',
+        );
+      }
+      return outboxWorker.runOnce(runOptions);
+    },
+  };
+  const outboxPoller = new OutboxPoller({
+    worker: outboxPassRunner,
+    logger,
+    intervalMs: options.outboxPollIntervalMs ?? DEFAULT_OUTBOX_POLL_INTERVAL_MS,
+  });
+
   return {
     clock,
     ids,
+    outboxHandlers,
+    outboxWorker,
+    outboxPoller,
     primitives,
     requestContext,
     uow,
@@ -171,6 +353,16 @@ export function buildContainer(options: ContainerOptions) {
       webauthn,
       audit,
       clock,
+      mailer,
+      reportLost: reportNoticeLost,
+    }),
+    rotateDataKey: new RotateDataKey({
+      context: requestContext,
+      uow,
+      authorizer,
+      audit,
+      keys,
+      cipher,
     }),
     manageRoles: new ManageRoles({
       context: requestContext,
@@ -181,6 +373,62 @@ export function buildContainer(options: ContainerOptions) {
       ids,
       audit,
       clock,
+    }),
+    manageAccounts: new ManageAccounts({
+      context: requestContext,
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
+      ids,
+      audit,
+      clock,
+    }),
+    manageShares: new ManageShares({
+      context: requestContext,
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
+      shares: shareRepository,
+      ids,
+      audit,
+      clock,
+    }),
+    manageCredentials: new ManageCredentials({
+      context: requestContext,
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
+      credentials: new PgVaultCredentialRepository(uow),
+      cipher,
+      audit,
+      auditCounter: auditEvents,
+      ids,
+      clock,
+    }),
+    importCredentials: new ImportCredentials({
+      context: requestContext,
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
+      credentials: new PgVaultCredentialRepository(uow),
+      cipher,
+      audit,
+      ids,
+    }),
+    manageTotp: new ManageTotp({
+      context: requestContext,
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
+      credentials: new PgVaultCredentialRepository(uow),
+      totps: new PgTotpRepository(uow),
+      cipher,
+      generator: new OtplibTotpGenerator(),
+      audit,
+      auditCounter: auditEvents,
+      ids,
+      clock,
+      confirmAttempts: new InMemoryTotpConfirmAttemptStore(),
     }),
     idempotency: new IdempotencyService({
       scope,
@@ -195,6 +443,13 @@ export function buildContainer(options: ContainerOptions) {
       directory,
       sessions: sessionRepository,
       invitations,
+      roles: new RankRoleAdjuster({ roles }),
+      sharedBy: {
+        listLiveGrantedBy: (userId, now, limit) =>
+          shareRepository.listLiveGrantedBy(userId, now, limit),
+      },
+      // El aviso se escribe en el outbox en la misma transacción del cambio (ADR 0035).
+      rankChangeNotices: new PgRankChangeNoticeQueue(uow),
       audit,
       clock,
     }),
@@ -219,6 +474,8 @@ export function buildContainer(options: ContainerOptions) {
       audit,
       clock,
       mailer,
+      reportLost: reportNoticeLost,
+      securityNotices: new PgSecurityNoticeQueue(uow),
       passkeys: passkeyRepository,
       challenges,
       webauthn,
@@ -302,6 +559,8 @@ export function buildContainer(options: ContainerOptions) {
     }),
     /** Libera conexiones y borra las DEK de memoria (apagado ordenado). */
     async shutdown(): Promise<void> {
+      // Primero el publicador: espera a la pasada en curso antes de cerrar los pools que usa.
+      await outboxPoller.stop();
       await login.drain();
       keys.clearCache();
       await Promise.all([pool.end(), independentPool.end()]);

@@ -19,18 +19,27 @@ export function ErrorAlert({ error, secondsLeft = 0, onRetry }: ErrorAlertProps)
   const { t } = useTranslation(['common', 'errors']);
   const message = useErrorMessage();
   return (
-    <Alert
-      tone="danger"
-      action={
-        onRetry === undefined ? undefined : (
-          <Button size="sm" variant="secondary" onClick={onRetry}>
-            {t('actions.retry', { ns: 'common' })}
-          </Button>
-        )
-      }
-    >
-      {message(error)}
-      {secondsLeft > 0 ? ` ${t('retryIn', { ns: 'errors', seconds: secondsLeft })}` : null}
-    </Alert>
+    <div className="flex flex-col gap-2">
+      <Alert
+        tone="danger"
+        action={
+          onRetry === undefined ? undefined : (
+            <Button size="sm" variant="secondary" onClick={onRetry}>
+              {t('actions.retry', { ns: 'common' })}
+            </Button>
+          )
+        }
+      >
+        {message(error)}
+      </Alert>
+      {/* La cuenta regresiva vive fuera del `role="alert"`: dentro, cada segundo re-anunciaría el
+          aviso completo. `role="timer"` es no asertivo (aria-live="off" implícito), así el
+          lector de pantalla dice el error una vez y el contador sigue visible. */}
+      {secondsLeft > 0 ? (
+        <p role="timer" aria-live="off" className="text-sm text-text-secondary">
+          {t('retryIn', { ns: 'errors', seconds: secondsLeft })}
+        </p>
+      ) : null}
+    </div>
   );
 }

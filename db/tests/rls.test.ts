@@ -20,6 +20,7 @@ const PHASE1_TENANT_TABLES = [
   'accounts',
   'credentials',
   'credential_secrets',
+  'credential_totp',
   'shares',
   'password_fingerprints',
   'access_requests',
@@ -28,7 +29,14 @@ const PHASE1_TENANT_TABLES = [
   'totp_handoffs',
   'data_keys',
   'outbox_events',
+  'outbox_deliveries',
   'idempotency_keys',
+  'inbound_templates',
+  'mail_sources',
+  'mail_views',
+  'mail_view_templates',
+  'inbound_items',
+  'inbound_receipts',
 ];
 
 let adminUrl = '';

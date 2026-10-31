@@ -29,6 +29,33 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ PORT: '70000' })).toThrow(/PORT/);
   });
 
+  describe('TRUST_PROXY', () => {
+    it('trusts no proxy by default', () => {
+      expect(loadConfig({}).TRUST_PROXY).toBe(false);
+    });
+
+    it('accepts true, a number of hops or a list of addresses and ranges', () => {
+      expect(loadConfig({ TRUST_PROXY: 'true' }).TRUST_PROXY).toBe(true);
+      expect(loadConfig({ TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
+      expect(loadConfig({ TRUST_PROXY: '10.0.0.0/8,192.168.1.10' }).TRUST_PROXY).toEqual([
+        '10.0.0.0/8',
+        '192.168.1.10',
+      ]);
+    });
+
+    it('refuses to start with an invalid value and does not echo it', () => {
+      expect(() => loadConfig({ TRUST_PROXY: '0.0.0.0/0' })).toThrow(/TRUST_PROXY/);
+      let message = '';
+      try {
+        loadConfig({ TRUST_PROXY: '10.99.99.99/abc' });
+      } catch (error) {
+        message = String(error);
+      }
+      expect(message).toContain('TRUST_PROXY');
+      expect(message).not.toContain('10.99.99.99');
+    });
+  });
+
   describe('key management', () => {
     const completeSmtp = {
       MAIL_TRANSPORT: 'smtp',
@@ -42,6 +69,38 @@ describe('loadConfig', () => {
 
     it('does not start in production with the local adapter, even with a valid mail setup', () => {
       expect(() => loadConfig({ NODE_ENV: 'production', ...completeSmtp })).toThrow(/KMS_ADAPTER/);
+    });
+
+    it('needs the key id and the region to use AWS KMS', () => {
+      expect(() => loadConfig({ KMS_ADAPTER: 'aws' })).toThrow(/AWS_KMS_KEY_ID/);
+      expect(() => loadConfig({ KMS_ADAPTER: 'aws', AWS_KMS_KEY_ID: 'alias/iam' })).toThrow(
+        /AWS_REGION/,
+      );
+    });
+
+    it('starts in production with AWS KMS and a complete setup', () => {
+      const config = loadConfig({
+        NODE_ENV: 'production',
+        KMS_ADAPTER: 'aws',
+        AWS_KMS_KEY_ID: 'alias/iam',
+        AWS_REGION: 'us-east-1',
+        ...completeSmtp,
+      });
+
+      expect(config.KMS_ADAPTER).toBe('aws');
+    });
+
+    it('does not echo the key id when the configuration is invalid', () => {
+      const message = (): string => {
+        try {
+          loadConfig({ KMS_ADAPTER: 'aws', AWS_KMS_KEY_ID: 'arn:aws:kms:secret-key-id' });
+          return '';
+        } catch (error) {
+          return (error as Error).message;
+        }
+      };
+
+      expect(message()).not.toContain('secret-key-id');
     });
   });
 
@@ -83,6 +142,24 @@ describe('loadConfig', () => {
       } catch (error) {
         expect(String(error)).not.toContain('secret-value');
       }
+    });
+  });
+  describe('outbox worker', () => {
+    it('is disabled by default and reads the text, not the truthiness', () => {
+      expect(loadConfig({}).OUTBOX_WORKER_ENABLED).toBe(false);
+      expect(loadConfig({ OUTBOX_WORKER_ENABLED: 'false' }).OUTBOX_WORKER_ENABLED).toBe(false);
+      expect(loadConfig({ OUTBOX_WORKER_ENABLED: 'true' }).OUTBOX_WORKER_ENABLED).toBe(true);
+      expect(() => loadConfig({ OUTBOX_WORKER_ENABLED: 'yes' })).toThrow(/OUTBOX_WORKER_ENABLED/);
+    });
+
+    it('bounds the polling interval', () => {
+      expect(loadConfig({}).OUTBOX_POLL_INTERVAL_MS).toBe(5000);
+      expect(() => loadConfig({ OUTBOX_POLL_INTERVAL_MS: '100' })).toThrow(
+        /OUTBOX_POLL_INTERVAL_MS/,
+      );
+      expect(() => loadConfig({ OUTBOX_POLL_INTERVAL_MS: '600000' })).toThrow(
+        /OUTBOX_POLL_INTERVAL_MS/,
+      );
     });
   });
 });

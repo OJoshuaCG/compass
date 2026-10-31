@@ -1,6 +1,6 @@
 import type { Permission } from '@iam/contracts';
 
-import type { UserId } from '../../../shared/kernel/index.js';
+import type { KeysetPage, KeysetRequest, UserId } from '../../../shared/kernel/index.js';
 import type { RoleRecord, RoleRepository } from '../application/ports/role-repository.js';
 
 export class InMemoryRoleRepository implements RoleRepository {
@@ -34,8 +34,20 @@ export class InMemoryRoleRepository implements RoleRepository {
     );
   }
 
-  listLive(): Promise<readonly RoleRecord[]> {
-    return Promise.resolve([...this.roles.values()]);
+  listLivePage(page: KeysetRequest): Promise<KeysetPage<RoleRecord>> {
+    // Mismo orden que la consulta real: plantillas del sistema primero, luego por nombre.
+    const ordered = [...this.roles.values()].sort((a, b) => {
+      if (a.isSystem !== b.isSystem) return a.isSystem ? -1 : 1;
+      const byName = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      return byName !== 0 ? byName : a.id.localeCompare(b.id);
+    });
+    const start = page.cursor === null ? 0 : Number(page.cursor);
+    const slice = ordered.slice(start, start + page.limit);
+    const next = start + page.limit;
+    return Promise.resolve({
+      rows: slice,
+      nextCursor: next < ordered.length ? String(next) : null,
+    });
   }
 
   insertCustom(input: {
@@ -56,8 +68,27 @@ export class InMemoryRoleRepository implements RoleRepository {
     return Promise.resolve('inserted');
   }
 
+  updateCustom(input: {
+    id: string;
+    name: string;
+    permissions: readonly Permission[];
+  }): Promise<'updated' | 'name_taken' | 'not_found'> {
+    const existing = this.roles.get(input.id);
+    if (existing === undefined || existing.isSystem) return Promise.resolve('not_found');
+    const taken = [...this.roles.values()].some(
+      (r) => r.id !== input.id && r.name.toLowerCase() === input.name.toLowerCase(),
+    );
+    if (taken) return Promise.resolve('name_taken');
+    this.addRole({ ...existing, name: input.name, permissions: input.permissions });
+    return Promise.resolve('updated');
+  }
+
   findLiveById(id: string): Promise<RoleRecord | null> {
     return Promise.resolve(this.roles.get(id) ?? null);
+  }
+
+  findLiveByIdForUpdate(id: string): Promise<RoleRecord | null> {
+    return this.findLiveById(id);
   }
 
   archive(id: string): Promise<void> {
@@ -67,6 +98,19 @@ export class InMemoryRoleRepository implements RoleRepository {
 
   assign(userId: UserId, roleId: string): Promise<void> {
     this.grant(userId, roleId);
+    return Promise.resolve();
+  }
+
+  listLiveAssigned(userId: UserId): Promise<readonly RoleRecord[]> {
+    const ids = [...(this.assignments.get(userId) ?? [])];
+    return Promise.resolve(
+      ids.map((id) => this.roles.get(id)).filter((role): role is RoleRecord => role !== undefined),
+    );
+  }
+
+  unassign(userId: UserId, roleIds: readonly string[]): Promise<void> {
+    const set = this.assignments.get(userId);
+    for (const roleId of roleIds) set?.delete(roleId);
     return Promise.resolve();
   }
 }

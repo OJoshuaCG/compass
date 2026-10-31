@@ -68,6 +68,12 @@ describe('api client request headers', () => {
     expect(headers.has('Idempotency-Key')).toBe(false);
   });
 
+  it('sends an Idempotency-Key on PATCH only when the caller provides one', async () => {
+    const { client, fetchImpl } = setup(jsonResponse({ ok: true }));
+    await client.patch('/things/1', schema, { body: {}, idempotencyKey: 'key-from-caller' });
+    expect(lastCall(fetchImpl).headers.get('Idempotency-Key')).toBe('key-from-caller');
+  });
+
   it('adds X-Requested-With on DELETE', async () => {
     const { client, fetchImpl } = setup(jsonResponse({ ok: true }));
     await client.delete('/things/1', schema);
