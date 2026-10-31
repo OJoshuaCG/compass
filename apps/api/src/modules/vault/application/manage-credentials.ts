@@ -15,12 +15,7 @@
  *   (ADR 0031) y se protege con un bloqueo por persona que se toma ANTES que el de auditoría (ADR 0023).
  * - Todo cambio escribe su auditoría en la misma transacción, como último paso. Las negaciones también.
  */
-import {
-  REVEAL_LIMIT_PER_HOUR,
-  REVEAL_REASON_MAX_LENGTH,
-  REVEAL_REASON_MIN_LENGTH,
-  isValidRevealReason,
-} from '@iam/contracts';
+import { REVEAL_LIMIT_PER_HOUR } from '@iam/contracts';
 import type { Permission, ShareLevel } from '@iam/contracts';
 
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
@@ -337,14 +332,12 @@ export class ManageCredentials {
   }
 
   /**
-   * Revela la contraseña vigente. El orden importa: primero lo que no cuesta nada (permiso y
-   * reautenticación, acceso a la cuenta, motivo), después el bloqueo por persona, el conteo y, solo al
-   * final, el descifrado. Ninguna negación descifra nada.
+   * Revela la contraseña vigente. No se pide motivo escrito (decisión del dueño del producto): la
+   * trazabilidad es la reautenticación, el tope por hora y la auditoría de cada revelación. El orden
+   * importa: primero lo que no cuesta nada (permiso y reautenticación, acceso a la cuenta), después el
+   * bloqueo por persona, el conteo y, solo al final, el descifrado. Ninguna negación descifra nada.
    */
-  revealPassword(
-    credentialId: string,
-    reason: string | undefined,
-  ): Promise<Result<string, DomainError>> {
+  revealPassword(credentialId: string): Promise<Result<string, DomainError>> {
     const { context, uow, authorizer, accounts, credentials, audit, auditCounter, clock } =
       this.deps;
     const permission: Permission = 'credential.reveal_password';
@@ -374,20 +367,6 @@ export class ManageCredentials {
           targetAccountId: credential.accountId,
         });
         return err(new DomainError('AUTHZ.SHARE', 'Insufficient access to this account'));
-      }
-
-      if (!isValidRevealReason(reason)) {
-        await authorizer.auditDenial({
-          code: 'CREDENTIAL.REASON_INVALID',
-          permission,
-          targetAccountId: credential.accountId,
-        });
-        return err(
-          new DomainError('CREDENTIAL.REASON_INVALID', 'A written reason is required', {
-            minLength: REVEAL_MIN_LENGTH,
-            maxLength: REVEAL_MAX_LENGTH,
-          }),
-        );
       }
 
       // Sin este bloqueo, dos revelaciones concurrentes verían las dos "29 de 30" y pasarían ambas.
@@ -430,7 +409,7 @@ export class ManageCredentials {
         reasonCode: null,
         ip: null,
         requestId: current.requestId,
-        metadata: { reason: reason.trim() },
+        metadata: {},
       });
       return password;
     });
@@ -563,6 +542,3 @@ export class ManageCredentials {
     return actorId;
   }
 }
-
-const REVEAL_MIN_LENGTH = REVEAL_REASON_MIN_LENGTH;
-const REVEAL_MAX_LENGTH = REVEAL_REASON_MAX_LENGTH;

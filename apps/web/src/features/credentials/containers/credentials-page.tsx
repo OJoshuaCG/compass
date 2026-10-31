@@ -35,14 +35,12 @@ import { CredentialCards, rowMenuTriggerSelector } from '../ui/credential-cards'
 import { ChangePasswordDialog } from './change-password-dialog';
 import { CreateCredentialDialog } from './create-credential-dialog';
 import { HistoryDialog } from './history-dialog';
-import { RevealPasswordDialog } from './reveal-password-dialog';
+import { RevealPasswordDialog, type RevealPasswordDialogHandle } from './reveal-password-dialog';
 import { copySecretWithAutoClear } from './secret-clipboard';
 import { TotpDialog } from './totp-dialog';
 
 type DialogState =
-  | { kind: 'create' }
-  | { kind: 'reveal' | 'password' | 'history' | 'totp'; credential: Credential }
-  | null;
+  { kind: 'create' } | { kind: 'password' | 'history' | 'totp'; credential: Credential } | null;
 
 export type CredentialsPageProps = {
   accountId: string;
@@ -72,6 +70,8 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   // Fila cuyo menú "⋯" abrió el diálogo actual; sirve para devolver el foco al cerrarlo.
   const menuOriginRef = useRef<string | null>(null);
   const tableRegionRef = useRef<HTMLDivElement>(null);
+  // El diálogo de revelar vive montado para que la petición salga del clic de la fila (ver su doc).
+  const revealDialogRef = useRef<RevealPasswordDialogHandle>(null);
 
   const accountQuery = useQuery({
     queryKey: credentialsKeys.account(accountId),
@@ -276,7 +276,7 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
               void handleCopyUsername(credential);
             }}
             onReveal={(credential) => {
-              setDialog({ kind: 'reveal', credential });
+              revealDialogRef.current?.reveal(credential);
             }}
             onChangePassword={(credential) => {
               openFromMenu('password', credential);
@@ -313,9 +313,7 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
           }}
         />
       ) : null}
-      {dialog?.kind === 'reveal' ? (
-        <RevealPasswordDialog credential={dialog.credential} onClose={close} />
-      ) : null}
+      <RevealPasswordDialog ref={revealDialogRef} />
       {dialog?.kind === 'password' ? (
         <ChangePasswordDialog
           credential={dialog.credential}

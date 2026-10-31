@@ -14,7 +14,6 @@ const CREDENTIAL_LABEL = 'Main login';
 const CREDENTIAL_USERNAME = 'vault.user@e2e.test';
 const INITIAL_SECRET = 'Vault-Initial-Passphrase-41';
 const CHANGED_SECRET = 'Vault-Changed-Passphrase-52';
-const REVEAL_REASON = 'Checking the shared login before a scheduled post';
 
 const IMPORT_ACCOUNT_ONE = 'E2E Import Account One';
 const IMPORT_ACCOUNT_TWO = 'E2E Import Account Two';
@@ -101,28 +100,20 @@ test.describe.serial('vault journey in a real browser (accounts, credentials, im
     expect(page.url()).not.toContain(INITIAL_SECRET);
   });
 
-  test('revealing needs a written reason, shows the password and leaves nothing behind once hidden', async () => {
+  test('revealing takes a single click, asks for no reason and leaves nothing behind once hidden', async () => {
     test.setTimeout(120_000);
     await page.getByRole('button', { name: `Reveal the password of ${CREDENTIAL_LABEL}` }).click();
     const dialog = page.getByRole('dialog', { name: `Reveal the password of ${CREDENTIAL_LABEL}` });
     const revealedField = dialog.getByRole('textbox', { name: 'Password', exact: true });
 
-    // Un motivo demasiado corto se rechaza en el cliente: no llega al servidor ni cuenta para el límite por hora.
-    await dialog.getByLabel('Reason').fill('abc');
-    await dialog.getByRole('button', { name: 'Reveal', exact: true }).click();
-    await expect(
-      dialog.getByText('Write a reason of 6 to 500 characters to reveal the password.'),
-    ).toBeVisible();
-    await expect(revealedField).toHaveCount(0);
-
-    await dialog.getByLabel('Reason').fill(REVEAL_REASON);
-    await dialog.getByRole('button', { name: 'Reveal', exact: true }).click();
+    // Un solo clic: no hay campo de motivo y la petición sale sola (con reautenticación si el servidor la pide).
+    await expect(dialog.getByLabel('Reason')).toHaveCount(0);
     await expectOutcomeConfirmingIdentity(page, rootSecret, revealedField);
     await expect(revealedField).toHaveValue(INITIAL_SECRET);
 
     await dialog.getByRole('button', { name: 'Hide now' }).click();
     await expect(
-      dialog.getByText('The password was hidden. To see it again, write a new reason.'),
+      dialog.getByText('The password was hidden. To see it again, press "Reveal again".'),
     ).toBeVisible();
     await expect(revealedField).toHaveCount(0);
 

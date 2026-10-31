@@ -46,6 +46,7 @@ export {
   acceptInvitationResponseSchema,
   createInvitationRequestSchema,
   createInvitationResponseSchema,
+  createInvitationWithLinkResponseSchema,
   invitationPreviewResponseSchema,
 } from './invitations.js';
 export type {
@@ -53,6 +54,7 @@ export type {
   AcceptInvitationResponse,
   CreateInvitationRequest,
   CreateInvitationResponse,
+  CreateInvitationWithLinkResponse,
   InvitationPreviewResponse,
 } from './invitations.js';
 export {
@@ -80,8 +82,24 @@ export type {
 export { sessionSummarySchema } from './sessions.js';
 export type { SessionSummary } from './sessions.js';
 
-export { createRoleRequestSchema, roleSchema, updateRoleRequestSchema } from './roles.js';
-export type { CreateRoleRequest, Role, UpdateRoleRequest } from './roles.js';
+export {
+  createRoleRequestSchema,
+  permissionCatalogEntrySchema,
+  personRolesSchema,
+  roleSchema,
+  setPersonRolesRequestSchema,
+  setSpecialPermissionsRequestSchema,
+  updateRoleRequestSchema,
+} from './roles.js';
+export type {
+  CreateRoleRequest,
+  PermissionCatalogEntry,
+  PersonRoles,
+  Role,
+  SetPersonRolesRequest,
+  SetSpecialPermissionsRequest,
+  UpdateRoleRequest,
+} from './roles.js';
 export { pendingInvitationSchema } from './invitations.js';
 export type { PendingInvitation } from './invitations.js';
 
@@ -118,7 +136,6 @@ export {
   credentialUsernameSchema,
   isValidRevealReason,
   passwordVersionSchema,
-  revealPasswordRequestSchema,
   revealedPasswordSchema,
 } from './credentials.js';
 export type {
@@ -128,7 +145,6 @@ export type {
   CredentialKind,
   CredentialUsername,
   PasswordVersion,
-  RevealPasswordRequest,
   RevealedPassword,
 } from './credentials.js';
 export {

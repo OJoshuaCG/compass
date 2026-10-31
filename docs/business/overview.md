@@ -118,7 +118,7 @@ Un sistema "zero-knowledge" es aquel donde el servidor jamás puede leer los sec
 
 El plan es explícito sobre lo que ninguna medida puede evitar:
 
-- **Quien tiene acceso legítimo puede copiar lo que ve.** Si una persona tiene VIEW sobre una cuenta, puede anotar la contraseña. Las contramedidas son el nivel USE (usar sin ver), los límites de revelaciones por hora, los motivos escritos, las alertas, el acceso temporal y la rotación en las bajas.
+- **Quien tiene acceso legítimo puede copiar lo que ve.** Si una persona tiene VIEW sobre una cuenta, puede anotar la contraseña. Las contramedidas son el nivel USE (usar sin ver), los límites de revelaciones por hora, los motivos escritos en las acciones más sensibles, las alertas, el acceso temporal y la rotación en las bajas.
 - **La limpieza del portapapeles es de mejor esfuerzo.** El navegador puede impedirla y los gestores de portapapeles del sistema operativo pueden retener lo copiado.
 - **Una extensión de navegador no protege contra un usuario decidido.** Cuando exista, protegerá contra la exposición casual, no contra alguien con herramientas de desarrollador.
 

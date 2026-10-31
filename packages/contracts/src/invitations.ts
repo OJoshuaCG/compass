@@ -15,7 +15,7 @@ export const createInvitationRequestSchema = z.object({
 });
 export type CreateInvitationRequest = z.infer<typeof createInvitationRequestSchema>;
 
-/** El enlace con el token se envía por correo; la API nunca lo devuelve a quien invita. */
+/** El enlace con el token se envía por correo; esta respuesta no lo incluye (solo la variante con enlace). */
 export const createInvitationResponseSchema = z.object({
   id: z.uuid(),
   email: z.string(),
@@ -23,6 +23,19 @@ export const createInvitationResponseSchema = z.object({
   expiresAt: z.iso.datetime(),
 });
 export type CreateInvitationResponse = z.infer<typeof createInvitationResponseSchema>;
+
+/**
+ * Respuesta de las rutas que entregan el enlace a quien invita (permiso `user.invite_link`). El
+ * enlace se devuelve una sola vez y no se guarda en ningún lado; `emailSent` es `false` si el
+ * servidor de correo falló, que es justo el caso en que se comparte a mano.
+ */
+export const createInvitationWithLinkResponseSchema = createInvitationResponseSchema.extend({
+  link: z.string(),
+  emailSent: z.boolean(),
+});
+export type CreateInvitationWithLinkResponse = z.infer<
+  typeof createInvitationWithLinkResponseSchema
+>;
 
 /** Invitación todavía sin aceptar ni revocar, tal como la ve quien la envió. Nunca lleva el token. */
 export const pendingInvitationSchema = z.object({

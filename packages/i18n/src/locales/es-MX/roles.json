@@ -1,6 +1,6 @@
 {
-  "title": "Roles",
-  "description": "Los roles agrupan permisos que puedes asignar al invitar a una persona.",
+  "title": "Roles y permisos",
+  "description": "Gestiona los roles y consulta el catálogo de permisos. Los permisos especiales se asignan por persona desde Equipo.",
   "caption": "Roles de la organización",
   "kind.system": "Plantilla del sistema",
   "kind.custom": "Rol personalizado",
@@ -57,6 +57,7 @@
   "permission.audit.read_all": "Leer toda la auditoría",
   "permission.sso.clients.manage": "Gestionar clientes SSO",
   "permission.user.invite": "Invitar usuarios",
+  "permission.user.invite_link": "Ver el enlace de invitación para compartirlo a mano",
   "permission.user.update": "Actualizar usuarios",
   "permission.user.change_rank": "Cambiar el rango de usuarios",
   "permission.user.transfer": "Transferir usuarios",
@@ -79,5 +80,11 @@
   "permission.audit.read_scope": "Leer la auditoría de su alcance",
   "permission.inbound.read_codes": "Ver códigos de acceso recibidos",
   "permission.inbound.configure": "Configurar fuentes y vistas de códigos recibidos",
-  "permission.inbound.reveal_reset": "Revelar restablecimientos recibidos"
+  "permission.inbound.reveal_reset": "Revelar restablecimientos recibidos",
+  "tabs.label": "Secciones de roles y permisos",
+  "tabs.roles": "Roles",
+  "tabs.permissions": "Permisos",
+  "permissions.help": "Catálogo de solo lectura: cada permiso con el rango más bajo que puede tenerlo.",
+  "permissions.empty": "No hay permisos en el catálogo.",
+  "permissions.maxRank": "Hasta el rango {{rank}}"
 }

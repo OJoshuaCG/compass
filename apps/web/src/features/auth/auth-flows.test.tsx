@@ -288,6 +288,30 @@ describe('TOTP enrollment', () => {
 describe('accept invitation', () => {
   const preview = { email: 'luis@example.com', rank: 2, expiresAt: '2030-01-04T12:00:00.000Z' };
 
+  it.each(['PASSWORD.CONTAINS_PERSONAL_DATA', 'PASSWORD.TOO_SHORT'] as const)(
+    'shows the specific %s message in the password field',
+    async (code) => {
+      const user = userEvent.setup();
+      stubApi({
+        ...sessionApi('anonymous').handlers,
+        'POST /invitations/preview': jsonResponse(preview),
+        'POST /invitations/accept': problem(422, code),
+      });
+      renderApp(`/invitation?token=${TOKEN}`);
+
+      await screen.findByText('luis@example.com');
+      await user.type(field(es.auth['invitation.displayName']), 'Luis Gómez');
+      const password = field(es.auth['invitation.password']);
+      await user.type(password, 'Luis@Gomez20261');
+      await user.click(screen.getByRole('button', { name: es.auth['invitation.submit'] }));
+
+      await waitFor(() => {
+        expect(password).toHaveAccessibleDescription(expect.stringContaining(es.errors[code]));
+      });
+      expect(password).toBeInvalid();
+    },
+  );
+
   it('previews the invitation, shows WEAK passwords in the field and then enrolls', async () => {
     const user = userEvent.setup();
     const { state, handlers } = sessionApi('anonymous');

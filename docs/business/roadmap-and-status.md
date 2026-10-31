@@ -132,7 +132,7 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 
 **Estado.** Las tablas y el cifrado existen desde la fase 0 y la mayor parte de las siete porciones ya tiene reglas y pantallas en funcionamiento: cuentas, credenciales con revelado auditado, compartición, segundo factor por clave manual o imagen del QR, e importación desde Google Authenticator y por CSV con previsualización. También funcionan la alerta a la Raíz por superar el límite de revelaciones y el aviso de segundo factor sin confirmar. Faltan la búsqueda avanzada y la entrega por celular del registro del segundo factor. Las porciones, en este orden: cuentas y acceso efectivo; credenciales y revelación; compartición y grupos; segundo factor en el servidor; registro del segundo factor por captura, importación y celular; búsqueda avanzada; importación por CSV. Sigue vigente que **no debe cargarse ninguna credencial real** hasta cerrar la fase 1 y pasar la prueba de intrusión externa.
 
-Decisiones ya tomadas: la biblioteca para leer códigos QR en el navegador; el límite de 30 revelaciones por persona y hora, con aviso a la Raíz; y el motivo escrito al revelar, de texto libre entre 6 y 500 caracteres.
+Decisiones ya tomadas: la biblioteca para leer códigos QR en el navegador; el límite de 30 revelaciones por persona y hora, con aviso a la Raíz; y quitar el motivo escrito al revelar una contraseña (2026-10-31; el motivo sigue en exportar el segundo factor y en el acceso de emergencia).
 
 | Qué entrega | Documento donde se explica |
 | --- | --- |

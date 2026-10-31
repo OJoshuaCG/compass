@@ -92,7 +92,7 @@ describe('the initial password of the Root is single use', () => {
     });
 
     expect(weak.body.code).toBe('PASSWORD.WEAK');
-    expect(personal.body.code).toBe('PASSWORD.WEAK');
+    expect(personal.body.code).toBe('PASSWORD.CONTAINS_PERSONAL_DATA');
     expect(same.status).toBe(422);
     expect(same.body.code).toBe('PASSWORD.REUSED');
   });

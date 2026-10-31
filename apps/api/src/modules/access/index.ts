@@ -5,6 +5,8 @@ export type { AuthorizationRequest, AuthorizerDeps } from './application/authori
 export type { RoleRecord, RoleRepository } from './application/ports/role-repository.js';
 export { RankRoleAdjuster } from './application/rank-role-adjuster.js';
 export { ManageRoles } from './application/manage-roles.js';
+export { ManagePersonRoles } from './application/manage-person-roles.js';
+export type { PermissionCatalogEntry, PersonRolesView } from './application/manage-person-roles.js';
 export { decide } from './domain/decision.js';
 export type { Decision, DenyReason } from './domain/decision.js';
 export { effectivePermissions } from './domain/effective-permissions.js';

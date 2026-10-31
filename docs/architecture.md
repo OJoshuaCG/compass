@@ -223,7 +223,7 @@ sequenceDiagram
   participant A as AuditLog (audit)
   participant DB as PostgreSQL
 
-  U->>C: POST /credentials/:id/reveal (cookie, motivo)
+  U->>C: POST /credentials/:id/reveal (cookie)
   C->>C: guard de sesión, CSRF y permiso (red de seguridad)
   C->>UC: execute(comando)
   UC->>UoW: run(...)

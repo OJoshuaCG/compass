@@ -7,15 +7,28 @@ export interface RoleRecord {
   readonly name: string;
   readonly isSystem: boolean;
   readonly permissions: readonly Permission[];
+  /**
+   * Persona dueña de un rol personal (sus permisos especiales); ausente o `null` en plantillas y
+   * roles personalizados. Un rol personal no se lista, no se edita por la pantalla de roles y no se
+   * adjunta a invitaciones.
+   */
+  readonly personalUserId?: string | null;
 }
 
 /** Todo corre en la transacción en curso, con la organización fijada por RLS. */
+/** `true` si el rol es el personal de alguien (sus permisos especiales), no un rol que se elige. */
+export const isPersonalRole = (role: Pick<RoleRecord, 'personalUserId'>): boolean =>
+  (role.personalUserId ?? null) !== null;
+
 export interface RoleRepository {
   /** Permisos de los roles vigentes (no archivados) asignados a un usuario. */
   rolePermissionsOf(userId: UserId): Promise<readonly (readonly Permission[])[]>;
   findByIds(ids: readonly string[]): Promise<readonly RoleRecord[]>;
   findSystemRole(name: string): Promise<RoleRecord | null>;
-  /** Una página de los roles vigentes (no archivados): plantillas del sistema primero, luego por nombre. */
+  /**
+   * Una página de los roles vigentes (no archivados) que se pueden elegir y editar: plantillas del
+   * sistema primero, luego por nombre. Los roles personales no aparecen.
+   */
   listLivePage(page: KeysetRequest): Promise<KeysetPage<RoleRecord>>;
   /** `name_taken` si ya hay un rol vigente con ese nombre (sin distinguir mayúsculas). */
   insertCustom(input: {
@@ -45,4 +58,14 @@ export interface RoleRepository {
   listLiveAssigned(userId: UserId): Promise<readonly RoleRecord[]>;
   /** Quita las asignaciones indicadas; la historia de quién las tuvo vive en la auditoría. */
   unassign(userId: UserId, roleIds: readonly string[]): Promise<void>;
+  /** Rol personal vigente de la persona (bloqueado hasta el fin de la transacción), si lo tiene. */
+  findPersonalOfForUpdate(userId: UserId): Promise<RoleRecord | null>;
+  insertPersonal(input: {
+    readonly id: string;
+    readonly userId: UserId;
+    readonly permissions: readonly Permission[];
+    readonly createdBy: UserId;
+  }): Promise<void>;
+  /** Reemplaza los permisos de un rol personal vigente. */
+  updatePersonalPermissions(id: string, permissions: readonly Permission[]): Promise<void>;
 }

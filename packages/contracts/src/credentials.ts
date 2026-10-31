@@ -37,15 +37,6 @@ export type CreateCredentialRequest = z.infer<typeof createCredentialRequestSche
 export const changeCredentialPasswordRequestSchema = z.object({ password: passwordSchema });
 export type ChangeCredentialPasswordRequest = z.infer<typeof changeCredentialPasswordRequestSchema>;
 
-/**
- * El largo del motivo se valida en el caso de uso, no aquí: un motivo ausente o fuera de rango debe
- * dejar una negación auditada (una validación 422 del borde no deja rastro).
- */
-export const revealPasswordRequestSchema = z.object({
-  reason: z.string().max(2000).optional(),
-});
-export type RevealPasswordRequest = z.infer<typeof revealPasswordRequestSchema>;
-
 /** El motivo es válido con longitud 6 a 500 después de recortar espacios, y sin caracteres de control. */
 export const isValidRevealReason = (reason: string | undefined): reason is string => {
   if (reason === undefined) return false;

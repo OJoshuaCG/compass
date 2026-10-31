@@ -82,7 +82,7 @@ Todos los documentos usan los mismos personajes para que los ejemplos se puedan 
 | Credencial | Un acceso a esa cuenta. Una cuenta puede tener varias |
 | Secreto | Dato confidencial de una credencial: usuario, contraseña, clave de segundo factor, códigos de recuperación o notas |
 | Versión de un secreto | Cada cambio de un secreto crea una versión nueva; las anteriores se conservan 30 días |
-| Revelar | Mostrar la contraseña en pantalla. Es una acción auditada, con motivo y reautenticación |
+| Revelar | Mostrar la contraseña en pantalla. Es una acción auditada y con reautenticación, sin motivo escrito |
 | Segundo factor de la plataforma (2FA) | Código de un solo uso de 6 u 8 dígitos que cambia cada 30 o 60 segundos y que la plataforma pide además de la contraseña |
 | Confirmación del 2FA | Paso obligatorio que comprueba que la plataforma aceptó el código antes de dar el registro por bueno |
 | Entrega por celular (handoff) | Método de registro del 2FA que usa la cámara del teléfono para leer el código QR de la plataforma |

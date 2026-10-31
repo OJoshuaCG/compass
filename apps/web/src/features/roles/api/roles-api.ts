@@ -1,4 +1,10 @@
-import { roleSchema, type CreateRoleRequest, type UpdateRoleRequest } from '@iam/contracts';
+import {
+  permissionCatalogEntrySchema,
+  roleSchema,
+  type CreateRoleRequest,
+  type UpdateRoleRequest,
+} from '@iam/contracts';
+import { z } from 'zod';
 
 import { apiClient, createListFetcher, noContentSchema, type ApiClient } from '../../../shared/api';
 
@@ -6,6 +12,7 @@ import { apiClient, createListFetcher, noContentSchema, type ApiClient } from '.
 export const rolesKeys = {
   all: ['roles'] as const,
   list: () => [...rolesKeys.all, 'list'] as const,
+  permissionCatalog: () => [...rolesKeys.all, 'permission-catalog'] as const,
 };
 
 /** `GET /roles?cursor=&limit=`: plantillas del sistema primero y luego las personalizadas por nombre. */
@@ -28,4 +35,15 @@ export function updateRole(id: string, body: UpdateRoleRequest, client: ApiClien
 /** `POST /roles/:id/archive` (204, exige `role.manage`): los roles de sistema responden 403. */
 export function archiveRole(id: string, client: ApiClient = apiClient) {
   return client.post(`/roles/${id}/archive`, noContentSchema);
+}
+
+const permissionCatalogResponseSchema = z.object({ data: z.array(permissionCatalogEntrySchema) });
+
+/**
+ * `GET /permissions` (exige `user.invite`): cada permiso con el rango más bajo que puede tenerlo.
+ * Es solo de consulta; el servidor valida de todos modos lo que se asigne.
+ */
+export async function fetchPermissionCatalog(signal: AbortSignal, client: ApiClient = apiClient) {
+  const response = await client.get('/permissions', permissionCatalogResponseSchema, { signal });
+  return response.data;
 }

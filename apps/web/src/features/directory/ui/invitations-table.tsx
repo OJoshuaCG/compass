@@ -14,6 +14,8 @@ export type InvitationsTableProps = {
   errorMessage: string;
   onRetry: () => void;
   onResend: (invitation: PendingInvitation) => void;
+  /** Reenviar y mostrar el enlace. Solo se ofrece el botón si el container lo pasa (permiso). */
+  onResendWithLink?: (invitation: PendingInvitation) => void;
   /** Invitación que se está reenviando: su botón queda en carga y los demás deshabilitados. */
   resendingId: string | null;
   /** Zona horaria del perfil, para mostrar las fechas. */
@@ -34,6 +36,7 @@ export function InvitationsTable({
   errorMessage,
   onRetry,
   onResend,
+  onResendWithLink,
   resendingId,
   timeZone,
   refreshing,
@@ -101,18 +104,36 @@ export function InvitationsTable({
       }
       errorState={{ message: errorMessage, onRetry }}
       rowActions={(row) => (
-        <Button
-          variant="secondary"
-          size="sm"
-          loading={resendingId === row.id}
-          disabled={resendingId !== null}
-          aria-label={t('invitations.resendLabel', { ns: 'directory', email: row.email })}
-          onClick={() => {
-            onResend(row);
-          }}
-        >
-          {t('invitations.resend', { ns: 'directory' })}
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={resendingId === row.id}
+            disabled={resendingId !== null}
+            aria-label={t('invitations.resendLabel', { ns: 'directory', email: row.email })}
+            onClick={() => {
+              onResend(row);
+            }}
+          >
+            {t('invitations.resend', { ns: 'directory' })}
+          </Button>
+          {onResendWithLink !== undefined ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={resendingId !== null}
+              aria-label={t('invitations.resendWithLinkLabel', {
+                ns: 'directory',
+                email: row.email,
+              })}
+              onClick={() => {
+                onResendWithLink(row);
+              }}
+            >
+              {t('invitations.resendWithLink', { ns: 'directory' })}
+            </Button>
+          ) : null}
+        </div>
       )}
     />
   );

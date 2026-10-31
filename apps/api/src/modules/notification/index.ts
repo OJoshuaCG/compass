@@ -10,7 +10,10 @@ export type {
   SecurityNoticeMessage,
 } from './application/ports/mailer.js';
 export { InMemoryMailer } from './infrastructure/in-memory-mailer.js';
-export { renderInvitationEmail } from './application/render-invitation-email.js';
+export {
+  buildInvitationLink,
+  renderInvitationEmail,
+} from './application/render-invitation-email.js';
 export { renderPendingTotpEmail } from './application/render-pending-totp-email.js';
 export { renderRankChangeEmail } from './application/render-rank-change-email.js';
 export { renderRevealLimitEmail } from './application/render-reveal-limit-email.js';

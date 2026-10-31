@@ -9,17 +9,31 @@ export type RoleChoicesProps = {
   roles: readonly Role[];
   selected: readonly string[];
   onChange: (selected: string[]) => void;
+  /** Texto ya traducido de "cambios sin guardar"; solo se pasa cuando el bloque difiere de lo guardado. */
+  unsavedLabel?: string | undefined;
 };
 
 /**
  * Grupo de casillas de roles personalizados. Un `fieldset` con leyenda da el nombre al grupo para
  * los lectores de pantalla; cada casilla lleva su etiqueta y la ayuda se enlaza al grupo.
  */
-export function RoleChoices({ legend, help, roles, selected, onChange }: RoleChoicesProps) {
+export function RoleChoices({
+  legend,
+  help,
+  roles,
+  selected,
+  onChange,
+  unsavedLabel,
+}: RoleChoicesProps) {
   const helpId = useId();
   return (
     <fieldset aria-describedby={helpId} className="flex flex-col gap-2">
       <legend className="text-sm font-medium text-text">{legend}</legend>
+      {unsavedLabel !== undefined ? (
+        <p role="status" className="text-sm font-medium text-warning">
+          {unsavedLabel}
+        </p>
+      ) : null}
       <p id={helpId} className="text-sm text-text-secondary">
         {help}
       </p>

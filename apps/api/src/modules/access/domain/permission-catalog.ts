@@ -15,6 +15,7 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'audit.read_all': 1,
   'sso.clients.manage': 1,
   'user.invite': 2,
+  'user.invite_link': 2,
   'user.update': 2,
   'user.change_rank': 1,
   'user.transfer': 2,
@@ -60,7 +61,7 @@ const NONE: ActionPolicy = { reauth: false, writtenReason: false, criticalAudit:
 
 /**
  * Acciones con reautenticación: revelar contraseña, exportar secreto 2FA, cambiar rango o roles,
- * acceso de emergencia, transferir la Raíz y gestionar SSO. Con motivo escrito: revelar, exportar
+ * acceso de emergencia, transferir la Raíz y gestionar SSO. Con motivo escrito: exportar
  * y acceso de emergencia. Los eventos críticos están listados en "Gobernanza > Auditoría".
  */
 export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> = {
@@ -68,9 +69,13 @@ export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> 
   'platform.manage': { reauth: true, writtenReason: false, criticalAudit: true },
   'sso.clients.manage': { reauth: true, writtenReason: false, criticalAudit: false },
   'user.change_rank': { reauth: true, writtenReason: false, criticalAudit: false },
+  // El enlace de invitación permite aceptarla en lugar del invitado: se entrega solo con reautenticación
+  // reciente y cada entrega queda auditada (`user.invitation_link_revealed`).
+  'user.invite_link': { reauth: true, writtenReason: false, criticalAudit: false },
   'role.assign': { reauth: true, writtenReason: false, criticalAudit: false },
   'vault.emergency_access': { reauth: true, writtenReason: true, criticalAudit: true },
-  'credential.reveal_password': { reauth: true, writtenReason: true, criticalAudit: false },
+  // Sin motivo escrito (decisión del dueño): la reautenticación, el tope por hora y la auditoría bastan.
+  'credential.reveal_password': { reauth: true, writtenReason: false, criticalAudit: false },
   'credential.export_totp': { reauth: true, writtenReason: true, criticalAudit: true },
   // Un restablecimiento (código o enlace) abre una cuenta ajena: mismo molde que exportar el 2FA.
   'inbound.reveal_reset': { reauth: true, writtenReason: true, criticalAudit: true },

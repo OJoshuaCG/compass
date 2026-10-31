@@ -28,6 +28,7 @@ interface RoleRow {
   name: string;
   is_system: boolean;
   permissions: string[];
+  personal_user_id: string | null;
 }
 
 export class PgRoleRepository implements RoleRepository {
@@ -49,7 +50,7 @@ export class PgRoleRepository implements RoleRepository {
     const result = await this.transactions
       .current()
       .query<RoleRow>(
-        'select id, name, is_system, permissions from roles where id = any($1::uuid[]) and archived_at is null',
+        'select id, name, is_system, permissions, personal_user_id from roles where id = any($1::uuid[]) and archived_at is null and personal_user_id is null',
         [ids],
       );
     return result.rows.map(toRecord);
@@ -70,10 +71,10 @@ export class PgRoleRepository implements RoleRepository {
     const result = await this.transactions
       .current()
       .query<RoleRow & { sort_group: number; sort_name: string }>(
-        `select id, name, is_system, permissions,
+        `select id, name, is_system, permissions, personal_user_id,
               case when is_system then 0 else 1 end as sort_group, lower(name) as sort_name
          from roles
-        where archived_at is null ${afterCursor}
+        where archived_at is null and personal_user_id is null ${afterCursor}
         order by case when is_system then 0 else 1 end, lower(name), id
         limit $${String(params.length)}`,
         params,
@@ -122,7 +123,7 @@ export class PgRoleRepository implements RoleRepository {
       // `is_system` en el filtro: aunque el caso de uso falle, una plantilla nunca se modifica.
       const result = await client.query(
         `update roles set name = $2, permissions = $3, version = version + 1
-          where id = $1 and archived_at is null and not is_system`,
+          where id = $1 and archived_at is null and not is_system and personal_user_id is null`,
         [input.id, input.name, [...input.permissions]],
       );
       await client.query('release savepoint update_role');
@@ -138,7 +139,7 @@ export class PgRoleRepository implements RoleRepository {
     const result = await this.transactions
       .current()
       .query<RoleRow>(
-        'select id, name, is_system, permissions from roles where id = $1 and archived_at is null',
+        'select id, name, is_system, permissions, personal_user_id from roles where id = $1 and archived_at is null',
         [id],
       );
     const row = result.rows[0];
@@ -149,7 +150,7 @@ export class PgRoleRepository implements RoleRepository {
     const result = await this.transactions
       .current()
       .query<RoleRow>(
-        'select id, name, is_system, permissions from roles where id = $1 and archived_at is null for update',
+        'select id, name, is_system, permissions, personal_user_id from roles where id = $1 and archived_at is null for update',
         [id],
       );
     const row = result.rows[0];
@@ -166,7 +167,7 @@ export class PgRoleRepository implements RoleRepository {
     const result = await this.transactions
       .current()
       .query<RoleRow>(
-        'select id, name, is_system, permissions from roles where is_system and name = $1 and archived_at is null',
+        'select id, name, is_system, permissions, personal_user_id from roles where is_system and name = $1 and archived_at is null',
         [name],
       );
     const row = result.rows[0];
@@ -175,7 +176,7 @@ export class PgRoleRepository implements RoleRepository {
 
   async listLiveAssigned(userId: UserId): Promise<readonly RoleRecord[]> {
     const result = await this.transactions.current().query<RoleRow>(
-      `select r.id, r.name, r.is_system, r.permissions
+      `select r.id, r.name, r.is_system, r.permissions, r.personal_user_id
          from user_roles ur
          join roles r on r.organization_id = ur.organization_id and r.id = ur.role_id
         where ur.user_id = $1 and r.archived_at is null
@@ -203,6 +204,40 @@ export class PgRoleRepository implements RoleRepository {
       [userId, roleId, grantedBy],
     );
   }
+
+  async findPersonalOfForUpdate(userId: UserId): Promise<RoleRecord | null> {
+    const result = await this.transactions.current().query<RoleRow>(
+      `select id, name, is_system, permissions, personal_user_id
+         from roles
+        where personal_user_id = $1 and archived_at is null
+          for update`,
+      [userId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : toRecord(row);
+  }
+
+  async insertPersonal(input: {
+    id: string;
+    userId: UserId;
+    permissions: readonly Permission[];
+    createdBy: UserId;
+  }): Promise<void> {
+    // El nombre es interno y único por persona; nunca se muestra (los roles personales no se listan).
+    await this.transactions.current().query(
+      `insert into roles (id, organization_id, name, is_system, permissions, created_by, personal_user_id)
+       values ($1, nullif(current_setting('app.org_id', true), '')::uuid, $2, false, $3, $4, $5)`,
+      [input.id, `personal:${input.userId}`, [...input.permissions], input.createdBy, input.userId],
+    );
+  }
+
+  async updatePersonalPermissions(id: string, permissions: readonly Permission[]): Promise<void> {
+    await this.transactions.current().query(
+      `update roles set permissions = $2, version = version + 1
+          where id = $1 and archived_at is null and personal_user_id is not null`,
+      [id, [...permissions]],
+    );
+  }
 }
 
 const toRecord = (row: RoleRow): RoleRecord => ({
@@ -210,4 +245,5 @@ const toRecord = (row: RoleRow): RoleRecord => ({
   name: row.name,
   isSystem: row.is_system,
   permissions: known(row.permissions),
+  personalUserId: row.personal_user_id,
 });

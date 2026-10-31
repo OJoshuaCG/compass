@@ -1,6 +1,6 @@
 {
-  "title": "Roles",
-  "description": "Roles group permissions that you can assign when inviting someone.",
+  "title": "Roles and permissions",
+  "description": "Manage roles and browse the permissions catalog. Special permissions are assigned per person from Team.",
   "caption": "Organization roles",
   "kind.system": "System template",
   "kind.custom": "Custom role",
@@ -57,6 +57,7 @@
   "permission.audit.read_all": "Read all audit logs",
   "permission.sso.clients.manage": "Manage SSO clients",
   "permission.user.invite": "Invite users",
+  "permission.user.invite_link": "See the invitation link to share it by hand",
   "permission.user.update": "Update users",
   "permission.user.change_rank": "Change user rank",
   "permission.user.transfer": "Transfer users",
@@ -79,5 +80,11 @@
   "permission.audit.read_scope": "Read audit logs in scope",
   "permission.inbound.read_codes": "View received access codes",
   "permission.inbound.configure": "Configure received-code sources and views",
-  "permission.inbound.reveal_reset": "Reveal received reset codes and links"
+  "permission.inbound.reveal_reset": "Reveal received reset codes and links",
+  "tabs.label": "Roles and permissions sections",
+  "tabs.roles": "Roles",
+  "tabs.permissions": "Permissions",
+  "permissions.help": "Read-only catalog: each permission with the lowest rank that can hold it.",
+  "permissions.empty": "There are no permissions in the catalog.",
+  "permissions.maxRank": "Up to rank {{rank}}"
 }

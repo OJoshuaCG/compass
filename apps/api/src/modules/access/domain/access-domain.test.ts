@@ -23,6 +23,7 @@ const PLAN_CEILINGS: ReadonlyArray<readonly [string, Rank]> = [
   ['audit.read_all', 1],
   ['sso.clients.manage', 1],
   ['user.invite', 2],
+  ['user.invite_link', 2],
   ['user.update', 2],
   ['user.change_rank', 1],
   ['user.transfer', 2],
@@ -49,9 +50,9 @@ const PLAN_CEILINGS: ReadonlyArray<readonly [string, Rank]> = [
 ];
 
 describe('permission catalog', () => {
-  it('has the 31 permissions of the catalog (27 of the plan, credential.restore_version and the three inbound ones), each with its ceiling', () => {
-    expect(PERMISSIONS).toHaveLength(31);
-    expect(PLAN_CEILINGS).toHaveLength(31);
+  it('has the 32 permissions of the catalog (27 of the plan, credential.restore_version, the three inbound ones and user.invite_link), each with its ceiling', () => {
+    expect(PERMISSIONS).toHaveLength(32);
+    expect(PLAN_CEILINGS).toHaveLength(32);
     for (const [permission, ceiling] of PLAN_CEILINGS) {
       expect(PERMISSION_CEILING[permission as Permission], permission).toBe(ceiling);
     }
@@ -285,11 +286,11 @@ describe('decision engine', () => {
       expect(decide(reveal)).toEqual({ allowed: false, reason: 'REAUTH' });
     });
 
-    it('allows within five minutes and returns the written-reason obligation', () => {
+    it('allows within five minutes and asks only for the reauthentication obligation', () => {
       const reauthAt = new Date(now.getTime() - REAUTH_WINDOW_MS);
       expect(decide({ ...reveal, reauthAt })).toEqual({
         allowed: true,
-        obligations: ['REAUTH', 'WRITTEN_REASON'],
+        obligations: ['REAUTH'],
       });
     });
 

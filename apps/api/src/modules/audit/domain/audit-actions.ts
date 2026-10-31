@@ -11,9 +11,13 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'crypto.dek_rotated': ['fromVersion', 'toVersion', 'reason'],
   'user.invited': ['rank', 'roleCount'],
   'user.invitation_resent': ['rank', 'roleCount'],
+  // Entrega del enlace de invitación a quien invita: solo si el correo salió; nunca el enlace ni el token.
+  'user.invitation_link_revealed': ['emailSent'],
   'role.created': ['permissionCount'],
   'role.updated': ['addedCount', 'removedCount', 'renamed'],
   'role.archived': [],
+  'user.roles_changed': ['addedCount', 'removedCount'],
+  'user.special_permissions_changed': ['addedCount', 'removedCount'],
   // Sincronización de plantillas de sistema (B5a): `removed` y `added` son nombres de permisos separados por
   // coma (la auditoría solo admite valores primitivos); nunca contenido de credenciales.
   'role.system_synced': ['roleName', 'removed', 'added'],
@@ -50,7 +54,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   // Importación por CSV (O2a): un solo evento por importación, solo conteos; nunca nombres, usuarios,
   // contraseñas ni contenido del archivo.
   'credential.imported': ['accountsCreated', 'credentialsCreated', 'duplicatesSkipped'],
-  'credential.revealed': ['reason'],
+  // Sin metadatos: revelar no pide motivo; quién, cuándo y qué credencial bastan para la bitácora.
+  'credential.revealed': [],
   // Evento crítico: la persona superó el tope de revelaciones por hora (ADR 0031); `limit` es el tope vigente.
   'credential.reveal_limit_exceeded': ['limit'],
   // Segundo factor: nunca el secreto ni el código. `algorithm`, `digits` y `period` son los parámetros públicos
@@ -120,8 +125,9 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
 const ACTION_PATTERN = /^[a-z][a-z_]*(\.[a-z][a-z_]*)+$/;
 const MAX_STRING_LENGTH = 256;
 /**
- * Campos de texto libre que admiten más de 256 caracteres. El motivo escrito de una revelación llega a
- * 500 (`REVEAL_REASON_MAX_LENGTH`): truncarlo dejaría un rastro incompleto de por qué se abrió un secreto.
+ * Campos de texto libre que admiten más de 256 caracteres. El motivo escrito de exportar un secreto 2FA, del
+ * acceso de emergencia o de revelar un restablecimiento llega a 500 (`REVEAL_REASON_MAX_LENGTH`): truncarlo
+ * dejaría un rastro incompleto de por qué se abrió un secreto.
  */
 const FIELD_MAX_STRING_LENGTH: Readonly<Record<string, number>> = { reason: 500 };
 

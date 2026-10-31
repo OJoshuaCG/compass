@@ -92,7 +92,7 @@ Cada acción exige a la vez un permiso y un nivel de compartición sobre la cuen
 | Archivar una cuenta | Archivar cuentas | MANAGE | Se revocan todas las comparticiones; los secretos se conservan cifrados |
 | Crear una credencial | Crear credenciales | EDIT | Se registran usuario, contraseña, segundo factor y códigos de recuperación |
 | Cambiar una contraseña | Cambiar contraseñas y secretos | EDIT | Se crea una versión nueva, se actualiza la fecha de rotación y se comprueba si la contraseña ya se usa en otra credencial |
-| Revelar una contraseña | Revelar contraseñas | VIEW | Exige reautenticación y motivo; queda auditado |
+| Revelar una contraseña | Revelar contraseñas | VIEW | Exige reautenticación; queda auditado, sin pedir motivo |
 | Copiar el usuario | (Ninguno adicional) | USE | Queda en la auditoría ligera |
 | Obtener un código de segundo factor | Usar códigos de segundo factor | USE | Ver [`two-factor.md`](two-factor.md) |
 | Compartir o revocar | Compartir y revocar | MANAGE | Si se revoca tras una revelación, se crea una tarea de rotación |
@@ -118,8 +118,8 @@ Revelar es mostrar la contraseña en pantalla. Es la acción más sensible sobre
 
 1. La persona tiene VIEW o superior sobre la cuenta **y** el permiso de revelar contraseñas.
 2. Se reautentica (vale 5 minutos).
-3. Escribe un **motivo**.
-4. La acción queda en la auditoría, con ese motivo.
+3. Pulsa "Revelar": la contraseña aparece de inmediato, en un solo paso. No se pide un motivo escrito (decisión del dueño, 2026-10-31): con que la acción quede en la auditoría es suficiente, y un paso extra solo estorba a quien revela con frecuencia.
+4. La acción queda en la auditoría: quién, qué cuenta y cuándo.
 
 ### 7.2 Cómo se muestra
 
@@ -131,17 +131,16 @@ Revelar es mostrar la contraseña en pantalla. Es la acción más sensible sobre
 
 Cada persona tiene un límite de revelaciones por hora (por defecto **30**, configurable). Si lo supera, el sistema **bloquea la acción y genera una alerta**. Superar el límite es un evento crítico y una alerta de severidad alta (ver [`governance.md`](governance.md)): una persona que revela decenas de contraseñas en una hora puede estar sacando información de forma masiva.
 
-La alerta llega por correo a la persona con rol Raíz de la organización, en su idioma, poco después del bloqueo (no en el mismo instante: sale por un proceso aparte que reintenta si el correo falla). El correo dice quién llegó al límite, cuántas revelaciones hizo y cuándo; no menciona cuentas, credenciales ni motivos, para que el propio aviso no filtre información. Se envía una sola vez por ventana de una hora aunque la persona siga intentando. Si la organización no tiene una Raíz activa, el aviso no se pierde: queda pendiente para revisión humana.
+La alerta llega por correo a la persona con rol Raíz de la organización, en su idioma, poco después del bloqueo (no en el mismo instante: sale por un proceso aparte que reintenta si el correo falla). El correo dice quién llegó al límite, cuántas revelaciones hizo y cuándo; no menciona cuentas ni credenciales, para que el propio aviso no filtre información. Se envía una sola vez por ventana de una hora aunque la persona siga intentando. Si la organización no tiene una Raíz activa, el aviso no se pierde: queda pendiente para revisión humana.
 
 ### 7.4 Ejemplo resuelto
 
 Sofía tiene VIEW sobre una cuenta y el permiso de revelar contraseñas. Necesita la contraseña para recuperar un acceso.
 
 1. Pulsa "Revelar". El sistema le pide reautenticarse: escribe el código de su aplicación autenticadora (la reautenticación con passkey todavía no está disponible).
-2. Escribe el motivo: "Recuperar acceso tras cambio de dispositivo".
-3. La contraseña se muestra 30 segundos y se vuelve a ocultar.
-4. La auditoría registra quién, qué cuenta, cuándo y el motivo.
-5. Más tarde, la cuenta se revoca para Sofía. Como ella reveló la contraseña, el sistema crea una tarea de rotación para esa credencial.
+2. La contraseña se muestra 30 segundos y se vuelve a ocultar.
+3. La auditoría registra quién, qué cuenta y cuándo.
+4. Más tarde, la cuenta se revoca para Sofía. Como ella reveló la contraseña, el sistema crea una tarea de rotación para esa credencial.
 
 ## 8. Usar el segundo factor sin ver el secreto
 
@@ -181,7 +180,7 @@ Está integrado en la interfaz y en la API.
 | BO-6 | Cada cambio de un secreto crea una versión nueva; las anteriores se conservan 30 días y luego se destruyen |
 | BO-7 | Restaurar una versión anterior exige EDIT y queda auditado |
 | BO-8 | Un secreto solo se abre en tres momentos auditados: revelar, generar un código de segundo factor y, en el futuro, inyectar en una sesión. Toda lectura declara su propósito |
-| BO-9 | Revelar una contraseña exige VIEW, permiso, reautenticación, motivo y auditoría |
+| BO-9 | Revelar una contraseña exige VIEW, permiso, reautenticación y auditoría; no pide motivo escrito |
 | BO-10 | La contraseña nunca aparece en listados ni detalles; se oculta a los 30 segundos |
 | BO-11 | Superar el límite de revelaciones por hora (30 por defecto) bloquea la acción y genera una alerta |
 | BO-12 | Las contraseñas repetidas se detectan comparando huellas, nunca el texto |

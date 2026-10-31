@@ -12,6 +12,7 @@ import type { AuditLog } from '../../audit/index.js';
 import type { UserDirectory } from '../../directory/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
 import { evaluatePassword, personalTokens } from '../domain/password-policy.js';
+import { passwordProblemToError } from './password-problem.js';
 import type {
   CredentialRepository,
   LoginAttemptStore,
@@ -114,7 +115,7 @@ export class ChangePassword {
         score: strength.score(input.newPassword, tokens),
         personalTokens: tokens,
       });
-      if (problem !== null) return err(new DomainError('PASSWORD.WEAK', 'Password is too weak'));
+      if (problem !== null) return err(passwordProblemToError(problem));
       if (await hasher.verify(stored.hash, input.newPassword)) {
         return err(new DomainError('PASSWORD.REUSED', 'The new password must differ'));
       }

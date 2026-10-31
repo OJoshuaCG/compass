@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   'audit.read_all',
   'sso.clients.manage',
   'user.invite',
+  'user.invite_link',
   'user.update',
   'user.change_rank',
   'user.transfer',

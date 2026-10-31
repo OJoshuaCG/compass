@@ -98,9 +98,9 @@ Activos: plataformas, cuentas, credenciales, versiones de secretos, comparticion
 | S | Usuario se hace pasar por otro al compartir | Sesión y reautenticación en acciones sensibles; compartición solo con MANAGE | Planeada (fase 1b) |
 | T | Copiar texto cifrado de una credencial a otra | AAD (`org_id`, `credential_id`, `field`, `version`) en AES-256-GCM | Planeada (fase 0, en `crypto`) |
 | T | Edición concurrente que pisa cambios | Concurrencia optimista (`version`, `If-Match`); `409` | Planeada (fase 1b) |
-| R | Negar una revelación | Reautenticación, motivo escrito y auditoría de cada revelación; auditoría ligera al copiar usuario | Planeada (fase 1b) |
+| R | Negar una revelación | Reautenticación y auditoría de cada revelación (sin motivo escrito, decisión del dueño del 2026-10-31); auditoría ligera al copiar usuario | Planeada (fase 1b) |
 | I | Secreto en listados, detalle, logs o caché del navegador | El secreto solo viaja en la respuesta dedicada con `Cache-Control: no-store`; redacción de logs; secretos solo en estado local del componente | Planeada (fase 1b) |
-| I | Abuso interno: usuario legítimo copia todo | Nivel USE sin revelar; límite de revelaciones por usuario y hora con alerta; motivos; JIT; rotación en bajas | Planeada (fase 1b y 1c) |
+| I | Abuso interno: usuario legítimo copia todo | Nivel USE sin revelar; límite de revelaciones por usuario y hora con alerta; JIT; rotación en bajas | Planeada (fase 1b y 1c) |
 | I | Correo de recuperación y usuario de plataforma expuestos en la base | Todo cifrado, incluido el usuario; índice ciego (HMAC) para búsquedas exactas | Planeada (fase 1b) |
 | D | Importación CSV masiva | El archivo se procesa en memoria con previsualización y validación | Planeada (fase 1b) |
 | E | Acceso a una cuenta sin el nivel requerido | Permiso **y** nivel de compartición; nadie comparte un nivel superior al suyo | Planeada (fase 1b) |

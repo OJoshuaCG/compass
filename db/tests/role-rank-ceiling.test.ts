@@ -154,6 +154,20 @@ describe('user_roles rank ceiling (ADR 0012)', () => {
     expect(await assignmentOutcome(tenant.adminId, revealReset)).toBe(ACCEPTED);
   });
 
+  // SENSIBLE (revisión humana): entregar el enlace de invitación (migración 0026) tiene techo 2, igual que
+  // invitar: un Operador jamás puede tenerlo.
+  it('knows user.invite_link with ceiling 2, like user.invite (migration 0026)', async () => {
+    const { rows } = await app.query<{ link: number | null; invite: number | null }>(
+      "select permission_rank_ceiling('user.invite_link') as link, permission_rank_ceiling('user.invite') as invite",
+    );
+    expect(rows[0]?.link).toBe(2);
+    expect(rows[0]?.invite).toBe(2);
+
+    const inviteLink = await createRole('Invite links', ['user.invite_link']);
+    expect(await assignmentOutcome(tenant.operatorId, inviteLink)).toBe(REJECTED_BY_CEILING);
+    expect(await assignmentOutcome(tenant.adminId, inviteLink)).toBe(ACCEPTED);
+  });
+
   it('lets the application role call the ceiling function, which returns NULL for unknown names', async () => {
     const { rows } = await app.query<{ ceiling: number | null; unknown: number | null }>(
       "select permission_rank_ceiling('role.manage') as ceiling, permission_rank_ceiling('made.up') as unknown",

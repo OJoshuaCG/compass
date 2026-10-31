@@ -148,13 +148,9 @@ export async function fetchCredentialUsername(
  */
 export async function revealCredentialPassword(
   credentialId: string,
-  reason: string,
   client: ApiClient = apiClient,
 ): Promise<string> {
-  const response = await client.post(
-    `/credentials/${credentialId}/reveal`,
-    revealedPasswordSchema,
-    { body: { reason } },
-  );
+  // Sin cuerpo: revelar ya no pide motivo. El cliente HTTP añade solo su Idempotency-Key de POST.
+  const response = await client.post(`/credentials/${credentialId}/reveal`, revealedPasswordSchema);
   return response.password;
 }
