@@ -280,9 +280,13 @@ describe('invite dialog: show the invitation link', () => {
 
     expect(storedText()).not.toContain(LINK_TOKEN);
     expect(router.state.location.href).not.toContain(LINK_TOKEN);
-    // El enlace solo está en el valor del campo, nunca en un atributo (data-*, title, href...).
+    // El enlace solo está en el valor del campo, nunca en otro atributo (data-*, title, href...).
+    // React refleja el valor de un campo controlado en su atributo `value`, así que ese atributo
+    // del propio campo se excluye: es justo donde el enlace debe aparecer.
     const attributeValues = [...document.body.querySelectorAll('*')].flatMap((element) =>
-      [...element.attributes].map((attribute) => attribute.value),
+      [...element.attributes]
+        .filter((attribute) => !(element instanceof HTMLInputElement && attribute.name === 'value'))
+        .map((attribute) => attribute.value),
     );
     expect(attributeValues.some((value) => value.includes(LINK_TOKEN))).toBe(false);
   });
