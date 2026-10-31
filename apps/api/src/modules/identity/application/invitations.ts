@@ -2,7 +2,8 @@
  * Invariantes de seguridad
  * - Solo quien tiene `user.invite` invita, y únicamente a rangos que la matriz de creación permite.
  * - No escalamiento: nadie otorga a un invitado un permiso que no tiene.
- * - El token del enlace tiene 256 bits y solo se guarda su SHA-256; quien invita NUNCA lo ve.
+ * - El token del enlace tiene 256 bits y solo se guarda su SHA-256. Quien invita solo lo ve por las
+ *   rutas con enlace (`user.invite_link` + reautenticación), que auditan cada entrega y nunca lo guardan.
  * - Quien invita no conoce la contraseña del invitado.
  * - Una invitación es de un solo uso y vence a las 72 horas; todas las causas de rechazo se
  *   responden igual (no enumeración).
@@ -25,13 +26,14 @@ import type { AuditLog } from '../../audit/index.js';
 import type { CryptoPrimitives } from '../../crypto/index.js';
 import { canCreateRank } from '../../directory/index.js';
 import type { CreateUser, UserDirectory } from '../../directory/index.js';
+import { buildInvitationLink } from '../../notification/index.js';
 import type { Mailer } from '../../notification/index.js';
 import type { TenantScope, UnitOfWork } from '../../organization/index.js';
 import { invitationExpiry, isInvitationLive } from '../domain/invitation-policy.js';
 import { evaluatePassword, personalTokens } from '../domain/password-policy.js';
+import { passwordProblemToError } from './password-problem.js';
 import { TOKEN_BYTES, toBase64Url } from '../domain/tokens.js';
 import type {
-import { passwordProblemToError } from './password-problem.js';
   CredentialRepository,
   InvitationRepository,
   PasswordHasher,
@@ -51,6 +53,34 @@ export interface InvitationSummary {
   readonly expiresAt: Date;
 }
 
+/**
+ * Invitación cuyo enlace se entrega a quien invita (permiso `user.invite_link`). `link` existe solo en
+ * esta respuesta: no se guarda ni se audita. `emailSent` es `false` si el servidor de correo falló.
+ */
+export interface InvitationWithLink extends InvitationSummary {
+  readonly link: string;
+  readonly emailSent: boolean;
+}
+
+/** Resultado interno: `link` solo se rellena cuando se pidió entregarlo a quien invita. */
+interface InvitationOutcome extends InvitationSummary {
+  readonly link: string | null;
+  readonly emailSent: boolean;
+}
+
+const toSummary = (outcome: InvitationOutcome): InvitationSummary => ({
+  id: outcome.id,
+  email: outcome.email,
+  rank: outcome.rank,
+  expiresAt: outcome.expiresAt,
+});
+
+/** Falla cerrado: sin enlace no hay entrega, aunque el tipo lo permita. */
+const toDelivery = (outcome: InvitationOutcome): InvitationWithLink => {
+  if (outcome.link === null) throw new DomainError('AUTHZ.SESSION', 'Link was not requested');
+  return { ...toSummary(outcome), link: outcome.link, emailSent: outcome.emailSent };
+};
+
 // -------------------------------------------------------------------------------------------------
 
 export interface CreateInvitationDeps {
@@ -65,6 +95,61 @@ export interface CreateInvitationDeps {
   readonly clock: Clock;
   readonly audit: AuditLog;
   readonly mailer: Mailer;
+  /** Origen público de la aplicación (`APP_ORIGIN`): base del enlace que se entrega a quien invita. */
+  readonly linkBaseUrl: string;
+}
+
+/**
+ * Envía el correo de invitación. Con el enlace pedido, un fallo del servidor de correo no deshace la
+ * invitación: es el caso en que quien invita comparte el enlace por otro medio. Sin él, el fallo se
+ * propaga y la invitación no se confirma (comportamiento original).
+ */
+async function sendInvitationMail(
+  deps: Pick<CreateInvitationDeps, 'mailer'>,
+  message: Parameters<Mailer['sendInvitation']>[0],
+  revealLink: boolean,
+): Promise<boolean> {
+  if (!revealLink) {
+    await deps.mailer.sendInvitation(message);
+    return true;
+  }
+  try {
+    await deps.mailer.sendInvitation(message);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export interface CreateInvitationInput {
+  readonly email: string;
+  readonly rank: 1 | 2 | 3;
+  readonly roleIds: readonly string[];
+  /** Responsable del invitado; si falta, lo es quien invita (ADR 0009, decisión C12-1). */
+  readonly managerId?: UserId;
+}
+
+/** Deja constancia de cada entrega del enlace: quién, a qué invitación y si el correo salió. Nunca el enlace. */
+async function auditLinkRevealed(
+  audit: AuditLog,
+  actorId: UserId,
+  invitationId: string,
+  requestId: string,
+  emailSent: boolean,
+): Promise<void> {
+  const recorded = await audit.record({
+    action: 'user.invitation_link_revealed',
+    actorId,
+    targetType: 'invitation',
+    targetId: invitationId,
+    outcome: 'success',
+    reasonCode: null,
+    ip: null,
+    requestId,
+    metadata: { emailSent },
+  });
+  // Sin rastro no hay entrega: lanzar revierte la transacción y el enlace nunca sale en la respuesta.
+  if (!recorded.ok) throw recorded.error;
 }
 
 export class CreateInvitation {
@@ -79,13 +164,27 @@ export class CreateInvitation {
     return err(new DomainError(code, message));
   }
 
-  execute(input: {
-    readonly email: string;
-    readonly rank: 1 | 2 | 3;
-    readonly roleIds: readonly string[];
-    /** Responsable del invitado; si falta, lo es quien invita (ADR 0009, decisión C12-1). */
-    readonly managerId?: UserId;
-  }): Promise<Result<InvitationSummary, DomainError>> {
+  /** Invita y envía el correo. Si el correo falla, la invitación no se confirma. */
+  async execute(input: CreateInvitationInput): Promise<Result<InvitationSummary, DomainError>> {
+    const outcome = await this.run(input, false);
+    return outcome.ok ? ok(toSummary(outcome.value)) : outcome;
+  }
+
+  /**
+   * Invita, intenta el correo y entrega el enlace a quien invita (`user.invite_link`, con
+   * reautenticación). Un fallo del correo no deshace la invitación: `emailSent` lo informa.
+   */
+  async executeWithLink(
+    input: CreateInvitationInput,
+  ): Promise<Result<InvitationWithLink, DomainError>> {
+    const outcome = await this.run(input, true);
+    return outcome.ok ? ok(toDelivery(outcome.value)) : outcome;
+  }
+
+  private run(
+    input: CreateInvitationInput,
+    revealLink: boolean,
+  ): Promise<Result<InvitationOutcome, DomainError>> {
     const {
       context,
       uow,
@@ -97,11 +196,12 @@ export class CreateInvitation {
       ids,
       clock,
       audit,
-      mailer,
     } = this.deps;
     return uow.run(async () => {
-      // 1) Permiso (el motor audita cualquier negación en una transacción independiente).
+      // 1) Permiso (el motor audita cualquier negación en una transacción independiente). Entregar el
+      // enlace exige además su permiso propio, que el motor acompaña de reautenticación.
       await authorizer.require({ permission: 'user.invite' });
+      if (revealLink) await authorizer.require({ permission: 'user.invite_link' });
 
       const current = context.current();
       const actorId = current.actorId;
@@ -194,8 +294,13 @@ export class CreateInvitation {
         return err(new DomainError('INVITATION.CONFLICT', 'A pending invitation already exists'));
       }
 
-      // El correo sale antes de confirmar: si falla, no queda una invitación sin enviar.
-      await mailer.sendInvitation({ to: input.email, token, expiresAt, locale: 'es-MX' });
+      // El correo sale antes de confirmar: si falla, no queda una invitación sin enviar (salvo que se
+      // haya pedido el enlace: entonces se comparte a mano).
+      const emailSent = await sendInvitationMail(
+        this.deps,
+        { to: input.email, token, expiresAt, locale: 'es-MX' },
+        revealLink,
+      );
       await audit.record({
         action: 'user.invited',
         actorId: actor.id,
@@ -207,7 +312,17 @@ export class CreateInvitation {
         requestId: current.requestId,
         metadata: { rank: input.rank, roleCount: input.roleIds.length },
       });
-      return ok({ id, email: input.email, rank: input.rank, expiresAt });
+      if (revealLink) {
+        await auditLinkRevealed(audit, actor.id, id, current.requestId, emailSent);
+      }
+      return ok({
+        id,
+        email: input.email,
+        rank: input.rank,
+        expiresAt,
+        link: revealLink ? buildInvitationLink(this.deps.linkBaseUrl, token) : null,
+        emailSent,
+      });
     });
   }
 }
@@ -269,21 +384,27 @@ interface PendingExtras {
 export class ResendInvitation {
   constructor(private readonly deps: CreateInvitationDeps) {}
 
-  execute(invitationId: string): Promise<Result<InvitationSummary, DomainError>> {
-    const {
-      context,
-      uow,
-      authorizer,
-      directory,
-      invitations,
-      primitives,
-      ids,
-      clock,
-      audit,
-      mailer,
-    } = this.deps;
+  /** Reenvía por correo. Si el correo falla, la invitación nueva no se confirma. */
+  async execute(invitationId: string): Promise<Result<InvitationSummary, DomainError>> {
+    const outcome = await this.run(invitationId, false);
+    return outcome.ok ? ok(toSummary(outcome.value)) : outcome;
+  }
+
+  /** Como `execute`, pero entrega el enlace nuevo a quien reenvía (`user.invite_link`). */
+  async executeWithLink(invitationId: string): Promise<Result<InvitationWithLink, DomainError>> {
+    const outcome = await this.run(invitationId, true);
+    return outcome.ok ? ok(toDelivery(outcome.value)) : outcome;
+  }
+
+  private run(
+    invitationId: string,
+    revealLink: boolean,
+  ): Promise<Result<InvitationOutcome, DomainError>> {
+    const { context, uow, authorizer, directory, invitations, primitives, ids, clock, audit } =
+      this.deps;
     return uow.run(async () => {
       await authorizer.require({ permission: 'user.invite' });
+      if (revealLink) await authorizer.require({ permission: 'user.invite_link' });
       const current = context.current();
       const actor = current.actorId === null ? null : await directory.findById(current.actorId);
       if (actor === null) throw new DomainError('AUTHZ.SESSION', 'Authenticated session required');
@@ -328,7 +449,11 @@ export class ResendInvitation {
         // Se lanza (no se devuelve) para revertir: la anterior no debe quedar revocada sin reemplazo.
         throw new DomainError('INVITATION.CONFLICT', 'A pending invitation already exists');
       }
-      await mailer.sendInvitation({ to: old.email, token, expiresAt, locale: 'es-MX' });
+      const emailSent = await sendInvitationMail(
+        this.deps,
+        { to: old.email, token, expiresAt, locale: 'es-MX' },
+        revealLink,
+      );
       await audit.record({
         action: 'user.invitation_resent',
         actorId: actor.id,
@@ -340,7 +465,15 @@ export class ResendInvitation {
         requestId: current.requestId,
         metadata: { rank: old.rank, roleCount: old.roleIds.length },
       });
-      return ok({ id, email: old.email, rank: old.rank as 1 | 2 | 3, expiresAt });
+      if (revealLink) await auditLinkRevealed(audit, actor.id, id, current.requestId, emailSent);
+      return ok({
+        id,
+        email: old.email,
+        rank: old.rank as 1 | 2 | 3,
+        expiresAt,
+        link: revealLink ? buildInvitationLink(this.deps.linkBaseUrl, token) : null,
+        emailSent,
+      });
     });
   }
 }

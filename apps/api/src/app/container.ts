@@ -515,6 +515,7 @@ export function buildContainer(options: ContainerOptions) {
       clock,
     }),
     resendInvitation: new ResendInvitation({
+      linkBaseUrl: options.webauthn.origin,
       context: requestContext,
       uow,
       authorizer,
@@ -536,6 +537,7 @@ export function buildContainer(options: ContainerOptions) {
       createUser,
       credentials,
       roles,
+      linkBaseUrl: options.webauthn.origin,
       sessions,
       hasher,
       strength,

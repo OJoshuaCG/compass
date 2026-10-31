@@ -27,13 +27,25 @@ const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => `&#${String(char.charCodeAt(0))};`);
 
 /**
+ * Enlace de aceptación de una invitación. Lo comparten el correo y la entrega directa a quien invita
+ * (`user.invite_link`), para que ambos apunten siempre a la misma pantalla. El token va en el
+ * fragmento (`#token=`): el navegador no lo envía al servidor. Se quita la barra final de la base
+ * porque el correo recibe `APP_ORIGIN` tal cual y la entrega directa recibe el origen normalizado:
+ * sin esto, un `APP_ORIGIN` con barra final daría dos enlaces distintos para el mismo token.
+ */
+export function buildInvitationLink(baseUrl: string, token: string): string {
+  const baseWithoutTrailingSlash = baseUrl.replace(/\/+$/, '');
+  return `${baseWithoutTrailingSlash}/invitation#token=${encodeURIComponent(token)}`;
+}
+
+/**
  * Cuerpo del correo de invitación. El token viaja en el fragmento del enlace (`#token=`), que el
  * navegador no envía al servidor ni queda en sus registros de acceso. No incluye datos de quien
  * invita ni de la organización: el destinatario solo necesita el enlace.
  */
 export function renderInvitationEmail(message: InvitationMessage, baseUrl: string): RenderedEmail {
   const copy = COPY[message.locale];
-  const link = `${baseUrl}/invitation#token=${encodeURIComponent(message.token)}`;
+  const link = buildInvitationLink(baseUrl, message.token);
   const expires = copy.expires(
     new Intl.DateTimeFormat(message.locale, {
       dateStyle: 'long',

@@ -15,6 +15,7 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'audit.read_all': 1,
   'sso.clients.manage': 1,
   'user.invite': 2,
+  'user.invite_link': 2,
   'user.update': 2,
   'user.change_rank': 1,
   'user.transfer': 2,
@@ -68,6 +69,9 @@ export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> 
   'platform.manage': { reauth: true, writtenReason: false, criticalAudit: true },
   'sso.clients.manage': { reauth: true, writtenReason: false, criticalAudit: false },
   'user.change_rank': { reauth: true, writtenReason: false, criticalAudit: false },
+  // El enlace de invitación permite aceptarla en lugar del invitado: se entrega solo con reautenticación
+  // reciente y cada entrega queda auditada (`user.invitation_link_revealed`).
+  'user.invite_link': { reauth: true, writtenReason: false, criticalAudit: false },
   'role.assign': { reauth: true, writtenReason: false, criticalAudit: false },
   'vault.emergency_access': { reauth: true, writtenReason: true, criticalAudit: true },
   // Sin motivo escrito (decisión del dueño): la reautenticación, el tope por hora y la auditoría bastan.

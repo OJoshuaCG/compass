@@ -1,5 +1,6 @@
 import {
   createInvitationResponseSchema,
+  createInvitationWithLinkResponseSchema,
   directoryUserSchema,
   MAX_PAGE_LIMIT,
   pendingInvitationSchema,
@@ -8,7 +9,14 @@ import {
   type Role,
 } from '@iam/contracts';
 
-import { apiClient, createListFetcher, type ApiClient } from '../../../shared/api';
+import {
+  apiClient,
+  createApiClient,
+  createListFetcher,
+  emitSessionExpired,
+  reauthCoordinator,
+  type ApiClient,
+} from '../../../shared/api';
 
 /** Fábrica de claves del directorio (docs/frontend.md §7.3). `useTableQuery` añade la vista. */
 export const directoryKeys = {
@@ -40,6 +48,36 @@ export function inviteUser(
 const MAX_ROLE_PAGES = 50;
 
 const fetchRolesPage = createListFetcher(apiClient, '/roles', roleSchema);
+/**
+ * Cliente para las rutas que entregan el enlace de invitación. El cliente base añade
+ * `Idempotency-Key` a todo POST, pero estas rutas NO son idempotentes a propósito: el servidor no
+ * debe guardar el enlace en la tabla de idempotencia. Por eso se quita la cabecera justo antes de
+ * enviar. Conserva la reautenticación (un solo reintento) y el aviso de sesión expirada.
+ */
+const linkClient: ApiClient = createApiClient({
+  fetchImpl: (input, init) => {
+    const headers = new Headers(init?.headers);
+    headers.delete('Idempotency-Key');
+    return fetch(input, { ...init, headers });
+  },
+  onReauthRequired: () => reauthCoordinator.request(),
+  onSessionExpired: emitSessionExpired,
+});
+
+/**
+ * `POST /invitations/with-link` (permiso `user.invite_link`): mismo cuerpo que `POST /invitations`,
+ * pero la respuesta trae el enlace. Sin clave de idempotencia; el llamador no debe guardar el
+ * resultado fuera de su estado local (nunca en la caché de Query).
+ */
+export function inviteUserWithLink(body: CreateInvitationRequest, client: ApiClient = linkClient) {
+  return client.post('/invitations/with-link', createInvitationWithLinkResponseSchema, { body });
+}
+
+/** `POST /invitations/:id/resend-with-link`: reenvía (revoca el enlace anterior) y entrega el nuevo. */
+export function resendInvitationWithLink(id: string, client: ApiClient = linkClient) {
+  return client.post(`/invitations/${id}/resend-with-link`, createInvitationWithLinkResponseSchema);
+}
+
 const resendResponseSchema = pendingInvitationSchema.pick({
   id: true,
   email: true,

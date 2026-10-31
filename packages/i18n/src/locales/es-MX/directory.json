@@ -82,5 +82,19 @@
   "invite.rolesHelp": "Opcional. La persona recibirá los permisos de los roles que elijas.",
   "invite.manager": "Responsable",
   "invite.managerHelp": "Opcional. Si no eliges a nadie, serás tú. Solo aparecen personas activas de tu equipo con un rango superior al de la persona invitada.",
-  "invite.managerSelf": "Yo (quien invita)"
+  "invite.managerSelf": "Yo (quien invita)",
+  "invite.link.option": "Mostrar el enlace de la invitación para compartirlo yo mismo",
+  "invite.link.optionHelp": "El correo se envía de todos modos. El enlace se muestra una sola vez, en el siguiente paso, y es posible que se te pida confirmar tu identidad.",
+  "link.title": "Enlace de invitación",
+  "link.description": "Comparte este enlace con {{email}} por un medio de confianza.",
+  "link.heading": "Invitación creada para {{email}}.",
+  "link.emailSent": "El correo se envió a {{email}}. También puedes compartir el enlace tú mismo.",
+  "link.emailFailed": "El correo no se pudo enviar; comparte este enlace por otro medio.",
+  "link.field": "Enlace de invitación",
+  "link.copy": "Copiar enlace",
+  "link.expires": "El enlace vence el {{date}}.",
+  "link.warning": "Este enlace se muestra una sola vez y no se podrá volver a ver; para verlo de nuevo hay que reenviar la invitación. Quien lo tenga puede aceptar la invitación.",
+  "link.close": "Listo",
+  "invitations.resendWithLink": "Reenviar y ver enlace",
+  "invitations.resendWithLinkLabel": "Reenviar la invitación a {{email}} y ver el enlace"
 }

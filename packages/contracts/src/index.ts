@@ -46,6 +46,7 @@ export {
   acceptInvitationResponseSchema,
   createInvitationRequestSchema,
   createInvitationResponseSchema,
+  createInvitationWithLinkResponseSchema,
   invitationPreviewResponseSchema,
 } from './invitations.js';
 export type {
@@ -53,6 +54,7 @@ export type {
   AcceptInvitationResponse,
   CreateInvitationRequest,
   CreateInvitationResponse,
+  CreateInvitationWithLinkResponse,
   InvitationPreviewResponse,
 } from './invitations.js';
 export {

@@ -82,5 +82,19 @@
   "invite.rolesHelp": "Optional. The person will receive the permissions of the roles you choose.",
   "invite.manager": "Manager",
   "invite.managerHelp": "Optional. If you choose no one, it will be you. Only active people in your team with a higher rank than the invitee are listed.",
-  "invite.managerSelf": "Me (the inviter)"
+  "invite.managerSelf": "Me (the inviter)",
+  "invite.link.option": "Show the invitation link so I can share it myself",
+  "invite.link.optionHelp": "The email is still sent. The link is shown only once, in the next step, and you may be asked to confirm your identity.",
+  "link.title": "Invitation link",
+  "link.description": "Share this link with {{email}} through a channel you trust.",
+  "link.heading": "Invitation created for {{email}}.",
+  "link.emailSent": "The email was sent to {{email}}. You can also share the link yourself.",
+  "link.emailFailed": "The email could not be sent. Share this link through another channel.",
+  "link.field": "Invitation link",
+  "link.copy": "Copy link",
+  "link.expires": "The link expires on {{date}}.",
+  "link.warning": "This link is shown only once and cannot be viewed again; to see it again you must resend the invitation. Anyone who has it can accept the invitation.",
+  "link.close": "Done",
+  "invitations.resendWithLink": "Resend and show link",
+  "invitations.resendWithLinkLabel": "Resend the invitation to {{email}} and show the link"
 }

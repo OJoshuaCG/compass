@@ -59,6 +59,7 @@
   "permission.audit.read_all": "Read all audit logs",
   "permission.sso.clients.manage": "Manage SSO clients",
   "permission.user.invite": "Invite users",
+  "permission.user.invite_link": "See the invitation link to share it by hand",
   "permission.user.update": "Update users",
   "permission.user.change_rank": "Change user rank",
   "permission.user.transfer": "Transfer users",

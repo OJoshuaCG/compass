@@ -2,31 +2,48 @@ import {
   ErrorCode,
   createInvitationRequestSchema,
   type CreateInvitationRequest,
+  type CreateInvitationWithLinkResponse,
   type Rank,
 } from '@iam/contracts';
-import { Button, Dialog, FormField, Input, NativeSelect } from '@iam/ui';
+import { Button, Checkbox, Dialog, FormField, Input, NativeSelect } from '@iam/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
 
-import { ApiError, applyFieldErrors, useRateLimitCooldown } from '../../../shared/api';
-import { useMe } from '../../../shared/auth';
+import {
+  ApiError,
+  applyFieldErrors,
+  useAsyncAction,
+  useRateLimitCooldown,
+} from '../../../shared/api';
+import { useMe, usePermission } from '../../../shared/auth';
 import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/toast';
-import { directoryKeys, fetchInvitableRoles, inviteUser } from '../api/directory-api';
+import {
+  directoryKeys,
+  fetchInvitableRoles,
+  inviteUser,
+  inviteUserWithLink,
+} from '../api/directory-api';
 import { fetchInvitableManagers } from '../api/team-api';
 import { creatableRanks } from '../model/creatable-ranks';
 import { invitableManagers } from '../model/invitable-managers';
+import { InvitationLinkPanel } from '../ui/invitation-link-panel';
 import { RoleChoices } from '../ui/role-choices';
 
 type FormInput = z.input<typeof createInvitationRequestSchema>;
 
-type InviteFormProps = { actorRank: Rank; onDone: () => void };
+type InviteFormProps = {
+  actorRank: Rank;
+  onDone: () => void;
+  /** Entrega la respuesta con enlace al diálogo, que es quien la muestra y la descarta al cerrar. */
+  onLinkReady: (invitation: CreateInvitationWithLinkResponse) => void;
+};
 
-function InviteForm({ actorRank, onDone }: InviteFormProps) {
+function InviteForm({ actorRank, onDone, onLinkReady }: InviteFormProps) {
   const { t } = useTranslation(['directory', 'common', 'errors']);
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -70,7 +87,22 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
   const mutation = useMutation({
     mutationFn: (body: CreateInvitationRequest) => inviteUser(body, keyFor(body)),
   });
-  const cooldown = useRateLimitCooldown(mutation.error);
+  // Ruta con enlace: `useAsyncAction` y no `useMutation`, porque la caché de mutaciones conservaría
+  // la respuesta (con el enlace) mientras el componente siga montado (docs/frontend.md §9). Tampoco
+  // lleva clave de idempotencia: el servidor no debe guardar el enlace.
+  const linkAction = useAsyncAction((body: CreateInvitationRequest) => inviteUserWithLink(body));
+  const canShowLink = usePermission('user.invite_link');
+  const [wantsLink, setWantsLink] = useState(false);
+  const linkOptionId = useId();
+  const linkOptionHelpId = `${linkOptionId}-help`;
+  const submitError: unknown = mutation.error ?? linkAction.error;
+  const hasSubmitError = submitError !== null && submitError !== undefined;
+  const cooldown = useRateLimitCooldown(submitError);
+
+  function resetSubmitErrors() {
+    mutation.reset();
+    linkAction.reset();
+  }
 
   const {
     register,
@@ -96,6 +128,62 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
     ? managerId
     : undefined;
 
+  function handleSubmitError(error: unknown) {
+    // 422: algún rol ya no existe o se archivó; se recarga la lista para no volver a ofrecerlo.
+    if (error instanceof ApiError && error.status === 422) {
+      void queryClient.invalidateQueries({ queryKey: directoryKeys.invitableRoles() });
+    }
+    if (
+      error instanceof ApiError &&
+      (error.code === ErrorCode.INVITATION_CONFLICT || error.status === 422)
+    ) {
+      // Respuesta definitiva del servidor: la próxima petición es nueva.
+      attempt.current = null;
+    }
+    // Reglas de responsable (fuera del subárbol o rango insuficiente): se muestran junto al campo
+    // y la lista se recarga porque el subárbol pudo cambiar desde que se abrió el diálogo.
+    if (
+      error instanceof ApiError &&
+      (error.code === ErrorCode.USER_MANAGER_RANK_INVALID ||
+        error.code === ErrorCode.AUTHZ_HIERARCHY_NOT_IN_SUBTREE)
+    ) {
+      attempt.current = null;
+      void queryClient.invalidateQueries({ queryKey: directoryKeys.invitableManagers() });
+      setError('managerId', { type: 'server', message: t(error.code, { ns: 'errors' }) });
+      resetSubmitErrors();
+      return;
+    }
+    if (error instanceof ApiError && error.code === ErrorCode.INVITATION_CONFLICT) {
+      setError('email', {
+        type: 'server',
+        message: t('INVITATION.CONFLICT', { ns: 'errors' }),
+      });
+      resetSubmitErrors();
+      return;
+    }
+    if (
+      applyFieldErrors(
+        error,
+        setError,
+        ['email', 'rank', 'managerId'],
+        t('VALIDATION.FAILED', { ns: 'errors' }),
+      )
+    ) {
+      resetSubmitErrors();
+    }
+  }
+
+  async function submitWithLink(body: CreateInvitationRequest) {
+    const result = await linkAction.run(body);
+    if (!result.ok) {
+      handleSubmitError(result.error);
+      return;
+    }
+    // La lista de pendientes debe mostrar la invitación nueva; el enlace no pasa por Query.
+    void queryClient.invalidateQueries({ queryKey: directoryKeys.invitations() });
+    onLinkReady(result.value);
+  }
+
   function submit(values: CreateInvitationRequest) {
     // Un rol archivado entre tanto (la lista se recargó) ya no se envía.
     // El responsable solo se envía si sigue siendo elegible; si no, se omite y el servidor usa a
@@ -106,6 +194,10 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
       roleIds: values.roleIds.filter((id) => roles.some((r) => r.id === id)),
       ...(selectedManagerId === undefined ? {} : { managerId: selectedManagerId }),
     };
+    if (canShowLink && wantsLink) {
+      void submitWithLink(body);
+      return;
+    }
     mutation.mutate(body, {
       onSuccess: (invitation) => {
         toast.show(t('invite.sent', { ns: 'directory', email: invitation.email }), 'success');
@@ -113,50 +205,7 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
         void queryClient.invalidateQueries({ queryKey: directoryKeys.invitations() });
         onDone();
       },
-      onError: (error) => {
-        // 422: algún rol ya no existe o se archivó; se recarga la lista para no volver a ofrecerlo.
-        if (error instanceof ApiError && error.status === 422) {
-          void queryClient.invalidateQueries({ queryKey: directoryKeys.invitableRoles() });
-        }
-        if (
-          error instanceof ApiError &&
-          (error.code === ErrorCode.INVITATION_CONFLICT || error.status === 422)
-        ) {
-          // Respuesta definitiva del servidor: la próxima petición es nueva.
-          attempt.current = null;
-        }
-        // Reglas de responsable (fuera del subárbol o rango insuficiente): se muestran junto al campo
-        // y la lista se recarga porque el subárbol pudo cambiar desde que se abrió el diálogo.
-        if (
-          error instanceof ApiError &&
-          (error.code === ErrorCode.USER_MANAGER_RANK_INVALID ||
-            error.code === ErrorCode.AUTHZ_HIERARCHY_NOT_IN_SUBTREE)
-        ) {
-          attempt.current = null;
-          void queryClient.invalidateQueries({ queryKey: directoryKeys.invitableManagers() });
-          setError('managerId', { type: 'server', message: t(error.code, { ns: 'errors' }) });
-          mutation.reset();
-          return;
-        }
-        if (error instanceof ApiError && error.code === ErrorCode.INVITATION_CONFLICT) {
-          setError('email', {
-            type: 'server',
-            message: t('INVITATION.CONFLICT', { ns: 'errors' }),
-          });
-          mutation.reset();
-          return;
-        }
-        if (
-          applyFieldErrors(
-            error,
-            setError,
-            ['email', 'rank', 'managerId'],
-            t('VALIDATION.FAILED', { ns: 'errors' }),
-          )
-        ) {
-          mutation.reset();
-        }
-      },
+      onError: handleSubmitError,
     });
   }
 
@@ -168,8 +217,8 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
       }}
       className="flex flex-col gap-4"
     >
-      {mutation.error !== null ? (
-        <ErrorAlert error={mutation.error} secondsLeft={cooldown.secondsLeft} />
+      {hasSubmitError ? (
+        <ErrorAlert error={submitError} secondsLeft={cooldown.secondsLeft} />
       ) : null}
       <FormField
         label={t('invite.email', { ns: 'directory' })}
@@ -242,11 +291,36 @@ function InviteForm({ actorRank, onDone }: InviteFormProps) {
           }}
         />
       ) : null}
+      {canShowLink ? (
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor={linkOptionId}
+            className="flex min-h-6 items-start gap-2 text-sm text-text"
+          >
+            <Checkbox
+              id={linkOptionId}
+              checked={wantsLink}
+              aria-describedby={linkOptionHelpId}
+              onChange={(event) => {
+                setWantsLink(event.target.checked);
+              }}
+            />
+            <span>{t('invite.link.option', { ns: 'directory' })}</span>
+          </label>
+          <p id={linkOptionHelpId} className="ps-8 text-sm text-text-secondary">
+            {t('invite.link.optionHelp', { ns: 'directory' })}
+          </p>
+        </div>
+      ) : null}
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onDone}>
           {t('actions.cancel', { ns: 'common' })}
         </Button>
-        <Button type="submit" loading={mutation.isPending} disabled={cooldown.secondsLeft > 0}>
+        <Button
+          type="submit"
+          loading={mutation.isPending || linkAction.pending}
+          disabled={cooldown.secondsLeft > 0}
+        >
           {t('invite.submit', { ns: 'directory' })}
         </Button>
       </div>
@@ -261,24 +335,56 @@ export type InviteUserDialogProps = {
   actorRank: Rank;
 };
 
-/** Diálogo "Invitar usuario": react-hook-form + el esquema Zod del contrato. */
+/**
+ * Diálogo "Invitar usuario": react-hook-form + el esquema Zod del contrato. Si la persona pidió ver
+ * el enlace, la misma ventana pasa del formulario al panel con el enlace.
+ */
 export function InviteUserDialog({ open, onOpenChange, actorRank }: InviteUserDialogProps) {
   const { t } = useTranslation(['directory', 'common']);
+  const timeZone = useMe()?.user.timezone;
+  // El enlace vive solo aquí (estado local): ni Query, ni almacenamiento, ni URL. Se descarta al
+  // cerrar el diálogo; para volver a verlo hay que reenviar la invitación.
+  const [linkInvitation, setLinkInvitation] = useState<CreateInvitationWithLinkResponse | null>(
+    null,
+  );
+  // Si el diálogo se cierra desde fuera (sin pasar por `onOpenChange`) el enlace también se pierde.
+  if (!open && linkInvitation !== null) setLinkInvitation(null);
+
+  function handleOpenChange(next: boolean) {
+    if (!next) setLinkInvitation(null);
+    onOpenChange(next);
+  }
+
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
-      title={t('invite.title', { ns: 'directory' })}
-      description={t('invite.description', { ns: 'directory' })}
+      onOpenChange={handleOpenChange}
+      title={t(linkInvitation === null ? 'invite.title' : 'link.title', { ns: 'directory' })}
+      description={
+        linkInvitation === null
+          ? t('invite.description', { ns: 'directory' })
+          : t('link.description', { ns: 'directory', email: linkInvitation.email })
+      }
       closeLabel={t('dialog.close', { ns: 'common' })}
     >
       {/* El formulario se monta solo con el diálogo abierto: al cerrar se descarta su estado. */}
-      <InviteForm
-        actorRank={actorRank}
-        onDone={() => {
-          onOpenChange(false);
-        }}
-      />
+      {linkInvitation === null ? (
+        <InviteForm
+          actorRank={actorRank}
+          onDone={() => {
+            handleOpenChange(false);
+          }}
+          onLinkReady={setLinkInvitation}
+        />
+      ) : (
+        <InvitationLinkPanel
+          invitation={linkInvitation}
+          timeZone={timeZone}
+          onClose={() => {
+            handleOpenChange(false);
+          }}
+        />
+      )}
     </Dialog>
   );
 }

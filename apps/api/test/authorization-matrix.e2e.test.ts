@@ -106,6 +106,8 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'POST /invitations/accept': 'public',
 };
 
+  'POST /invitations/with-link': 'full-session',
+  'POST /invitations/:id/resend-with-link': 'full-session',
 interface DiscoveredRoute {
   readonly key: string;
   readonly method: Method;

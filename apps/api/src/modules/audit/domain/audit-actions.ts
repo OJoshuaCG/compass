@@ -11,6 +11,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'crypto.dek_rotated': ['fromVersion', 'toVersion', 'reason'],
   'user.invited': ['rank', 'roleCount'],
   'user.invitation_resent': ['rank', 'roleCount'],
+  // Entrega del enlace de invitación a quien invita: solo si el correo salió; nunca el enlace ni el token.
+  'user.invitation_link_revealed': ['emailSent'],
   'role.created': ['permissionCount'],
   'role.updated': ['addedCount', 'removedCount', 'renamed'],
   'role.archived': [],

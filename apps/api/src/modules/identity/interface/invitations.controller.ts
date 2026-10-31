@@ -10,9 +10,21 @@ import type {
   AcceptInvitationResponse,
   CreateInvitationRequest,
   CreateInvitationResponse,
+  CreateInvitationWithLinkResponse,
   InvitationPreviewResponse,
 } from '@iam/contracts';
-import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -27,6 +39,9 @@ import {
   PreviewInvitation,
   ResendInvitation,
 } from '../application/invitations.js';
+
+/** La respuesta lleva el enlace de una invitación: nada de cachés intermedias ni del navegador. */
+const NO_STORE = 'no-store';
 
 const previewRequestSchema = z.object({ token: z.string().min(20).max(200) });
 
@@ -73,6 +88,51 @@ export class InvitationsController {
       email: invitation.email,
       rank: invitation.rank,
       expiresAt: invitation.expiresAt.toISOString(),
+    };
+  }
+
+  /**
+   * Reenvío que entrega el enlace a quien reenvía (`user.invite_link`, con reautenticación). SIN
+   * `@Idempotent()`: el interceptor guardaría el cuerpo de la respuesta, es decir, el enlace en claro.
+   * Reintentar no duplica: la invitación revocada ya no se puede reenviar.
+   */
+  @Post(':id/resend-with-link')
+  @Header('Cache-Control', NO_STORE)
+  async resendWithLink(
+    @Param('id', new ZodValidationPipe(z.uuid())) id: string,
+  ): Promise<CreateInvitationWithLinkResponse> {
+    const invitation = unwrap(await this.resendInvitation.executeWithLink(id));
+    return {
+      id: invitation.id,
+      email: invitation.email,
+      rank: invitation.rank,
+      expiresAt: invitation.expiresAt.toISOString(),
+      link: invitation.link,
+      emailSent: invitation.emailSent,
+    };
+  }
+
+  /** Igual que `POST /invitations`, pero entrega el enlace; sin `@Idempotent()` por la misma razón. */
+  @Post('with-link')
+  @Header('Cache-Control', NO_STORE)
+  async createWithLink(
+    @Body(new ZodValidationPipe(createInvitationRequestSchema)) body: CreateInvitationRequest,
+  ): Promise<CreateInvitationWithLinkResponse> {
+    const invitation = unwrap(
+      await this.createInvitation.executeWithLink({
+        email: body.email,
+        rank: body.rank,
+        roleIds: body.roleIds,
+        ...(body.managerId === undefined ? {} : { managerId: asUserId(body.managerId) }),
+      }),
+    );
+    return {
+      id: invitation.id,
+      email: invitation.email,
+      rank: invitation.rank,
+      expiresAt: invitation.expiresAt.toISOString(),
+      link: invitation.link,
+      emailSent: invitation.emailSent,
     };
   }
 

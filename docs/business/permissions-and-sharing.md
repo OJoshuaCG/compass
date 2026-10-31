@@ -90,6 +90,7 @@ Cómo leer el techo:
 | Invitar usuarios | Invitar según la matriz de creación | 2 | Dar de alta personas; los Operadores no crean a nadie |
 | Editar usuarios | Editar perfil y estado de personas que gestiona | 2 | Mantener datos y suspender cuando haga falta |
 | Cambiar el rango | Cambiar el rango de personas que gestiona | 1 | Cambia la autoridad; por eso lo limita a Administradores |
+| Ver el enlace de invitación | Recibir el enlace en pantalla al invitar o reenviar, para compartirlo por otro medio; exige confirmar la identidad hace poco y se audita cada entrega | 2 | Cubre el caso de un correo que no llega; con el enlace se puede aceptar la invitación, por eso es un permiso aparte. Los roles de sistema que ya invitan lo reciben; los roles personalizados no |
 | Transferir responsable | Cambiar el responsable de una persona | 2 | Reorganizar equipos |
 | Suspender o desactivar usuarios | Suspender o desactivar a personas que gestiona | 2 | Cortar el acceso de alguien que se va o es sospechoso |
 | Asignar roles | Asignar roles a personas que gestiona | 2 | Dar capacidades a un equipo |
