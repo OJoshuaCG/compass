@@ -29,9 +29,7 @@ const MINE: Permission[] = ['role.manage', 'user.invite', 'user.update', 'audit.
 
 const label = (permission: string) =>
   (es.roles as Record<string, string>)[`permission.${permission}`] ?? permission;
-const archiveLabel = (name: string) => es.roles['action.archiveLabel'].replace('{{name}}', name);
-const editLabel = (name: string) => es.roles['action.editLabel'].replace('{{name}}', name);
-const viewLabel = (name: string) => es.roles['action.viewLabel'].replace('{{name}}', name);
+const cardLabel = (name: string) => es.roles['card.openLabel'].replace('{{name}}', name);
 const rolesCalls = (api: ReturnType<typeof stubApi>) => api.callsTo('GET', '/roles');
 
 function setup(
@@ -45,8 +43,23 @@ function setup(
   });
 }
 
-/** La tabla se pinta ya en su estado de carga: se espera a que lleguen las filas. */
-const rowsLoaded = () => screen.findByRole('cell', { name: 'Soporte' });
+/** Las tarjetas llegan después del estado de carga: se espera a la del rol personalizado. */
+const rowsLoaded = () => screen.findByRole('button', { name: cardLabel('Soporte') });
+
+/** Abre el panel de detalle de un rol desde su tarjeta. */
+async function openDetail(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await screen.findByRole('button', { name: cardLabel(name) }));
+  return screen.findByRole('dialog', { name });
+}
+
+/** Detalle de Soporte y luego "Archivar rol": devuelve el diálogo de confirmación. */
+async function openArchive(user: ReturnType<typeof userEvent.setup>) {
+  const detail = await openDetail(user, 'Soporte');
+  await user.click(within(detail).getByRole('button', { name: es.roles['archive.confirm'] }));
+  return screen.findByRole('dialog', {
+    name: es.roles['archive.title'].replace('{{name}}', 'Soporte'),
+  });
+}
 
 describe('roles navigation', () => {
   it('shows the People section tab only with role.manage and reaches the screen', async () => {
@@ -74,20 +87,33 @@ describe('roles navigation', () => {
   });
 });
 
-describe('roles table', () => {
-  it('lists name, system/custom badge and permission count, without violations', async () => {
+describe('roles cards', () => {
+  it('shows one card per role with its kind, areas and permission count, without violations', async () => {
     setup();
     const { container } = renderApp('/roles');
     await rowsLoaded();
-    const table = screen.getByRole('table', { name: es.roles.caption });
-    const rows = within(table).getAllByRole('row');
-    expect(rows).toHaveLength(3);
-    const system = within(rows[1] as HTMLElement);
-    expect(system.getByText(es.roles['badge.system'])).toBeInTheDocument();
-    expect(system.getByRole('cell', { name: '2' })).toBeInTheDocument();
-    const custom = within(rows[2] as HTMLElement);
-    expect(custom.getByText(es.roles['badge.custom'])).toBeInTheDocument();
-    expect(custom.getByRole('cell', { name: '3' })).toBeInTheDocument();
+    const list = screen.getByRole('list', { name: es.roles.caption });
+    const cards = within(list).getAllByRole('listitem');
+    expect(cards).toHaveLength(2);
+    const system = within(cards[0] as HTMLElement);
+    expect(system.getByText(es.roles['kind.system'])).toBeInTheDocument();
+    expect(cards[0]).toHaveTextContent(`2 ${es.roles['card.permissions_other']}`);
+    const custom = within(cards[1] as HTMLElement);
+    expect(custom.getByText(es.roles['kind.custom'])).toBeInTheDocument();
+    expect(cards[1]).toHaveTextContent(`3 ${es.roles['card.permissions_other']}`);
+    // Las áreas resumen el rol, en el orden del catálogo.
+    expect(
+      custom.getByText(
+        [
+          es.roles['permission.group.user'],
+          es.roles['permission.group.credential'],
+          es.roles['permission.group.audit'],
+        ].join(' · '),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: cardLabel('Soporte') })).toHaveAccessibleDescription(
+      new RegExp(es.roles['kind.custom']),
+    );
     expect(await axeViolations(container)).toEqual([]);
   });
 
@@ -108,15 +134,16 @@ describe('roles table', () => {
     expect(await screen.findByText(es.roles['empty.title'])).toBeInTheDocument();
   });
 
-  it('lists the permissions of a role grouped by area in a dialog', async () => {
+  it('opens the detail of a role with its permissions grouped by area', async () => {
     const user = userEvent.setup();
     setup();
     renderApp('/roles');
-    await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: viewLabel('Soporte') }));
-    const dialog = await screen.findByRole('dialog', {
-      name: es.roles['view.title'].replace('{{name}}', 'Soporte'),
-    });
+    const dialog = await openDetail(user, 'Soporte');
+    expect(dialog).toHaveAccessibleDescription(
+      es.roles['detail.summary_other']
+        .replace('{{count}}', '3')
+        .replace('{{kind}}', es.roles['kind.custom']),
+    );
     expect(
       within(dialog).getByRole('heading', { name: es.roles['permission.group.audit'] }),
     ).toBeVisible();
@@ -151,7 +178,7 @@ describe('create role', () => {
       },
     });
     renderApp('/roles');
-    await screen.findByRole('cell', { name: 'Administrador base' });
+    await screen.findByRole('button', { name: cardLabel('Administrador base') });
     await user.click(screen.getByRole('button', { name: es.roles['create.open'] }));
     const dialog = await screen.findByRole('dialog', { name: es.roles['create.title'] });
     const offered = within(dialog)
@@ -184,7 +211,7 @@ describe('create role', () => {
     expect(call?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('cell', { name: 'Soporte' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: cardLabel('Soporte') })).toBeInTheDocument();
     });
   });
 
@@ -266,13 +293,19 @@ describe('create role', () => {
 });
 
 describe('archive role', () => {
-  it('never offers Archive for system roles but does for custom ones', async () => {
+  it('never offers Edit or Archive for system roles but does for custom ones', async () => {
+    const user = userEvent.setup();
     setup();
     renderApp('/roles');
-    await rowsLoaded();
-    expect(screen.getByRole('button', { name: archiveLabel('Soporte') })).toBeVisible();
-    expect(screen.queryByRole('button', { name: archiveLabel('Administrador base') })).toBeNull();
-    expect(screen.getByRole('button', { name: viewLabel('Administrador base') })).toBeVisible();
+    const system = await openDetail(user, 'Administrador base');
+    expect(within(system).getByText(es.roles['detail.systemNote'])).toBeVisible();
+    expect(within(system).queryByRole('button', { name: es.roles['archive.confirm'] })).toBeNull();
+    expect(within(system).queryByRole('button', { name: es.roles['detail.edit'] })).toBeNull();
+    expect(await axeViolations(system)).toEqual([]);
+    await user.keyboard('{Escape}');
+    const custom = await openDetail(user, 'Soporte');
+    expect(within(custom).getByRole('button', { name: es.roles['archive.confirm'] })).toBeVisible();
+    expect(within(custom).getByRole('button', { name: es.roles['detail.edit'] })).toBeVisible();
   });
 
   it('asks for confirmation, archives only that role and refetches the list', async () => {
@@ -290,11 +323,7 @@ describe('archive role', () => {
       },
     });
     renderApp('/roles');
-    await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: archiveLabel('Soporte') }));
-    const dialog = await screen.findByRole('dialog', {
-      name: es.roles['archive.title'].replace('{{name}}', 'Soporte'),
-    });
+    const dialog = await openArchive(user);
     expect(await axeViolations(dialog)).toEqual([]);
     expect(api.callsTo('POST', `/roles/${CUSTOM_ID}/archive`)).toHaveLength(0);
     const before = rolesCalls(api).length;
@@ -309,7 +338,7 @@ describe('archive role', () => {
     ).toBeTruthy();
     await waitFor(() => {
       expect(rolesCalls(api).length).toBeGreaterThan(before);
-      expect(screen.queryByRole('cell', { name: 'Soporte' })).toBeNull();
+      expect(screen.queryByRole('button', { name: cardLabel('Soporte') })).toBeNull();
     });
   });
 
@@ -317,9 +346,7 @@ describe('archive role', () => {
     const user = userEvent.setup();
     const api = setup({ [`POST /roles/${CUSTOM_ID}/archive`]: noContent() });
     renderApp('/roles');
-    await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: archiveLabel('Soporte') }));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await openArchive(user);
     await user.click(within(dialog).getByRole('button', { name: es.common['actions.cancel'] }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
@@ -331,9 +358,7 @@ describe('archive role', () => {
     const user = userEvent.setup();
     setup({ [`POST /roles/${CUSTOM_ID}/archive`]: problem(403, 'ROLE.SYSTEM_PROTECTED') });
     renderApp('/roles');
-    await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: archiveLabel('Soporte') }));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await openArchive(user);
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
       es.errors['ROLE.SYSTEM_PROTECTED'],
@@ -348,9 +373,7 @@ describe('archive role', () => {
       }),
     });
     renderApp('/roles');
-    await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: archiveLabel('Soporte') }));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await openArchive(user);
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
     const alert = await within(dialog).findByRole('alert');
     expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
@@ -369,8 +392,7 @@ describe('archive role', () => {
     renderApp('/roles');
     await rowsLoaded();
     const before = rolesCalls(api).length;
-    await user.click(screen.getByRole('button', { name: archiveLabel('Soporte') }));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await openArchive(user);
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
@@ -385,18 +407,10 @@ describe('edit role', () => {
   const editTitle = (name: string) => es.roles['edit.title'].replace('{{name}}', name);
 
   async function openEdit(user: ReturnType<typeof userEvent.setup>) {
-    await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: editLabel('Soporte') }));
+    const detail = await openDetail(user, 'Soporte');
+    await user.click(within(detail).getByRole('button', { name: es.roles['detail.edit'] }));
     return screen.findByRole('dialog', { name: editTitle('Soporte') });
   }
-
-  it('offers Edit for custom roles only', async () => {
-    setup({}, EDITOR);
-    renderApp('/roles');
-    await rowsLoaded();
-    expect(screen.getByRole('button', { name: editLabel('Soporte') })).toBeVisible();
-    expect(screen.queryByRole('button', { name: editLabel('Administrador base') })).toBeNull();
-  });
 
   it('opens with the current name and permissions and sends the full replacement', async () => {
     const user = userEvent.setup();
@@ -439,7 +453,7 @@ describe('edit role', () => {
     expect(call?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('cell', { name: 'Soporte N2' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: cardLabel('Soporte N2') })).toBeInTheDocument();
     });
   });
 
@@ -535,8 +549,10 @@ describe('roles screen in English', () => {
     const en = (await loadRolesCatalog())['en-US'];
     setup();
     renderApp('/roles', 'en-US');
-    expect(await screen.findByRole('table', { name: en.caption })).toBeInTheDocument();
-    await rowsLoaded();
-    expect(screen.getByText(en['badge.system'])).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: en.caption })).toBeInTheDocument();
+    expect(screen.getByText(en['kind.system'])).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: en['card.openLabel'].replace('{{name}}', 'Soporte') }),
+    ).toBeVisible();
   });
 });

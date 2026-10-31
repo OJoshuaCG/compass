@@ -10,18 +10,19 @@ import { useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useToast } from '../../../shared/toast';
 import { fetchRolesPage, rolesKeys } from '../api/roles-api';
-import { RolesTable } from '../ui/roles-table';
+import { RoleCards } from '../ui/role-cards';
 
 import { ArchiveRoleDialog } from './archive-role-dialog';
 import { CreateRoleDialog } from './create-role-dialog';
 import { EditRoleDialog } from './edit-role-dialog';
-import { ViewRoleDialog } from './view-role-dialog';
+import { RoleDetailDialog } from './role-detail-dialog';
 
 type DialogState = { kind: 'view' | 'edit' | 'archive'; role: Role } | { kind: 'create' } | null;
 
 /**
- * Container de `/roles`: la `DataTable` estándar de roles, "Crear rol", "Editar" y "Archivar"
- * (este con confirmación; ambos solo en los personalizados). Tras cada cambio: aviso y recarga.
+ * Container de `/roles`: los roles en tarjetas (diseño de Compass) y "Crear rol". Cada tarjeta
+ * abre el detalle, desde donde se edita o se archiva (este con confirmación; ambos solo en los
+ * personalizados). Tras cada cambio: aviso y recarga.
  */
 export function RolesPage() {
   const catalogReady = useLazyCatalog('roles');
@@ -61,19 +62,13 @@ export function RolesPage() {
           </Button>
         }
       />
-      <RolesTable
+      <RoleCards
         roles={table.rows}
         status={table.status}
         errorMessage={errorMessage(table.error)}
         onRetry={table.retry}
-        onView={(role) => {
+        onOpen={(role) => {
           setDialog({ kind: 'view', role });
-        }}
-        onEdit={(role) => {
-          setDialog({ kind: 'edit', role });
-        }}
-        onArchive={(role) => {
-          setDialog({ kind: 'archive', role });
         }}
         refreshing={table.refreshing}
         paging={table}
@@ -88,7 +83,18 @@ export function RolesPage() {
           done(t('create.toast', { ns: 'roles', name }));
         }}
       />
-      {dialog?.kind === 'view' ? <ViewRoleDialog role={dialog.role} onClose={close} /> : null}
+      {dialog?.kind === 'view' ? (
+        <RoleDetailDialog
+          role={dialog.role}
+          onClose={close}
+          onEdit={() => {
+            setDialog({ kind: 'edit', role: dialog.role });
+          }}
+          onArchive={() => {
+            setDialog({ kind: 'archive', role: dialog.role });
+          }}
+        />
+      ) : null}
       {dialog?.kind === 'edit' ? (
         <EditRoleDialog
           role={dialog.role}

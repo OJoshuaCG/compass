@@ -2,6 +2,7 @@ import * as RadixDialog from '@radix-ui/react-dialog';
 import type { ReactNode } from 'react';
 
 import { X } from '../icons';
+import { cn } from '../lib/cn';
 
 export type DialogProps = {
   open: boolean;
@@ -10,6 +11,11 @@ export type DialogProps = {
   description: string;
   /** Nombre accesible del botón de cierre (ya traducido). */
   closeLabel: string;
+  /**
+   * `side`: panel a la altura completa pegado al borde final, para consultar el detalle de un
+   * elemento sin perder de vista la lista. Mismo comportamiento modal que el centrado.
+   */
+  placement?: 'center' | 'side';
   children: ReactNode;
 };
 
@@ -23,6 +29,7 @@ export function Dialog({
   title,
   description,
   closeLabel,
+  placement = 'center',
   children,
 }: DialogProps) {
   return (
@@ -30,7 +37,14 @@ export function Dialog({
       <RadixDialog.Portal>
         {/* z-50 > z-40 del aviso emergente: el aviso nunca tapa los botones de un diálogo abierto. */}
         <RadixDialog.Overlay className="fixed inset-0 z-50 bg-text/40" />
-        <RadixDialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto rounded-lg border border-border-strong bg-overlay p-6 shadow-overlay">
+        <RadixDialog.Content
+          className={cn(
+            'fixed z-50 overflow-y-auto border-border-strong bg-overlay p-6 shadow-overlay',
+            placement === 'side'
+              ? 'inset-y-0 end-0 w-full max-w-md border-s'
+              : 'inset-x-4 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 rounded-lg border',
+          )}
+        >
           <RadixDialog.Title className="pe-8 font-heading text-lg break-words text-text">
             {title}
           </RadixDialog.Title>
