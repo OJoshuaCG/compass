@@ -1,6 +1,7 @@
 import type { Permission } from '@iam/contracts';
 
 import type { KeysetPage, KeysetRequest, UserId } from '../../../shared/kernel/index.js';
+import { isPersonalRole } from '../application/ports/role-repository.js';
 import type { RoleRecord, RoleRepository } from '../application/ports/role-repository.js';
 
 export class InMemoryRoleRepository implements RoleRepository {
@@ -24,7 +25,9 @@ export class InMemoryRoleRepository implements RoleRepository {
 
   findByIds(ids: readonly string[]): Promise<readonly RoleRecord[]> {
     return Promise.resolve(
-      ids.map((id) => this.roles.get(id)).filter((role): role is RoleRecord => role !== undefined),
+      ids
+        .map((id) => this.roles.get(id))
+        .filter((role): role is RoleRecord => role !== undefined && !isPersonalRole(role)),
     );
   }
 
@@ -36,11 +39,13 @@ export class InMemoryRoleRepository implements RoleRepository {
 
   listLivePage(page: KeysetRequest): Promise<KeysetPage<RoleRecord>> {
     // Mismo orden que la consulta real: plantillas del sistema primero, luego por nombre.
-    const ordered = [...this.roles.values()].sort((a, b) => {
-      if (a.isSystem !== b.isSystem) return a.isSystem ? -1 : 1;
-      const byName = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-      return byName !== 0 ? byName : a.id.localeCompare(b.id);
-    });
+    const ordered = [...this.roles.values()]
+      .filter((role) => !isPersonalRole(role))
+      .sort((a, b) => {
+        if (a.isSystem !== b.isSystem) return a.isSystem ? -1 : 1;
+        const byName = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        return byName !== 0 ? byName : a.id.localeCompare(b.id);
+      });
     const start = page.cursor === null ? 0 : Number(page.cursor);
     const slice = ordered.slice(start, start + page.limit);
     const next = start + page.limit;
@@ -111,6 +116,33 @@ export class InMemoryRoleRepository implements RoleRepository {
   unassign(userId: UserId, roleIds: readonly string[]): Promise<void> {
     const set = this.assignments.get(userId);
     for (const roleId of roleIds) set?.delete(roleId);
+    return Promise.resolve();
+  }
+
+  findPersonalOfForUpdate(userId: UserId): Promise<RoleRecord | null> {
+    return Promise.resolve(
+      [...this.roles.values()].find((role) => role.personalUserId === userId) ?? null,
+    );
+  }
+
+  insertPersonal(input: {
+    id: string;
+    userId: UserId;
+    permissions: readonly Permission[];
+  }): Promise<void> {
+    this.addRole({
+      id: input.id,
+      name: `personal:${input.userId}`,
+      isSystem: false,
+      permissions: input.permissions,
+      personalUserId: input.userId,
+    });
+    return Promise.resolve();
+  }
+
+  updatePersonalPermissions(id: string, permissions: readonly Permission[]): Promise<void> {
+    const existing = this.roles.get(id);
+    if (existing !== undefined) this.addRole({ ...existing, permissions });
     return Promise.resolve();
   }
 }

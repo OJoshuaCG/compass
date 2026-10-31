@@ -18,11 +18,18 @@ import type { Rank, UserId } from '../../../shared/kernel/index.js';
 import type { AssignedRoleRevoker, RoleAdjustment } from '../../directory/index.js';
 import { checkRoleAssignment, rolesExceedingRank } from '../domain/role-assignment.js';
 import { SYSTEM_ROLE_KEY_BY_RANK, systemRole } from '../domain/system-roles.js';
+import { isPersonalRole } from './ports/role-repository.js';
 import type { RoleRepository } from './ports/role-repository.js';
 
 export interface RankRoleAdjusterDeps {
   readonly roles: RoleRepository;
 }
+
+const NO_ADJUSTMENT: RoleAdjustment = {
+  removedRoles: [],
+  assignedRole: null,
+  templateSkipped: false,
+};
 
 export class RankRoleAdjuster implements AssignedRoleRevoker {
   constructor(private readonly deps: RankRoleAdjusterDeps) {}
@@ -35,19 +42,27 @@ export class RankRoleAdjuster implements AssignedRoleRevoker {
   }): Promise<RoleAdjustment> {
     const { roles } = this.deps;
     const assigned = await roles.listLiveAssigned(input.userId);
-    const exceeding = rolesExceedingRank(assigned, input.newRank);
-    if (exceeding.length === 0)
-      return { removedRoles: [], assignedRole: null, templateSkipped: false };
+    // El rol personal (permisos especiales) no cuenta como rol elegible: si pasa del nuevo techo
+    // se suelta sin informarlo (su nombre es interno) y nunca decide si hace falta la plantilla.
+    const eligible = assigned.filter((role) => !isPersonalRole(role));
+    const exceedingEligible = rolesExceedingRank(eligible, input.newRank);
+    const exceedingPersonal = rolesExceedingRank(assigned.filter(isPersonalRole), input.newRank);
+    if (exceedingEligible.length === 0 && exceedingPersonal.length === 0) {
+      return NO_ADJUSTMENT;
+    }
 
     await roles.unassign(
       input.userId,
-      exceeding.map((role) => role.id),
+      [...exceedingEligible, ...exceedingPersonal].map((role) => role.id),
     );
-    const removedRoles = exceeding.map((role) => ({ id: role.id, name: role.name }));
+    if (exceedingEligible.length === 0) {
+      return NO_ADJUSTMENT;
+    }
+    const removedRoles = exceedingEligible.map((role) => ({ id: role.id, name: role.name }));
 
     // Solo se asigna la plantilla si el recorte dejó a la persona sin ningún rol vigente; quien
     // conserva otros roles ya tiene permisos y no se le amplían por el cambio.
-    const remainingRoleCount = assigned.length - exceeding.length;
+    const remainingRoleCount = eligible.length - exceedingEligible.length;
     if (remainingRoleCount > 0) {
       return { removedRoles, assignedRole: null, templateSkipped: false };
     }

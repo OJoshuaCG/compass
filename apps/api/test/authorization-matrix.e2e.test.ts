@@ -73,6 +73,10 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'PATCH /roles/:id': 'full-session',
   'POST /organization/data-key/rotate': 'full-session',
   'POST /roles/:id/archive': 'full-session',
+  'GET /permissions': 'full-session',
+  'GET /users/:id/roles': 'full-session',
+  'POST /users/:id/roles': 'full-session',
+  'POST /users/:id/special-permissions': 'full-session',
 
   'GET /platforms': 'full-session',
   'GET /accounts': 'full-session',
@@ -102,12 +106,12 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'GET /invitations': 'full-session',
   'POST /invitations': 'full-session',
   'POST /invitations/:id/resend': 'full-session',
+  'POST /invitations/with-link': 'full-session',
+  'POST /invitations/:id/resend-with-link': 'full-session',
   'POST /invitations/preview': 'public',
   'POST /invitations/accept': 'public',
 };
 
-  'POST /invitations/with-link': 'full-session',
-  'POST /invitations/:id/resend-with-link': 'full-session',
 interface DiscoveredRoute {
   readonly key: string;
   readonly method: Method;

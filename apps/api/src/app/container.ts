@@ -8,6 +8,7 @@ import type { Logger } from 'pino';
 import {
   Authorizer,
   DenialGrouper,
+  ManagePersonRoles,
   ManageRoles,
   PgRoleRepository,
   RankRoleAdjuster,
@@ -374,6 +375,15 @@ export function buildContainer(options: ContainerOptions) {
       audit,
       clock,
     }),
+    managePersonRoles: new ManagePersonRoles({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory,
+      roles,
+      ids,
+      audit,
+    }),
     manageAccounts: new ManageAccounts({
       context: requestContext,
       uow,
@@ -505,6 +515,7 @@ export function buildContainer(options: ContainerOptions) {
       clock,
       audit,
       mailer,
+      linkBaseUrl: options.webauthn.origin,
     }),
     listInvitations: new ListInvitations({
       context: requestContext,
@@ -515,7 +526,6 @@ export function buildContainer(options: ContainerOptions) {
       clock,
     }),
     resendInvitation: new ResendInvitation({
-      linkBaseUrl: options.webauthn.origin,
       context: requestContext,
       uow,
       authorizer,
@@ -527,6 +537,7 @@ export function buildContainer(options: ContainerOptions) {
       clock,
       audit,
       mailer,
+      linkBaseUrl: options.webauthn.origin,
     }),
     previewInvitation: new PreviewInvitation({ lookup, primitives, clock }),
     acceptInvitation: new AcceptInvitation({
@@ -537,7 +548,6 @@ export function buildContainer(options: ContainerOptions) {
       createUser,
       credentials,
       roles,
-      linkBaseUrl: options.webauthn.origin,
       sessions,
       hasher,
       strength,

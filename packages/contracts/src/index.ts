@@ -82,8 +82,24 @@ export type {
 export { sessionSummarySchema } from './sessions.js';
 export type { SessionSummary } from './sessions.js';
 
-export { createRoleRequestSchema, roleSchema, updateRoleRequestSchema } from './roles.js';
-export type { CreateRoleRequest, Role, UpdateRoleRequest } from './roles.js';
+export {
+  createRoleRequestSchema,
+  permissionCatalogEntrySchema,
+  personRolesSchema,
+  roleSchema,
+  setPersonRolesRequestSchema,
+  setSpecialPermissionsRequestSchema,
+  updateRoleRequestSchema,
+} from './roles.js';
+export type {
+  CreateRoleRequest,
+  PermissionCatalogEntry,
+  PersonRoles,
+  Role,
+  SetPersonRolesRequest,
+  SetSpecialPermissionsRequest,
+  UpdateRoleRequest,
+} from './roles.js';
 export { pendingInvitationSchema } from './invitations.js';
 export type { PendingInvitation } from './invitations.js';
 

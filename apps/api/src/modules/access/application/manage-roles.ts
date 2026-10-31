@@ -25,6 +25,7 @@ import type { UnitOfWork } from '../../organization/index.js';
 import { effectivePermissions } from '../domain/effective-permissions.js';
 import { isSubsetOfCreator } from '../domain/role-assignment.js';
 import type { Authorizer } from './authorizer.js';
+import { isPersonalRole } from './ports/role-repository.js';
 import type { RoleRecord, RoleRepository } from './ports/role-repository.js';
 import type { UserDirectory } from '../../directory/index.js';
 
@@ -102,7 +103,10 @@ export class ManageRoles {
 
       // Con bloqueo de fila: la comprobación de escalamiento se hace sobre lo que realmente se reemplaza.
       const role = await roles.findLiveByIdForUpdate(roleId);
-      if (role === null) return err(new DomainError('NOT_FOUND', 'Role not found'));
+      // Los roles personales (permisos especiales) se gestionan por persona, no por esta pantalla.
+      if (role === null || isPersonalRole(role)) {
+        return err(new DomainError('NOT_FOUND', 'Role not found'));
+      }
       if (role.isSystem) {
         await authorizer.auditDenial({ code: 'ROLE.SYSTEM_PROTECTED', permission: 'role.manage' });
         return err(new DomainError('ROLE.SYSTEM_PROTECTED', 'System roles cannot be changed'));
@@ -151,7 +155,10 @@ export class ManageRoles {
     return uow.run(async () => {
       await authorizer.require({ permission: 'role.manage' });
       const role = await roles.findLiveById(roleId);
-      if (role === null) return err(new DomainError('NOT_FOUND', 'Role not found'));
+      // Los roles personales (permisos especiales) se gestionan por persona, no por esta pantalla.
+      if (role === null || isPersonalRole(role)) {
+        return err(new DomainError('NOT_FOUND', 'Role not found'));
+      }
       if (role.isSystem) {
         await authorizer.auditDenial({ code: 'ROLE.SYSTEM_PROTECTED', permission: 'role.manage' });
         return err(new DomainError('ROLE.SYSTEM_PROTECTED', 'System roles cannot be changed'));

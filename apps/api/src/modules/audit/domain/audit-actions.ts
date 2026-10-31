@@ -16,6 +16,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'role.created': ['permissionCount'],
   'role.updated': ['addedCount', 'removedCount', 'renamed'],
   'role.archived': [],
+  'user.roles_changed': ['addedCount', 'removedCount'],
+  'user.special_permissions_changed': ['addedCount', 'removedCount'],
   // Sincronización de plantillas de sistema (B5a): `removed` y `added` son nombres de permisos separados por
   // coma (la auditoría solo admite valores primitivos); nunca contenido de credenciales.
   'role.system_synced': ['roleName', 'removed', 'added'],

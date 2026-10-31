@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import type { DynamicModule, Provider } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
-import { ManageRoles } from '../modules/access/index.js';
+import { ManagePersonRoles, ManageRoles } from '../modules/access/index.js';
 import { RotateDataKey } from '../modules/maintenance/index.js';
 import { DataKeyController } from '../modules/maintenance/interface/data-key.controller.js';
+import { PersonRolesController } from '../modules/access/interface/person-roles.controller.js';
 import { RolesController } from '../modules/access/interface/roles.controller.js';
 import { IdempotencyInterceptor, IdempotencyService } from '../modules/idempotency/index.js';
 import { ListDirectory, ListManaged, ManageUsers } from '../modules/directory/index.js';
@@ -88,6 +89,7 @@ export class AppModule {
       { provide: ListInvitations, useValue: container.listInvitations },
       { provide: ResendInvitation, useValue: container.resendInvitation },
       { provide: ManageRoles, useValue: container.manageRoles },
+      { provide: ManagePersonRoles, useValue: container.managePersonRoles },
       { provide: RotateDataKey, useValue: container.rotateDataKey },
       { provide: ManageAccounts, useValue: container.manageAccounts },
       { provide: ManageCredentials, useValue: container.manageCredentials },
@@ -106,6 +108,7 @@ export class AppModule {
         MeController,
         InvitationsController,
         RolesController,
+        PersonRolesController,
         DataKeyController,
         UsersController,
         PlatformsController,
