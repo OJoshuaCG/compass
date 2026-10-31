@@ -110,7 +110,7 @@ test.describe.serial('WCAG 2.2 A/AA scan with axe in a real browser (signed in a
     );
 
     await page.getByRole('link', { name: `Credentials of the account ${ACCOUNT_NAME}` }).click();
-    await waitForScreen(page, `Credentials of ${ACCOUNT_NAME}`);
+    await waitForScreen(page, ACCOUNT_NAME);
     await expectNoWcagViolations(page, 'Credentials of an account (en-US)');
   });
 

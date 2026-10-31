@@ -77,7 +77,7 @@ test.describe.serial('vault journey in a real browser (accounts, credentials, im
 
     await page.getByRole('link', { name: `Credentials of the account ${ACCOUNT_NAME}` }).click();
     await expect(
-      page.getByRole('heading', { name: `Credentials of ${ACCOUNT_NAME}` }),
+      page.getByRole('heading', { level: 1, name: ACCOUNT_NAME, exact: true }),
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'Add credential' }).click();
@@ -94,8 +94,8 @@ test.describe.serial('vault journey in a real browser (accounts, credentials, im
       page.getByText(`Credential ${CREDENTIAL_LABEL} added`),
     );
 
-    const credentialsTable = page.getByRole('table', { name: 'Credentials of the account' });
-    await expect(credentialsTable.getByText(CREDENTIAL_LABEL)).toBeVisible();
+    const credentialsList = page.getByRole('list', { name: 'Credentials of the account' });
+    await expect(credentialsList.getByText(CREDENTIAL_LABEL)).toBeVisible();
     // Nada sensible en el almacenamiento del navegador ni en la URL.
     expect(await storageDump(page)).not.toContain(INITIAL_SECRET);
     expect(page.url()).not.toContain(INITIAL_SECRET);

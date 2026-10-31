@@ -5,14 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, problem, stubApi } from '../../test/fake-api';
-import {
-  announcedStatusTexts,
-  chooseRowMenuAction,
-  es,
-  expectNoSecretsStored,
-  field,
-  rowMenuItemTexts,
-} from '../../test/helpers';
+import { announcedStatusTexts, es, expectNoSecretsStored, field } from '../../test/helpers';
 import { renderApp } from '../../test/render-app';
 
 const ACCOUNT_ID = '33333333-3333-4333-8333-333333333331';
@@ -79,9 +72,8 @@ const fill = (template: string, values: Record<string, string | number>) =>
   );
 
 const t = es.credentials;
-// El segundo factor se elige en el menú "⋯" de la fila (docs/frontend.md §6.2).
-const rowMenuName = fill(t['action.rowMenu'], { label: LABEL });
-const totpItem = t['action.totp'];
+// El segundo factor se abre con el botón de su fila en la tarjeta de la credencial.
+const totpButtonName = fill(t['action.totpLabel'], { label: LABEL });
 const dialogName = fill(t['totp.title'], { label: LABEL });
 
 /**
@@ -130,8 +122,8 @@ function setup(
 const PAGE = `/accounts/${ACCOUNT_ID}/credentials`;
 
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('cell', { name: LABEL });
-  await chooseRowMenuAction(user, rowMenuName, totpItem);
+  await screen.findByRole('heading', { level: 2, name: LABEL });
+  await user.click(screen.getByRole('button', { name: totpButtonName }));
   return screen.findByRole('dialog', { name: dialogName });
 }
 
@@ -153,27 +145,25 @@ afterEach(() => {
 
 describe('second factor action gating', () => {
   it('is offered with USE and the use_totp permission', async () => {
-    const user = userEvent.setup();
     setup({ level: 'USE', extra: totpRoutes(totpFixture()).routes });
     renderApp(PAGE);
-    await screen.findByRole('cell', { name: LABEL });
-    expect(await rowMenuItemTexts(user, rowMenuName)).toContain(totpItem);
+    await screen.findByRole('heading', { level: 2, name: LABEL });
+    expect(screen.getByRole('button', { name: totpButtonName })).toBeVisible();
   });
 
   it('is hidden without the permission, even at MANAGE', async () => {
-    const user = userEvent.setup();
     setup({ level: 'MANAGE', permissions: ['credential.update'] });
     renderApp(PAGE);
-    await screen.findByRole('cell', { name: LABEL });
-    expect(await rowMenuItemTexts(user, rowMenuName)).not.toContain(totpItem);
+    await screen.findByRole('heading', { level: 2, name: LABEL });
+    expect(screen.queryByRole('button', { name: totpButtonName })).toBeNull();
   });
 
   it('is hidden without access to the account', async () => {
     setup({ level: null });
     renderApp(PAGE);
-    await screen.findByRole('cell', { name: LABEL });
-    // Sin acceso a la cuenta no hay ninguna acción, así que ni el menú se pinta.
-    expect(screen.queryByRole('button', { name: rowMenuName })).toBeNull();
+    await screen.findByRole('heading', { level: 2, name: LABEL });
+    // Sin acceso a la cuenta no hay ninguna acción.
+    expect(screen.queryByRole('button', { name: totpButtonName })).toBeNull();
   });
 
   it('USE only offers the code: no register, retire or export', async () => {
@@ -1107,11 +1097,9 @@ describe('second factor dialog in English', () => {
     const en = (await loadCredentialsCatalog())['en-US'];
     setup({ extra: totpRoutes(null).routes });
     renderApp(PAGE, 'en-US');
-    await screen.findByRole('cell', { name: LABEL });
-    await chooseRowMenuAction(
-      user,
-      fill(en['action.rowMenu'], { label: LABEL }),
-      en['action.totp'],
+    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await user.click(
+      screen.getByRole('button', { name: fill(en['action.totpLabel'], { label: LABEL }) }),
     );
     const dialog = await screen.findByRole('dialog', {
       name: fill(en['totp.title'], { label: LABEL }),

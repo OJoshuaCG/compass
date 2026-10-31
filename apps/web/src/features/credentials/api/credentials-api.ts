@@ -3,7 +3,9 @@ import {
   credentialSchema,
   credentialUsernameSchema,
   passwordVersionSchema,
+  platformSchema,
   revealedPasswordSchema,
+  shareSchema,
   type ChangeCredentialPasswordRequest,
   type CreateCredentialRequest,
 } from '@iam/contracts';
@@ -21,10 +23,14 @@ export const credentialsKeys = {
   account: (accountId: string) => [...credentialsKeys.all, 'account', accountId] as const,
   list: (accountId: string) => [...credentialsKeys.all, 'list', accountId] as const,
   history: (credentialId: string) => [...credentialsKeys.all, 'history', credentialId] as const,
+  platforms: () => [...credentialsKeys.all, 'platforms'] as const,
+  shares: (accountId: string) => [...credentialsKeys.all, 'shares', accountId] as const,
 };
 
 const credentialsResponseSchema = z.object({ data: z.array(credentialSchema) });
 const historyResponseSchema = z.object({ data: z.array(passwordVersionSchema) });
+const platformsResponseSchema = z.object({ data: z.array(platformSchema) });
+const sharesResponseSchema = z.object({ data: z.array(shareSchema) });
 
 /** `GET /accounts/:id`: nombre y `myLevel` de la cuenta, que deciden qué acciones se ofrecen. */
 export function fetchAccount(
@@ -35,6 +41,29 @@ export function fetchAccount(
   return client.get(`/accounts/${accountId}`, accountSchema, {
     ...(signal === undefined ? {} : { signal }),
   });
+}
+
+/** `GET /platforms`: el catálogo completo, para mostrar el nombre de la plataforma de la cuenta. */
+export async function fetchPlatforms(signal?: AbortSignal, client: ApiClient = apiClient) {
+  const response = await client.get('/platforms', platformsResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+  return response.data;
+}
+
+/**
+ * `GET /accounts/:id/shares` (exige `share.manage` y nivel MANAGE): con quién se comparte la cuenta.
+ * El detalle solo la pide cuando quien consulta puede gestionarlas.
+ */
+export async function fetchAccountShares(
+  accountId: string,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+) {
+  const response = await client.get(`/accounts/${accountId}/shares`, sharesResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+  return response.data;
 }
 
 /** `GET /accounts/:id/credentials`: metadatos de las credenciales, completos y sin paginar. */

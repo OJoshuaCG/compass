@@ -325,9 +325,10 @@ async function openSecondFactorDialog(
 ): Promise<Locator> {
   await openAccounts(page);
   await page.getByRole('link', { name: `Credentials of the account ${accountName}` }).click();
-  await expect(page.getByRole('heading', { name: `Credentials of ${accountName}` })).toBeVisible();
-  await page.getByRole('button', { name: `Actions for ${credentialLabel}` }).click();
-  await page.getByRole('menuitem', { name: 'Second factor', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { level: 1, name: accountName, exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: `Second factor of ${credentialLabel}` }).click();
   const dialog = page.getByRole('dialog', { name: `Second factor of ${credentialLabel}` });
   await expect(dialog).toBeVisible();
   return dialog;

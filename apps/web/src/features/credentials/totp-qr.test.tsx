@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, problem, stubApi } from '../../test/fake-api';
-import { chooseRowMenuAction, es, expectNoSecretsStored } from '../../test/helpers';
+import { es, expectNoSecretsStored } from '../../test/helpers';
 import { renderApp } from '../../test/render-app';
 
 import { buildMigrationUri, type FixtureEntry } from './model/migration-test-fixture';
@@ -52,7 +52,8 @@ const fill = (template: string, values: Record<string, string | number>) =>
     (text, [name, value]) => text.replaceAll(`{{${name}}}`, String(value)),
     template,
   );
-const rowMenuName = fill(t['action.rowMenu'], { label: LABEL });
+// El segundo factor se abre con el botón de su fila en la tarjeta de la credencial.
+const totpButtonName = fill(t['action.totpLabel'], { label: LABEL });
 const dialogName = fill(t['totp.title'], { label: LABEL });
 
 const ACCOUNT: Account = {
@@ -154,8 +155,8 @@ function qrFile(name = 'qr.png', type = 'image/png') {
 }
 
 async function openImageMethod(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('cell', { name: LABEL });
-  await chooseRowMenuAction(user, rowMenuName, t['action.totp']);
+  await screen.findByRole('heading', { level: 2, name: LABEL });
+  await user.click(screen.getByRole('button', { name: totpButtonName }));
   const dialog = await screen.findByRole('dialog', { name: dialogName });
   await within(dialog).findByText(t['totp.status.none']);
   await user.click(within(dialog).getByRole('tab', { name: t['totp.register.method.image'] }));
@@ -699,11 +700,9 @@ describe('register from a QR image in English', () => {
     installFakeBrowserMedia({ displayCapture: false });
     setup();
     renderApp(PAGE, 'en-US');
-    await screen.findByRole('cell', { name: LABEL });
-    await chooseRowMenuAction(
-      user,
-      fill(en['action.rowMenu'], { label: LABEL }),
-      en['action.totp'],
+    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await user.click(
+      screen.getByRole('button', { name: fill(en['action.totpLabel'], { label: LABEL }) }),
     );
     const dialog = await screen.findByRole('dialog', {
       name: fill(en['totp.title'], { label: LABEL }),
@@ -722,11 +721,9 @@ describe('register from a QR image in English', () => {
     pixelsOnScreen = renderQrPixels(buildMigrationUri([ANA, BOB, HOTP_ENTRY]));
     setup();
     renderApp(PAGE, 'en-US');
-    await screen.findByRole('cell', { name: LABEL });
-    await chooseRowMenuAction(
-      user,
-      fill(en['action.rowMenu'], { label: LABEL }),
-      en['action.totp'],
+    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await user.click(
+      screen.getByRole('button', { name: fill(en['action.totpLabel'], { label: LABEL }) }),
     );
     const dialog = await screen.findByRole('dialog', {
       name: fill(en['totp.title'], { label: LABEL }),

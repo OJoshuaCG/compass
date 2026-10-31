@@ -72,7 +72,7 @@ const fill = (template: string, values: Record<string, string | number>) =>
 
 const revealLabel = (label: string) => fill(es.credentials['action.revealLabel'], { label });
 const menuLabel = (label: string) => fill(es.credentials['action.rowMenu'], { label });
-const copyUsernameItem = es.credentials['action.copyUsername'];
+const copyLabel = (label: string) => fill(es.credentials['action.copyUsernameLabel'], { label });
 const changePasswordItem = es.credentials['action.changePassword'];
 const historyItem = es.credentials['action.history'];
 
@@ -93,31 +93,53 @@ function setup(
 }
 
 const PAGE = `/accounts/${ACCOUNT_ID}/credentials`;
-const rowsLoaded = () => screen.findByRole('cell', { name: ROTATED.label });
+/** Las tarjetas llegan después del estado de carga: se espera a la de la primera credencial. */
+const rowsLoaded = () => screen.findByRole('heading', { level: 2, name: ROTATED.label });
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
 describe('credentials list', () => {
-  it('lists label, kind and last rotation, without violations', async () => {
-    setup();
+  it('shows the account header and one card per credential, without violations', async () => {
+    setup({
+      extra: {
+        'GET /platforms': jsonResponse({
+          data: [
+            {
+              id: PLATFORM_ID,
+              name: 'Portal RH',
+              slug: 'portal-rh',
+              loginUrl: null,
+              supportsTotp: false,
+              isGlobal: true,
+            },
+          ],
+        }),
+      },
+    });
     const { container } = renderApp(PAGE);
     await rowsLoaded();
-    const table = screen.getByRole('table', { name: es.credentials.caption });
-    const headers = within(table)
-      .getAllByRole('columnheader')
-      .map((header) => header.textContent);
-    expect(headers).toEqual(
-      expect.arrayContaining([
-        es.credentials['col.label'],
-        es.credentials['col.kind'],
-        es.credentials['col.lastRotated'],
-      ]),
-    );
-    expect(within(table).getByText(es.credentials['kind.password'])).toBeInTheDocument();
-    expect(within(table).getByText(es.credentials['kind.password_totp'])).toBeInTheDocument();
-    expect(within(table).getByText(es.credentials['rotated.never'])).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Nómina' })).toBeInTheDocument();
+    expect(await screen.findByText('Portal RH')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        fill(es.credentials['account.level'], { level: es.credentials['level.MANAGE'] }),
+      ),
+    ).toBeInTheDocument();
+    const list = screen.getByRole('list', { name: es.credentials.caption });
+    const cards = within(list).getAllByRole('listitem');
+    expect(cards).toHaveLength(2);
+    // El tipo (insignia) y el campo se llaman igual en una credencial solo de contraseña.
+    expect(
+      within(cards[0] as HTMLElement).getAllByText(es.credentials['kind.password']),
+    ).toHaveLength(2);
+    expect(
+      within(cards[1] as HTMLElement).getByText(es.credentials['kind.password_totp']),
+    ).toBeVisible();
+    expect(
+      within(cards[1] as HTMLElement).getByText(es.credentials['rotated.never']),
+    ).toBeVisible();
     expect(await axeViolations(container)).toEqual([]);
   });
 
@@ -170,35 +192,91 @@ describe('credentials list', () => {
   });
 });
 
+describe('shared with', () => {
+  const SHARES_PATH = `/accounts/${ACCOUNT_ID}/shares`;
+  const sharesRoute = jsonResponse({
+    data: [
+      {
+        id: '66666666-6666-4666-8666-666666666661',
+        accountId: ACCOUNT_ID,
+        granteeType: 'user',
+        granteeId: CREATOR_ID,
+        granteeName: 'Diego Torres',
+        level: 'USE',
+        expiresAt: null,
+        grantedBy: CREATOR_ID,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+  });
+  const panelTitle = () => screen.findByRole('heading', { name: es.credentials['shares.title'] });
+
+  it('lists who the account is shared with for someone who manages it', async () => {
+    setup({
+      level: 'MANAGE',
+      permissions: [...ALL_PERMISSIONS, 'share.manage'],
+      extra: { [`GET ${SHARES_PATH}`]: sharesRoute },
+    });
+    const { container } = renderApp(PAGE);
+    await panelTitle();
+    expect(await screen.findByText('Diego Torres')).toBeVisible();
+    expect(screen.getByText(es.credentials['level.USE'])).toBeVisible();
+    expect(screen.getByRole('link', { name: es.credentials['shares.manage'] })).toHaveAttribute(
+      'href',
+      SHARES_PATH,
+    );
+    expect(screen.getByRole('link', { name: es.credentials['action.share'] })).toBeVisible();
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  // El servidor exige `share.manage` y MANAGE: sin ambos ni se pide la lista ni se pinta el panel.
+  it.each([
+    ['MANAGE without share.manage', 'MANAGE', ALL_PERMISSIONS],
+    ['share.manage below MANAGE', 'EDIT', [...ALL_PERMISSIONS, 'share.manage']],
+  ] as const)('stays hidden and never asks the API: %s', async (_name, level, permissions) => {
+    const api = setup({ level, permissions: [...permissions] });
+    renderApp(PAGE);
+    await rowsLoaded();
+    expect(screen.queryByRole('heading', { name: es.credentials['shares.title'] })).toBeNull();
+    expect(screen.queryByRole('link', { name: es.credentials['action.share'] })).toBeNull();
+    expect(api.callsTo('GET', SHARES_PATH)).toHaveLength(0);
+  });
+});
+
 describe('action gating by level and permission', () => {
   const LABEL = 'Portal de nómina';
 
   it('USE only offers copying the username', async () => {
-    const user = userEvent.setup();
     setup({ level: 'USE' });
     renderApp(PAGE);
     await rowsLoaded();
     expect(screen.queryByRole('button', { name: revealLabel(LABEL) })).toBeNull();
-    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([copyUsernameItem]);
+    expect(screen.getByRole('button', { name: copyLabel(LABEL) })).toBeVisible();
+    // USE no puede revelar: la fila lo explica en lugar del botón.
+    expect(
+      screen.getAllByText(
+        fill(es.credentials['reveal.notAllowedLevel'], { level: es.credentials['level.USE'] }),
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: menuLabel(LABEL) })).toBeNull();
     expect(screen.queryByRole('button', { name: es.credentials['action.create'] })).toBeNull();
   });
 
-  it('VIEW adds reveal as the visible primary action, but only with the reveal permission', async () => {
-    const user = userEvent.setup();
+  it('VIEW adds reveal, but only with the reveal permission', async () => {
     setup({ level: 'VIEW' });
     const first = renderApp(PAGE);
     await rowsLoaded();
     expect(screen.getByRole('button', { name: revealLabel(LABEL) })).toBeVisible();
-    // Revelar es la única acción fuera del menú: el resto no se ofrece como botones sueltos.
-    expect(screen.queryByRole('button', { name: copyUsernameItem })).toBeNull();
-    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([copyUsernameItem]);
+    expect(screen.getByRole('button', { name: copyLabel(LABEL) })).toBeVisible();
+    // Cambiar contraseña e historial piden EDIT: sin ellos no hay menú.
+    expect(screen.queryByRole('button', { name: menuLabel(LABEL) })).toBeNull();
     first.unmount();
 
     setup({ level: 'VIEW', permissions: [] });
     renderApp(PAGE);
     await rowsLoaded();
     expect(screen.queryByRole('button', { name: revealLabel(LABEL) })).toBeNull();
-    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([copyUsernameItem]);
+    expect(screen.getAllByText(es.credentials['reveal.notAllowed']).length).toBeGreaterThan(0);
   });
 
   it('EDIT adds create, change password and history', async () => {
@@ -209,7 +287,6 @@ describe('action gating by level and permission', () => {
     expect(screen.getByRole('button', { name: es.credentials['action.create'] })).toBeVisible();
     expect(screen.getByRole('button', { name: revealLabel(LABEL) })).toBeVisible();
     expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([
-      copyUsernameItem,
       changePasswordItem,
       historyItem,
     ]);
@@ -222,7 +299,7 @@ describe('action gating by level and permission', () => {
     await rowsLoaded();
     expect(screen.queryByRole('button', { name: es.credentials['action.create'] })).toBeNull();
     expect(screen.queryByRole('button', { name: revealLabel(LABEL) })).toBeNull();
-    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([copyUsernameItem, historyItem]);
+    expect(await rowMenuItemTexts(user, menuLabel(LABEL))).toEqual([historyItem]);
   });
 
   it('draws no menu when the account level offers no action at all', async () => {
@@ -230,6 +307,7 @@ describe('action gating by level and permission', () => {
     renderApp(PAGE);
     await rowsLoaded();
     expect(screen.queryByRole('button', { name: menuLabel(LABEL) })).toBeNull();
+    expect(screen.queryByRole('button', { name: copyLabel(LABEL) })).toBeNull();
   });
 });
 
@@ -263,8 +341,8 @@ describe('row actions: accessible names and keyboard', () => {
     trigger.focus();
     await user.keyboard('{Enter}');
     await screen.findByRole('menuitem', { name: historyItem });
-    // Copiar usuario, Cambiar contraseña, Historial: dos flechas llegan al historial.
-    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    // Cambiar contraseña, Historial: una flecha llega al historial.
+    await user.keyboard('{ArrowDown}{Enter}');
     expect(
       await screen.findByRole('dialog', {
         name: fill(es.credentials['history.title'], { label: LABEL }),
@@ -335,7 +413,7 @@ describe('copy username', () => {
     await rowsLoaded();
     const write = vi.spyOn(navigator.clipboard, 'writeText');
 
-    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), copyUsernameItem);
+    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
     await waitFor(() => {
       expect(write).toHaveBeenCalledWith(USERNAME);
     });
@@ -357,7 +435,7 @@ describe('copy username', () => {
     await rowsLoaded();
     const write = vi.spyOn(navigator.clipboard, 'writeText');
 
-    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), copyUsernameItem);
+    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
     await waitFor(() => {
       expect(write).toHaveBeenCalledWith(USERNAME);
     });
@@ -378,7 +456,7 @@ describe('copy username', () => {
     });
     renderApp(PAGE);
     await rowsLoaded();
-    await chooseRowMenuAction(user, menuLabel('Portal de nómina'), copyUsernameItem);
+    await user.click(screen.getByRole('button', { name: copyLabel('Portal de nómina') }));
     expect(await screen.findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.SHARE']);
   });
 });
@@ -759,7 +837,7 @@ describe('create credential', () => {
     });
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('cell', { name: 'Banco' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'Banco' })).toBeInTheDocument();
     });
     expectNoSecretsStored(queryClient, [PASSWORD, USERNAME]);
   });
@@ -1091,9 +1169,14 @@ describe('credentials screen in English', () => {
     const en = (await loadCredentialsCatalog())['en-US'];
     setup();
     renderApp(PAGE, 'en-US');
-    expect(await screen.findByRole('table', { name: en.caption })).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: en.caption })).toBeInTheDocument();
     await rowsLoaded();
-    expect(screen.getByText(en['kind.password'])).toBeInTheDocument();
+    expect(screen.getAllByText(en['kind.password']).length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole('button', {
+        name: en['action.copyUsernameLabel'].replace('{{label}}', ROTATED.label),
+      }),
+    ).toBeVisible();
   });
 });
 
@@ -1108,6 +1191,8 @@ describe('accessible names start with the visible text, in both languages', () =
     const shares = (await loadSharesCatalog())[locale];
     const pairs: [visible: string, accessible: string][] = [
       [credentials['action.reveal'], credentials['action.revealLabel']],
+      [credentials['action.copy'], credentials['action.copyUsernameLabel']],
+      [credentials['action.totp'], credentials['action.totpLabel']],
       [accounts['action.credentials'], accounts['action.credentialsLabel']],
       [accounts['action.share'], accounts['action.shareLabel']],
       [accounts['action.edit'], accounts['action.editLabel']],

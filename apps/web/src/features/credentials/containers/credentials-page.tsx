@@ -1,5 +1,5 @@
 import type { Credential } from '@iam/contracts';
-import { Button, PageHeader, Spinner } from '@iam/ui';
+import { Badge, Button, buttonVariants, Spinner, Users } from '@iam/ui';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -13,8 +13,10 @@ import { useToast } from '../../../shared/toast';
 import {
   credentialsKeys,
   fetchAccount,
+  fetchAccountShares,
   fetchCredentials,
   fetchCredentialUsername,
+  fetchPlatforms,
 } from '../api/credentials-api';
 import {
   canChangePassword,
@@ -26,8 +28,9 @@ import {
   canUseTotp,
   canViewHistory,
 } from '../model/credential-access';
+import { AccountSharesPanel } from '../ui/account-shares-panel';
 import { CLIPBOARD_CLEAR_MS, CLIPBOARD_CLEAR_SECONDS } from '../model/secret-policy';
-import { CredentialsTable, rowMenuTriggerSelector } from '../ui/credentials-table';
+import { CredentialCards, rowMenuTriggerSelector } from '../ui/credential-cards';
 
 import { ChangePasswordDialog } from './change-password-dialog';
 import { CreateCredentialDialog } from './create-credential-dialog';
@@ -46,8 +49,8 @@ export type CredentialsPageProps = {
 };
 
 /**
- * Container de `/accounts/:accountId/credentials`: las credenciales de una cuenta con la
- * `DataTable` estándar. Las acciones se ofrecen según el permiso y el `myLevel` de la cuenta
+ * Container de `/accounts/:accountId/credentials`: el detalle de una cuenta como en el diseño de
+ * Compass (encabezado, una tarjeta por credencial y, para quien las gestiona, con quién se comparte). Las acciones se ofrecen según el permiso y el `myLevel` de la cuenta
  * (USE copiar usuario y segundo factor, VIEW revelar, EDIT crear, cambiar contraseña, historial y
  * registrar o retirar el segundo factor, MANAGE exportar su clave); solo es
  * comodidad, el servidor decide siempre.
@@ -64,6 +67,7 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   const hasRevealPermission = usePermission('credential.reveal_password');
   const hasUseTotpPermission = usePermission('credential.use_totp');
   const hasExportTotpPermission = usePermission('credential.export_totp');
+  const hasShareManagePermission = usePermission('share.manage');
   const [dialog, setDialog] = useState<DialogState>(null);
   // Fila cuyo menú "⋯" abrió el diálogo actual; sirve para devolver el foco al cerrarlo.
   const menuOriginRef = useRef<string | null>(null);
@@ -77,6 +81,18 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   const credentialsQuery = useQuery({
     queryKey: credentialsKeys.list(accountId),
     queryFn: ({ signal }) => fetchCredentials(accountId, signal),
+    staleTime: 0,
+  });
+  const platformsQuery = useQuery({
+    queryKey: credentialsKeys.platforms(),
+    queryFn: ({ signal }) => fetchPlatforms(signal),
+  });
+  // Solo quien puede gestionarlas ve con quién se comparte (el servidor exige `share.manage` y MANAGE).
+  const canManageShares = hasShareManagePermission && accountQuery.data?.myLevel === 'MANAGE';
+  const sharesQuery = useQuery({
+    queryKey: credentialsKeys.shares(accountId),
+    queryFn: ({ signal }) => fetchAccountShares(accountId, signal),
+    enabled: canManageShares,
     staleTime: 0,
   });
 
@@ -155,8 +171,8 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
     void queryClient.invalidateQueries({ queryKey: credentialsKeys.list(accountId) });
   };
 
-  // Cambiar contraseña, historial y segundo factor se eligen en el menú de fila.
-  function openFromMenu(kind: 'password' | 'history' | 'totp', credential: Credential) {
+  // Cambiar contraseña e historial se eligen en el menú "⋯" de la tarjeta.
+  function openFromMenu(kind: 'password' | 'history', credential: Credential) {
     menuOriginRef.current = credential.id;
     setDialog({ kind, credential });
   }
@@ -174,6 +190,10 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
     }
   }
 
+  const platform = platformsQuery.data?.find((item) => item.id === account.platformId);
+  const monogram = (platform?.name ?? account.displayName).slice(0, 2).toUpperCase();
+  const subtitle = [platform?.name, account.handle].filter(Boolean).join(' · ');
+
   const tableStatus = credentialsQuery.isPending
     ? 'loading'
     : credentialsQuery.isError
@@ -183,56 +203,101 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   return (
     <>
       {backLink}
-      <PageHeader
-        title={t('title', { ns: 'credentials', name: account.displayName })}
-        description={t('description', { ns: 'credentials' })}
-        actions={
-          allowCreate ? (
-            <Button
-              onClick={() => {
-                setDialog({ kind: 'create' });
-              }}
-            >
-              {t('action.create', { ns: 'credentials' })}
-            </Button>
-          ) : undefined
-        }
-      />
+      <div className="flex flex-wrap items-start gap-4">
+        <span
+          aria-hidden="true"
+          className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-raised text-lg font-bold text-accent"
+        >
+          {monogram}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <h1 className="text-2xl text-text">{account.displayName}</h1>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+            {subtitle !== '' ? <span>{subtitle}</span> : null}
+            {myLevel !== null ? (
+              <Badge tone="accent">
+                {t('account.level', {
+                  ns: 'credentials',
+                  level: t(`level.${myLevel}`, { ns: 'credentials' }),
+                })}
+              </Badge>
+            ) : null}
+            {account.tags.map((tag) => (
+              <Badge key={tag}>#{tag}</Badge>
+            ))}
+          </div>
+        </div>
+        {allowCreate || canManageShares ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {canManageShares ? (
+              <Link
+                to="/accounts/$accountId/shares"
+                params={{ accountId }}
+                className={buttonVariants({ variant: 'secondary' })}
+              >
+                <Users aria-hidden="true" className="size-4" />
+                {t('action.share', { ns: 'credentials' })}
+              </Link>
+            ) : null}
+            {allowCreate ? (
+              <Button
+                onClick={() => {
+                  setDialog({ kind: 'create' });
+                }}
+              >
+                {t('action.create', { ns: 'credentials' })}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
       {copyUsername.error !== undefined ? <ErrorAlert error={copyUsername.error} /> : null}
-      <div
-        ref={tableRegionRef}
-        tabIndex={-1}
-        className="focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
-      >
-        <CredentialsTable
-          credentials={credentialsQuery.data ?? []}
-          status={tableStatus}
-          errorMessage={errorMessage(credentialsQuery.error)}
-          onRetry={() => {
-            void credentialsQuery.refetch();
-          }}
-          timeZone={timeZone}
-          canCopyUsername={canCopyUsername(myLevel)}
-          canReveal={canRevealPassword(hasRevealPermission, myLevel)}
-          canChangePassword={canChangePassword(hasUpdatePermission, myLevel)}
-          canViewHistory={canViewHistory(myLevel)}
-          canOpenTotp={totpCapabilities.canUse}
-          onCopyUsername={(credential) => {
-            void handleCopyUsername(credential);
-          }}
-          onReveal={(credential) => {
-            setDialog({ kind: 'reveal', credential });
-          }}
-          onChangePassword={(credential) => {
-            openFromMenu('password', credential);
-          }}
-          onViewHistory={(credential) => {
-            openFromMenu('history', credential);
-          }}
-          onOpenTotp={(credential) => {
-            openFromMenu('totp', credential);
-          }}
-        />
+      <div className={canManageShares ? 'grid items-start gap-6 lg:grid-cols-3' : undefined}>
+        <div
+          ref={tableRegionRef}
+          tabIndex={-1}
+          className="focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus lg:col-span-2"
+        >
+          <CredentialCards
+            credentials={credentialsQuery.data ?? []}
+            status={tableStatus}
+            errorMessage={errorMessage(credentialsQuery.error)}
+            onRetry={() => {
+              void credentialsQuery.refetch();
+            }}
+            timeZone={timeZone}
+            myLevel={myLevel}
+            canCopyUsername={canCopyUsername(myLevel)}
+            canReveal={canRevealPassword(hasRevealPermission, myLevel)}
+            canChangePassword={canChangePassword(hasUpdatePermission, myLevel)}
+            canViewHistory={canViewHistory(myLevel)}
+            canOpenTotp={totpCapabilities.canUse}
+            onCopyUsername={(credential) => {
+              void handleCopyUsername(credential);
+            }}
+            onReveal={(credential) => {
+              setDialog({ kind: 'reveal', credential });
+            }}
+            onChangePassword={(credential) => {
+              openFromMenu('password', credential);
+            }}
+            onViewHistory={(credential) => {
+              openFromMenu('history', credential);
+            }}
+            onOpenTotp={(credential) => {
+              setDialog({ kind: 'totp', credential });
+            }}
+          />
+        </div>
+        {canManageShares ? (
+          <AccountSharesPanel
+            accountId={accountId}
+            shares={sharesQuery.data}
+            status={sharesQuery.isPending ? 'loading' : sharesQuery.isError ? 'error' : 'success'}
+            errorMessage={errorMessage(sharesQuery.error)}
+            timeZone={timeZone}
+          />
+        ) : null}
       </div>
       {allowCreate ? (
         <CreateCredentialDialog
