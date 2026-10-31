@@ -52,7 +52,7 @@ function summaryCount(summary: Locator, label: string): Locator {
 }
 
 async function openAccounts(page: Page): Promise<void> {
-  await page.getByRole('link', { name: 'Accounts', exact: true }).click();
+  await page.getByRole('link', { name: 'Vault', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Accounts', exact: true })).toBeVisible();
 }
 

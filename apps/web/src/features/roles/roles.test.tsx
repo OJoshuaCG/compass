@@ -49,19 +49,20 @@ function setup(
 const rowsLoaded = () => screen.findByRole('cell', { name: 'Soporte' });
 
 describe('roles navigation', () => {
-  it('shows the nav link only with role.manage and reaches the screen', async () => {
+  it('shows the People section tab only with role.manage and reaches the screen', async () => {
     setup();
     const user = userEvent.setup();
     const { router } = renderApp('/');
+    await user.click(await screen.findByRole('link', { name: es.common['nav.people'] }));
     await user.click(await screen.findByRole('link', { name: es.common['nav.roles'] }));
     await rowsLoaded();
     expect(router.state.location.pathname).toBe('/roles');
   });
 
-  it('hides the nav link without role.manage', async () => {
+  it('hides the section tab without role.manage', async () => {
     setup({}, ['user.invite']);
-    renderApp('/');
-    await screen.findByRole('link', { name: es.common['nav.users'] });
+    renderApp('/users');
+    await screen.findByRole('link', { name: es.common['nav.people'] });
     expect(screen.queryByRole('link', { name: es.common['nav.roles'] })).toBeNull();
   });
 

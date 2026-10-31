@@ -132,13 +132,13 @@ export async function signInAsRoot(page: Page): Promise<string> {
     await changeInitialPassword(page, PASSWORD, ROOT_PASSWORD);
     const enrolled = await completeEnrollment(page);
     rememberRootSecret(enrolled.secret);
-    await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Vault', exact: true })).toBeVisible();
     return enrolled.secret;
   }
   await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
   await page.getByLabel('Verification code').fill(await freshCode(knownSecret));
   await page.getByRole('button', { name: 'Verify' }).click();
-  await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Vault', exact: true })).toBeVisible();
   return knownSecret;
 }
 

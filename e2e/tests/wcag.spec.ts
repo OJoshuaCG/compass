@@ -76,26 +76,26 @@ test.describe.serial('WCAG 2.2 A/AA scan with axe in a real browser (signed in a
   });
 
   test('users directory (en-US)', async () => {
-    await page.getByRole('link', { name: 'Users', exact: true }).click();
+    await page.getByRole('link', { name: 'People', exact: true }).click();
     await waitForScreen(page, 'Users');
     await expectNoWcagViolations(page, 'Users (en-US)');
   });
 
   test('accounts (en-US)', async () => {
-    await page.getByRole('link', { name: 'Accounts', exact: true }).click();
+    await page.getByRole('link', { name: 'Vault', exact: true }).click();
     await waitForScreen(page, 'Accounts');
     await expectNoWcagViolations(page, 'Accounts (en-US)');
   });
 
   test('security (en-US)', async () => {
-    await page.getByRole('link', { name: 'Security', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await waitForScreen(page, 'Security');
     await expectNoWcagViolations(page, 'Security (en-US)');
   });
 
   test('credentials of an account (en-US)', async () => {
     test.setTimeout(120_000);
-    await page.getByRole('link', { name: 'Accounts', exact: true }).click();
+    await page.getByRole('link', { name: 'Vault', exact: true }).click();
     await waitForScreen(page, 'Accounts');
 
     await page.getByRole('button', { name: 'Create account' }).click();

@@ -33,7 +33,7 @@ test('a sensitive action can be re-authenticated with a passkey instead of a cod
 
   // Primera llave: aún no hay ninguna, así que la reautenticación se hace con el código.
   const rootSecret = await signInAsRoot(page);
-  await page.getByRole('link', { name: 'Security' }).click();
+  await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
   await page.getByRole('button', { name: 'Add passkey' }).click();
   await page.getByLabel('Passkey name').fill('Reauth first key');
@@ -49,9 +49,9 @@ test('a sensitive action can be re-authenticated with a passkey instead of a cod
   await expect(page).toHaveURL(/\/login/);
   await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
   await page.getByRole('button', { name: 'Use a passkey' }).click();
-  await expect(page.getByRole('link', { name: 'Users' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'People' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Security' }).click();
+  await page.getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Add passkey' }).click();
   await page.getByLabel('Passkey name').fill('Reauth second key');
   await page.getByRole('button', { name: 'Continue' }).click();

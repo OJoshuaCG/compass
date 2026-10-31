@@ -103,7 +103,7 @@ describe('accounts navigation', () => {
     setup({}, []);
     const user = userEvent.setup();
     const { router } = renderApp('/');
-    await user.click(await screen.findByRole('link', { name: es.common['nav.accounts'] }));
+    await user.click(await screen.findByRole('link', { name: es.common['nav.vault'] }));
     await rowsLoaded();
     expect(router.state.location.pathname).toBe('/accounts');
   });

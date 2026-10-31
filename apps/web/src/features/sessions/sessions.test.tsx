@@ -87,6 +87,7 @@ describe('my sessions screen', () => {
     setup();
     const user = userEvent.setup();
     const { router } = renderApp('/');
+    await user.click(await screen.findByRole('link', { name: es.common['nav.settings'] }));
     await user.click(await screen.findByRole('link', { name: es.common['nav.sessions'] }));
     await rowsLoaded();
     expect(router.state.location.pathname).toBe('/sessions');

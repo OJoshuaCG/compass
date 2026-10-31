@@ -210,6 +210,7 @@ Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene ci
 - Escala de 4 px de Tailwind (la unidad 1 equivale a 4 px). Prohibidos valores fuera de escala.
 - Mobile-first; puntos de quiebre estándar. La app es interna de escritorio, pero `mobile-handoff` y las pantallas de login deben funcionar en teléfono.
 - Contenedor de contenido con ancho máximo; las tablas ocupan el ancho disponible con scroll horizontal contenido (no de la página).
+- Menú principal según el prototipo de Compass: Inicio, Bóveda, Personas y Configuración. Personas agrupa Usuarios y Roles (Roles solo con permiso para administrarlos); Configuración agrupa Seguridad y Mis sesiones. Cada pantalla conserva su propia dirección; las de una misma sección se alternan con pestañas en la barra superior, que son enlaces de navegación y no pestañas de contenido. La entrada de la sección queda marcada en cualquiera de sus pantallas. Auditoría se agregará cuando exista su pantalla, y la vista previa de la bóveda (solo en desarrollo) no tiene entrada propia.
 
 ## 5. Componentes
 

@@ -2,6 +2,10 @@
   "app.name": "Compass",
   "nav.label": "Navegación principal",
   "nav.home": "Inicio",
+  "nav.vault": "Bóveda",
+  "nav.people": "Personas",
+  "nav.settings": "Configuración",
+  "nav.sectionsOf": "Secciones de {{section}}",
   "nav.catalog": "Catálogo de componentes",
   "nav.skipToContent": "Saltar al contenido",
   "language.label": "Idioma",
@@ -130,7 +134,6 @@
   "home.shortcuts.securityDescription": "Llaves de acceso y segundo factor",
   "home.shortcuts.roles": "Roles",
   "home.shortcuts.rolesDescription": "Plantillas de permisos de la organización",
-  "nav.vaultPreview": "Bóveda (vista previa)",
   "vaultPreview.title": "Bóveda",
   "vaultPreview.description": "Solo ves las cuentas que te han compartido.",
   "vaultPreview.notice": "Vista previa del diseño con datos ficticios. La bóveda real llegará con la fase 1b: aquí no hay contraseñas ni se guarda nada.",
@@ -158,6 +161,5 @@
   "vaultPreview.rotatedAgo_one": "Hace {{count}} día",
   "vaultPreview.rotatedAgo_other": "Hace {{count}} días",
   "vaultPreview.empty.title": "Sin cuentas",
-  "vaultPreview.empty.description": "Cuando te compartan una cuenta aparecerá aquí.",
-  "nav.accounts": "Cuentas"
+  "vaultPreview.empty.description": "Cuando te compartan una cuenta aparecerá aquí."
 }

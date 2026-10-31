@@ -1,50 +1,58 @@
 import {
   AppShell,
   Brand,
+  cn,
   House,
   IconButton,
-  KeyRound,
   LayoutGrid,
   Lock,
   LogOut,
-  MonitorSmartphone,
-  ShieldCheck,
+  Settings,
   Users,
-  Vault,
   type LucideIcon,
 } from '@iam/ui';
-import { Link, Outlet } from '@tanstack/react-router';
+import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useLogout, useMe, usePermission } from '../shared/auth';
 import { LanguageSwitcher } from '../shared/i18n';
 
+import { SectionNav, type SectionLink } from './section-nav';
+
 const linkClass =
   'flex min-h-10 items-center gap-3 rounded-md px-3 text-sm text-nav-text-muted hover:bg-nav-raised hover:text-nav-text';
-const activeProps = {
-  'aria-current': 'page',
-  className: 'bg-nav-raised font-semibold text-nav-text',
-} as const;
+const activeClass = 'bg-nav-raised font-semibold text-nav-text';
 
+/** La ruta actual cae en `path` o en alguna de sus subrutas (`/accounts/:id/...`). */
+const isWithin = (pathname: string, path: string) =>
+  pathname === path || pathname.startsWith(`${path}/`);
+
+/**
+ * Entrada del menú principal. `paths` son las rutas que la dejan marcada: una sección del diseño
+ * (Personas, Configuración) agrupa varias pantallas y sigue activa en cualquiera de ellas.
+ */
 function NavItem({
   to,
+  paths = [to],
   icon: Icon,
   exact,
   children,
 }: {
-  to: '/' | '/vault' | '/users' | '/sessions' | '/security' | '/accounts' | '/roles' | '/catalog';
+  to: '/' | '/users' | '/security' | '/accounts' | '/catalog';
+  paths?: readonly string[];
   icon: LucideIcon;
   exact?: boolean;
   children: ReactNode;
 }) {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const active = exact === true ? pathname === to : paths.some((path) => isWithin(pathname, path));
   return (
     <li>
       <Link
         to={to}
-        className={linkClass}
-        activeProps={activeProps}
-        activeOptions={{ exact: exact === true }}
+        className={cn(linkClass, active && activeClass)}
+        aria-current={active ? 'page' : undefined}
       >
         <Icon aria-hidden="true" className="size-5 shrink-0" />
         {children}
@@ -52,6 +60,10 @@ function NavItem({
     </li>
   );
 }
+
+const VAULT_PATHS = ['/accounts', '/vault'] as const;
+const PEOPLE_PATHS = ['/users', '/roles'] as const;
+const SETTINGS_PATHS = ['/security', '/sessions'] as const;
 
 /** Iniciales para el avatar: primera letra de las dos primeras palabras del nombre. */
 function initials(name: string): string {
@@ -69,40 +81,54 @@ export function AppLayout() {
   const me = useMe();
   const canManageRoles = usePermission('role.manage');
   const { logout, pending } = useLogout();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  // Pestañas de cada sección, como en el diseño: Personas (usuarios y roles) y Configuración
+  // (seguridad y sesiones). Una sección con una sola pantalla no muestra pestañas.
+  const peopleLinks: SectionLink[] = [
+    { to: '/users', label: t('nav.users') },
+    ...(canManageRoles ? [{ to: '/roles' as const, label: t('nav.roles') }] : []),
+  ];
+  const settingsLinks: SectionLink[] = [
+    { to: '/security', label: t('nav.security') },
+    { to: '/sessions', label: t('nav.sessions') },
+  ];
+  const section = PEOPLE_PATHS.some((path) => isWithin(pathname, path))
+    ? { label: t('nav.sectionsOf', { section: t('nav.people') }), links: peopleLinks }
+    : SETTINGS_PATHS.some((path) => isWithin(pathname, path))
+      ? { label: t('nav.sectionsOf', { section: t('nav.settings') }), links: settingsLinks }
+      : undefined;
+
   return (
     <AppShell
       skipLinkLabel={t('nav.skipToContent')}
       brand={<Brand name={t('app.name')} />}
-      header={<LanguageSwitcher />}
+      header={
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
+          {section !== undefined && section.links.length > 1 ? (
+            <SectionNav label={section.label} links={section.links} />
+          ) : (
+            <span />
+          )}
+          <LanguageSwitcher />
+        </div>
+      }
       sidebar={
         <nav aria-label={t('nav.label')}>
           <ul className="flex flex-col gap-0.5">
             <NavItem to="/" icon={House} exact>
               {t('nav.home')}
             </NavItem>
-            {/* Vista previa con datos ficticios: solo en desarrollo hasta la fase 1b. */}
-            {import.meta.env.DEV ? (
-              <NavItem to="/vault" icon={Lock}>
-                {t('nav.vaultPreview')}
-              </NavItem>
-            ) : null}
-            <NavItem to="/users" icon={Users}>
-              {t('nav.users')}
+            {/* La vista previa del diseño (/vault, solo en desarrollo) no tiene entrada propia. */}
+            <NavItem to="/accounts" paths={VAULT_PATHS} icon={Lock}>
+              {t('nav.vault')}
             </NavItem>
-            <NavItem to="/sessions" icon={MonitorSmartphone}>
-              {t('nav.sessions')}
+            <NavItem to="/users" paths={PEOPLE_PATHS} icon={Users}>
+              {t('nav.people')}
             </NavItem>
-            <NavItem to="/security" icon={ShieldCheck}>
-              {t('nav.security')}
+            <NavItem to="/security" paths={SETTINGS_PATHS} icon={Settings}>
+              {t('nav.settings')}
             </NavItem>
-            <NavItem to="/accounts" icon={Vault}>
-              {t('nav.accounts')}
-            </NavItem>
-            {canManageRoles ? (
-              <NavItem to="/roles" icon={KeyRound}>
-                {t('nav.roles')}
-              </NavItem>
-            ) : null}
             {import.meta.env.DEV ? (
               <NavItem to="/catalog" icon={LayoutGrid}>
                 {t('nav.catalog')}
