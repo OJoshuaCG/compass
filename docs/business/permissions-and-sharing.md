@@ -16,6 +16,8 @@ Este documento explica cómo el sistema decide si una persona puede hacer algo: 
 | Reautenticación, motivo escrito y auditoría crítica como obligaciones | **El motor las exige.** La reautenticación está disponible con la aplicación autenticadora; el motivo escrito y la auditoría crítica se aplicarán cuando existan las acciones que los usan (exportar el secreto de segundo factor y el acceso de emergencia; revelar una contraseña pide solo reautenticación, por decisión del dueño del 2026-10-31) |
 | Auditoría de negaciones | **Funciona.** Toda negación se registra con su código de motivo, aunque la acción se revierta (ver [ADR 0022](../adr/0022-audit-of-denials-in-independent-transaction.md)) |
 | Roles personalizados (crear, editar, archivar, elegir al invitar) | **Funciona.** Un rol ya creado se edita desde su pantalla (nombre y permisos) |
+| Ver el catálogo de permisos y a partir de qué rango se pueden tener | **Funciona.** Segunda pestaña de «Roles y permisos» |
+| Asignar roles a una persona ya existente y darle un permiso especial | **Funciona** desde el equipo. Exige poder asignar roles, confirmar la identidad hace poco y tener uno mismo todos los permisos que se otorgan. Un permiso especial no cambia a la persona de rol: se suma a los que ya tiene y se retira desde el mismo lugar |
 | Niveles de compartición, vencimientos, revocación, acceso de emergencia | **Pendiente** (fase 1b y 1c) |
 
 ## Contenido
@@ -88,9 +90,9 @@ Cómo leer el techo:
 | Permiso | Qué permite | Techo | Por qué existe |
 | --- | --- | --- | --- |
 | Invitar usuarios | Invitar según la matriz de creación | 2 | Dar de alta personas; los Operadores no crean a nadie |
+| Ver el enlace de invitación | Recibir el enlace en pantalla al invitar o reenviar, para compartirlo por otro medio; exige confirmar la identidad hace poco y se audita cada entrega | 2 | Cubre el caso de un correo que no llega; con el enlace se puede aceptar la invitación, por eso es un permiso aparte. Los roles de sistema que ya invitan lo reciben; los roles personalizados no |
 | Editar usuarios | Editar perfil y estado de personas que gestiona | 2 | Mantener datos y suspender cuando haga falta |
 | Cambiar el rango | Cambiar el rango de personas que gestiona | 1 | Cambia la autoridad; por eso lo limita a Administradores |
-| Ver el enlace de invitación | Recibir el enlace en pantalla al invitar o reenviar, para compartirlo por otro medio; exige confirmar la identidad hace poco y se audita cada entrega | 2 | Cubre el caso de un correo que no llega; con el enlace se puede aceptar la invitación, por eso es un permiso aparte. Los roles de sistema que ya invitan lo reciben; los roles personalizados no |
 | Transferir responsable | Cambiar el responsable de una persona | 2 | Reorganizar equipos |
 | Suspender o desactivar usuarios | Suspender o desactivar a personas que gestiona | 2 | Cortar el acceso de alguien que se va o es sospechoso |
 | Asignar roles | Asignar roles a personas que gestiona | 2 | Dar capacidades a un equipo |
