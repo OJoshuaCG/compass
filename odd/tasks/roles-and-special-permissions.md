@@ -15,7 +15,7 @@ Reglas:
 5. No escalamiento: quien asigna debe tener todos los permisos de cada rol que agrega y de cada permiso especial. Quitar no exige tenerlos.
 6. El rol personal no se lista, no se edita ni se archiva desde la pantalla de roles y no se elige al invitar. Su nombre es interno y no compite con los nombres de los roles reales.
 7. Si un cambio de rango deja al rol personal por encima del techo, se suelta en silencio y no cuenta para decidir si hace falta la plantilla.
-8. Cada cambio audita en la misma transacción (`user.roles_changed`, `user.special_permissions_changed`), solo con conteos; las negaciones también.
+8. Cada cambio audita en la misma transacción (`user.roles_changed`, `user.special_permissions_changed`), con los conteos y qué cambió (ids de rol y nombres de permiso, decisión del dueño del 2026-10-31); las negaciones también.
 
 Fase 2 (solo si hace falta, no ahora): permisos directos por persona, sin rol intermedio.
 
@@ -23,7 +23,7 @@ Fase 2 (solo si hace falta, no ahora): permisos directos por persona, sin rol in
 
 - **Rol personal en vez de un eje nuevo de permisos directos**: no toca el cálculo de permisos efectivos ni el trigger de techo de la migración 0015.
 - **Índice de nombres de rol parcial**: los jueces confirmaron que un rol llamado como el personal podía bloquear permisos especiales y revelar quién los tiene; la migración 0027 excluye los roles personales del índice único de nombres.
-- **Auditoría solo con conteos**: queda para decisión del dueño si debe guardar qué roles o permisos cambiaron.
+- **Auditoría con conteos y detalle**: el dueño decidió (2026-10-31) que guarde ambos. Los ids de rol y los nombres de permiso se unen con coma y se truncan a elementos completos (límite de 256 de la auditoría); nunca nombres de roles.
 
 ## Tareas
 
@@ -37,8 +37,7 @@ Fase 2 (solo si hace falta, no ahora): permisos directos por persona, sin rol in
 
 ## Pendientes del dueño
 
-- Auditar qué cambió, no solo cuántos.
-- Mismo rojo previo de la matriz de autorización: `/credentials/import*` no está en el manifiesto.
+- Resueltos el 2026-10-31: auditar qué cambió (hecho), clasificar `/credentials/import*` en la matriz (hecho), Líder conserva `user.invite_link` por defecto, migraciones sin aplicar hasta otra fase.
 
 ## Bitácora
 

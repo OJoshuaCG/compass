@@ -126,6 +126,8 @@ export class ManagePersonRoles {
       await this.record('user.roles_changed', target.id, {
         addedCount: added.length,
         removedCount: removedIds.length,
+        addedRoles: joinWithinAuditLimit(added.map((role) => role.id)),
+        removedRoles: joinWithinAuditLimit(removedIds),
       });
       return ok(splitAssigned(await roles.listLiveAssigned(target.id)));
     });
@@ -155,8 +157,10 @@ export class ManagePersonRoles {
       const personal = await roles.findPersonalOfForUpdate(target.id);
       const previous = new Set(personal?.permissions ?? []);
       const next = new Set(permissions);
-      const addedCount = permissions.filter((permission) => !previous.has(permission)).length;
-      const removedCount = [...previous].filter((permission) => !next.has(permission)).length;
+      const addedPermissions = permissions.filter((permission) => !previous.has(permission));
+      const removedPermissions = [...previous].filter((permission) => !next.has(permission));
+      const addedCount = addedPermissions.length;
+      const removedCount = removedPermissions.length;
 
       const assigned = await roles.listLiveAssigned(target.id);
       const personalIsAssigned =
@@ -187,6 +191,8 @@ export class ManagePersonRoles {
       await this.record('user.special_permissions_changed', target.id, {
         addedCount,
         removedCount,
+        addedPermissions: joinWithinAuditLimit(addedPermissions),
+        removedPermissions: joinWithinAuditLimit(removedPermissions),
       });
       return ok(splitAssigned(await roles.listLiveAssigned(target.id)));
     });
@@ -249,6 +255,26 @@ export class ManagePersonRoles {
     // Sin auditoría no hay cambio: se aborta la transacción en vez de perderlo en silencio.
     if (!recorded.ok) throw recorded.error;
   }
+}
+
+/** Mismo límite de texto que aplica la auditoría a un campo de metadatos. */
+const AUDIT_METADATA_TEXT_MAX_LENGTH = 256;
+const AUDIT_LIST_SEPARATOR = ',';
+
+/**
+ * Une elementos con coma sin pasar del límite de texto de la auditoría: se quitan elementos COMPLETOS del
+ * final (nunca se corta uno a la mitad). El total real va aparte en los conteos del evento.
+ */
+function joinWithinAuditLimit(items: readonly string[]): string {
+  const kept: string[] = [];
+  let length = 0;
+  for (const item of items) {
+    const itemLength = item.length + (kept.length === 0 ? 0 : AUDIT_LIST_SEPARATOR.length);
+    if (length + itemLength > AUDIT_METADATA_TEXT_MAX_LENGTH) break;
+    kept.push(item);
+    length += itemLength;
+  }
+  return kept.join(AUDIT_LIST_SEPARATOR);
 }
 
 function splitAssigned(assigned: readonly RoleRecord[]): PersonRolesView {

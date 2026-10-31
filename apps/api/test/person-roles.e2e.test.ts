@@ -20,8 +20,12 @@ let operatorRoleId: string;
 
 const audit = async (action: string) =>
   (
-    await env.db.admin.query<{ outcome: string; reason_code: string | null }>(
-      'select outcome, reason_code from audit_events where organization_id = $1 and action = $2 order by seq',
+    await env.db.admin.query<{
+      outcome: string;
+      reason_code: string | null;
+      metadata: Record<string, string | number | boolean | null>;
+    }>(
+      'select outcome, reason_code, metadata from audit_events where organization_id = $1 and action = $2 order by seq',
       [orgId, action],
     )
   ).rows;
@@ -114,6 +118,14 @@ describe('special permissions', () => {
     ]);
     expect((await audit('user.special_permissions_changed')).map((e) => e.outcome)).toEqual([
       'success',
+    ]);
+    expect((await audit('user.special_permissions_changed')).map((e) => e.metadata)).toEqual([
+      {
+        addedCount: 1,
+        removedCount: 0,
+        addedPermissions: 'credential.reveal_password',
+        removedPermissions: '',
+      },
     ]);
   });
 
@@ -236,6 +248,10 @@ describe('assigned roles', () => {
     expect((await audit('user.roles_changed')).map((e) => e.outcome)).toEqual([
       'success',
       'success',
+    ]);
+    expect((await audit('user.roles_changed')).map((e) => e.metadata)).toEqual([
+      { addedCount: 1, removedCount: 0, addedRoles: custom.id, removedRoles: '' },
+      { addedCount: 0, removedCount: 1, addedRoles: '', removedRoles: custom.id },
     ]);
   });
 
