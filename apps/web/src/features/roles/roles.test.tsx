@@ -543,6 +543,25 @@ describe('edit role', () => {
   });
 });
 
+describe('system template names', () => {
+  it('shows the system templates with the rank name of the active language, never a custom role', async () => {
+    const LEADER: Role = { ...SYSTEM, id: NEW_ID, name: 'Leader' };
+    // Un rol personalizado que se llame igual no es una plantilla: se muestra tal cual.
+    const CUSTOM_LEADER: Role = { ...CUSTOM, name: 'Leader' };
+    setup({
+      'GET /roles': jsonResponse({
+        data: [LEADER, CUSTOM_LEADER],
+        page: { nextCursor: null, limit: 25 },
+      }),
+    });
+    renderApp('/roles');
+    expect(
+      await screen.findByRole('button', { name: cardLabel(es.common['rank.2']) }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: cardLabel('Leader') })).toBeVisible();
+  });
+});
+
 describe('roles screen in English', () => {
   it('renders in English too', async () => {
     const { loadRolesCatalog } = await import('@iam/i18n');

@@ -1,5 +1,5 @@
 import type { Role } from '@iam/contracts';
-import { Button } from '@iam/ui';
+import { Button, Plus } from '@iam/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -55,6 +55,7 @@ export function RolesTab() {
             setDialog({ kind: 'create' });
           }}
         >
+          <Plus aria-hidden="true" className="size-4" />
           {t('create.open', { ns: 'roles' })}
         </Button>
       </div>

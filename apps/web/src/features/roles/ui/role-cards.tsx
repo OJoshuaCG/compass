@@ -4,7 +4,7 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { TablePaging } from '../../../shared/api';
-import { useDataTableLabels } from '../../../shared/i18n';
+import { useDataTableLabels, useRoleLabel } from '../../../shared/i18n';
 import { groupPermissions } from '../model/permission-groups';
 
 export type RoleCardsProps = {
@@ -121,6 +121,8 @@ export function RoleCards({
 
 function RoleCard({ role, onOpen }: { role: Role; onOpen: () => void }) {
   const { t } = useTranslation('roles');
+  const roleLabel = useRoleLabel();
+  const name = roleLabel(role);
   const detailsId = useId();
   const groups = groupPermissions(role.permissions);
   const areas =
@@ -131,7 +133,7 @@ function RoleCard({ role, onOpen }: { role: Role; onOpen: () => void }) {
     <button
       type="button"
       aria-haspopup="dialog"
-      aria-label={t('card.openLabel', { name: role.name })}
+      aria-label={t('card.openLabel', { name })}
       aria-describedby={detailsId}
       onClick={onOpen}
       className="flex w-full flex-col gap-3 rounded-lg border border-border bg-surface p-5 text-start shadow-card transition-colors duration-fast hover:border-accent"
@@ -142,7 +144,7 @@ function RoleCard({ role, onOpen }: { role: Role; onOpen: () => void }) {
           icon={role.isSystem ? <ShieldCheck className="size-5" /> : <Users className="size-5" />}
         />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-bold text-text">{role.name}</span>
+          <span className="truncate font-bold text-text">{name}</span>
           <span className="text-xs text-text-muted">
             {t(role.isSystem ? 'kind.system' : 'kind.custom')}
           </span>

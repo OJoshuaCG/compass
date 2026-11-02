@@ -15,7 +15,7 @@
   "detail.edit": "Edit role",
   "empty.title": "There are no roles yet",
   "empty.description": "Create the first custom role to get started.",
-  "create.open": "Create role",
+  "create.open": "New role",
   "create.title": "Create role",
   "create.description": "A role can only include permissions that you already have.",
   "create.name": "Role name",

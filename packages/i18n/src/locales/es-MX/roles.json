@@ -15,7 +15,7 @@
   "detail.edit": "Editar rol",
   "empty.title": "Aún no hay roles",
   "empty.description": "Crea el primer rol personalizado para empezar.",
-  "create.open": "Crear rol",
+  "create.open": "Nuevo rol",
   "create.title": "Crear rol",
   "create.description": "Un rol solo puede incluir permisos que tú ya tienes.",
   "create.name": "Nombre del rol",

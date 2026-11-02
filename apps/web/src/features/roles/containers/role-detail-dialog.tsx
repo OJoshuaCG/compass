@@ -2,6 +2,7 @@ import type { Role } from '@iam/contracts';
 import { Button, Check, Dialog } from '@iam/ui';
 import { useTranslation } from 'react-i18next';
 
+import { useRoleLabel } from '../../../shared/i18n';
 import { groupPermissions } from '../model/permission-groups';
 
 export type RoleDetailDialogProps = {
@@ -19,6 +20,7 @@ export type RoleDetailDialogProps = {
 export function RoleDetailDialog({ role, onClose, onEdit, onArchive }: RoleDetailDialogProps) {
   const { t } = useTranslation(['roles', 'common']);
   const groups = groupPermissions(role.permissions);
+  const roleLabel = useRoleLabel();
   return (
     <Dialog
       open
@@ -26,7 +28,7 @@ export function RoleDetailDialog({ role, onClose, onEdit, onArchive }: RoleDetai
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      title={role.name}
+      title={roleLabel(role)}
       description={t('detail.summary', {
         ns: 'roles',
         count: role.permissions.length,
