@@ -162,4 +162,25 @@ describe('loadConfig', () => {
       );
     });
   });
+
+  describe('FIRST_SETUP_TOKEN', () => {
+    it('is optional: without it the first setup route stays closed', () => {
+      expect(loadConfig({}).FIRST_SETUP_TOKEN).toBeUndefined();
+    });
+
+    it('accepts a token of at least 32 characters', () => {
+      const token = 'a'.repeat(32);
+      expect(loadConfig({ FIRST_SETUP_TOKEN: token }).FIRST_SETUP_TOKEN).toBe(token);
+    });
+
+    it('rejects a short token without echoing it', () => {
+      const shortToken = 'too-short-secret';
+      expect(() => loadConfig({ FIRST_SETUP_TOKEN: shortToken })).toThrow(/FIRST_SETUP_TOKEN/);
+      try {
+        loadConfig({ FIRST_SETUP_TOKEN: shortToken });
+      } catch (error) {
+        expect(String(error)).not.toContain(shortToken);
+      }
+    });
+  });
 });

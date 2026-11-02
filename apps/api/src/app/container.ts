@@ -75,6 +75,11 @@ import {
   ZxcvbnPasswordStrength,
 } from '../modules/identity/index.js';
 import type { Argon2Params } from '../modules/identity/index.js';
+import {
+  BootstrapOrganization,
+  FirstRootSetup,
+  PgOrganizationSeeder,
+} from '../modules/provisioning/index.js';
 import type { Mailer } from '../modules/notification/index.js';
 import {
   ManageAccounts,
@@ -119,6 +124,8 @@ export interface ContainerOptions {
   readonly clock?: Clock;
   /** Pausa entre pasadas del publicador del outbox (ms); ver `OUTBOX_POLL_INTERVAL_MS`. */
   readonly outboxPollIntervalMs?: number;
+  /** `FIRST_SETUP_TOKEN` (ADR 0046): sin valor, la ruta de configuración inicial queda cerrada. */
+  readonly firstSetupToken?: string;
 }
 
 /** Pausa por defecto entre pasadas del publicador; la configuración de la API la sobrescribe. */
@@ -270,6 +277,27 @@ export function buildContainer(options: ContainerOptions) {
     notifyPendingTotpUnconfirmed.handle({ eventId: event.id, payload: event.payload }),
   );
   const organizationLister = new PgOrganizationLister(pool);
+  // Configuración inicial (ADR 0046): la organización nace por la función definer de la base de datos,
+  // con el pool de la aplicación; no hace falta ningún rol con BYPASSRLS.
+  const firstRootSetup = new FirstRootSetup({
+    configuredToken: options.firstSetupToken,
+    organizations: organizationLister,
+    bootstrap: new BootstrapOrganization({
+      seeder: new PgOrganizationSeeder(pool, 'first-setup'),
+      hasher,
+      strength,
+      ids,
+      randomBytes: (length) => primitives.randomBytes(length),
+      sha256: (data) => primitives.sha256(data),
+    }),
+    strength,
+    sha256: (data) => primitives.sha256(data),
+    constantTimeEquals: (left, right) => primitives.constantTimeEquals(left, right),
+    // Sin token ni cuerpo: solo el motivo y la IP (un intento fallido no puede auditarse en la base de datos).
+    onRejected: ({ reason, ip }) => {
+      logger.warn({ reason, ip }, 'first setup request rejected');
+    },
+  });
   const outboxWorker = new OutboxWorker({
     organizations: organizationLister,
     repository: new PgOutboxRepository(uow),
@@ -330,6 +358,7 @@ export function buildContainer(options: ContainerOptions) {
   });
 
   return {
+    firstRootSetup,
     clock,
     ids,
     outboxHandlers,

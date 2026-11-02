@@ -6,6 +6,12 @@ export type {
   OrganizationSeeder,
 } from './application/bootstrap-organization.js';
 export { PgOrganizationSeeder } from './infrastructure/pg-organization-seeder.js';
+export { FirstRootSetup } from './application/first-root-setup.js';
+export type {
+  FirstSetupInput,
+  FirstSetupRejection,
+  FirstSetupResult,
+} from './application/first-root-setup.js';
 export type { CustodyGroup } from './application/emergency-codes.js';
 export {
   RecoverRoot,

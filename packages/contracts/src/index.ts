@@ -224,3 +224,9 @@ export {
   rotateDataKeyRequestSchema,
 } from './data-key.js';
 export type { DataKeyRotation, RotateDataKeyRequest } from './data-key.js';
+export {
+  emergencyCodeCustodySchema,
+  firstSetupRequestSchema,
+  firstSetupResponseSchema,
+} from './first-setup.js';
+export type { FirstSetupRequest, FirstSetupResponse } from './first-setup.js';

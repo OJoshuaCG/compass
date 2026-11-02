@@ -12,6 +12,7 @@ import {
   createHmac,
   hkdfSync,
   randomBytes,
+  timingSafeEqual,
 } from 'node:crypto';
 
 import type { AeadInput, CryptoPrimitives } from '../application/ports/crypto-primitives.js';
@@ -71,5 +72,11 @@ export class NodeCryptoPrimitives implements CryptoPrimitives {
 
   sha256(data: Uint8Array): Uint8Array {
     return new Uint8Array(createHash('sha256').update(data).digest());
+  }
+
+  constantTimeEquals(left: Uint8Array, right: Uint8Array): boolean {
+    // `timingSafeEqual` lanza con longitudes distintas: se descarta antes (la longitud no es secreta).
+    if (left.length !== right.length) return false;
+    return timingSafeEqual(left, right);
   }
 }

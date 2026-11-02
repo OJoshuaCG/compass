@@ -22,4 +22,9 @@ export interface CryptoPrimitives {
   }): Uint8Array;
   hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array;
   sha256(data: Uint8Array): Uint8Array;
+  /**
+   * Compara dos secuencias de bytes en tiempo constante. Con longitudes distintas devuelve `false`
+   * sin comparar; quien necesite ocultar también la longitud compara digestos de tamaño fijo.
+   */
+  constantTimeEquals(left: Uint8Array, right: Uint8Array): boolean;
 }

@@ -55,6 +55,7 @@ export { PgSecurityNoticeQueue } from './infrastructure/pg-security-notice-queue
 export { SessionService } from './application/session-service.js';
 export type { AuthenticatedPrincipal, IssuedSession } from './application/session-service.js';
 export { evaluatePassword, personalTokens } from './domain/password-policy.js';
+export { passwordProblemToError } from './application/password-problem.js';
 export type { PasswordProblem } from './domain/password-policy.js';
 export { REAUTH_WINDOW_MS } from '../access/index.js';
 export {

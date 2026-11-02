@@ -27,6 +27,8 @@ import {
   SessionService,
 } from '../modules/identity/index.js';
 import { AuthController, MeController } from '../modules/identity/interface/auth.controller.js';
+import { FirstSetupController } from '../modules/provisioning/interface/first-setup.controller.js';
+import { FirstRootSetup } from '../modules/provisioning/index.js';
 import { InvitationsController } from '../modules/identity/interface/invitations.controller.js';
 import {
   ManageAccounts,
@@ -68,6 +70,7 @@ export class AppModule {
 
     const providers: Provider[] = [
       { provide: SessionService, useValue: container.sessions },
+      { provide: FirstRootSetup, useValue: container.firstRootSetup },
       { provide: Login, useValue: container.login },
       { provide: Logout, useValue: container.logout },
       { provide: SecondFactor, useValue: container.secondFactor },
@@ -107,6 +110,7 @@ export class AppModule {
         AuthController,
         MeController,
         InvitationsController,
+        FirstSetupController,
         RolesController,
         PersonRolesController,
         DataKeyController,
