@@ -172,6 +172,36 @@ describe('useTableQuery', () => {
     expect(onSearchChange).toHaveBeenLastCalledWith({ q: undefined });
   });
 
+  it('sends the quick filter, counts it as active and resets the cursor stack when it changes', async () => {
+    const { result, rerender, fetcher, onSearchChange } = setup({ filter: 'review' });
+    await waitFor(() => {
+      expect(result.current.rows).toEqual(['a', 'b']);
+    });
+    expect(result.current.hasActiveFilters).toBe(true);
+    expect(fetcher).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filter: 'review' }),
+      expect.anything(),
+    );
+    act(() => {
+      result.current.pagination.onNext();
+    });
+    await waitFor(() => {
+      expect(result.current.pagination.hasPrevious).toBe(true);
+    });
+
+    rerender({ search: { limit: 25, filter: 'no-2fa' } });
+    expect(result.current.pagination.hasPrevious).toBe(false);
+
+    act(() => {
+      result.current.onFilterChange(undefined);
+    });
+    expect(onSearchChange).toHaveBeenLastCalledWith({ filter: undefined });
+    act(() => {
+      result.current.clearFilters();
+    });
+    expect(onSearchChange).toHaveBeenLastCalledWith({ q: undefined, filter: undefined });
+  });
+
   it('exposes the sort from the URL state', async () => {
     const { result } = setup({ sort: 'name', dir: 'asc' });
     await waitFor(() => {

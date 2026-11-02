@@ -1,10 +1,13 @@
 import type { Platform } from '@iam/contracts';
 import { useTranslation } from 'react-i18next';
 
-import { useFixedOrderTable } from '../../../shared/api';
+import { useMe } from '../../../shared/auth';
 import { useErrorMessage } from '../../../shared/i18n';
 import { accountsKeys, fetchInventoryPage } from '../api/accounts-api';
 import { AccountsTable } from '../ui/accounts-table';
+import { AccountsToolbar } from '../ui/accounts-toolbar';
+
+import { useAccountListTable } from './use-account-list-table';
 
 export type InventoryPanelProps = {
   platforms: readonly Platform[];
@@ -15,7 +18,9 @@ export function InventoryPanel({ platforms }: InventoryPanelProps) {
   const { t } = useTranslation('accounts');
   const errorMessage = useErrorMessage();
 
-  const table = useFixedOrderTable({
+  const timeZone = useMe()?.user.timezone;
+
+  const table = useAccountListTable({
     queryKey: accountsKeys.inventory(),
     fetchPage: fetchInventoryPage,
   });
@@ -36,6 +41,18 @@ export function InventoryPanel({ platforms }: InventoryPanelProps) {
         onArchive={() => undefined}
         refreshing={table.refreshing}
         paging={table}
+        hasActiveFilters={table.hasActiveFilters}
+        onClearFilters={table.clearFilters}
+        timeZone={timeZone}
+        toolbar={
+          <AccountsToolbar
+            searchDraft={table.draft}
+            onSearchChange={table.setDraft}
+            filter={undefined}
+            onFilterChange={table.onFilterChange}
+            showQuickFilters={false}
+          />
+        }
       />
     </div>
   );

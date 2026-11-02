@@ -52,5 +52,17 @@
   "archive.description": "La cuenta dejará de estar disponible y se revocarán los accesos que se hayan compartido.",
   "archive.confirm": "Archivar cuenta",
   "archive.toast": "Se archivó la cuenta {{name}}.",
-  "import.open": "Importar desde CSV"
+  "import.open": "Importar desde CSV",
+  "col.lastChanged": "Último cambio",
+  "passwordAge.fresh": "Vigente",
+  "passwordAge.aging": "Más de 60 días",
+  "passwordAge.stale": "Más de 90 días",
+  "passwordAge.none": "Sin credenciales",
+  "passwordAge.unknown": "Sin datos",
+  "search.label": "Buscar cuentas",
+  "search.placeholder": "Buscar por nombre, usuario, plataforma, etiqueta o grupo…",
+  "filter.label": "Filtrar cuentas",
+  "filter.all": "Todas",
+  "filter.review": "Por revisar",
+  "filter.no2fa": "Sin 2FA"
 }

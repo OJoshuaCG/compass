@@ -52,5 +52,17 @@
   "archive.description": "The account will no longer be available and any shared access will be revoked.",
   "archive.confirm": "Archive account",
   "archive.toast": "The account {{name}} was archived.",
-  "import.open": "Import from CSV"
+  "import.open": "Import from CSV",
+  "col.lastChanged": "Last change",
+  "passwordAge.fresh": "Up to date",
+  "passwordAge.aging": "Over 60 days",
+  "passwordAge.stale": "Over 90 days",
+  "passwordAge.none": "No credentials",
+  "passwordAge.unknown": "No data",
+  "search.label": "Search accounts",
+  "search.placeholder": "Search by name, username, platform, tag or group…",
+  "filter.label": "Filter accounts",
+  "filter.all": "All",
+  "filter.review": "To review",
+  "filter.no2fa": "No 2FA"
 }

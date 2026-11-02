@@ -13,9 +13,11 @@ export type TableSearch = {
   dir?: SortDirection | undefined;
   limit: PageLimit;
   q?: string | undefined;
+  /** Filtro rápido del listado (un valor del catálogo del servidor); `undefined` = sin filtro. */
+  filter?: string | undefined;
 };
 
-export type PageParams = Pick<TableSearch, 'sort' | 'dir' | 'limit' | 'q'> & {
+export type PageParams = Pick<TableSearch, 'sort' | 'dir' | 'limit' | 'q' | 'filter'> & {
   cursor?: string | undefined;
 };
 
@@ -42,6 +44,7 @@ export function createListFetcher<S extends z.ZodType>(
         sort: params.sort,
         dir: params.dir,
         q: params.q,
+        filter: params.filter,
       },
     });
   };
@@ -72,7 +75,13 @@ export function useTableQuery<T>({
 }: UseTableQueryOptions<T>) {
   // La pila va ligada a la firma de la vista: si cambia la firma, la pila anterior se ignora
   // sin necesidad de efectos ni de sincronizar estado.
-  const signature = JSON.stringify([search.sort, search.dir, search.limit, search.q]);
+  const signature = JSON.stringify([
+    search.sort,
+    search.dir,
+    search.limit,
+    search.q,
+    search.filter,
+  ]);
   const [stack, setStack] = useState<{ signature: string; cursors: string[] }>({
     signature,
     cursors: [],
@@ -101,7 +110,8 @@ export function useTableQuery<T>({
     search.sort !== undefined && search.dir !== undefined
       ? { key: search.sort, dir: search.dir }
       : undefined;
-  const hasActiveFilters = search.q !== undefined && search.q !== '';
+  const hasActiveFilters =
+    (search.q !== undefined && search.q !== '') || search.filter !== undefined;
 
   return {
     rows: query.data?.data ?? [],
@@ -147,9 +157,13 @@ export function useTableQuery<T>({
     onQueryChange: (q: string) => {
       onSearchChange({ q: q === '' ? undefined : q });
     },
+    filter: search.filter,
+    onFilterChange: (filter: string | undefined) => {
+      onSearchChange({ filter });
+    },
     hasActiveFilters,
     clearFilters: () => {
-      onSearchChange({ q: undefined });
+      onSearchChange({ q: undefined, filter: undefined });
     },
   };
 }

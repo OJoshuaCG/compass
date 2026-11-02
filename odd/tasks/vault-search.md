@@ -28,7 +28,7 @@ Reglas:
 
 - [x] T1. Búsqueda de texto en SQL con acceso efectivo (API, contratos, repositorio, pruebas). Evidencia: `vault-account-search.e2e.test.ts` 14/14; mutación del escape de `_` y mutación de la unión de acceso (SQL válido) detectadas.
 - [x] T2. Estado de antigüedad por cuenta (API) y filtros «Por revisar» y «Sin 2FA». Evidencia: `password-age.test.ts` y las pruebas de la API; paginación con cursor y filtro (12 cuentas, 2 páginas).
-- [ ] T3. Web: campo de búsqueda, fichas de filtro y columna «Último cambio» con círculo (es-MX y en-US, accesibilidad).
+- [x] T3. Web: campo de búsqueda, fichas de filtro y columna «Último cambio» con círculo (es-MX y en-US, accesibilidad). Evidencia: `accounts.test.tsx` y `use-table-query.test.tsx` en verde (iteración 1: 58/58 con directory; iteración 2 pendiente de cierre); typecheck y lint web en verde. Decisión: búsqueda y filtro viven en memoria (la pantalla ya guarda la pestaña en memoria y su ruta no tiene parámetros de búsqueda), no en la URL.
 - [ ] T4. Búsqueda exacta por usuario con índice ciego (ruta protegida; prueba de plan de ejecución).
 - [ ] T5. Vistas guardadas (migración 0028, API y web).
 - [ ] T6. Jueces ciegos, mutación deliberada, documentación.
