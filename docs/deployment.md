@@ -286,7 +286,16 @@ La imagen trae un `HEALTHCHECK` que consulta `GET /api/v1/health/live` (solo ind
 
 ### 2.10 Alta de la primera organización
 
-Sigue [Dar de alta una organización](runbooks/provision-organization.md): el comando necesita una conexión de **administrador** (`PROVISION_DATABASE_URL`) y imprime secretos una sola vez, así que no lo ejecutes en un lugar que registre la salida. Se puede correr con la misma imagen (`node apps/api/dist/main.provision.js`) desde una terminal privada de operaciones.
+La vía recomendada es el **enlace de configuración inicial** ([ADR 0046](adr/0046-first-root-one-time-setup.md)): no necesita conexión de administrador ni rol con `BYPASSRLS`.
+
+1. Genera un token y ponlo en las variables de entorno de la aplicación en Dokploy: `FIRST_SETUP_TOKEN` (`openssl rand -hex 32`; mínimo 32 caracteres; evita caracteres que un navegador pueda alterar en el enlace). Redespliega.
+2. Abre `<APP_ORIGIN>/setup#token=<valor>` en el navegador. El token va en el fragmento (`#`), así que no llega al servidor ni a los registros del proxy; la página lo quita de la barra de direcciones al cargar.
+3. Captura el nombre y el identificador de la organización, el nombre y el correo de la persona Raíz y su contraseña. La respuesta muestra **una sola vez** los códigos de emergencia (grupos A y B): imprímelos y entrega cada grupo a un custodio distinto.
+4. **Borra `FIRST_SETUP_TOKEN`** y redespliega. Aunque se quedara, el enlace ya no funciona: la base de datos rechaza la operación si existe cualquier organización.
+
+Cualquier fallo (token equivocado, variable ausente, alta ya hecha) responde `404` idéntico; el motivo real queda solo en el registro del servidor, sin el token ni la contraseña.
+
+La alternativa es [Dar de alta una organización](runbooks/provision-organization.md) con el comando de operaciones: necesita una conexión de **administrador** (`PROVISION_DATABASE_URL`) e imprime secretos una sola vez, así que no lo ejecutes en un lugar que registre la salida. Se puede correr con la misma imagen (`node apps/api/dist/main.provision.js`) desde una terminal privada de operaciones.
 
 ### 2.11 Verificar el despliegue
 
