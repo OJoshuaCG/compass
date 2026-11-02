@@ -57,20 +57,20 @@ describe('my sessions screen', () => {
     setup();
     const { container } = renderApp('/sessions');
     await rowsLoaded();
-    const table = screen.getByRole('table', { name: es.sessions.caption });
+    const list = screen.getByRole('list', { name: es.sessions.caption });
     expect(screen.getByRole('heading', { level: 1, name: es.sessions.title })).toBeInTheDocument();
-    const rows = within(table).getAllByRole('row');
-    expect(rows).toHaveLength(4); // encabezado + 3
-    expect(within(rows[1] as HTMLElement).getByText('Chrome · Linux')).toBeInTheDocument();
-    expect(within(rows[1] as HTMLElement).getByText('203.0.113.7')).toBeInTheDocument();
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+    expect(within(items[0] as HTMLElement).getByText('Chrome · Linux')).toBeInTheDocument();
+    expect(within(items[0] as HTMLElement).getByText('203.0.113.7')).toBeInTheDocument();
     expect(
-      within(rows[1] as HTMLElement).getByText(es.sessions['badge.current']),
+      within(items[0] as HTMLElement).getByText(es.sessions['badge.current']),
     ).toBeInTheDocument();
-    expect(within(rows[2] as HTMLElement).getByText('Chrome · Android')).toBeInTheDocument();
-    expect(within(rows[2] as HTMLElement).queryByText(es.sessions['badge.current'])).toBeNull();
-    // Sin User-Agent ni IP: textos de respaldo, nunca celdas vacías ni "null".
-    expect(within(rows[3] as HTMLElement).getByText(es.sessions['device.unknown'])).toBeVisible();
-    expect(within(rows[3] as HTMLElement).getByText(es.sessions['ip.unknown'])).toBeVisible();
+    expect(within(items[1] as HTMLElement).getByText('Chrome · Android')).toBeInTheDocument();
+    expect(within(items[1] as HTMLElement).queryByText(es.sessions['badge.current'])).toBeNull();
+    // Sin User-Agent ni IP: textos de respaldo, nunca huecos ni "null".
+    expect(within(items[2] as HTMLElement).getByText(es.sessions['device.unknown'])).toBeVisible();
+    expect(within(items[2] as HTMLElement).getByText(es.sessions['ip.unknown'])).toBeVisible();
     expect(await axeViolations(container)).toEqual([]);
   });
 
@@ -188,7 +188,7 @@ describe('my sessions screen', () => {
     const en = (await loadSessionsCatalog())['en-US'];
     setup();
     renderApp('/sessions', 'en-US');
-    expect(await screen.findByRole('table', { name: en.caption })).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: en.caption })).toBeInTheDocument();
     await rowsLoaded();
     expect(screen.getByText(en['badge.current'])).toBeInTheDocument();
   });

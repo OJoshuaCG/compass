@@ -10,12 +10,12 @@ import { useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useToast } from '../../../shared/toast';
 import { fetchMySessionsPage, sessionsKeys } from '../api/sessions-api';
-import { SessionsTable } from '../ui/sessions-table';
+import { SessionsList } from '../ui/sessions-list';
 
 import { CloseSessionDialog } from './close-session-dialog';
 
 /**
- * Container de `/sessions`: las sesiones propias con la `DataTable` estándar. Cerrar una sesión
+ * Container de `/sessions`: las sesiones propias con un panel con lista (diseño de Compass). Cerrar una sesión
  * ajena pide confirmación y, al terminar, recarga la lista (docs/frontend.md §7.3).
  */
 export function SessionsPage() {
@@ -39,14 +39,13 @@ export function SessionsPage() {
   return (
     <>
       <PageHeader title={t('title')} description={t('description')} />
-      <SessionsTable
+      <SessionsList
         sessions={table.rows}
         status={table.status}
         errorMessage={errorMessage(table.error)}
         onRetry={table.retry}
         onClose={setClosing}
         timeZone={timeZone}
-        refreshing={table.refreshing}
         paging={table}
       />
       {closing !== null ? (
