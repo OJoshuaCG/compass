@@ -1,6 +1,6 @@
 import type { PendingInvitation } from '@iam/contracts';
 import { Badge, Button, DataTable, EmptyState, UserPlus, type Column } from '@iam/ui';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { TablePaging } from '../../../shared/api';
@@ -47,11 +47,12 @@ export function InvitationsTable({
 }: InvitationsTableProps) {
   const { t, i18n } = useTranslation(['directory', 'common']);
   const labels = useDataTableLabels();
+  // Momento de referencia para "por vencer": se fija al montar (el render debe ser puro).
+  const [now] = useState(() => Date.now());
 
   // Como el diseño de Compass: la persona invitada con su rango y la fecha de envío en una sola
   // columna, y el vencimiento como insignia (rojo si venció, ámbar si vence en menos de 48 h).
   const columns = useMemo<Column<PendingInvitation>[]>(() => {
-    const now = Date.now();
     return [
       {
         id: 'email',
@@ -99,7 +100,7 @@ export function InvitationsTable({
         },
       },
     ];
-  }, [t, i18n.language, timeZone]);
+  }, [t, i18n.language, timeZone, now]);
 
   return (
     <DataTable<PendingInvitation>
