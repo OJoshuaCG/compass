@@ -25,7 +25,7 @@ vi.mock('@simplewebauthn/browser', () => {
 
 const LAPTOP_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const KEY_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const OPTIONS = { challenge: 'creation-challenge', rp: { name: 'IAM' }, user: { id: 'u' } };
+const OPTIONS = { challenge: 'creation-challenge', rp: { name: 'Compass' }, user: { id: 'u' } };
 const ATTESTATION = {
   id: 'cred-9',
   type: 'public-key',

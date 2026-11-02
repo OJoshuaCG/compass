@@ -30,7 +30,7 @@ function sessionApi(initial: Stage) {
 }
 
 const SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
-const OTPAUTH = `otpauth://totp/IAM:ana@example.com?secret=${SECRET}&issuer=IAM`;
+const OTPAUTH = `otpauth://totp/Compass:ana@example.com?secret=${SECRET}&issuer=Compass`;
 const RECOVERY_CODES = Array.from({ length: 10 }, (_, i) => `RC${String(i)}A-B7K9Q2ZX`);
 const TOKEN = 'tok_0123456789abcdefghij_ABCDEFG';
 

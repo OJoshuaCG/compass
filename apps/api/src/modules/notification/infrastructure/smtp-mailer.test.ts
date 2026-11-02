@@ -10,7 +10,7 @@ const options: SmtpOptions = {
   security: 'starttls',
   user: 'no-reply@example.com',
   password: 'secret-value',
-  from: 'IAM <no-reply@example.com>',
+  from: 'Compass <no-reply@example.com>',
   baseUrl: 'https://iam.example.com',
 };
 const message = {
@@ -54,7 +54,7 @@ describe('SmtpMailer', () => {
 
     expect(sendMail).toHaveBeenCalledTimes(1);
     expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
-      from: 'IAM <no-reply@example.com>',
+      from: 'Compass <no-reply@example.com>',
       to: 'guest@example.com',
       subject: 'Te invitaron a Compass',
     });
@@ -87,7 +87,7 @@ describe('SmtpMailer', () => {
     await new SmtpMailer(options, 'production', { sendMail }).sendRevealLimitAlert(alert);
 
     expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
-      from: 'IAM <no-reply@example.com>',
+      from: 'Compass <no-reply@example.com>',
       to: 'root@example.com',
       subject: 'Alert: a person reached the password reveal limit',
     });
@@ -112,7 +112,7 @@ describe('SmtpMailer', () => {
     await new SmtpMailer(options, 'production', { sendMail }).sendPendingTotpNotice(notice);
 
     expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
-      from: 'IAM <no-reply@example.com>',
+      from: 'Compass <no-reply@example.com>',
       to: 'luis@example.com',
       subject: 'Tu segundo factor sigue sin confirmarse',
     });
@@ -139,7 +139,7 @@ describe('SmtpMailer', () => {
     await new SmtpMailer(options, 'production', { sendMail }).sendRankChangeNotice(notice);
 
     expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
-      from: 'IAM <no-reply@example.com>',
+      from: 'Compass <no-reply@example.com>',
       to: 'luis@example.com',
       subject: 'Cambió tu rango en la plataforma',
     });

@@ -68,7 +68,7 @@ export async function startEnvironment(
     pool: db.appPool,
     independentPool: db.independentPool,
     mailer,
-    webauthn: { rpName: 'IAM test', rpId: new URL(APP_ORIGIN).hostname, origin: APP_ORIGIN },
+    webauthn: { rpName: 'Compass test', rpId: new URL(APP_ORIGIN).hostname, origin: APP_ORIGIN },
     kms: new LocalKeyManagement({ keyFilePath: join(kekDir, 'kek.key'), nodeEnv: 'test' }),
     logger,
     clock,

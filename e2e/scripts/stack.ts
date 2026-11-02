@@ -78,7 +78,7 @@ const logger = createLogger({ level: process.env['E2E_LOG'] ?? 'warn' });
 const origin = `http://localhost:${String(API_PORT)}`;
 
 const platform = buildContainer({
-  webauthn: { rpName: 'IAM e2e', rpId: 'localhost', origin },
+  webauthn: { rpName: 'Compass e2e', rpId: 'localhost', origin },
   pool,
   independentPool,
   mailer,

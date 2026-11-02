@@ -35,7 +35,7 @@ function sessionApi(initial: Stage) {
 const CURRENT = 'initial-one-time-password';
 const NEXT = 'a much better passphrase 2026';
 const SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
-const OTPAUTH = `otpauth://totp/IAM:ana@example.com?secret=${SECRET}&issuer=IAM`;
+const OTPAUTH = `otpauth://totp/Compass:ana@example.com?secret=${SECRET}&issuer=Compass`;
 
 async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>, next = NEXT) {
   await user.type(

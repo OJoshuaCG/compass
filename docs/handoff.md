@@ -19,7 +19,7 @@ Calidad verificada en la última ejecución completa: formato, compilación, tip
 
 | Elemento | Situación | Qué hacer |
 | --- | --- | --- |
-| **Remoto de git** | **Ya existe** (`origin`, en GitHub; 2026-10-27). Subir cambios sigue siendo una decisión del equipo | No subir nada sin esa decisión. Además, se puede generar una copia portátil: un archivo `iam.bundle` (ver sección 3) |
+| **Remoto de git** | **Ya existe** (`origin`, en GitHub; 2026-10-27). Subir cambios sigue siendo una decisión del equipo | No subir nada sin esa decisión. Además, se puede generar una copia portátil: un archivo `compass.bundle` (ver sección 3) |
 | Documento original del plan en Word | Sin versionar, solo en la máquina original | La versión viva es `plan.md`; el Word es la fuente del usuario |
 | Reglas personales del autor (commits convencionales sin atribución de IA, respuestas breves, verificar antes de afirmar) | Viven en la configuración personal del autor, no en el repositorio | Están resumidas en `CLAUDE.md` y en la sección 6 de este documento |
 | Registro de habilidades de las herramientas de IA | Generado automáticamente y ya excluido del repositorio | Se regenera solo; no importa |
@@ -28,7 +28,7 @@ Calidad verificada en la última ejecución completa: formato, compilación, tip
 
 ## 3. Cómo retomar en una máquina nueva
 
-1. **Obtener el código.** Desde el remoto `origin` (con permiso del equipo) o restaurando la copia portátil con `git clone iam.bundle iam`.
+1. **Obtener el código.** Desde el remoto `origin` (con permiso del equipo) o restaurando la copia portátil con `git clone compass.bundle compass`.
 2. **Instalar requisitos:** Node.js 24 o superior, pnpm 10, Podman o Docker (las pruebas de integración levantan PostgreSQL real) y Google Chrome (las pruebas de navegador lo usan; no descargan navegadores).
 3. **Si se usa Podman,** activar el socket de usuario y exportar las dos variables descritas en el `README.md` (apuntar a ese socket y desactivar el contenedor auxiliar de limpieza). Sin esto, las pruebas de integración no encuentran el motor de contenedores.
 4. **Instalar dependencias:** `pnpm install`. Las versiones están fijadas y hay una espera de 7 días tras cada publicación: una dependencia muy reciente no se instalará (es intencional).
@@ -36,7 +36,7 @@ Calidad verificada en la última ejecución completa: formato, compilación, tip
 6. **Probar a mano:** `pnpm stack` compila la API y la web, levanta PostgreSQL efímero, crea una organización con su Raíz y sirve la aplicación en `http://localhost:3100` (se usa `localhost` porque las passkeys exigen un dominio, no una IP). Imprime el correo y la contraseña de la Raíz y la dirección del buzón de pruebas (puerto 3101); la primera vez hay que cambiar esa contraseña inicial en `/password/change` y después registrar el segundo factor con una aplicación autenticadora. Esta pila no genera códigos de emergencia. El correo de las invitaciones no se envía: se lee en el buzón de pruebas.
 7. **Leer, en este orden:** `docs/business/README.md` (qué hace el producto y por qué), `docs/business/roadmap-and-status.md` (estado por fase), este documento, `docs/architecture.md` y las guías `docs/backend.md`, `docs/frontend.md`, `docs/database.md`. El plan completo está en `plan.md`.
 
-Para guardar una copia portátil del historial antes de mover el trabajo: `git bundle create iam.bundle --all`.
+Para guardar una copia portátil del historial antes de mover el trabajo: `git bundle create compass.bundle --all`.
 
 ## 3 bis. Cómo se organiza el repositorio
 
