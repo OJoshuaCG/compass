@@ -110,16 +110,28 @@ export {
 } from './passkeys.js';
 export type { Passkey, PasskeyLoginRequest, RegisterPasskeyRequest } from './passkeys.js';
 export {
+  ACCOUNT_LIST_FILTERS,
+  PASSWORD_AGE_STATUSES,
   SHARE_LEVELS,
+  accountListFilterSchema,
+  accountListItemSchema,
+  accountListQuerySchema,
+  inventoryListQuerySchema,
   accountSchema,
   createAccountRequestSchema,
+  passwordAgeStatusSchema,
   platformSchema,
   shareLevelSchema,
   updateAccountRequestSchema,
 } from './accounts.js';
 export type {
   Account,
+  AccountListFilter,
+  AccountListItem,
+  AccountListQuery,
+  InventoryListQuery,
   CreateAccountRequest,
+  PasswordAgeStatus,
   Platform,
   ShareLevel,
   UpdateAccountRequest,

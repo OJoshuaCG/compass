@@ -11,7 +11,7 @@
  * - El inventario (`vault.inventory.read`) muestra solo metadatos y no concede ningún nivel de acceso.
  * - Todo cambio escribe su auditoría en la misma transacción, como último paso (ADR 0023).
  */
-import type { Permission, ShareLevel } from '@iam/contracts';
+import type { AccountListFilter, PasswordAgeStatus, Permission, ShareLevel } from '@iam/contracts';
 
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
 import type {
@@ -26,8 +26,15 @@ import type {
 import type { Authorizer } from '../../access/index.js';
 import type { AuditLog } from '../../audit/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
+import {
+  PASSWORD_AGING_AFTER_DAYS,
+  classifyPasswordAge,
+  passwordAgeCutoff,
+} from '../domain/password-age.js';
 import { levelSatisfies } from '../domain/share-level.js';
 import type {
+  AccountListEntry,
+  AccountListFilters,
   AccountRecord,
   AccountRepository,
   AccountView,
@@ -42,6 +49,16 @@ export interface ManageAccountsDeps {
   readonly ids: IdGenerator;
   readonly audit: AuditLog;
   readonly clock: Clock;
+}
+
+export interface AccountSearch {
+  readonly text?: string | undefined;
+  readonly filter?: AccountListFilter | undefined;
+}
+
+/** Una cuenta de un listado con su semáforo de antigüedad de contraseña ya calculado. */
+export interface AccountListSummary extends AccountListEntry {
+  readonly passwordAge: PasswordAgeStatus;
 }
 
 export interface CreateAccountInput {
@@ -75,22 +92,62 @@ export class ManageAccounts {
     });
   }
 
-  /** Las cuentas a las que la persona accede, filtradas en SQL por el acceso efectivo. */
-  listMine(page: KeysetRequest): Promise<KeysetPage<AccountView>> {
-    const { uow, authorizer, accounts } = this.deps;
+  /**
+   * Las cuentas a las que la persona accede, filtradas en SQL por el acceso efectivo, con búsqueda de
+   * texto y filtro rápido opcionales. El estado de antigüedad es informativo: no dispara avisos.
+   */
+  listMine(
+    page: KeysetRequest,
+    search: AccountSearch = {},
+  ): Promise<KeysetPage<AccountListSummary>> {
+    const { uow, authorizer, accounts, clock } = this.deps;
     return uow.run(async () => {
       const actor = await authorizer.requireActiveMember();
-      return accounts.listVisiblePage(actor.id, page);
+      // Un solo instante para el corte del filtro y para el semáforo: no pueden discrepar entre sí.
+      const now = clock.now();
+      const result = await accounts.listVisiblePage(actor.id, page, this.toFilters(search, now));
+      return this.withPasswordAge(result, now);
     });
   }
 
   /** Metadatos de todas las cuentas activas; no concede acceso a ninguna (ver las invariantes). */
-  listInventory(page: KeysetRequest): Promise<KeysetPage<AccountView>> {
-    const { uow, authorizer, accounts } = this.deps;
+  listInventory(
+    page: KeysetRequest,
+    search: { readonly text?: string | undefined } = {},
+  ): Promise<KeysetPage<AccountListSummary>> {
+    const { uow, authorizer, accounts, clock } = this.deps;
     return uow.run(async () => {
       await authorizer.require({ permission: 'vault.inventory.read' });
-      return accounts.listInventoryPage(page);
+      // Sin filtros rápidos y sin antigüedad: son datos de credenciales de cuentas a las que no se accede.
+      const filters = this.toFilters({ text: search.text }, clock.now());
+      const result = await accounts.listInventoryPage(page, filters);
+      return {
+        nextCursor: result.nextCursor,
+        rows: result.rows.map((entry) => ({ ...entry, passwordAge: 'unknown' as const })),
+      };
     });
+  }
+
+  private toFilters(search: AccountSearch, now: Date): AccountListFilters {
+    const text = search.text?.trim() ?? '';
+    return {
+      text: text === '' ? null : text,
+      quickFilter: search.filter ?? null,
+      agingCutoff: passwordAgeCutoff(now, PASSWORD_AGING_AFTER_DAYS),
+    };
+  }
+
+  private withPasswordAge(
+    page: KeysetPage<AccountListEntry>,
+    now: Date,
+  ): KeysetPage<AccountListSummary> {
+    return {
+      nextCursor: page.nextCursor,
+      rows: page.rows.map((entry) => ({
+        ...entry,
+        passwordAge: classifyPasswordAge(entry.lastChangedAt, now),
+      })),
+    };
   }
 
   get(accountId: string): Promise<Result<AccountView, DomainError>> {

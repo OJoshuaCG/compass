@@ -17,9 +17,10 @@ import type { KeysetPage, KeysetRequest, UserId } from '../../../shared/kernel/i
 import type { TransactionProvider } from '../../organization/index.js';
 import type {
   AccountEdit,
+  AccountListEntry,
+  AccountListFilters,
   AccountRecord,
   AccountRepository,
-  AccountView,
   ExistingAccountKey,
   NewAccount,
   PlatformRecord,
@@ -40,6 +41,7 @@ interface AccountRow {
 interface ListedAccountRow extends AccountRow {
   my_level: ShareLevel | null;
   sort_name: string;
+  last_changed_at: Date | null;
 }
 
 interface PlatformRow {
@@ -66,9 +68,10 @@ const toRecord = (row: AccountRow): AccountRecord => ({
   createdAt: row.created_at,
 });
 
-const toView = (row: ListedAccountRow): AccountView => ({
+const toListEntry = (row: ListedAccountRow): AccountListEntry => ({
   ...toRecord(row),
   myLevel: row.my_level,
+  lastChangedAt: row.last_changed_at,
 });
 
 export class PgAccountRepository implements AccountRepository {
@@ -196,29 +199,23 @@ export class PgAccountRepository implements AccountRepository {
     return { revokedShares: revoked.rowCount ?? 0 };
   }
 
-  async listVisiblePage(userId: UserId, page: KeysetRequest): Promise<KeysetPage<AccountView>> {
+  async listVisiblePage(
+    userId: UserId,
+    page: KeysetRequest,
+    filters: AccountListFilters,
+  ): Promise<KeysetPage<AccountListEntry>> {
     const params: unknown[] = [userId];
-    const after = decodeKeysetCursor(page.cursor, [isPlainTextPart, isUuidPart]);
-    let afterClause = '';
-    if (after !== null) {
-      params.push(after[0], after[1]);
-      afterClause = 'and (lower(a.display_name), a.id) > ($2::text, $3::uuid)';
-    }
-    params.push(page.limit + 1);
-    const result = await this.transactions.current().query<ListedAccountRow>(
-      `select ${ACCOUNT_COLUMNS}, ea.level as my_level, lower(a.display_name) as sort_name
-         from accounts a
-         join effective_access ea
+    // El acceso efectivo es parte de la consulta, no un paso posterior: una cuenta ajena nunca sale de SQL.
+    const accessJoin = `join effective_access ea
            on ea.organization_id = a.organization_id
           and ea.resource_type = 'account'
           and ea.resource_id = a.id
-          and ea.user_id = $1
-        where a.status = 'active' ${afterClause}
-        order by lower(a.display_name), a.id
-        limit $${String(params.length)}`,
-      params,
+          and ea.user_id = $1`;
+    return this.listPage(
+      { params, accessJoin, myLevelColumn: 'ea.level', includeCredentialPosture: true },
+      page,
+      filters,
     );
-    return this.toPage(result.rows, page.limit);
   }
 
   async findVisibleKeysByNames(
@@ -246,30 +243,113 @@ export class PgAccountRepository implements AccountRepository {
     }));
   }
 
-  async listInventoryPage(page: KeysetRequest): Promise<KeysetPage<AccountView>> {
-    const params: unknown[] = [];
-    const after = decodeKeysetCursor(page.cursor, [isPlainTextPart, isUuidPart]);
-    let afterClause = '';
-    if (after !== null) {
-      params.push(after[0], after[1]);
-      afterClause = 'and (lower(a.display_name), a.id) > ($1::text, $2::uuid)';
-    }
-    params.push(page.limit + 1);
-    const result = await this.transactions.current().query<ListedAccountRow>(
-      `select ${ACCOUNT_COLUMNS}, null::text as my_level, lower(a.display_name) as sort_name
-         from accounts a
-        where a.status = 'active' ${afterClause}
-        order by lower(a.display_name), a.id
-        limit $${String(params.length)}`,
-      params,
+  async listInventoryPage(
+    page: KeysetRequest,
+    filters: AccountListFilters,
+  ): Promise<KeysetPage<AccountListEntry>> {
+    // El inventario no concede acceso: sin unión con `effective_access` y sin nivel. Tampoco toca las
+    // credenciales: quien lo lee no accede a las cuentas, así que no se le revela su antigüedad ni su 2FA.
+    return this.listPage(
+      { params: [], accessJoin: '', myLevelColumn: 'null::text', includeCredentialPosture: false },
+      page,
+      filters,
     );
-    return this.toPage(result.rows, page.limit);
   }
 
-  private toPage(rows: readonly ListedAccountRow[], limit: number): KeysetPage<AccountView> {
-    const keyset = toKeysetPage(rows, limit, (row) => [row.sort_name, row.id]);
-    return { rows: keyset.rows.map(toView), nextCursor: keyset.nextCursor };
+  /**
+   * Listado común de cuentas activas: orden fijo por nombre, cursor, búsqueda de texto y filtro rápido.
+   * Todo valor del usuario viaja como parámetro enlazado; el texto se escapa antes de armar el patrón.
+   */
+  private async listPage(
+    base: {
+      readonly params: unknown[];
+      readonly accessJoin: string;
+      readonly myLevelColumn: string;
+      /** Falso en el inventario: sin unión con credenciales y sin filtros que dependan de ellas. */
+      readonly includeCredentialPosture: boolean;
+    },
+    page: KeysetRequest,
+    filters: AccountListFilters,
+  ): Promise<KeysetPage<AccountListEntry>> {
+    const params = base.params;
+    const bind = (value: unknown): string => {
+      params.push(value);
+      return `$${String(params.length)}`;
+    };
+
+    const clauses: string[] = [];
+    const after = decodeKeysetCursor(page.cursor, [isPlainTextPart, isUuidPart]);
+    if (after !== null) {
+      const namePlaceholder = bind(after[0]);
+      const idPlaceholder = bind(after[1]);
+      clauses.push(
+        `(lower(a.display_name), a.id) > (${namePlaceholder}::text, ${idPlaceholder}::uuid)`,
+      );
+    }
+    if (filters.text !== null) {
+      const pattern = bind(`%${escapeLikePattern(filters.text)}%`);
+      clauses.push(
+        `(a.display_name ilike ${pattern} escape '\\'
+          or a.handle ilike ${pattern} escape '\\'
+          or exists (select 1 from platforms p
+                      where p.id = a.platform_id and p.name ilike ${pattern} escape '\\')
+          or exists (select 1 from unnest(a.tags) as tag where tag ilike ${pattern} escape '\\')
+          or exists (select 1 from groups g
+                      where g.id = a.owner_group_id and g.archived_at is null
+                        and g.name ilike ${pattern} escape '\\'))`,
+      );
+    }
+    if (filters.quickFilter !== null && !base.includeCredentialPosture) {
+      // Defensa en profundidad: la capa de aplicación ya no pasa filtros rápidos al inventario.
+      throw new Error('Quick filters need credential data, which this listing must not read');
+    }
+    if (filters.quickFilter === 'review') {
+      // Amarillo y rojo: la credencial más antigua pasó el umbral de «más de 60 días».
+      clauses.push(`lc.last_changed_at < ${bind(filters.agingCutoff)}::timestamptz`);
+    } else if (filters.quickFilter === 'no-2fa') {
+      // Cuenta de una plataforma con segundo factor cuya credencial vigente no tiene un TOTP confirmado.
+      clauses.push(
+        `exists (select 1
+                   from credentials c
+                   join platforms p on p.id = a.platform_id and p.supports_totp
+                  where c.account_id = a.id and c.archived_at is null
+                    and not exists (select 1 from credential_totp t
+                                     where t.credential_id = c.id and t.status = 'verified'))`,
+      );
+    }
+    const extraConditions = clauses.map((clause) => `and ${clause}`).join('\n          ');
+    const limitPlaceholder = bind(page.limit + 1);
+    const lastChangedColumn = base.includeCredentialPosture
+      ? 'lc.last_changed_at'
+      : 'null::timestamptz as last_changed_at';
+    const credentialJoin = base.includeCredentialPosture
+      ? `left join lateral (
+           select min(coalesce(c.last_rotated_at, c.created_at)) as last_changed_at
+             from credentials c
+            where c.account_id = a.id and c.archived_at is null
+         ) lc on true`
+      : '';
+
+    const result = await this.transactions.current().query<ListedAccountRow>(
+      `select ${ACCOUNT_COLUMNS}, ${base.myLevelColumn} as my_level,
+              lower(a.display_name) as sort_name, ${lastChangedColumn}
+         from accounts a
+         ${base.accessJoin}
+         ${credentialJoin}
+        where a.status = 'active'
+          ${extraConditions}
+        order by lower(a.display_name), a.id
+        limit ${limitPlaceholder}`,
+      params,
+    );
+    const keyset = toKeysetPage(result.rows, page.limit, (row) => [row.sort_name, row.id]);
+    return { rows: keyset.rows.map(toListEntry), nextCursor: keyset.nextCursor };
   }
+}
+
+/** Escapa los comodines de `LIKE` para que el texto buscado se compare tal cual, sin patrones. */
+function escapeLikePattern(text: string): string {
+  return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
 function requireRow<T>(row: T | undefined): T {
