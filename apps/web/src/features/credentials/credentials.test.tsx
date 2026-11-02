@@ -93,7 +93,7 @@ function setup(
 
 const PAGE = `/accounts/${ACCOUNT_ID}/credentials`;
 /** Las tarjetas llegan después del estado de carga: se espera a la de la primera credencial. */
-const rowsLoaded = () => screen.findByRole('heading', { level: 2, name: ROTATED.label });
+const rowsLoaded = () => screen.findByRole('heading', { level: 3, name: ROTATED.label });
 
 afterEach(() => {
   vi.useRealTimers();
@@ -120,7 +120,11 @@ describe('credentials list', () => {
     const { container } = renderApp(PAGE);
     await rowsLoaded();
     expect(screen.getByRole('heading', { level: 1, name: 'Nómina' })).toBeInTheDocument();
-    expect(await screen.findByText('Portal RH')).toBeInTheDocument();
+    // La plataforma aparece en el encabezado y en "Información de la cuenta".
+    expect(await screen.findAllByText('Portal RH')).toHaveLength(2);
+    expect(
+      screen.getByRole('heading', { level: 2, name: es.credentials['info.title'] }),
+    ).toBeVisible();
     expect(
       screen.getByText(
         fill(es.credentials['account.level'], { level: es.credentials['level.MANAGE'] }),
@@ -188,6 +192,53 @@ describe('credentials list', () => {
     renderApp('/accounts/no-es-uuid/credentials');
     expect(await screen.findByText(es.errors.NOT_FOUND)).toBeInTheDocument();
     expect(api.callsTo('GET', '/accounts/no-es-uuid')).toHaveLength(0);
+  });
+});
+
+describe('account options', () => {
+  const options = () => screen.queryByRole('heading', { name: es.credentials['options.title'] });
+
+  it('offers edit and archive only with the account permission AND the level', async () => {
+    setup({ level: 'MANAGE', permissions: ['account.update', 'account.archive'] });
+    const first = renderApp(PAGE);
+    await rowsLoaded();
+    expect(options()).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: new RegExp(es.credentials['options.edit']) }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: new RegExp(es.credentials['options.archive']) }),
+    ).toBeVisible();
+    first.unmount();
+
+    // EDIT alcanza para editar, no para archivar (exige MANAGE).
+    setup({ level: 'EDIT', permissions: ['account.update', 'account.archive'] });
+    const second = renderApp(PAGE);
+    await rowsLoaded();
+    expect(
+      screen.getByRole('button', { name: new RegExp(es.credentials['options.edit']) }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: new RegExp(es.credentials['options.archive']) }),
+    ).toBeNull();
+    second.unmount();
+
+    // Sin permisos de cuenta ni de compartir, el panel no se pinta.
+    setup({ level: 'MANAGE', permissions: [] });
+    renderApp(PAGE);
+    await rowsLoaded();
+    expect(options()).toBeNull();
+  });
+
+  it('opens the edit dialog of the accounts screen from the detail', async () => {
+    const user = userEvent.setup();
+    setup({ level: 'EDIT', permissions: ['account.update'] });
+    renderApp(PAGE);
+    await rowsLoaded();
+    await user.click(
+      screen.getByRole('button', { name: new RegExp(es.credentials['options.edit']) }),
+    );
+    expect(await screen.findByRole('dialog')).toBeVisible();
   });
 });
 
@@ -928,7 +979,7 @@ describe('create credential', () => {
     });
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('heading', { level: 2, name: 'Banco' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: 'Banco' })).toBeInTheDocument();
     });
     expectNoSecretsStored(queryClient, [PASSWORD, USERNAME]);
   });

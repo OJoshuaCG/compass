@@ -1,6 +1,6 @@
 import type { Credential } from '@iam/contracts';
-import { Badge, Button, buttonVariants, Spinner, Users } from '@iam/ui';
-import { Link } from '@tanstack/react-router';
+import { Badge, Button, buttonVariants, Plus, Spinner, StatusBadge, Users } from '@iam/ui';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,12 @@ import { useAsyncAction } from '../../../shared/api';
 import { useMe, usePermission } from '../../../shared/auth';
 import { ErrorAlert, useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
+import {
+  ArchiveAccountDialog,
+  canArchiveAccount,
+  canEditAccount,
+  EditAccountDialog,
+} from '../../accounts';
 import { useToast } from '../../../shared/toast';
 import {
   credentialsKeys,
@@ -28,6 +34,8 @@ import {
   canUseTotp,
   canViewHistory,
 } from '../model/credential-access';
+import { AccountInfoPanel } from '../ui/account-info-panel';
+import { AccountOptionsPanel } from '../ui/account-options-panel';
 import { AccountSharesPanel } from '../ui/account-shares-panel';
 import { CLIPBOARD_CLEAR_MS, CLIPBOARD_CLEAR_SECONDS } from '../model/secret-policy';
 import { CredentialCards, rowMenuTriggerSelector } from '../ui/credential-cards';
@@ -54,7 +62,11 @@ export type CredentialsPageProps = {
  * comodidad, el servidor decide siempre.
  */
 export function CredentialsPage({ accountId }: CredentialsPageProps) {
-  const catalogReady = useLazyCatalog('credentials');
+  const credentialsCatalogReady = useLazyCatalog('credentials');
+  // Los diálogos de editar y archivar la cuenta son del feature `accounts` y usan sus textos.
+  const accountsCatalogReady = useLazyCatalog('accounts');
+  const catalogReady = credentialsCatalogReady && accountsCatalogReady;
+  const navigate = useNavigate();
   const { t } = useTranslation(['credentials', 'common']);
   const errorMessage = useErrorMessage();
   const queryClient = useQueryClient();
@@ -66,6 +78,9 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   const hasUseTotpPermission = usePermission('credential.use_totp');
   const hasExportTotpPermission = usePermission('credential.export_totp');
   const hasShareManagePermission = usePermission('share.manage');
+  const hasAccountUpdatePermission = usePermission('account.update');
+  const hasAccountArchivePermission = usePermission('account.archive');
+  const [accountDialog, setAccountDialog] = useState<'edit' | 'archive' | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   // Fila cuyo menú "⋯" abrió el diálogo actual; sirve para devolver el foco al cerrarlo.
   const menuOriginRef = useRef<string | null>(null);
@@ -214,6 +229,11 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
           <h1 className="text-2xl text-text">{account.displayName}</h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
             {subtitle !== '' ? <span>{subtitle}</span> : null}
+            {account.status === 'active' ? (
+              <StatusBadge status="success" label={t('status.active', { ns: 'credentials' })} />
+            ) : (
+              <StatusBadge status="neutral" label={t('status.archived', { ns: 'credentials' })} />
+            )}
             {myLevel !== null ? (
               <Badge tone="accent">
                 {t('account.level', {
@@ -245,6 +265,7 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
                   setDialog({ kind: 'create' });
                 }}
               >
+                <Plus aria-hidden="true" className="size-4" />
                 {t('action.create', { ns: 'credentials' })}
               </Button>
             ) : null}
@@ -252,53 +273,120 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
         ) : null}
       </div>
       {copyUsername.error !== undefined ? <ErrorAlert error={copyUsername.error} /> : null}
-      <div className={canManageShares ? 'grid items-start gap-6 lg:grid-cols-3' : undefined}>
-        <div
-          ref={tableRegionRef}
-          tabIndex={-1}
-          className="focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus lg:col-span-2"
+      <div className="grid items-start gap-6 lg:grid-cols-3">
+        <section
+          aria-labelledby="credentials-section"
+          className="flex flex-col gap-3 lg:col-span-2"
         >
-          <CredentialCards
-            credentials={credentialsQuery.data ?? []}
-            status={tableStatus}
-            errorMessage={errorMessage(credentialsQuery.error)}
-            onRetry={() => {
-              void credentialsQuery.refetch();
-            }}
+          <h2 id="credentials-section" className="flex items-baseline gap-2 text-lg text-text">
+            {t('section.title', { ns: 'credentials' })}
+            {credentialsQuery.data !== undefined ? (
+              <span className="text-sm font-normal text-text-muted">
+                {t('section.count', { ns: 'credentials', count: credentialsQuery.data.length })}
+              </span>
+            ) : null}
+          </h2>
+          <div
+            ref={tableRegionRef}
+            tabIndex={-1}
+            className="focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+          >
+            <CredentialCards
+              credentials={credentialsQuery.data ?? []}
+              status={tableStatus}
+              errorMessage={errorMessage(credentialsQuery.error)}
+              onRetry={() => {
+                void credentialsQuery.refetch();
+              }}
+              timeZone={timeZone}
+              myLevel={myLevel}
+              canCopyUsername={canCopyUsername(myLevel)}
+              canReveal={canRevealPassword(hasRevealPermission, myLevel)}
+              canChangePassword={canChangePassword(hasUpdatePermission, myLevel)}
+              canViewHistory={canViewHistory(myLevel)}
+              canOpenTotp={totpCapabilities.canUse}
+              onCopyUsername={(credential) => {
+                void handleCopyUsername(credential);
+              }}
+              onReveal={(credential) => {
+                revealDialogRef.current?.reveal(credential);
+              }}
+              onChangePassword={(credential) => {
+                openFromMenu('password', credential);
+              }}
+              onViewHistory={(credential) => {
+                openFromMenu('history', credential);
+              }}
+              onOpenTotp={(credential) => {
+                setDialog({ kind: 'totp', credential });
+              }}
+            />
+          </div>
+        </section>
+        <div className="flex flex-col gap-6">
+          <AccountInfoPanel
+            account={account}
+            platformName={platform?.name}
+            credentials={credentialsQuery.data}
             timeZone={timeZone}
-            myLevel={myLevel}
-            canCopyUsername={canCopyUsername(myLevel)}
-            canReveal={canRevealPassword(hasRevealPermission, myLevel)}
-            canChangePassword={canChangePassword(hasUpdatePermission, myLevel)}
-            canViewHistory={canViewHistory(myLevel)}
-            canOpenTotp={totpCapabilities.canUse}
-            onCopyUsername={(credential) => {
-              void handleCopyUsername(credential);
+          />
+          {canManageShares ? (
+            <AccountSharesPanel
+              accountId={accountId}
+              shares={sharesQuery.data}
+              status={sharesQuery.isPending ? 'loading' : sharesQuery.isError ? 'error' : 'success'}
+              errorMessage={errorMessage(sharesQuery.error)}
+              timeZone={timeZone}
+            />
+          ) : null}
+          <AccountOptionsPanel
+            accountId={accountId}
+            canManageShares={canManageShares}
+            canEdit={canEditAccount(hasAccountUpdatePermission, myLevel)}
+            canArchive={canArchiveAccount(hasAccountArchivePermission, myLevel)}
+            onEdit={() => {
+              setAccountDialog('edit');
             }}
-            onReveal={(credential) => {
-              revealDialogRef.current?.reveal(credential);
-            }}
-            onChangePassword={(credential) => {
-              openFromMenu('password', credential);
-            }}
-            onViewHistory={(credential) => {
-              openFromMenu('history', credential);
-            }}
-            onOpenTotp={(credential) => {
-              setDialog({ kind: 'totp', credential });
+            onArchive={() => {
+              setAccountDialog('archive');
             }}
           />
         </div>
-        {canManageShares ? (
-          <AccountSharesPanel
-            accountId={accountId}
-            shares={sharesQuery.data}
-            status={sharesQuery.isPending ? 'loading' : sharesQuery.isError ? 'error' : 'success'}
-            errorMessage={errorMessage(sharesQuery.error)}
-            timeZone={timeZone}
-          />
-        ) : null}
       </div>
+      {accountDialog === 'edit' ? (
+        <EditAccountDialog
+          account={account}
+          onClose={() => {
+            setAccountDialog(null);
+          }}
+          onUpdated={(displayName) => {
+            setAccountDialog(null);
+            toast.show(t('edit.toast', { ns: 'accounts', name: displayName }), 'success');
+            void queryClient.invalidateQueries({ queryKey: credentialsKeys.account(accountId) });
+          }}
+          onReload={() => {
+            setAccountDialog(null);
+            void queryClient.invalidateQueries({ queryKey: credentialsKeys.account(accountId) });
+          }}
+        />
+      ) : null}
+      {accountDialog === 'archive' ? (
+        <ArchiveAccountDialog
+          account={account}
+          onClose={() => {
+            setAccountDialog(null);
+          }}
+          onDone={() => {
+            setAccountDialog(null);
+            toast.show(
+              t('archive.toast', { ns: 'accounts', name: account.displayName }),
+              'success',
+            );
+            // La cuenta archivada deja de estar disponible: se vuelve al listado.
+            void navigate({ to: '/accounts' });
+          }}
+        />
+      ) : null}
       {allowCreate ? (
         <CreateCredentialDialog
           accountId={accountId}

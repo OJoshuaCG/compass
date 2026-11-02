@@ -5,6 +5,7 @@
  */
 export {
   AlertTriangle,
+  Archive,
   Check,
   CheckCircle2,
   ChevronRight,

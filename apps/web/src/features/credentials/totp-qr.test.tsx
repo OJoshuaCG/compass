@@ -155,7 +155,7 @@ function qrFile(name = 'qr.png', type = 'image/png') {
 }
 
 async function openImageMethod(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('heading', { level: 2, name: LABEL });
+  await screen.findByRole('heading', { level: 3, name: LABEL });
   await user.click(screen.getByRole('button', { name: totpButtonName }));
   const dialog = await screen.findByRole('dialog', { name: dialogName });
   await within(dialog).findByText(t['totp.status.none']);
@@ -700,7 +700,7 @@ describe('register from a QR image in English', () => {
     installFakeBrowserMedia({ displayCapture: false });
     setup();
     renderApp(PAGE, 'en-US');
-    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await screen.findByRole('heading', { level: 3, name: LABEL });
     await user.click(
       screen.getByRole('button', { name: fill(en['action.totpLabel'], { label: LABEL }) }),
     );
@@ -721,7 +721,7 @@ describe('register from a QR image in English', () => {
     pixelsOnScreen = renderQrPixels(buildMigrationUri([ANA, BOB, HOTP_ENTRY]));
     setup();
     renderApp(PAGE, 'en-US');
-    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await screen.findByRole('heading', { level: 3, name: LABEL });
     await user.click(
       screen.getByRole('button', { name: fill(en['action.totpLabel'], { label: LABEL }) }),
     );

@@ -122,7 +122,7 @@ function setup(
 const PAGE = `/accounts/${ACCOUNT_ID}/credentials`;
 
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('heading', { level: 2, name: LABEL });
+  await screen.findByRole('heading', { level: 3, name: LABEL });
   await user.click(screen.getByRole('button', { name: totpButtonName }));
   return screen.findByRole('dialog', { name: dialogName });
 }
@@ -147,21 +147,21 @@ describe('second factor action gating', () => {
   it('is offered with USE and the use_totp permission', async () => {
     setup({ level: 'USE', extra: totpRoutes(totpFixture()).routes });
     renderApp(PAGE);
-    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await screen.findByRole('heading', { level: 3, name: LABEL });
     expect(screen.getByRole('button', { name: totpButtonName })).toBeVisible();
   });
 
   it('is hidden without the permission, even at MANAGE', async () => {
     setup({ level: 'MANAGE', permissions: ['credential.update'] });
     renderApp(PAGE);
-    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await screen.findByRole('heading', { level: 3, name: LABEL });
     expect(screen.queryByRole('button', { name: totpButtonName })).toBeNull();
   });
 
   it('is hidden without access to the account', async () => {
     setup({ level: null });
     renderApp(PAGE);
-    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await screen.findByRole('heading', { level: 3, name: LABEL });
     // Sin acceso a la cuenta no hay ninguna acción.
     expect(screen.queryByRole('button', { name: totpButtonName })).toBeNull();
   });
@@ -1097,7 +1097,7 @@ describe('second factor dialog in English', () => {
     const en = (await loadCredentialsCatalog())['en-US'];
     setup({ extra: totpRoutes(null).routes });
     renderApp(PAGE, 'en-US');
-    await screen.findByRole('heading', { level: 2, name: LABEL });
+    await screen.findByRole('heading', { level: 3, name: LABEL });
     await user.click(
       screen.getByRole('button', { name: fill(en['action.totpLabel'], { label: LABEL }) }),
     );

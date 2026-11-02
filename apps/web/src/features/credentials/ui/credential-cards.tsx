@@ -157,9 +157,9 @@ export function CredentialCards({
               className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5 shadow-card"
             >
               <div className="flex flex-wrap items-center gap-3">
-                <h2 id={headingId} className="text-base font-bold text-text">
+                <h3 id={headingId} className="text-base font-bold text-text">
                   {credential.label}
-                </h2>
+                </h3>
                 <Badge>{t(`kind.${credential.kind}`, { ns: 'credentials' })}</Badge>
                 {items.length > 0 ? (
                   // El contenedor marca la tarjeta para que el container devuelva el foco al
