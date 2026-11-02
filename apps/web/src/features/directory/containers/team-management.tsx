@@ -1,5 +1,6 @@
 import type { ManagedUser, Permission, Rank, UserStatus } from '@iam/contracts';
 import {
+  Badge,
   DataTable,
   EmptyState,
   RowActionsMenu,
@@ -48,6 +49,25 @@ const STATUS_TONE: Record<UserStatus, Status> = {
   deactivated: 'neutral',
 };
 
+/** Iniciales para el avatar: primera letra de las dos primeras palabras del nombre. */
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('');
+
+/** Guion visual de "no aplica" con su lectura en texto para lectores de pantalla. */
+function NotApplicable({ label }: { label: string }) {
+  return (
+    <span className="text-text-muted">
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
 type DialogState = {
   kind: 'deactivate' | 'changeRank' | 'transfer' | 'closeSessions' | 'rolesAndPermissions';
   person: ManagedUser;
@@ -75,7 +95,9 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
   const table = useTableQuery<ManagedUser>({
     queryKey: directoryKeys.managed(),
     fetchPage: fetchManagedPage,
-    search,
+    // El correo va dentro de la columna "Persona" (diseño de Compass) y ya no tiene encabezado
+    // propio: un `sort=email` heredado de la URL se descarta para no ordenar sin indicador visible.
+    search: search.sort === 'email' ? { ...search, sort: undefined, dir: undefined } : search,
     onSearchChange,
   });
   const [draft, setDraft] = useDebouncedCommit(table.q, table.onQueryChange);
@@ -145,21 +167,47 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
     () => [
       {
         id: 'displayName',
-        header: t('users.col.name', { ns: 'directory' }),
-        cell: (row) => row.displayName,
+        header: t('team.col.person', { ns: 'directory' }),
+        cell: (row) => (
+          <span className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-raised text-xs font-bold text-accent"
+            >
+              {initials(row.displayName)}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="font-semibold text-text">{row.displayName}</span>
+              <span className="text-text-muted">{row.email}</span>
+            </span>
+          </span>
+        ),
         sortKey: 'displayName',
-      },
-      {
-        id: 'email',
-        header: t('users.col.email', { ns: 'directory' }),
-        cell: (row) => <span className="text-text-secondary">{row.email}</span>,
-        sortKey: 'email',
       },
       {
         id: 'rank',
         header: t('users.col.rank', { ns: 'directory' }),
-        cell: (row) => t(`rank.${String(row.rank)}`, { ns: 'common' }),
+        cell: (row) => <Badge>{t(`rank.${String(row.rank)}`, { ns: 'common' })}</Badge>,
         sortKey: 'rank',
+      },
+      {
+        id: 'manager',
+        header: t('team.col.manager', { ns: 'directory' }),
+        cell: (row) =>
+          row.managerName ?? <NotApplicable label={t('team.manager.none', { ns: 'directory' })} />,
+      },
+      {
+        id: 'roles',
+        header: t('team.col.roles', { ns: 'directory' }),
+        cell: (row) =>
+          // `null`: quien consulta no puede ver los roles de esa persona; no es "sin roles".
+          row.roleNames === null ? (
+            <NotApplicable label={t('team.roles.hidden', { ns: 'directory' })} />
+          ) : row.roleNames.length === 0 ? (
+            <span className="text-text-muted">{t('team.roles.none', { ns: 'directory' })}</span>
+          ) : (
+            row.roleNames.join(', ')
+          ),
       },
       {
         id: 'status',

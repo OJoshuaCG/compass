@@ -186,6 +186,30 @@ export class PgRoleRepository implements RoleRepository {
     return result.rows.map(toRecord);
   }
 
+  /**
+   * Nombres de los roles vigentes de varias personas en una sola consulta, para la vista de gestión
+   * (puerto `AssignedRoleNamesReader` de `directory`). Excluye el rol personal (oculto por diseño) y
+   * los archivados; RLS acota las asignaciones y los roles a la organización del contexto.
+   */
+  async listLiveRoleNames(
+    userIds: readonly UserId[],
+  ): Promise<ReadonlyMap<UserId, readonly string[]>> {
+    const names = new Map<UserId, string[]>(userIds.map((id) => [id, []]));
+    if (userIds.length === 0) return names;
+    const result = await this.transactions.current().query<{ user_id: UserId; name: string }>(
+      `select ur.user_id, r.name
+         from user_roles ur
+         join roles r on r.organization_id = ur.organization_id and r.id = ur.role_id
+        where ur.user_id = any($1::uuid[])
+          and r.archived_at is null
+          and r.personal_user_id is null
+        order by r.is_system desc, lower(r.name), r.id`,
+      [[...userIds]],
+    );
+    for (const row of result.rows) names.get(row.user_id)?.push(row.name);
+    return names;
+  }
+
   async unassign(userId: UserId, roleIds: readonly string[]): Promise<void> {
     if (roleIds.length === 0) return;
     await this.transactions

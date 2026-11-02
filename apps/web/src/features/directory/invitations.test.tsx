@@ -340,6 +340,8 @@ describe('invite dialog manager', () => {
     rank: 2,
     status: 'active',
     managedBy: null,
+    managerName: null,
+    roleNames: null,
     ...overrides,
   });
   const managedHandler = jsonResponse({

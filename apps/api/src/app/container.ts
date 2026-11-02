@@ -170,7 +170,7 @@ export function buildContainer(options: ContainerOptions) {
   });
   const createUser = new CreateUser({ directory, ids });
   const listDirectory = new ListDirectory({ directory, uow, authorizer });
-  const listManaged = new ListManaged({ directory, uow, authorizer });
+  const listManaged = new ListManaged({ directory, uow, authorizer, roleNames: roles });
   const shareRepository = new PgShareRepository(uow);
 
   // identity

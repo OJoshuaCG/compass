@@ -20,6 +20,8 @@ const LUIS: ManagedUser = {
   rank: 3,
   status: 'active',
   managedBy: null,
+  managerName: null,
+  roleNames: null,
 };
 
 const SYSTEM_ROLE: Role = {

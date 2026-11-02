@@ -226,7 +226,7 @@ Para poder compartir cuentas, cualquier persona activa debe poder encontrar a ot
 | Nombre y correo de cualquier persona de la organización | Cualquier persona activa |
 | Detalles, roles y actividad de una persona | Solo quien puede gestionarla |
 
-**Estado hoy.** El directorio funciona. Cualquier persona activa puede buscar por nombre o por correo, ordenar la lista y avanzarla por páginas. Solo aparecen personas activas (las invitadas que aún no completan su alta, las suspendidas y las desactivadas no se listan) y por cada una se muestran únicamente nombre, correo y rango. Los detalles, roles y actividad de una persona todavía no tienen pantalla.
+**Estado hoy.** El directorio funciona. Cualquier persona activa puede buscar por nombre o por correo, ordenar la lista y avanzarla por páginas. Solo aparecen personas activas (las invitadas que aún no completan su alta, las suspendidas y las desactivadas no se listan) y por cada una se muestran únicamente nombre, correo y rango. En la pestaña Equipo, quien gestiona a una persona ve además su estado, su responsable y sus roles; los roles solo aparecen si además puede invitar personas (la misma condición que para consultarlos uno por uno) y nunca incluyen los permisos especiales. La actividad de una persona todavía no tiene pantalla.
 
 **Ejemplo.** Sofía quiere compartir una cuenta con un compañero de otro equipo. Busca su nombre en el directorio y lo encuentra, pero no ve sus roles ni su actividad. En cambio Luis sí ve los roles y la actividad de Sofía, porque la gestiona.
 

@@ -215,11 +215,24 @@ export class PgUserDirectory implements UserDirectory {
           params: [actor.id],
         };
     const page = await this.page(query, scope);
+    // Nombres de los responsables de la página en una sola consulta (RLS acota a la organización).
+    const managerIds = [
+      ...new Set(page.rows.map((row) => row.managed_by).filter((id) => id !== null)),
+    ];
+    const managerNames = new Map<string, string>();
+    if (managerIds.length > 0) {
+      const managers = await this.transactions.current().query<{
+        id: string;
+        display_name: string;
+      }>('select id, display_name from users where id = any($1::uuid[])', [managerIds]);
+      for (const manager of managers.rows) managerNames.set(manager.id, manager.display_name);
+    }
     return {
       rows: page.rows.map((row): ManagedRow => ({
         ...toDirectoryRow(row),
         status: row.status,
         managedBy: toRecord(row).managedBy,
+        managerName: row.managed_by === null ? null : (managerNames.get(row.managed_by) ?? null),
       })),
       nextCursor: page.nextCursor,
     };

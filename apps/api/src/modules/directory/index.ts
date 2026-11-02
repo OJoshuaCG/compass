@@ -2,6 +2,12 @@
 export { CreateUser } from './application/create-user.js';
 export type { CreateUserCommand } from './application/create-user.js';
 export { ListManaged } from './application/list-managed.js';
+export type {
+  ManagedViewAuthorizer,
+  ManagedViewPage,
+  ManagedViewRow,
+} from './application/list-managed.js';
+export type { AssignedRoleNamesReader } from './application/ports/assigned-role-names-reader.js';
 export { ManageUsers } from './application/manage-users.js';
 export type {
   InvitationRevoker,
