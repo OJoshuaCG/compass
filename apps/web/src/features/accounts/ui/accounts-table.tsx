@@ -67,7 +67,37 @@ export function AccountsTable({
     const nameColumn: Column<Account> = {
       id: 'name',
       header: t('col.name'),
-      cell: (row) => row.displayName,
+      // Como el diseño de Compass: mosaico de la plataforma, nombre y, debajo, el identificador. En
+      // "Mis cuentas" el nombre abre el detalle (el inventario no da acceso, así que no enlaza).
+      cell: (row) => {
+        const platform = platformNames.get(row.platformId);
+        return (
+          <span className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex size-9 shrink-0 items-center justify-center rounded-md bg-raised text-xs font-bold text-accent"
+            >
+              {(platform ?? row.displayName).slice(0, 2).toUpperCase()}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              {variant === 'mine' ? (
+                <Link
+                  to="/accounts/$accountId/credentials"
+                  params={{ accountId: row.id }}
+                  className="font-semibold text-text hover:text-accent hover:underline"
+                >
+                  {row.displayName}
+                </Link>
+              ) : (
+                <span className="font-semibold text-text">{row.displayName}</span>
+              )}
+              {row.handle !== null ? (
+                <span className="truncate text-xs text-text-muted">{row.handle}</span>
+              ) : null}
+            </span>
+          </span>
+        );
+      },
     };
     const platformColumn: Column<Account> = {
       id: 'platform',

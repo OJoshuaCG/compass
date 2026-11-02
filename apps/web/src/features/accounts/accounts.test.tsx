@@ -95,7 +95,7 @@ function setup(
 }
 
 /** La tabla se pinta ya en su estado de carga: se espera a que lleguen las filas. */
-const rowsLoaded = () => screen.findByRole('cell', { name: 'Nómina' });
+const rowsLoaded = () => screen.findByText('Nómina');
 
 describe('accounts navigation', () => {
   it('shows the nav link to every active member and reaches the screen', async () => {
@@ -191,7 +191,7 @@ describe('inventory', () => {
     const { container } = renderApp('/accounts');
     await rowsLoaded();
     await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    await screen.findByRole('cell', { name: 'Tesorería' });
+    await screen.findByText('Tesorería');
     const table = screen.getByRole('table', { name: es.accounts['inventory.caption'] });
     const headers = within(table)
       .getAllByRole('columnheader')
@@ -259,7 +259,7 @@ describe('create account', () => {
     expect(call?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('cell', { name: 'Marketing' })).toBeInTheDocument();
+      expect(screen.getByText('Marketing')).toBeInTheDocument();
     });
   });
 
@@ -394,7 +394,7 @@ describe('edit account', () => {
     expect(call?.headers.get('Idempotency-Key')).toBeTruthy();
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('cell', { name: 'Nómina 2' })).toBeInTheDocument();
+      expect(screen.getByText('Nómina 2')).toBeInTheDocument();
     });
   });
 
@@ -543,7 +543,7 @@ describe('archive account', () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(accountsCalls(api).length).toBeGreaterThan(before);
-      expect(screen.queryByRole('cell', { name: 'Nómina' })).toBeNull();
+      expect(screen.queryByText('Nómina')).toBeNull();
     });
   });
 
