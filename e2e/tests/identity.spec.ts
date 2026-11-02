@@ -117,7 +117,7 @@ test.describe
     await page.getByRole('link', { name: 'People' }).click();
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Invite user' }).click();
+    await page.getByRole('button', { name: 'Invite person' }).click();
     await page.getByLabel('Email address').fill('operator@e2e.test');
     await page.getByLabel('Rank').selectOption({ label: 'Operator' });
     await page.getByRole('button', { name: 'Send invitation' }).click();

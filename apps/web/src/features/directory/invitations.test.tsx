@@ -38,7 +38,7 @@ const listOf = (...items: PendingInvitation[]) =>
   jsonResponse({ data: items, page: { nextCursor: null, limit: 25 } });
 const resendLabel = (email: string) =>
   es.directory['invitations.resendLabel'].replace('{{email}}', email);
-const rowText = (text: string) => screen.findByRole('cell', { name: text });
+const rowText = (text: string) => screen.findByText(text);
 const pendingCalls = (api: ReturnType<typeof stubApi>) => api.callsTo('GET', '/invitations');
 
 function setup(
@@ -54,7 +54,7 @@ function setup(
 }
 
 describe('invitations tab', () => {
-  it('lists pending invitations with rank, dates and a Pending/Expired badge, without violations', async () => {
+  it('lists pending invitations with rank, sent date and an expiry or Expired badge, without violations', async () => {
     setup();
     const user = userEvent.setup();
     const { container, router } = renderApp('/users');
@@ -70,9 +70,9 @@ describe('invitations tab', () => {
     expect(rows).toHaveLength(3);
     const first = within(rows[1] as HTMLElement);
     expect(first.getByText(es.common['rank.3'])).toBeInTheDocument();
-    expect(first.getByText(es.directory['invitations.status.pending'])).toBeInTheDocument();
     // Enviada y vence: dos fechas formateadas para la zona del perfil.
-    expect(first.getAllByText(/2030/)).toHaveLength(2);
+    expect(first.getByText(/Enviada el .*2030/)).toBeInTheDocument();
+    expect(first.getByText(/^Vence el .*2030/)).toBeInTheDocument();
     const second = within(rows[2] as HTMLElement);
     expect(second.getByText(es.directory['invitations.status.expired'])).toBeInTheDocument();
     expect(second.getByText(es.common['rank.2'])).toBeInTheDocument();
@@ -201,7 +201,7 @@ describe('invitations tab', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(es.errors['INVITATION.INVALID']);
     await waitFor(() => {
       expect(pendingCalls(api).length).toBeGreaterThan(before);
-      expect(screen.queryByRole('cell', { name: 'ana@example.com' })).toBeNull();
+      expect(screen.queryByText('ana@example.com')).toBeNull();
     });
   });
 

@@ -1,4 +1,4 @@
-import { PageHeader, Button, Spinner, Tabs, UserPlus } from '@iam/ui';
+import { PageHeader, Button, Plus, Spinner, Tabs } from '@iam/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -87,7 +87,7 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
                 setInviteOpen(true);
               }}
             >
-              <UserPlus aria-hidden="true" className="size-4" />
+              <Plus aria-hidden="true" className="size-4" />
               {t('users.invite', { ns: 'directory' })}
             </Button>
           ) : undefined

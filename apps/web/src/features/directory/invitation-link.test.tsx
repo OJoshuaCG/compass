@@ -334,7 +334,7 @@ describe('invitations tab: resend and show the link', () => {
   it('is hidden without user.invite_link', async () => {
     setup({}, ['user.invite']);
     renderApp('/users?view=invitations');
-    await screen.findByRole('cell', { name: 'ana@example.com' });
+    await screen.findByText('ana@example.com');
     expect(screen.queryByRole('button', { name: resendLinkLabel('ana@example.com') })).toBeNull();
     expect(
       screen.getByRole('button', {
@@ -347,7 +347,7 @@ describe('invitations tab: resend and show the link', () => {
     const user = userEvent.setup();
     const api = setup({ [`POST ${resendPath}`]: resendBody });
     const { queryClient } = renderApp('/users?view=invitations');
-    await screen.findByRole('cell', { name: 'ana@example.com' });
+    await screen.findByText('ana@example.com');
     await user.click(screen.getByRole('button', { name: resendLinkLabel('ana@example.com') }));
 
     const dialog = await screen.findByRole('dialog', { name: es.directory['link.title'] });
@@ -380,7 +380,7 @@ describe('invitations tab: resend and show the link', () => {
     const user = userEvent.setup();
     setup({ [`POST ${resendPath}`]: problem(403, 'AUTHZ.PERMISSION') });
     renderApp('/users?view=invitations');
-    await screen.findByRole('cell', { name: 'ana@example.com' });
+    await screen.findByText('ana@example.com');
     await user.click(screen.getByRole('button', { name: resendLinkLabel('ana@example.com') }));
     expect(await screen.findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.PERMISSION']);
     expect(screen.queryByRole('dialog')).toBeNull();

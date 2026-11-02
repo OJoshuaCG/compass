@@ -80,7 +80,7 @@ export function DirectoryTable({ search, onSearchChange }: DirectoryTableProps) 
           className="max-w-sm"
           label={t('search.label', { ns: 'common' })}
           clearLabel={t('search.clear', { ns: 'common' })}
-          placeholder={t('search.placeholder', { ns: 'common' })}
+          placeholder={t('users.searchPlaceholder', { ns: 'directory' })}
           value={draft}
           onValueChange={setDraft}
         />

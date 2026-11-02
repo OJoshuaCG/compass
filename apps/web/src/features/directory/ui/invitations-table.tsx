@@ -1,11 +1,14 @@
 import type { PendingInvitation } from '@iam/contracts';
-import { Button, DataTable, EmptyState, StatusBadge, type Column } from '@iam/ui';
+import { Badge, Button, DataTable, EmptyState, UserPlus, type Column } from '@iam/ui';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { TablePaging } from '../../../shared/api';
 import { useDataTableLabels } from '../../../shared/i18n';
 import { formatDateTime } from '../../../shared/lib';
+
+/** Una invitación vigente que vence antes de esto se marca como "por vencer". */
+const EXPIRING_SOON_MS = 48 * 60 * 60 * 1000;
 
 export type InvitationsTableProps = {
   invitations: PendingInvitation[];
@@ -45,43 +48,58 @@ export function InvitationsTable({
   const { t, i18n } = useTranslation(['directory', 'common']);
   const labels = useDataTableLabels();
 
-  const columns = useMemo<Column<PendingInvitation>[]>(
-    () => [
+  // Como el diseño de Compass: la persona invitada con su rango y la fecha de envío en una sola
+  // columna, y el vencimiento como insignia (rojo si venció, ámbar si vence en menos de 48 h).
+  const columns = useMemo<Column<PendingInvitation>[]>(() => {
+    const now = Date.now();
+    return [
       {
         id: 'email',
-        header: t('users.col.email', { ns: 'directory' }),
-        cell: (row) => row.email,
-      },
-      {
-        id: 'rank',
-        header: t('users.col.rank', { ns: 'directory' }),
-        cell: (row) => t(`rank.${String(row.rank)}`, { ns: 'common' }),
-      },
-      {
-        id: 'sent',
-        header: t('invitations.col.sent', { ns: 'directory' }),
-        cell: (row) => formatDateTime(row.createdAt, i18n.language, timeZone),
-      },
-      {
-        id: 'expires',
-        header: t('invitations.col.expires', { ns: 'directory' }),
-        cell: (row) => formatDateTime(row.expiresAt, i18n.language, timeZone),
+        header: t('invitations.col.person', { ns: 'directory' }),
+        cell: (row) => (
+          <span className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed border-border-strong text-accent"
+            >
+              <UserPlus className="size-4" />
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="font-semibold text-text">{row.email}</span>
+              <span className="text-xs text-text-muted">
+                <span>{t(`rank.${String(row.rank)}`, { ns: 'common' })}</span>
+                {' · '}
+                {t('invitations.sentOn', {
+                  ns: 'directory',
+                  date: formatDateTime(row.createdAt, i18n.language, timeZone),
+                })}
+              </span>
+            </span>
+          </span>
+        ),
       },
       {
         id: 'status',
         header: t('invitations.col.status', { ns: 'directory' }),
-        cell: (row) => (
-          <StatusBadge
-            status={row.expired ? 'warning' : 'info'}
-            label={t(row.expired ? 'invitations.status.expired' : 'invitations.status.pending', {
-              ns: 'directory',
-            })}
-          />
-        ),
+        cell: (row) => {
+          if (row.expired) {
+            return (
+              <Badge tone="danger">{t('invitations.status.expired', { ns: 'directory' })}</Badge>
+            );
+          }
+          const soon = Date.parse(row.expiresAt) - now < EXPIRING_SOON_MS;
+          return (
+            <Badge tone={soon ? 'warning' : 'accent'}>
+              {t('invitations.expiresOn', {
+                ns: 'directory',
+                date: formatDateTime(row.expiresAt, i18n.language, timeZone),
+              })}
+            </Badge>
+          );
+        },
       },
-    ],
-    [t, i18n.language, timeZone],
-  );
+    ];
+  }, [t, i18n.language, timeZone]);
 
   return (
     <DataTable<PendingInvitation>
