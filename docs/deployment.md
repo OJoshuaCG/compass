@@ -221,9 +221,10 @@ MIGRATION_DATABASE_URL='postgres://iam_migrator:<secreto>@<host>/<base>' node ap
 | Resultado | Qué pasa |
 | --- | --- |
 | Termina bien | Imprime solo conteos (organizaciones, roles actualizados, fallos) y arranca la API |
-| Falla (base inalcanzable, migraciones sin aplicar, una organización que no se pudo sincronizar) | Sale con código 1, la API **no arranca** y el contenedor queda en error. Con `stop-first` (§2.7) la versión vieja ya se detuvo: corrige la causa o revierte (§2.12) |
+| Falla una vez (por ejemplo, un corte breve de la base) | Reintenta: hasta 3 intentos, con 5 s entre uno y otro |
+| Falla los 3 intentos (base inalcanzable, migraciones sin aplicar, una organización que no se pudo sincronizar) | Sale con código 1, la API **no arranca** y el contenedor queda en error. Con `stop-first` (§2.7) la versión vieja ya se detuvo: corrige la causa o revierte (§2.12) |
 
-Es idempotente: si no hay cambios en las plantillas, no modifica nada ni escribe auditoría. Para correrlo a mano en un contenedor que ya está en marcha: `docker exec <contenedor-de-la-api> node apps/api/dist/main.sync-system-roles.js`.
+El arranque lo hace [`docker/start.sh`](../docker/start.sh), que también atiende `SIGTERM` durante la sincronización y la espera entre intentos, así que detener el contenedor nunca queda colgado. Es idempotente: si no hay cambios en las plantillas, no modifica nada ni escribe auditoría. Para correrlo a mano en un contenedor que ya está en marcha: `docker exec <contenedor-de-la-api> node apps/api/dist/main.sync-system-roles.js`.
 
 ### 2.6 Crear la aplicación en Dokploy
 
@@ -290,9 +291,12 @@ Redespliega el commit anterior. Las migraciones no se revierten: se corrigen con
   | Reconstrucción con solo cambios de código | 42 s; dependencias desde caché, ninguna descarga |
   | `bootstrap`, `migrate` (27 aplicadas; la segunda vez, 0) y `provision` con la imagen | Correctos |
   | Arranque sin migraciones | `sync-system-roles` falla, el contenedor sale con código 1 y la API no arranca |
+  | Base inalcanzable | 3 intentos con 5 s de espera; sale con código 1 a los 13 s |
+  | Base caída al arrancar que vuelve a los 3 s | El segundo intento sincroniza y la API arranca |
+  | `SIGTERM` durante la espera entre intentos o con la conexión colgada | 0.2 s, código 143 |
   | Arranque normal | Conteos de sincronización, `http server listening`; salud, web y rutas de la app responden 200; `HEALTHCHECK` sano; unos 280 MB de memoria |
   | Rol de sistema desalineado y reinicio | Lo corrige (`roles de sistema actualizados: 1`) y audita `role.system_synced` |
-  | Apagado con `SIGTERM` | 0.2 s, código 0 |
+  | Apagado con `SIGTERM` con la API levantada | 0.2 a 0.4 s, código 0 (la API es el proceso principal) |
   | Permisos | Corre como `node` y no puede escribir en `/app` |
 
   La prueba usó `NODE_ENV=development` con KMS local y correo por registro, porque producción exige AWS KMS y SMTP reales. Podman ignora el `HEALTHCHECK` con el formato OCI; Docker (el de Dokploy) lo respeta. **Falta verificar en Dokploy** que marque el despliegue como fallido cuando el contenedor sale con error.

@@ -34,11 +34,11 @@ ENV NODE_ENV=production \
 # (node apps/api/dist/main.<comando>.js). Los archivos son de root y de solo lectura para la API.
 COPY --from=build /deploy/api /app/apps/api
 COPY --from=build /app/apps/web/dist /app/apps/web/dist
+COPY docker/start.sh /app/start.sh
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health/live').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
-# Antes de atender, alinea los roles de sistema con las plantillas de esta versión (idempotente,
-# rol iam_app). Si falla (base caída, migraciones sin aplicar), el contenedor sale con error y la
-# API no arranca. exec deja a node como proceso principal para que reciba SIGTERM.
-CMD ["sh", "-c", "node apps/api/dist/main.sync-system-roles.js && exec node apps/api/dist/main.http.js"]
+# Antes de atender, alinea los roles de sistema con las plantillas de esta versión, con reintentos;
+# si sigue fallando (base caída, migraciones sin aplicar), la API no arranca. Detalle en el script.
+CMD ["sh", "/app/start.sh"]
