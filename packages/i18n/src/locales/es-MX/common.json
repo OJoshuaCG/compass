@@ -205,7 +205,7 @@
   "auditPreview.action.revealBlocked": "Revelación bloqueada por el límite por hora",
   "auditPreview.action.totpIssued": "Obtuvo un código 2FA",
   "auditPreview.action.jitApproved": "Aprobó un acceso temporal ({{hours}} h, {{level}})",
-  "auditPreview.action.passkeyLogin": "Inició sesión con passkey",
+  "auditPreview.action.passkeyLogin": "Inició sesión con llave de acceso",
   "auditPreview.action.loginFailed_one": "Inicio de sesión fallido ({{count}} intento)",
   "auditPreview.action.loginFailed_other": "Inicio de sesión fallido ({{count}} intentos)",
   "auditPreview.action.invited": "Invitó a {{name}}",

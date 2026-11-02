@@ -64,7 +64,7 @@ test('a sensitive action can be re-authenticated with a passkey instead of a cod
   // Sin escribir ningún código, la acción termina y el diálogo se cierra.
   await expect(page.getByText('The passkey Reauth second key was added.')).toBeVisible();
   await expect(dialog).toBeHidden();
-  const table = page.getByRole('table', { name: 'Your passkeys' });
+  const table = page.getByRole('list', { name: 'Your passkeys' });
   await expect(table.getByText('Reauth first key')).toBeVisible();
   await expect(table.getByText('Reauth second key')).toBeVisible();
   expect(violations).toEqual([]);

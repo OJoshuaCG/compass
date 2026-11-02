@@ -243,7 +243,7 @@ test.describe
     await dialog.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await dialog.getByRole('button', { name: 'Confirm' }).click();
     await expect(page.getByText('The passkey Chrome virtual key was added.')).toBeVisible();
-    const table = page.getByRole('table', { name: 'Your passkeys' });
+    const table = page.getByRole('list', { name: 'Your passkeys' });
     await expect(table.getByText('Chrome virtual key')).toBeVisible();
 
     // Nuevo inicio de sesión: contraseña y, en lugar del código, la llave de acceso.

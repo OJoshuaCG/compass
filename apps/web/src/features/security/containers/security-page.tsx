@@ -1,5 +1,5 @@
 import type { Passkey } from '@iam/contracts';
-import { Alert, Button, PageHeader, Spinner } from '@iam/ui';
+import { Alert, Button, PageHeader, Plus, Spinner } from '@iam/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,14 +10,14 @@ import { useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useToast } from '../../../shared/toast';
 import { fetchMyPasskeysPage, passkeysKeys } from '../api/passkeys-api';
-import { PasskeysTable } from '../ui/passkeys-table';
+import { PasskeysList } from '../ui/passkeys-list';
 
 import { AddPasskeyDialog } from './add-passkey-dialog';
 import { RemovePasskeyDialog } from './remove-passkey-dialog';
 import { useWebAuthnSupport } from './use-webauthn-support';
 
 /**
- * Container de `/security`: las passkeys propias con la `DataTable` estándar, el alta con la
+ * Container de `/security`: las llaves de acceso propias en un panel con lista (diseño de Compass), el alta con la
  * ceremonia de registro y la baja con confirmación. Sin soporte de WebAuthn no hay botón de alta,
  * sino una explicación (el código de la aplicación autenticadora sigue valiendo).
  */
@@ -44,27 +44,28 @@ export function SecurityPage() {
   const addButton =
     supported === false ? null : (
       <Button
+        size="sm"
         onClick={() => {
           setAdding(true);
         }}
       >
+        <Plus aria-hidden="true" className="size-4" />
         {t('action.add')}
       </Button>
     );
 
   return (
     <>
-      <PageHeader title={t('title')} description={t('description')} actions={addButton} />
+      <PageHeader title={t('title')} description={t('description')} />
       {supported === false ? <Alert tone="info">{t('unsupported.message')}</Alert> : null}
-      <PasskeysTable
+      <PasskeysList
         passkeys={table.rows}
         status={table.status}
         errorMessage={errorMessage(table.error)}
         onRetry={table.retry}
         onRemove={setRemoving}
         timeZone={timeZone}
-        refreshing={table.refreshing}
-        paging={table}
+        {...(addButton !== null ? { addAction: addButton } : {})}
       />
       <AddPasskeyDialog
         open={adding}

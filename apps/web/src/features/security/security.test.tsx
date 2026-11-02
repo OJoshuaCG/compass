@@ -63,17 +63,22 @@ beforeEach(() => {
 });
 
 describe('security screen: passkeys', () => {
-  it('lists the passkeys with name, created and last used, without accessibility violations', async () => {
+  it('lists the passkeys with name, registration and last use, without accessibility violations', async () => {
     setup();
     const { container } = renderApp('/security');
     await rowsLoaded();
-    const table = screen.getByRole('table', { name: es.security.caption });
     expect(screen.getByRole('heading', { level: 1, name: es.security.title })).toBeInTheDocument();
-    const rows = within(table).getAllByRole('row');
-    expect(rows).toHaveLength(3); // encabezado + 2
-    expect(within(rows[1] as HTMLElement).getByText('Laptop oficina')).toBeInTheDocument();
-    // Una passkey sin uso muestra un texto, nunca una celda vacía ni "null".
-    expect(within(rows[2] as HTMLElement).getByText(es.security['lastUsed.never'])).toBeVisible();
+    expect(
+      screen.getByRole('heading', { level: 2, name: es.security['panel.title'] }),
+    ).toBeVisible();
+    const list = screen.getByRole('list', { name: es.security.caption });
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    expect(within(items[0] as HTMLElement).getByText('Laptop oficina')).toBeInTheDocument();
+    // Una llave sin uso muestra un texto, nunca un hueco ni "null".
+    expect(
+      within(items[1] as HTMLElement).getByText(new RegExp(es.security['lastUsed.never'])),
+    ).toBeVisible();
     expect(screen.getByRole('button', { name: removeLabel('Llave USB') })).toBeVisible();
     expect(await axeViolations(container)).toEqual([]);
   });
@@ -327,7 +332,7 @@ describe('security screen: passkeys', () => {
     const en = (await loadSecurityCatalog())['en-US'];
     setup();
     renderApp('/security', 'en-US');
-    expect(await screen.findByRole('table', { name: en.caption })).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: en.caption })).toBeInTheDocument();
     await rowsLoaded();
     expect(screen.getByRole('button', { name: en['action.add'] })).toBeVisible();
   });
