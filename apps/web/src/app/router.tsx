@@ -88,6 +88,12 @@ const invitationRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/auth-routes'), 'InvitationRoute'),
 });
 
+const firstSetupRoute = createRoute({
+  getParentRoute: () => publicLayout,
+  path: '/setup',
+  component: lazyRouteComponent(() => import('../routes/auth-routes'), 'FirstSetupRoute'),
+});
+
 const homeRoute = createRoute({ getParentRoute: () => appLayout, path: '/', component: HomePage });
 
 const usersRoute = createRoute({
@@ -168,6 +174,7 @@ const routeTree = rootRoute.addChildren([
     mfaRoute,
     enrollRoute,
     invitationRoute,
+    firstSetupRoute,
   ]),
   appLayout.addChildren([
     homeRoute,

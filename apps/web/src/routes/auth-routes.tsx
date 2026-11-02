@@ -1,5 +1,6 @@
 import {
   EnrollPage,
+  FirstSetupPage,
   InvitationPage,
   LoginPage,
   MfaPage,
@@ -10,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { navigateAfterAuth } from './return-navigation';
-import { readInvitationToken } from './invitation-token';
+import { readInvitationToken, readSetupToken } from './invitation-token';
 
 const loginRoute = getRouteApi('/_public/login');
 const mfaRoute = getRouteApi('/_public/login/mfa');
@@ -154,6 +155,32 @@ export function InvitationRoute() {
       onAccepted={() => {
         void router.navigate({ to: '/enroll' });
       }}
+      footer={
+        <Link to="/login" className={linkClass}>
+          {t('invitation.goToLogin')}
+        </Link>
+      }
+    />
+  );
+}
+
+/**
+ * `/setup#token=…` (ADR 0046). El token solo se lee del fragmento y se retira de la URL de
+ * inmediato; la página no lo guarda en ningún almacenamiento.
+ */
+export function FirstSetupRoute() {
+  const { t } = useTranslation('auth');
+  const router = useRouter();
+  const hash = useRouterState({ select: (state) => state.location.hash });
+  const [initial] = useState(() => readSetupToken(hash));
+
+  useEffect(() => {
+    if (initial.fromUrl) router.history.replace('/setup');
+  }, [initial.fromUrl, router]);
+
+  return (
+    <FirstSetupPage
+      token={initial.token}
       footer={
         <Link to="/login" className={linkClass}>
           {t('invitation.goToLogin')}

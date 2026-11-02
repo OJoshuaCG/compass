@@ -1,5 +1,6 @@
 /** Fachada pública del feature `auth`: pantallas de acceso (containers) y su modelo puro. */
 export { EnrollPage, type EnrollPageProps } from './containers/enroll-page';
+export { FirstSetupPage, type FirstSetupPageProps } from './containers/first-setup-page';
 export { InvitationPage, type InvitationPageProps } from './containers/invitation-page';
 export { LoginPage, type LoginPageProps } from './containers/login-page';
 export { MfaPage, type MfaPageProps } from './containers/mfa-page';
