@@ -153,6 +153,7 @@ describe('auth.* pre-authentication functions (no app.org_id set)', () => {
       where p.prorettype <> 'trigger'::regtype
       order by p.proname`);
     expect(rows.map((r) => r.proname)).toEqual([
+      'create_first_organization',
       'find_handoff_by_token_hash',
       'find_invitation_by_token_hash',
       'find_login_by_email',
