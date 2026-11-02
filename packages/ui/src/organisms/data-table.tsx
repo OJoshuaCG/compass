@@ -144,7 +144,7 @@ export function DataTable<T extends object>({
           className={cn('w-full text-sm tabular-nums', refreshing && 'opacity-70')}
         >
           <caption className="sr-only">{caption}</caption>
-          <thead className="border-b border-border-strong text-start text-text-secondary">
+          <thead className="border-b border-border bg-canvas/60 text-start text-xs tracking-wide text-text-muted uppercase">
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
                 {group.headers.map((header) => {
@@ -164,7 +164,7 @@ export function DataTable<T extends object>({
                             : 'none'
                       }
                       className={cn(
-                        'px-4 py-2 font-medium',
+                        'px-4 py-3 font-semibold',
                         column?.align === 'end' ? 'text-end' : 'text-start',
                       )}
                     >

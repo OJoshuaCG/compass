@@ -154,8 +154,11 @@ export function AppLayout() {
               >
                 {initials(me.user.displayName)}
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                {me.user.displayName}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-semibold">{me.user.displayName}</span>
+                <span className="truncate text-xs text-nav-text-muted">
+                  {t(`rank.${String(me.user.rank)}`)}
+                </span>
               </span>
             </>
           ) : (

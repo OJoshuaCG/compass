@@ -4,15 +4,17 @@ import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn';
 
 export const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-xs font-medium',
+  // Rellena con el fondo suave de su tono, como el diseño de Compass; los pares texto/fondo están
+  // medidos en la prueba de contraste de los tokens.
+  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold',
   {
     variants: {
       tone: {
-        neutral: 'border-border-strong text-text-secondary',
-        accent: 'border-accent text-accent',
-        success: 'border-success text-success',
-        warning: 'border-warning text-warning',
-        danger: 'border-danger text-danger',
+        neutral: 'bg-canvas text-text-secondary',
+        accent: 'bg-raised text-accent',
+        success: 'bg-success-soft text-success',
+        warning: 'bg-warning-soft text-warning',
+        danger: 'bg-danger-soft text-danger',
       },
     },
     defaultVariants: { tone: 'neutral' },

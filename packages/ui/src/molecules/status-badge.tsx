@@ -1,15 +1,15 @@
 import { AlertTriangle, CheckCircle2, Circle, Info, XCircle } from 'lucide-react';
 
-import { Badge } from '../atoms/badge';
+import { cn } from '../lib/cn';
 
 export type Status = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 const config = {
-  success: { tone: 'success', Icon: CheckCircle2 },
-  warning: { tone: 'warning', Icon: AlertTriangle },
-  danger: { tone: 'danger', Icon: XCircle },
-  info: { tone: 'accent', Icon: Info },
-  neutral: { tone: 'neutral', Icon: Circle },
+  success: { className: 'text-success', Icon: CheckCircle2 },
+  warning: { className: 'text-warning', Icon: AlertTriangle },
+  danger: { className: 'text-danger', Icon: XCircle },
+  info: { className: 'text-accent', Icon: Info },
+  neutral: { className: 'text-text-muted', Icon: Circle },
 } as const;
 
 export type StatusBadgeProps = {
@@ -18,13 +18,16 @@ export type StatusBadgeProps = {
   label: string;
 };
 
-/** El estado nunca se comunica solo con color: ícono + texto + color (docs/frontend.md §5.3). */
+/**
+ * Estado en línea, sin recuadro, como el diseño de Compass. Nunca se comunica solo con color: ícono
+ * + texto + color (docs/frontend.md §5.3).
+ */
 export function StatusBadge({ status, label }: StatusBadgeProps) {
-  const { tone, Icon } = config[status];
+  const { className, Icon } = config[status];
   return (
-    <Badge tone={tone}>
-      <Icon aria-hidden="true" className="size-3.5" />
+    <span className={cn('inline-flex items-center gap-1.5 text-sm font-semibold', className)}>
+      <Icon aria-hidden="true" className="size-4 shrink-0" />
       {label}
-    </Badge>
+    </span>
   );
 }
