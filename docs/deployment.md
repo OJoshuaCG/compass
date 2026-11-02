@@ -24,8 +24,85 @@ Requisitos: los de la tabla del [`README.md`](../README.md) (Node 24, pnpm 10, P
 Notas:
 
 - Usa `localhost`, no una IP: las llaves de acceso (WebAuthn) exigen un dominio.
-- Fuera de `pnpm stack` no hay un modo "API local contra una base persistente" documentado. Si lo necesitas, hay que agregarlo.
+- Para una base persistente en vez de la temporal de `pnpm stack`, sigue la sección 1.1.
 - En local el adaptador de claves es `local` (archivo `.local-kms/kek.key`, ignorado por git). No sirve en producción: la API se niega a arrancar así.
+
+## 1.1 Correr la API local contra una base de pruebas externa
+
+La API y la web corren en tu equipo; los datos viven en un PostgreSQL de **pruebas** en otro servidor y no se borran al detener la API. Las credenciales van en dos archivos que git ignora: `.env.setup.local` (preparación, una sola vez) y `.env.local` (lo único que lee la API).
+
+> **Solo una base de pruebas.** Nunca apuntes esto a producción ni cargues credenciales reales en la bóveda: la fase 1b no está iniciada.
+
+### Antes de empezar
+
+| Necesitas | Por qué |
+| --- | --- |
+| Node 24 y `pnpm install` hecho | Los scripts usan `node --env-file`, que viene con Node |
+| Una base vacía en el servidor de pruebas | Las migraciones crean todo el esquema |
+| Un usuario administrador (o dueño de la base con `CREATEROLE`) | Crear los roles y dar de alta la organización |
+| Acceso de red de tu equipo al puerto de PostgreSQL | Firewall y `pg_hba.conf` del servidor deben permitir tu IP |
+| Que **ninguna otra API** use esa base | La API toma un candado al arrancar; con otra viva, la tuya termina con `RUNTIME.SECOND_INSTANCE` |
+
+### Ruta rápida
+
+1. Copia las plantillas y llena los valores:
+
+   ```bash
+   cp .env.setup.example .env.setup.local
+   cp .env.example .env.local
+   ```
+
+2. Crea los roles (una vez por servidor; es idempotente): `pnpm local:bootstrap`.
+3. Dales login a los dos roles que inician sesión, con contraseñas generadas, desde una sesión de administrador (`psql` u otro cliente):
+
+   ```sql
+   ALTER ROLE iam_migrator LOGIN PASSWORD '<contraseña-generada>';
+   ALTER ROLE iam_app LOGIN PASSWORD '<contraseña-generada>';
+   ```
+
+   Pon la de `iam_migrator` en `MIGRATION_DATABASE_URL` de `.env.setup.local` y la de `iam_app` en `DATABASE_URL` de `.env.local`.
+
+4. Aplica las migraciones: `pnpm local:migrate`. Repítelo cada vez que bajes cambios con migraciones nuevas.
+5. Da de alta la organización de pruebas (una vez): `pnpm local:provision`. Imprime **una sola vez** la contraseña inicial de la Raíz y ocho códigos de emergencia; cópialos antes de cerrar la terminal.
+6. Arranca la plataforma: `pnpm local:api`. Compila API y web y sirve todo en `http://localhost:3000`.
+7. Entra con `ROOT_EMAIL` y la contraseña inicial. Se te pedirá cambiarla y registrar el segundo factor (TOTP).
+
+**Resultado esperado:** el registro muestra `http server listening` y la app carga en `http://localhost:3000`.
+
+### Qué hace cada script
+
+| Script | Lee | Conecta como | Cuándo |
+| --- | --- | --- | --- |
+| `local:bootstrap` | `.env.setup.local` (`DATABASE_URL`) | Administrador | Una vez por servidor |
+| `local:migrate` | `.env.setup.local` (`MIGRATION_DATABASE_URL`) | `iam_migrator` | Tras bajar migraciones nuevas |
+| `local:provision` | `.env.setup.local` (`PROVISION_DATABASE_URL`, `ORG_*`, `ROOT_*`) | Administrador | Una vez por organización |
+| `local:api` | `.env.local` | `iam_app` | Cada vez que trabajas |
+
+Los archivos van separados a propósito: la API nunca arranca con credenciales capaces de crear roles, migrar o dar de alta organizaciones (igual que en el despliegue, §2.5).
+
+### Detalles que conviene saber
+
+- **Correo:** con `MAIL_TRANSPORT=log` los enlaces de invitación y restablecimiento aparecen en el registro de la API, no en un buzón.
+- **Clave de cifrado:** la primera vez se crea `.local-kms/kek.key`. Los secretos de la bóveda que guardes solo se descifran con ese archivo. Si lo borras, o si otra persona usa la misma base con su propia clave, esos secretos quedan ilegibles. Si comparten la base, compartan también el archivo por un canal seguro, nunca por git.
+- **Dirección:** abre siempre `http://localhost:3000`, no `127.0.0.1`. `APP_ORIGIN` debe coincidir exactamente: WebAuthn y la protección contra CSRF lo comparan.
+- **Interfaz con recarga en vivo:** `pnpm local:api` sirve la web compilada. Si cambias la interfaz, vuelve a ejecutarlo; el servidor de Vite (`pnpm --filter @iam/web dev`) no está configurado para hablar con esta API.
+- **TLS:** si el servidor exige TLS, deja `?sslmode=require` en las cadenas de conexión.
+- **PgBouncer:** conéctate directo a PostgreSQL. En modo transacción el candado de instancia única no funciona.
+
+### Si algo falla
+
+| Síntoma | Causa probable |
+| --- | --- |
+| `Invalid configuration: <variable>: ...` | Falta esa variable en `.env.local` o tiene un formato inválido |
+| `could not acquire the single-instance lock, check DATABASE_URL and the database` | Credenciales, red o TLS; prueba la conexión con `psql` y la misma cadena |
+| `RUNTIME.SECOND_INSTANCE` | Otra API (tuya o de alguien más) está conectada a esa base |
+| `role "iam_app" is not permitted to log in` | Falta el paso 3 |
+| `relation ... does not exist` | Faltan migraciones: `pnpm local:migrate` |
+| La app carga pero no deja entrar | Abriste una dirección distinta de `APP_ORIGIN` |
+
+### No verificado
+
+Esta ruta se armó a partir del código y de `pnpm stack`; todavía **no se ha ensayado contra un servidor externo real**, en particular TLS y el login con `NODE_ENV=development` sobre `http://localhost`.
 
 ## 2. Despliegue en Dokploy
 

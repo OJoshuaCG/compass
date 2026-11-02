@@ -45,6 +45,7 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 3. **Si usas Podman** (con Docker no hace falta nada), activa su servicio de usuario con `systemctl --user enable --now podman.socket` y define dos variables de entorno antes de lanzar las pruebas: `DOCKER_HOST` con la dirección del servicio de Podman de tu usuario (`unix:///run/user/<tu id>/podman/podman.sock`) y `TESTCONTAINERS_RYUK_DISABLED` con el valor `true` (desactiva un contenedor de limpieza que Podman sin privilegios no admite).
 4. **Comprueba que todo funciona** con `pnpm build` y luego `pnpm test`. Si ambos terminan sin errores, el entorno está listo.
 5. **Pruébalo a mano** con `pnpm stack`. Compila la plataforma, levanta una base de datos temporal, crea una organización de ejemplo y te muestra la dirección de la aplicación (en `localhost`, no en una IP, porque las llaves de acceso lo exigen), el correo y la contraseña de la persona Raíz y la dirección del buzón de pruebas. No genera códigos de emergencia. Los datos se borran al detenerlo con Ctrl+C.
+6. **Si necesitas datos que no se borren**, corre la plataforma en tu equipo conectada a una base de datos de pruebas en otro servidor. Las credenciales van en `.env.local` y `.env.setup.local`, copiados de las plantillas `.env.example` y `.env.setup.example`. Los pasos están en [Correr la API local contra una base de pruebas externa](docs/deployment.md#11-correr-la-api-local-contra-una-base-de-pruebas-externa). Nunca uses ahí una base ni credenciales de producción.
 
 ### Probarlo como usuario
 
@@ -65,6 +66,7 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | Ejecutar las pruebas del sistema | `pnpm test` |
 | Ejecutar las pruebas en navegador real | `pnpm build` y luego `pnpm e2e` |
 | Trabajar solo en la interfaz web con recarga en vivo | `pnpm --filter @iam/web dev` |
+| Correr la plataforma contra una base de pruebas externa (preparación una vez, después solo `local:api`). Pasos en la [guía de despliegue](docs/deployment.md#11-correr-la-api-local-contra-una-base-de-pruebas-externa) | `pnpm local:bootstrap`, `pnpm local:migrate`, `pnpm local:provision`, `pnpm local:api` |
 | Dar de alta una organización con su Raíz (operaciones, con una conexión de administración a la base de datos); imprime una sola vez la contraseña inicial y los ocho códigos de emergencia, que hay que entregar a dos custodios. Pasos en el [runbook de alta](docs/runbooks/provision-organization.md) | `pnpm --filter @iam/api provision` |
 | Recuperar a la Raíz que perdió contraseña y factores (exige a los dos custodios). Pasos en el [runbook de recuperación](docs/runbooks/recover-root.md) | `pnpm --filter @iam/api recover-root` |
 | Purgar los datos temporales vencidos (operaciones, con una conexión de administración). Diseño en el [ADR 0038](docs/adr/0038-purge-expired-ephemeral-rows.md) | `pnpm --filter @iam/api purge-expired` |
