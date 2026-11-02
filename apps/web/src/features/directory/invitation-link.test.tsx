@@ -275,17 +275,19 @@ describe('invite dialog: show the invitation link', () => {
     );
     await user.type(field(es.directory['invite.email']), 'nuevo@example.com');
     await user.click(within(dialog).getByRole('button', { name: es.directory['invite.submit'] }));
-    await within(dialog).findByRole('textbox', { name: es.directory['link.field'] });
+    const linkField = await within(dialog).findByRole('textbox', {
+      name: es.directory['link.field'],
+    });
     await user.click(within(dialog).getByRole('button', { name: es.directory['link.copy'] }));
 
     expect(storedText()).not.toContain(LINK_TOKEN);
     expect(router.state.location.href).not.toContain(LINK_TOKEN);
     // El enlace solo está en el valor del campo, nunca en otro atributo (data-*, title, href...).
     // React refleja el valor de un campo controlado en su atributo `value`, así que ese atributo
-    // del propio campo se excluye: es justo donde el enlace debe aparecer.
+    // se excluye únicamente en el campo del enlace: si el token aparece en otro campo, falla.
     const attributeValues = [...document.body.querySelectorAll('*')].flatMap((element) =>
       [...element.attributes]
-        .filter((attribute) => !(element instanceof HTMLInputElement && attribute.name === 'value'))
+        .filter((attribute) => !(element === linkField && attribute.name === 'value'))
         .map((attribute) => attribute.value),
     );
     expect(attributeValues.some((value) => value.includes(LINK_TOKEN))).toBe(false);
