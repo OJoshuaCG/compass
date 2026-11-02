@@ -144,7 +144,7 @@ Los archivos van separados a propósito: la API nunca arranca con credenciales c
 | `connect ECONNREFUSED` o tiempo agotado | PostgreSQL no escucha en esa interfaz o el firewall bloquea: pasos 2 y 4 de Preparar el servidor |
 | `Invalid configuration: <variable>: ...` | Falta esa variable en `.env.local` o tiene un formato inválido |
 | `could not acquire the single-instance lock, check DATABASE_URL and the database` | Credenciales, red o TLS; prueba la conexión con `psql` y la misma cadena |
-| `RUNTIME.SECOND_INSTANCE` | Otra API (tuya o de alguien más) está conectada a esa base |
+| `RUNTIME.SECOND_INSTANCE` o `another API instance already holds the single-instance lock for this database` | Otra API (tuya o de alguien más) está conectada a esa base. En Dokploy suele ser el despliegue con `start-first`: ver [§2.7](#27-una-sola-réplica-y-orden-de-actualización) |
 | `role "iam_app" is not permitted to log in` | Falta el paso 3 |
 | `relation ... does not exist` | Faltan migraciones: `pnpm local:migrate` |
 | La app carga pero no deja entrar | Abriste una dirección distinta de `APP_ORIGIN` |
@@ -254,6 +254,26 @@ El arranque lo hace [`docker/start.sh`](../docker/start.sh), que también atiend
 
 - Déjala en 1 réplica, sin autoescalado.
 - La API toma un candado en PostgreSQL al arrancar: una segunda instancia termina con `RUNTIME.SECOND_INSTANCE`. Por eso una actualización que arranque la nueva **antes** de detener la vieja falla. En Dokploy (Advanced → Cluster Settings → Swarm Settings → *Update Config*) usa el orden `stop-first`. **No verificado:** la documentación revisada solo muestra el ejemplo `start-first`; confirma que `stop-first` está disponible y probado en tu versión. Si el contenedor nuevo falla por el candado, configura reintentos de arranque (ver el [runbook](runbooks/single-instance-operation.md)).
+
+**Por qué `start-first` falla (observado en staging, Dokploy 0.29.12).** Con el orden por defecto, Swarm arranca la tarea nueva mientras la vieja sigue viva y no detiene la vieja hasta que la nueva está sana. La nueva no puede tomar el candado, registra `another API instance already holds the single-instance lock for this database` y sale con código 1 (`task: non-zero exit (1)` en `docker service ps`). La vieja sigue atendiendo con las variables de entorno del despliegue anterior, así que un cambio como corregir `APP_ORIGIN` no surte efecto aunque el panel muestre el despliegue como hecho. En el log de la interfaz se ve la excepción de la tarea nueva, y el contenedor vivo no es el que la produjo. Esperar o reintentar el candado en la tarea nueva no lo resuelve, porque nunca llega a estar sana. Esa última parte es una deducción del comportamiento de `start-first` y no se probó.
+
+**Configuración de Swarm para esta API** (en *Swarm Settings*; el equivalente en un compose es `deploy.update_config` y `deploy.rollback_config`):
+
+| Ajuste | Valor | Para qué |
+| --- | --- | --- |
+| Update Config → `Order` | `stop-first` | Detiene la tarea vieja antes de arrancar la nueva, así el candado ya está libre |
+| Update Config → `FailureAction` | `rollback` | Si la versión nueva no arranca, Swarm vuelve a la anterior en lugar de dejar el servicio caído |
+| Restart Policy | unos pocos reintentos con espera corta | Cubre el instante en que PostgreSQL tarda en soltar el candado de la conexión anterior |
+| Stop Grace Period | el plazo de apagado ordenado de la API | La API atiende `SIGTERM` y cierra su conexión, que es lo que libera el candado |
+
+**Costo que se acepta:** con `stop-first` hay un corte de unos segundos en cada despliegue, y si la versión nueva falla y no hay rollback, el servicio queda caído hasta corregirla. Es consecuencia de la instancia única (ADR 0039); desaparece cuando haya Redis y varias réplicas. En producción despliega en una ventana tranquila y con el rollback activado.
+
+**Verificar tras desplegar:**
+
+1. `docker service ps <servicio> --no-trunc`: solo una tarea con estado `Running` y ninguna reciente en `Failed`.
+2. Dentro del contenedor vivo, `printenv APP_ORIGIN` (no ejecutes `env` a secas: imprime secretos) y compara con la variable guardada en Dokploy.
+
+**Estado de verificación:** que `stop-first` y `rollback` aparezcan en la interfaz de Dokploy 0.29.12 lo confirmó la persona que opera el staging. Aún no se registró un despliegue completo con esa configuración, ni se probó el rollback.
 - No publiques el puerto de la API en el servidor: que solo se llegue por el proxy del dominio.
 
 ### 2.8 `TRUST_PROXY`
