@@ -48,44 +48,46 @@ export function AccountSharesPanel({
         </Link>
       }
     >
-      {status === 'loading' ? (
-        <Spinner label={t('state.loading', { ns: 'common' })} />
-      ) : status === 'error' ? (
-        <p role="alert" className="text-sm text-danger">
-          {errorMessage}
-        </p>
-      ) : shares === undefined || shares.length === 0 ? (
-        <p className="text-sm text-text-secondary">{t('shares.empty', { ns: 'credentials' })}</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {shares.map((share) => (
-            <li key={share.id} className="flex items-center gap-3">
-              <span
-                aria-hidden="true"
-                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-raised text-xs font-bold text-accent"
-              >
-                {initials(share.granteeName)}
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-semibold text-text">
-                  {share.granteeName}
+      <div className="px-5 py-4">
+        {status === 'loading' ? (
+          <Spinner label={t('state.loading', { ns: 'common' })} />
+        ) : status === 'error' ? (
+          <p role="alert" className="text-sm text-danger">
+            {errorMessage}
+          </p>
+        ) : shares === undefined || shares.length === 0 ? (
+          <p className="text-sm text-text-secondary">{t('shares.empty', { ns: 'credentials' })}</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {shares.map((share) => (
+              <li key={share.id} className="flex items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-raised text-xs font-bold text-accent"
+                >
+                  {initials(share.granteeName)}
                 </span>
-                <span className="text-xs text-text-muted">
-                  {t(`shares.granteeType.${share.granteeType}`, { ns: 'credentials' })}
-                  {' · '}
-                  {share.expiresAt === null
-                    ? t('shares.permanent', { ns: 'credentials' })
-                    : t('shares.expires', {
-                        ns: 'credentials',
-                        date: formatDateTime(share.expiresAt, i18n.language, timeZone),
-                      })}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-semibold text-text">
+                    {share.granteeName}
+                  </span>
+                  <span className="text-xs text-text-muted">
+                    {t(`shares.granteeType.${share.granteeType}`, { ns: 'credentials' })}
+                    {' · '}
+                    {share.expiresAt === null
+                      ? t('shares.permanent', { ns: 'credentials' })
+                      : t('shares.expires', {
+                          ns: 'credentials',
+                          date: formatDateTime(share.expiresAt, i18n.language, timeZone),
+                        })}
+                  </span>
                 </span>
-              </span>
-              <Badge tone="accent">{t(`level.${share.level}`, { ns: 'credentials' })}</Badge>
-            </li>
-          ))}
-        </ul>
-      )}
+                <Badge tone="accent">{t(`level.${share.level}`, { ns: 'credentials' })}</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </Panel>
   );
 }

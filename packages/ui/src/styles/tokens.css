@@ -58,6 +58,39 @@
   --duration-base: 200ms;
 }
 
+/*
+ * Pantallas de acceso (login, MFA, alta, invitación): fondo azul marino sin tarjeta, como el diseño
+ * de Compass. Redefine los mismos tokens solo dentro del contenedor con esta clase, así que campos,
+ * botones y avisos se adaptan sin variantes propias. Los contrastes se miden en tokens.test.ts.
+ */
+.theme-auth {
+  color-scheme: dark;
+
+  --color-canvas: #0d1b38;
+  --color-surface: #172a4f;
+  --color-raised: #223a66;
+  --color-overlay: #172a4f;
+
+  --color-text: #ffffff;
+  --color-text-secondary: #c8def5;
+  --color-text-muted: #a9c3e3;
+  --color-text-disabled: #7d91b3;
+
+  --color-border: #22375f;
+  --color-border-strong: #31497a;
+  --color-border-input: #7891bf;
+
+  --color-accent: #8ab8e8;
+  --color-success: #74d99f;
+  --color-warning: #f5b971;
+  --color-danger: #f8a5a5;
+  --color-focus: #a3c6ee;
+
+  --color-success-soft: #123a2a;
+  --color-warning-soft: #3b2a12;
+  --color-danger-soft: #3e1d25;
+}
+
 /* Descarta la paleta por defecto de Tailwind: solo existen los colores de los tokens. */
 @theme {
   --color-*: initial;

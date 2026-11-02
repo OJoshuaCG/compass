@@ -84,8 +84,9 @@ describe('MFA with a passkey', () => {
       await screen.findByLabelText(new RegExp(`^${es.auth['login.email']}`)),
       'a@b.co',
     );
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.type(
-      screen.getByLabelText(new RegExp(`^${es.auth['login.password']}`)),
+      await screen.findByLabelText(new RegExp(`^${es.auth['login.password']}`)),
       'correct horse battery',
     );
     await user.click(screen.getByRole('button', { name: es.auth['login.submit'] }));

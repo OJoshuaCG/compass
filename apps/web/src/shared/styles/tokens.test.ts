@@ -141,3 +141,58 @@ describe('design tokens', () => {
     expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 5);
   });
 });
+
+// Tema de las pantallas de acceso: el mismo juego de reglas sobre sus propias superficies oscuras.
+describe('auth screens theme (.theme-auth)', () => {
+  const block = /\.theme-auth\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const scoped: Record<string, string> = {};
+  for (const match of block.matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)) {
+    const [, name, value] = match;
+    if (name !== undefined && value !== undefined) scoped[name] = value;
+  }
+  // Lo que el tema no redefine se hereda del raíz (por ejemplo el botón sólido).
+  const auth = (name: string): string => scoped[name] ?? token(name);
+
+  it('declares a dark color-scheme and redefines the surfaces and text', () => {
+    expect(block).toMatch(/color-scheme:\s*dark/);
+    for (const name of ['canvas', 'surface', 'raised', 'text', 'border-input', 'focus']) {
+      expect(scoped, name).toHaveProperty(name);
+    }
+  });
+
+  describe.each(SURFACES)('on %s', (surface) => {
+    it.each([
+      'text',
+      'text-secondary',
+      'text-muted',
+      'accent',
+      'success',
+      'warning',
+      'danger',
+      'focus',
+    ])('text token %s reaches 4.5:1', (name) => {
+      expect(contrast(auth(name), auth(surface))).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('border-input reaches 3:1 (WCAG 1.4.11)', () => {
+      expect(contrast(auth('border-input'), auth(surface))).toBeGreaterThanOrEqual(3);
+    });
+
+    it('text-disabled stays at or above 3:1 (inactive controls only)', () => {
+      expect(contrast(auth('text-disabled'), auth(surface))).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  it.each([
+    ['success', 'success-soft'],
+    ['warning', 'warning-soft'],
+    ['danger', 'danger-soft'],
+  ])('status color %s stays readable on its soft background %s', (fg, bg) => {
+    expect(contrast(auth(fg), auth(bg))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('solid buttons keep 4.5:1 for their label', () => {
+    expect(contrast(auth('on-accent'), auth('accent-solid'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(auth('on-accent'), auth('danger-solid'))).toBeGreaterThanOrEqual(4.5);
+  });
+});

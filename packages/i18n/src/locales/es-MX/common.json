@@ -9,6 +9,8 @@
   "nav.sectionsOf": "Secciones de {{section}}",
   "nav.catalog": "Catálogo de componentes",
   "nav.skipToContent": "Saltar al contenido",
+  "publicLayout.auditNote": "Cada inicio de sesión queda registrado en la bitácora.",
+  "publicLayout.copyright": "© {{year}} Compass — INBTEL",
   "language.label": "Idioma",
   "language.es-MX": "Español (México)",
   "language.en-US": "English (US)",

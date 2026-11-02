@@ -15,7 +15,7 @@ export type BrandProps = {
 export function Brand({ name, className }: BrandProps) {
   return (
     <span className={cn('flex items-center gap-2.5 text-lg font-bold', className)}>
-      <span className="flex size-8 items-center justify-center rounded-md bg-surface text-nav">
+      <span className="flex size-8 items-center justify-center rounded-md bg-nav-text text-nav">
         <Compass aria-hidden="true" className="size-5" />
       </span>
       {name}

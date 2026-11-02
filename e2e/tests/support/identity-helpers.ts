@@ -71,9 +71,11 @@ export async function signInWithPassword(
   password: string,
 ): Promise<void> {
   await page.goto('/login');
+  // Acceso en dos pasos: primero el correo y luego la contraseña.
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('textbox', { name: 'Password', exact: true }).fill(password);
   await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('textbox', { name: 'Password', exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
 /** Pantalla de cambio obligatorio: sustituye la contraseña inicial por una propia. */

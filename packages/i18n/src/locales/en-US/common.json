@@ -9,6 +9,8 @@
   "nav.sectionsOf": "{{section}} sections",
   "nav.catalog": "Component catalog",
   "nav.skipToContent": "Skip to content",
+  "publicLayout.auditNote": "Every sign-in is recorded in the audit log.",
+  "publicLayout.copyright": "© {{year}} Compass — INBTEL",
   "language.label": "Language",
   "language.es-MX": "Español (México)",
   "language.en-US": "English (US)",
