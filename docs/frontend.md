@@ -166,6 +166,8 @@ Reglas:
 
 - **Un solo juego de valores claros.** La decisión original del plan era un tema oscuro único; se cambió por el tema claro del diseño de Compass (prototipo en Claude Design con el sistema CIROX). Sigue sin haber variantes por modo; las variables permiten cambiar la paleta en un solo archivo.
 - La navegación es la única zona oscura: dentro de ella el foco usa nav-focus, porque el foco general (azul) no contrasta con el fondo marino.
+- **Pantallas de acceso** (login, MFA, alta, invitación): usan la clase `theme-auth`, que redefine los mismos tokens de color con valores oscuros solo dentro de ese contenedor; así campos, botones y avisos se adaptan sin variantes propias. Sus contrastes se miden en la misma prueba que el tema claro. El acceso es en dos pasos (correo y luego contraseña), con una sola petición al servidor.
+- **Referencia de diseño:** el prototipo `Compass Prototype.html` (fuera del repositorio, en la carpeta local `design/`). Lo que el prototipo propone sin regla de negocio (ajustes de la bóveda, notificaciones, usuarios conectados, recuperación de contraseña) se propone antes de implementarlo.
 - Para añadir un color nuevo: se agrega el token, se mide el contraste y se documenta aquí.
 - Valores arbitrarios de Tailwind (anchos o tamaños sueltos) prohibidos salvo justificación en un comentario. Lint con `eslint-plugin-tailwindcss` (aprobación pendiente).
 
