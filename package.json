@@ -14,7 +14,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "e2e": "turbo run e2e",
-    "stack": "pnpm --filter @iam/api --filter @iam/web build && pnpm --filter @iam/e2e stack"
+    "stack": "pnpm --filter @iam/api --filter @iam/web build && pnpm --filter @iam/e2e stack",
+    "local:bootstrap": "pnpm --filter @iam/db build && node --env-file=.env.setup.local db/dist/cli.js bootstrap",
+    "local:migrate": "pnpm --filter \"@iam/api...\" build && node --env-file=.env.setup.local apps/api/dist/main.migrate.js",
+    "local:provision": "pnpm --filter \"@iam/api...\" build && node --env-file=.env.setup.local apps/api/dist/main.provision.js",
+    "local:api": "pnpm --filter \"@iam/api...\" --filter @iam/web build && WEB_DIST_DIR=\"$PWD/apps/web/dist\" node --env-file=.env.local apps/api/dist/main.http.js"
   },
   "devDependencies": {
     "prettier": "3.9.10",
