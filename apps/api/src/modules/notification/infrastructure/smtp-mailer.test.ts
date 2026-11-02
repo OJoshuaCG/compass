@@ -32,8 +32,8 @@ describe('renderInvitationEmail', () => {
   it('is written in the recipient language and states the UTC expiry', () => {
     const es = renderInvitationEmail(message, options.baseUrl);
     const en = renderInvitationEmail({ ...message, locale: 'en-US' }, options.baseUrl);
-    expect(es.subject).toBe('Te invitaron a la plataforma');
-    expect(en.subject).toBe('You have been invited to the platform');
+    expect(es.subject).toBe('Te invitaron a Compass');
+    expect(en.subject).toBe('You have been invited to Compass');
     expect(es.text).toContain('UTC');
     expect(en.text).toContain('2026');
   });
@@ -56,7 +56,7 @@ describe('SmtpMailer', () => {
     expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
       from: 'IAM <no-reply@example.com>',
       to: 'guest@example.com',
-      subject: 'Te invitaron a la plataforma',
+      subject: 'Te invitaron a Compass',
     });
   });
 

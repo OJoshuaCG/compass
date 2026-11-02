@@ -1,4 +1,4 @@
-# Plataforma interna de identidad, accesos y bóveda
+# Compass: plataforma interna de identidad, accesos y bóveda
 
 Guarda secretos reales de una empresa: ante la duda, la seguridad gana a la velocidad. El diseño completo está en `plan.md`; si algo lo contradice en seguridad, manda el plan. La fase 1b (bóveda) no está iniciada: no se carga ninguna credencial real hasta cerrar la fase 1 y pasar una prueba de penetración externa.
 

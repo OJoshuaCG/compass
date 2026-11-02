@@ -265,9 +265,9 @@ El correo de invitación sale por el servidor SMTP del dominio propio de la orga
 | `SMTP_PORT`                  | 587 por defecto                                                                                     |
 | `SMTP_SECURITY`              | `starttls` (por defecto), `tls` o `none`. `none` se rechaza en producción                           |
 | `SMTP_USER`, `SMTP_PASSWORD` | Se definen juntas                                                                                   |
-| `MAIL_FROM`                  | Remitente del dominio propio, p. ej. `IAM <no-reply@sudominio>`                                     |
+| `MAIL_FROM`                  | Remitente del dominio propio, p. ej. `Compass <no-reply@sudominio>`                                     |
 | `APP_ORIGIN`                 | Origen de la aplicación; de él salen el identificador de la parte confiable y el origen de WebAuthn |
-| `WEBAUTHN_RP_NAME`           | Opcional; nombre que ve la persona al registrar una passkey. Por defecto `IAM`                      |
+| `WEBAUTHN_RP_NAME`           | Opcional; nombre que ve la persona al registrar una passkey. Por defecto `Compass`                    |
 
 Reglas del adaptador SMTP: STARTTLS obligatorio, certificado verificado, TLS 1.2 como mínimo y tiempos límite. Los errores del proveedor se sustituyen por uno genérico (pueden citar destinatario o contenido) y los errores de configuración nunca repiten valores. El correo se redacta en es-MX o en-US según la persona destinataria; el enlace lleva el token en el fragmento (`#token=`) y el vencimiento se indica en UTC. Probado contra un servidor SMTP de pruebas real en un contenedor. Para la entregabilidad, el dominio necesita registros SPF, DKIM y DMARC en el DNS (fuera del sistema).
 

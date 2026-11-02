@@ -56,7 +56,7 @@ describe('SmtpMailer against a real SMTP server', () => {
       }[];
     };
     const sent = list.messages[0];
-    expect(sent?.Subject).toBe('You have been invited to the platform');
+    expect(sent?.Subject).toBe('You have been invited to Compass');
     expect(sent?.To[0]?.Address).toBe('guest@other-domain.test');
     expect(sent?.From.Address).toBe('no-reply@example.com');
     const detail = (await (await fetch(`${apiBase}/api/v1/message/${sent?.ID ?? ''}`)).json()) as {

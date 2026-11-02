@@ -1,8 +1,12 @@
-# Plataforma interna de identidad, accesos y bóveda
+# Compass: plataforma interna de identidad, accesos y bóveda
 
 Una herramienta interna para que un equipo pequeño gestione **quién puede entrar a qué**, y para guardar y compartir de forma segura las **cuentas de plataformas externas** (por ejemplo, redes sociales) con sus segundos factores de verificación. Cada acceso importante queda registrado en una bitácora que nadie puede reescribir.
 
 Está pensada para una sola organización de unas tres personas operando, aunque el diseño ya permite crecer a varias. Guarda secretos reales de la empresa, así que en cada decisión **la seguridad pesa más que la velocidad**.
+
+## Nombre
+
+El producto se llama **Compass**. Los nombres técnicos conservan `iam` (paquetes `@iam/*`, roles de base de datos `iam_app`, `iam_migrator` e `iam_auth_reader`) porque cambiarlos exigiría migraciones y tocar bases ya creadas, sin ningún beneficio para quien usa la herramienta.
 
 ## Qué resuelve
 

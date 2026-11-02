@@ -1,4 +1,4 @@
-# Plan técnico — Plataforma interna de identidad, accesos y bóveda
+# Plan técnico — Compass, plataforma interna de identidad, accesos y bóveda
 
 Oct 26, 2026 · @Orlando
 
