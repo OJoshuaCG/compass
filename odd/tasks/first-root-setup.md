@@ -14,12 +14,12 @@ Objetivo: crear la primera organización y su usuario Raíz desde el navegador c
 
 ## Tasks
 
-- [x] T1 (S1-S2, S5, S7) ADR 0046 y su fila en `docs/adr/README.md`. Ruta: inline. Evidencia: ADR 0046 escrito, sin commit aún.
-- [x] T2 (S1-S2, S7) Migración 0028: función `auth.create_first_organization` con `SECURITY DEFINER` y prueba en `db/tests`. Ruta: inline.
-- [x] T3 (S1-S3, S5-S7) API: configuración, caso de uso, almacén, controlador, contrato y pruebas. Ruta: inline.
-- [x] T4 (S3, S6) Web: página `/setup`, i18n es-MX y en-US, pruebas. Ruta: inline.
-- [x] T5 (S3-S4) Documentación: runbook, `deployment.md`, `.env.dokploy.example`, `handoff.md`. Ruta: inline.
-- [ ] T6 Revisión ciega (`jd-judge-a`, `jd-judge-b`) sobre alcance congelado y romper la regla a propósito.
+- [x] T1 (S1-S2, S5, S7) ADR 0046 y su fila en `docs/adr/README.md`. Ruta: inline. Commit: 8ade17c.
+- [x] T2 (S1-S2, S7) Migración 0028: función `auth.create_first_organization` con `SECURITY DEFINER` y prueba en `db/tests`. Ruta: inline. Commit: 9f2d39e.
+- [x] T3 (S1-S3, S5-S7) API: configuración, caso de uso, almacén, controlador, contrato y pruebas. Ruta: inline. Commit: ede98b5.
+- [x] T4 (S3, S6) Web: página `/setup`, i18n es-MX y en-US, pruebas. Ruta: inline. Commit: 37fcca1.
+- [x] T5 (S3-S4) Documentación: runbook, `deployment.md`, `.env.dokploy.example`, `handoff.md`. Ruta: inline. Commit: 8ade17c.
+- [x] T6 Revisión ciega (`jd-judge-a`, `jd-judge-b`) sobre alcance congelado y romper la regla a propósito. Evidencia: un hallazgo severo confirmado por ambos (el `+` del token base64 se leía como espacio) corregido con `readSetupToken` y prueba de regresión; la mutación deliberada rompió 5 pruebas y los archivos se restauraron.
 
 ## Log
 
@@ -27,3 +27,4 @@ Objetivo: crear la primera organización y su usuario Raíz desde el navegador c
 - L2 (2026-11-02, usuario): "Adelante Solo definir cosas como, que solo funcione si no existe el usuario raiz, uso unico de una vez, una vez establecido el usuario `root` ya no vuelve a funcionar esa url ver si definimos un token en el .env para ese login unico o como se crearia, y donde lo visualizaria el usuario? Hay que pensar que ya desplegaremos en dokploy y todo estara alli, que crees conveniente llevar a cabo? Con esto dicho, planea de nuevo si crees necesario, e inmediatamente puedes llevar a cabo la tarea, sin problema."
 - Hallazgo de exploración: solo `organizations` impide el insert a `iam_app` (sin política ni grant de INSERT); `roles`, `users`, `user_passwords`, `user_roles`, `user_recovery_codes` y `audit_events` aceptan el insert con `app.org_id` fijado. Basta una función definer para `organizations`; el resto va en la misma transacción desde la API. Próxima migración 0028, próximo ADR 0046.
 - Avance (2026-11-02): T1-T5 hechas en el árbol de trabajo, sin commit. Pruebas dirigidas verdes: db (`first-organization-setup`, `auth-functions`), API (`first-root-setup`, crypto, idempotencia, config), web (`first-setup`, `auth-flows`) y paridad i18n. Lint, tipos y formato de api y web en verde. `node:crypto` quedó solo en el módulo de criptografía: nuevo `CryptoPrimitives.constantTimeEquals`. Pendiente: T6 (jueces ciegos en curso), commits y cierre en ClickUp.
+- Cierre (2026-11-02): T1-T6 hechas y commiteadas (9f2d39e, ede98b5, 37fcca1, 8ade17c), sin push. Prueba dirigida final verde (9 archivos, 144 pruebas). Hallazgos informativos no corregidos: validación (422) antes del compuerta del token, diferencia de latencia entre rechazos, `FIRST_SETUP_TOKEN` vacío falla la validación de configuración, la guarda de 0028 depende de la política `organizations_auth_lookup` de 0014. Sin verificar: `pnpm build`, `pnpm e2e`, integración con contenedores, flujo real en staging.
