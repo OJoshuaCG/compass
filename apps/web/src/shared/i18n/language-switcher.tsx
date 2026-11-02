@@ -1,40 +1,58 @@
 import { LOCALES, isLocale } from '@iam/i18n';
-import { NativeSelect } from '@iam/ui';
-import { useId } from 'react';
+import { cn } from '@iam/ui';
 import { useTranslation } from 'react-i18next';
 
 import { changeLocale } from './setup';
 
 /**
- * Selector de idioma es-MX / en-US. Recuerda la elección (ver `locale-storage`).
- * `inverse` aclara la etiqueta para fondos azul marino (pantallas de acceso).
+ * Selector de idioma es-MX / en-US como el diseño de Compass: una píldora con un botón por idioma
+ * (ES | EN) y el activo resaltado. Recuerda la elección (ver `locale-storage`).
+ * `inverse` lo adapta a fondos azul marino (pantallas de acceso).
+ *
+ * Accesibilidad: es un grupo con nombre ("Idioma") de botones con `aria-pressed`. El texto visible es
+ * el código corto; el nombre accesible es el nombre del idioma en su propio idioma, que empieza con
+ * ese código (WCAG 2.5.3), y `lang` hace que el lector de pantalla lo pronuncie bien (WCAG 3.1.2).
  */
 export function LanguageSwitcher({ inverse = false }: { inverse?: boolean }) {
   const { t, i18n } = useTranslation('common');
-  const id = useId();
   const current = isLocale(i18n.language) ? i18n.language : LOCALES[0];
   return (
     <div
-      className={`flex items-center gap-2 text-sm ${inverse ? 'text-nav-text-muted' : 'text-text-secondary'}`}
+      role="group"
+      aria-label={t('language.label')}
+      className={cn(
+        'flex gap-0.5 rounded-full border p-0.5',
+        inverse ? 'border-nav-raised bg-nav-raised' : 'border-border-strong bg-surface',
+      )}
     >
-      <label htmlFor={id}>{t('language.label')}</label>
-      <NativeSelect
-        id={id}
-        size="sm"
-        value={current}
-        onChange={(event) => {
-          const next = event.target.value;
-          if (isLocale(next)) void changeLocale(i18n, next);
-        }}
-      >
-        {LOCALES.map((locale) => (
-          // Cada nombre de idioma se pinta en su propio idioma (no en el de la interfaz); el atributo
-          // lang evita que el lector de pantalla lo pronuncie con la voz del idioma activo (WCAG 3.1.2).
-          <option key={locale} value={locale} lang={locale}>
-            {t(`language.${locale}`, { lng: locale })}
-          </option>
-        ))}
-      </NativeSelect>
+      {LOCALES.map((locale) => {
+        const active = locale === current;
+        const name = t(`language.${locale}`, { lng: locale });
+        return (
+          <button
+            key={locale}
+            type="button"
+            lang={locale}
+            aria-label={name}
+            title={name}
+            aria-pressed={active}
+            onClick={() => {
+              if (!active) void changeLocale(i18n, locale);
+            }}
+            className={cn(
+              'h-7 min-w-10 rounded-full px-3 text-sm font-semibold transition-colors duration-fast',
+              active
+                ? 'bg-accent-solid text-on-accent'
+                : inverse
+                  ? 'text-nav-text-muted hover:text-nav-text'
+                  : 'text-text-muted hover:text-text',
+            )}
+          >
+            {/* Código corto derivado del locale (es-MX → ES): no es texto de interfaz. */}
+            {locale.slice(0, 2).toUpperCase()}
+          </button>
+        );
+      })}
     </div>
   );
 }

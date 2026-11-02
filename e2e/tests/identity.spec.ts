@@ -262,9 +262,13 @@ test.describe
   test('the language can be switched and the choice survives a reload', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
-    await page.getByLabel('Language').selectOption({ label: 'Español (México)' });
+    await page.getByRole('button', { name: 'Español (México)' }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeHidden();
     await page.reload();
-    await expect(page.getByLabel('Idioma')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Idioma' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Español (México)' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });

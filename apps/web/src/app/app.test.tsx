@@ -35,7 +35,7 @@ describe('app shell and routing', () => {
     const user = userEvent.setup();
     renderApp('/');
     await screen.findByRole('heading', { level: 1, name: es['home.title'] });
-    await user.selectOptions(screen.getByRole('combobox', { name: es['language.label'] }), 'en-US');
+    await user.click(screen.getByRole('button', { name: es['language.en-US'] }));
     expect(
       await screen.findByRole('heading', { level: 1, name: en['home.title'] }),
     ).toBeInTheDocument();
@@ -43,13 +43,22 @@ describe('app shell and routing', () => {
     expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('en-US');
   });
 
-  it('marks each language option with its own lang so screen readers pronounce it correctly', async () => {
+  it('offers ES | EN as a named group of toggle buttons, each in its own language', async () => {
     renderApp('/');
     await screen.findByRole('heading', { level: 1, name: es['home.title'] });
-    const spanishOption = screen.getByRole('option', { name: es['language.es-MX'] });
-    const englishOption = screen.getByRole('option', { name: es['language.en-US'] });
-    expect(spanishOption).toHaveAttribute('lang', 'es-MX');
-    expect(englishOption).toHaveAttribute('lang', 'en-US');
+    const group = screen.getByRole('group', { name: es['language.label'] });
+    const spanish = within(group).getByRole('button', { name: es['language.es-MX'] });
+    const english = within(group).getByRole('button', { name: es['language.en-US'] });
+    // El lector de pantalla pronuncia cada nombre con la voz de su idioma (WCAG 3.1.2).
+    expect(spanish).toHaveAttribute('lang', 'es-MX');
+    expect(english).toHaveAttribute('lang', 'en-US');
+    expect(spanish).toHaveTextContent('ES');
+    expect(english).toHaveTextContent('EN');
+    // WCAG 2.5.3: el nombre accesible empieza con el texto visible.
+    expect(es['language.es-MX'].toUpperCase().startsWith('ES')).toBe(true);
+    expect(en['language.en-US'].toUpperCase().startsWith('EN')).toBe(true);
+    expect(spanish).toHaveAttribute('aria-pressed', 'true');
+    expect(english).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('shows the not-found page for unknown routes', async () => {
@@ -163,9 +172,9 @@ describe('route announcements', () => {
     const user = userEvent.setup();
     renderApp('/');
     await screen.findByRole('heading', { level: 1, name: es['home.title'] });
-    const languageSelect = screen.getByRole('combobox', { name: es['language.label'] });
+    const languageSelect = screen.getByRole('button', { name: es['language.en-US'] });
 
-    await user.selectOptions(languageSelect, 'en-US');
+    await user.click(languageSelect);
 
     await waitFor(() => {
       expect(document.title).toBe(`${en['home.title']} · ${en['app.name']}`);
