@@ -40,5 +40,21 @@
   "history.empty.description": "Cuando llegue un mensaje que case con esta vista aparecerá aquí.",
   "templateKind.login_code": "Código de acceso",
   "templateKind.reset_code": "Código de restablecimiento",
-  "templateKind.reset_link": "Enlace de restablecimiento"
+  "templateKind.reset_link": "Enlace de restablecimiento",
+  "resets.heading": "Restablecimientos",
+  "resets.description": "Los códigos y enlaces para restablecer el acceso de la cuenta. Revelarlos exige un motivo, queda auditado y avisa a la Raíz.",
+  "resets.open": "Revelar restablecimientos",
+  "resets.warning": "Revelar un restablecimiento permite tomar el control de la cuenta. Queda registrado con tu motivo y la Raíz recibe un aviso.",
+  "resets.reason": "Motivo",
+  "resets.counter": "{{length}}/{{max}} caracteres (mínimo {{min}}).",
+  "resets.submit": "Revelar",
+  "resets.item": "{{kind}} {{position}}",
+  "resets.expiresAt": "Vence: {{time}}",
+  "resets.copy": "Copiar restablecimiento {{position}}",
+  "resets.autoHide": "Se ocultan solos en {{seconds}} segundos.",
+  "resets.hideNow": "Ocultar ahora",
+  "resets.none": "No hay restablecimientos vigentes en esta vista. El intento quedó registrado.",
+  "resets.close": "Cerrar",
+  "resets.hidden": "Los restablecimientos se ocultaron. Para verlos otra vez tendrás que indicar un motivo de nuevo.",
+  "resets.again": "Revelar de nuevo"
 }

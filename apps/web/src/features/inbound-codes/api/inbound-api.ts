@@ -1,8 +1,10 @@
 import {
   inboundCodesResponseSchema,
   inboundReceiptSchema,
+  inboundResetsResponseSchema,
   inboundViewsResponseSchema,
   type InboundCodesResponse,
+  type InboundResetsResponse,
   type InboundReceipt,
   type InboundViewSummary,
 } from '@iam/contracts';
@@ -48,4 +50,19 @@ export function createInboundHistoryFetcher(
   client: ApiClient = apiClient,
 ): FetchPage<InboundReceipt> {
   return createListFetcher(client, `/inbound/views/${viewId}/history`, inboundReceiptSchema);
+}
+
+/**
+ * `POST /inbound/views/:viewId/resets/reveal` (permiso `inbound.reveal_reset`, nivel MANAGE, reautenticación
+ * y motivo): los restablecimientos vigentes de la vista. Es un evento crítico que avisa a la Raíz. Igual que
+ * los códigos, el valor se devuelve al llamador y nunca pasa por Query; la reautenticación la abre el cliente.
+ */
+export function revealInboundResets(
+  viewId: string,
+  reason: string,
+  client: ApiClient = apiClient,
+): Promise<InboundResetsResponse> {
+  return client.post(`/inbound/views/${viewId}/resets/reveal`, inboundResetsResponseSchema, {
+    body: { reason },
+  });
 }

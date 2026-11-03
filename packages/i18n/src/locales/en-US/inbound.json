@@ -40,5 +40,21 @@
   "history.empty.description": "When a message that matches this view arrives, it will appear here.",
   "templateKind.login_code": "Login code",
   "templateKind.reset_code": "Reset code",
-  "templateKind.reset_link": "Reset link"
+  "templateKind.reset_link": "Reset link",
+  "resets.heading": "Resets",
+  "resets.description": "The codes and links to reset the account's access. Revealing them requires a reason, is audited and alerts Root.",
+  "resets.open": "Reveal resets",
+  "resets.warning": "Revealing a reset lets someone take over the account. It is recorded with your reason and Root is alerted.",
+  "resets.reason": "Reason",
+  "resets.counter": "{{length}}/{{max}} characters (minimum {{min}}).",
+  "resets.submit": "Reveal",
+  "resets.item": "{{kind}} {{position}}",
+  "resets.expiresAt": "Expires: {{time}}",
+  "resets.copy": "Copy reset {{position}}",
+  "resets.autoHide": "They hide automatically in {{seconds}} seconds.",
+  "resets.hideNow": "Hide now",
+  "resets.none": "There are no live resets in this view. The attempt was recorded.",
+  "resets.close": "Close",
+  "resets.hidden": "The resets were hidden. To see them again you will need to give a reason again.",
+  "resets.again": "Reveal again"
 }
