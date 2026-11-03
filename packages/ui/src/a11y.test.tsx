@@ -54,7 +54,7 @@ describe('component accessibility (axe-core)', () => {
     const { container } = render(
       <AppShell
         sidebar={<nav aria-label="Main">links</nav>}
-        header={<span>IAM</span>}
+        header={<span>Compass</span>}
         skipLinkLabel="Skip"
       >
         <PageHeader title="Home" description="Desc" actions={<Button>Act</Button>} />

@@ -1,4 +1,4 @@
-import type { ShareLevel } from '@iam/contracts';
+import type { AccountListFilter, ShareLevel } from '@iam/contracts';
 
 import type { KeysetPage, KeysetRequest, UserId } from '../../../../shared/kernel/index.js';
 
@@ -32,6 +32,20 @@ export interface ExistingAccountKey {
 /** Una cuenta con el nivel de acceso de quien la consulta; `null` en el inventario, que no concede acceso. */
 export interface AccountView extends AccountRecord {
   readonly myLevel: ShareLevel | null;
+}
+
+/** Una cuenta de un listado: con la fecha de cambio de su credencial más antigua (`null` sin credenciales). */
+export interface AccountListEntry extends AccountView {
+  readonly lastChangedAt: Date | null;
+}
+
+/** Búsqueda y filtro rápido de un listado. Todo se resuelve en SQL junto con el acceso efectivo. */
+export interface AccountListFilters {
+  /** Texto libre: nombre visible, handle, plataforma, etiquetas y grupo. `null` = sin búsqueda. */
+  readonly text: string | null;
+  readonly quickFilter: AccountListFilter | null;
+  /** Fecha anterior a la cual una credencial ya pasó el umbral de «por revisar» (amarillo o rojo). */
+  readonly agingCutoff: Date;
 }
 
 export interface NewAccount {
@@ -84,8 +98,12 @@ export interface AccountRepository {
     readonly at: Date;
     readonly revokedBy: UserId;
   }): Promise<{ readonly revokedShares: number }>;
-  /** Cuentas activas a las que la persona accede, por nombre. */
-  listVisiblePage(userId: UserId, page: KeysetRequest): Promise<KeysetPage<AccountView>>;
+  /** Cuentas activas a las que la persona accede, por nombre, con búsqueda y filtro opcionales. */
+  listVisiblePage(
+    userId: UserId,
+    page: KeysetRequest,
+    filters: AccountListFilters,
+  ): Promise<KeysetPage<AccountListEntry>>;
   /**
    * Claves (plataforma y nombre visible) de las cuentas activas a las que la persona accede y cuyo nombre
    * coincide, sin distinguir mayúsculas, con alguno de `displayNames`. Solo cuentas con acceso efectivo:
@@ -96,5 +114,8 @@ export interface AccountRepository {
     displayNames: readonly string[],
   ): Promise<readonly ExistingAccountKey[]>;
   /** Todas las cuentas activas de la organización (solo metadatos), por nombre. */
-  listInventoryPage(page: KeysetRequest): Promise<KeysetPage<AccountView>>;
+  listInventoryPage(
+    page: KeysetRequest,
+    filters: AccountListFilters,
+  ): Promise<KeysetPage<AccountListEntry>>;
 }

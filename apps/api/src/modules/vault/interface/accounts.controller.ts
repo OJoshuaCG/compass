@@ -1,12 +1,15 @@
 import {
+  accountListQuerySchema,
   createAccountRequestSchema,
-  fixedOrderPageQuerySchema,
+  inventoryListQuerySchema,
   updateAccountRequestSchema,
 } from '@iam/contracts';
 import type {
   Account,
+  AccountListItem,
+  AccountListQuery,
   CreateAccountRequest,
-  FixedOrderPageQuery,
+  InventoryListQuery,
   Platform,
   UpdateAccountRequest,
 } from '@iam/contracts';
@@ -16,6 +19,7 @@ import { z } from 'zod';
 import { Idempotent, unwrap } from '../../../shared/http/http-decorators.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
 import { ManageAccounts } from '../application/manage-accounts.js';
+import type { AccountListSummary } from '../application/manage-accounts.js';
 import type { AccountView, PlatformRecord } from '../application/ports/account-repository.js';
 
 const toAccount = (account: AccountView): Account => ({
@@ -30,15 +34,24 @@ const toAccount = (account: AccountView): Account => ({
   createdAt: account.createdAt.toISOString(),
 });
 
+const toAccountListItem = (summary: AccountListSummary): AccountListItem => ({
+  ...toAccount(summary),
+  lastChangedAt: summary.lastChangedAt === null ? null : summary.lastChangedAt.toISOString(),
+  passwordAge: summary.passwordAge,
+});
+
 const toPlatform = (platform: PlatformRecord): Platform => ({ ...platform });
 
-type AccountPage = { data: Account[]; page: { nextCursor: string | null; limit: number } };
+type AccountPage = {
+  data: AccountListItem[];
+  page: { nextCursor: string | null; limit: number };
+};
 
 const toAccountPage = (
-  page: { readonly rows: readonly AccountView[]; readonly nextCursor: string | null },
+  page: { readonly rows: readonly AccountListSummary[]; readonly nextCursor: string | null },
   limit: number,
 ): AccountPage => ({
-  data: page.rows.map(toAccount),
+  data: page.rows.map(toAccountListItem),
   page: { nextCursor: page.nextCursor, limit },
 });
 
@@ -59,24 +72,24 @@ export class AccountsController {
 
   @Get()
   async list(
-    @Query(new ZodValidationPipe(fixedOrderPageQuerySchema)) query: FixedOrderPageQuery,
+    @Query(new ZodValidationPipe(accountListQuerySchema)) query: AccountListQuery,
   ): Promise<AccountPage> {
-    const page = await this.manageAccounts.listMine({
-      limit: query.limit,
-      cursor: query.cursor ?? null,
-    });
+    const page = await this.manageAccounts.listMine(
+      { limit: query.limit, cursor: query.cursor ?? null },
+      { text: query.q, filter: query.filter },
+    );
     return toAccountPage(page, query.limit);
   }
 
   // Declarado antes de `:id` para que "inventory" no se lea como un identificador.
   @Get('inventory')
   async inventory(
-    @Query(new ZodValidationPipe(fixedOrderPageQuerySchema)) query: FixedOrderPageQuery,
+    @Query(new ZodValidationPipe(inventoryListQuerySchema)) query: InventoryListQuery,
   ): Promise<AccountPage> {
-    const page = await this.manageAccounts.listInventory({
-      limit: query.limit,
-      cursor: query.cursor ?? null,
-    });
+    const page = await this.manageAccounts.listInventory(
+      { limit: query.limit, cursor: query.cursor ?? null },
+      { text: query.q },
+    );
     return toAccountPage(page, query.limit);
   }
 

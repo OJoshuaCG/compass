@@ -1,4 +1,5 @@
 import {
+  accountListItemSchema,
   accountSchema,
   platformSchema,
   type CreateAccountRequest,
@@ -18,17 +19,20 @@ export const accountsKeys = {
   platforms: () => [...accountsKeys.all, 'platforms'] as const,
 };
 
-/** `GET /accounts?cursor=&limit=`: las cuentas a las que quien consulta accede, cada una con `myLevel`. */
-export const fetchAccountsPage = createListFetcher(apiClient, '/accounts', accountSchema);
+/**
+ * `GET /accounts?cursor=&limit=&q=&filter=`: las cuentas a las que quien consulta accede, cada una con
+ * `myLevel` y el semáforo de antigüedad de su contraseña.
+ */
+export const fetchAccountsPage = createListFetcher(apiClient, '/accounts', accountListItemSchema);
 
 /**
- * `GET /accounts/inventory?cursor=&limit=` (exige `vault.inventory.read`): solo metadatos, con
- * `myLevel` en `null`. Ver una cuenta aquí no concede acceso a ella.
+ * `GET /accounts/inventory?cursor=&limit=&q=` (exige `vault.inventory.read`): solo metadatos, con
+ * `myLevel` en `null` y la antigüedad en `unknown`. Sin filtros rápidos: el servidor los rechaza.
  */
 export const fetchInventoryPage = createListFetcher(
   apiClient,
   '/accounts/inventory',
-  accountSchema,
+  accountListItemSchema,
 );
 
 const platformsResponseSchema = z.object({ data: z.array(platformSchema) });

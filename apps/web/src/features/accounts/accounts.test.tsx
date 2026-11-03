@@ -1,4 +1,4 @@
-import type { Account, Permission, Platform } from '@iam/contracts';
+import type { AccountListItem, Permission, Platform } from '@iam/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -35,7 +35,7 @@ const PLATFORMS: Platform[] = [
   },
 ];
 
-const accountFixture = (overrides: Partial<Account>): Account => ({
+const accountFixture = (overrides: Partial<AccountListItem>): AccountListItem => ({
   id: MANAGED_ID,
   platformId: PLATFORM_ID,
   displayName: 'Nómina',
@@ -45,6 +45,8 @@ const accountFixture = (overrides: Partial<Account>): Account => ({
   status: 'active',
   myLevel: 'MANAGE',
   createdAt: '2026-01-01T00:00:00.000Z',
+  lastChangedAt: null,
+  passwordAge: 'none',
   ...overrides,
 });
 
@@ -68,6 +70,7 @@ const INVENTORY_ACCOUNT = accountFixture({
   id: INVENTORY_ID,
   displayName: 'Tesorería',
   myLevel: null,
+  passwordAge: 'unknown',
 });
 
 const ALL_ACCOUNT_PERMISSIONS: Permission[] = [
@@ -76,7 +79,8 @@ const ALL_ACCOUNT_PERMISSIONS: Permission[] = [
   'account.archive',
 ];
 
-const page = (data: Account[]) => jsonResponse({ data, page: { nextCursor: null, limit: 25 } });
+const page = (data: AccountListItem[]) =>
+  jsonResponse({ data, page: { nextCursor: null, limit: 25 } });
 const withName = (template: string, name: string) => template.replace('{{name}}', name);
 const editLabel = (name: string) => withName(es.accounts['action.editLabel'], name);
 const archiveLabel = (name: string) => withName(es.accounts['action.archiveLabel'], name);
@@ -604,6 +608,112 @@ describe('archive account', () => {
     const dialog = await openArchive(user);
     await user.click(within(dialog).getByRole('button', { name: es.accounts['archive.confirm'] }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(es.errors.RATE_LIMITED);
+  });
+});
+
+const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+describe('password age indicator', () => {
+  it('shows a text label per state (never only color) and a neutral one without credentials', async () => {
+    setup({
+      'GET /accounts': page([
+        accountFixture({ passwordAge: 'fresh', lastChangedAt: daysAgo(10) }),
+        accountFixture({
+          id: EDITABLE_ID,
+          displayName: 'Marketing',
+          passwordAge: 'aging',
+          lastChangedAt: daysAgo(75),
+        }),
+        accountFixture({
+          id: VIEWABLE_ID,
+          displayName: 'Soporte',
+          passwordAge: 'stale',
+          lastChangedAt: daysAgo(200),
+        }),
+        accountFixture({ id: NEW_ID, displayName: 'Sin claves', passwordAge: 'none' }),
+      ]),
+    });
+    const { container } = renderApp('/accounts');
+    await rowsLoaded();
+    expect(screen.getByText(es.accounts['passwordAge.fresh'])).toBeInTheDocument();
+    expect(screen.getByText(es.accounts['passwordAge.aging'])).toBeInTheDocument();
+    expect(screen.getByText(es.accounts['passwordAge.stale'])).toBeInTheDocument();
+    expect(screen.getByText(es.accounts['passwordAge.none'])).toBeInTheDocument();
+    // La fecha relativa acompaña al estado y la exacta va en el detalle (title).
+    expect(screen.getByText(/hace 10 días/)).toBeInTheDocument();
+    expect(screen.getByText(/hace 6 meses/)).toBeInTheDocument();
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  it('shows "no data" in the inventory, which hides credential information', async () => {
+    const user = userEvent.setup();
+    setup({ 'GET /accounts/inventory': page([INVENTORY_ACCOUNT]) }, [
+      ...ALL_ACCOUNT_PERMISSIONS,
+      'vault.inventory.read',
+    ]);
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
+    await screen.findByText('Tesorería');
+    expect(screen.getByText(es.accounts['passwordAge.unknown'])).toBeInTheDocument();
+  });
+});
+
+describe('account search and quick filters', () => {
+  it('sends the typed text once the user stops typing, and clears it', async () => {
+    const user = userEvent.setup();
+    const api = setup();
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.type(screen.getByRole('searchbox', { name: es.accounts['search.label'] }), 'nómina');
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.get('q')).toBe('nómina');
+    });
+    await user.click(screen.getByRole('button', { name: es.common['search.clear'] }));
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.has('q')).toBe(false);
+    });
+  });
+
+  it('applies a quick filter as a pressed chip and returns to all', async () => {
+    const user = userEvent.setup();
+    const api = setup();
+    renderApp('/accounts');
+    await rowsLoaded();
+    const group = screen.getByRole('group', { name: es.accounts['filter.label'] });
+    const all = within(group).getByRole('button', { name: es.accounts['filter.all'] });
+    const review = within(group).getByRole('button', { name: es.accounts['filter.review'] });
+    expect(all).toHaveAttribute('aria-pressed', 'true');
+    await user.click(review);
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.get('filter')).toBe('review');
+    });
+    expect(review).toHaveAttribute('aria-pressed', 'true');
+    await user.click(within(group).getByRole('button', { name: es.accounts['filter.no2fa'] }));
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.get('filter')).toBe('no-2fa');
+    });
+    await user.click(all);
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.has('filter')).toBe(false);
+    });
+  });
+
+  it('offers search but no quick filters in the inventory, and never sends a filter there', async () => {
+    const user = userEvent.setup();
+    const api = setup({ 'GET /accounts/inventory': page([INVENTORY_ACCOUNT]) }, [
+      ...ALL_ACCOUNT_PERMISSIONS,
+      'vault.inventory.read',
+    ]);
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
+    await screen.findByText('Tesorería');
+    expect(screen.getByRole('searchbox', { name: es.accounts['search.label'] })).toBeVisible();
+    expect(screen.queryByRole('group', { name: es.accounts['filter.label'] })).toBeNull();
+    for (const call of api.callsTo('GET', '/accounts/inventory')) {
+      expect(call.search.has('filter')).toBe(false);
+    }
   });
 });
 

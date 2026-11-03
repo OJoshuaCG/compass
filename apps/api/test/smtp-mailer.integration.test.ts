@@ -34,7 +34,7 @@ describe('SmtpMailer against a real SMTP server', () => {
         security: 'none',
         user: 'no-reply@example.com',
         password: 'whatever',
-        from: 'IAM <no-reply@example.com>',
+        from: 'Compass <no-reply@example.com>',
         baseUrl: 'https://iam.example.com',
       },
       'test',
@@ -56,7 +56,7 @@ describe('SmtpMailer against a real SMTP server', () => {
       }[];
     };
     const sent = list.messages[0];
-    expect(sent?.Subject).toBe('You have been invited to the platform');
+    expect(sent?.Subject).toBe('You have been invited to Compass');
     expect(sent?.To[0]?.Address).toBe('guest@other-domain.test');
     expect(sent?.From.Address).toBe('no-reply@example.com');
     const detail = (await (await fetch(`${apiBase}/api/v1/message/${sent?.ID ?? ''}`)).json()) as {
@@ -73,7 +73,7 @@ describe('SmtpMailer against a real SMTP server', () => {
         security: 'none',
         user: undefined,
         password: undefined,
-        from: 'IAM <no-reply@example.com>',
+        from: 'Compass <no-reply@example.com>',
         baseUrl: 'https://iam.example.com',
       },
       'test',

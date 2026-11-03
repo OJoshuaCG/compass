@@ -31,7 +31,7 @@ Que la API envíe las invitaciones y el aviso de uso de un código de emergencia
    | `SMTP_PORT` | 587 por defecto |
    | `SMTP_SECURITY` | `starttls` (por defecto) o `tls`. `none` se rechaza en producción |
    | `SMTP_USER` y `SMTP_PASSWORD` | Se definen juntas o ninguna. La contraseña viene del gestor de secretos |
-   | `MAIL_FROM` | Remitente del dominio propio, por ejemplo `IAM <no-reply@sudominio>`. Obligatorio con `smtp` |
+   | `MAIL_FROM` | Remitente del dominio propio, por ejemplo `Compass <no-reply@sudominio>`. Obligatorio con `smtp` |
 
 2. Pide al dueño del dominio que publique en el DNS los registros SPF, DKIM y DMARC del dominio de envío. Sin ellos, muchos proveedores mandan las invitaciones a spam o las rechazan.
 3. Arranca la API. La configuración se valida al inicio: si es inválida, el servicio no arranca y el error lista las claves y el tipo de problema, nunca los valores.

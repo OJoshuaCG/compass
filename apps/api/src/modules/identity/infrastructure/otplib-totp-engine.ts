@@ -2,7 +2,7 @@ import { generateSecret, generateURI, verifySync } from 'otplib';
 
 import type { TotpEngine, TotpVerification } from '../application/ports/identity-ports.js';
 
-const ISSUER = 'IAM';
+const ISSUER = 'Compass';
 /** Tolerancia de un paso de 30 s hacia cada lado para relojes desfasados. */
 const TOLERANCE_SECONDS = 30;
 

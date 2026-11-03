@@ -16,6 +16,7 @@
 | Entender las tablas, RLS y migraciones | [`database.md`](database.md) |
 | Evaluar riesgos de seguridad | [`threat-model.md`](threat-model.md) |
 | Correrlo en local o desplegarlo con Dokploy | [`deployment.md`](deployment.md) |
+| Correrlo en local contra una base de datos de pruebas en otro servidor (datos que no se borran) | [`deployment.md` §1.1](deployment.md#11-correr-la-api-local-contra-una-base-de-pruebas-externa) |
 | Operar el sistema (alta de organizaciones, correo, una sola instancia) o responder a un incidente | [`runbooks/`](runbooks/README.md) |
 | Seguir el avance de una funcionalidad | [`../odd/tasks/`](../odd/tasks/phase-0-foundations.md) |
 | Instalar y ejecutar el proyecto | [`../README.md`](../README.md) |

@@ -8,15 +8,15 @@ export interface RenderedEmail {
 
 const COPY = {
   'es-MX': {
-    subject: 'Te invitaron a la plataforma',
-    intro: 'Te invitaron a unirte a la plataforma interna de identidad y accesos.',
+    subject: 'Te invitaron a Compass',
+    intro: 'Te invitaron a unirte a Compass, la plataforma interna de identidad y accesos.',
     action: 'Abre este enlace para elegir tu contraseña y registrar tu segundo factor:',
     expires: (date: string) => `El enlace es de un solo uso y vence el ${date}.`,
     ignore: 'Si no esperabas este mensaje, ignóralo: no se creará ninguna cuenta.',
   },
   'en-US': {
-    subject: 'You have been invited to the platform',
-    intro: 'You have been invited to join the internal identity and access platform.',
+    subject: 'You have been invited to Compass',
+    intro: 'You have been invited to join Compass, the internal identity and access platform.',
     action: 'Open this link to choose your password and register your second factor:',
     expires: (date: string) => `The link is single-use and expires on ${date}.`,
     ignore: 'If you did not expect this message, ignore it: no account will be created.',

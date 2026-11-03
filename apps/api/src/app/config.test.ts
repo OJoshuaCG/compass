@@ -60,7 +60,7 @@ describe('loadConfig', () => {
     const completeSmtp = {
       MAIL_TRANSPORT: 'smtp',
       SMTP_HOST: 'mail.example.com',
-      MAIL_FROM: 'IAM <no-reply@example.com>',
+      MAIL_FROM: 'Compass <no-reply@example.com>',
     };
 
     it('uses the local adapter by default outside production', () => {
@@ -118,7 +118,7 @@ describe('loadConfig', () => {
         loadConfig({
           MAIL_TRANSPORT: 'smtp',
           SMTP_HOST: 'mail.example.com',
-          MAIL_FROM: 'IAM <no-reply@example.com>',
+          MAIL_FROM: 'Compass <no-reply@example.com>',
           SMTP_USER: 'no-reply@example.com',
         }),
       ).toThrow(/SMTP_USER/);
@@ -128,7 +128,7 @@ describe('loadConfig', () => {
       const config = loadConfig({
         MAIL_TRANSPORT: 'smtp',
         SMTP_HOST: 'mail.example.com',
-        MAIL_FROM: 'IAM <no-reply@example.com>',
+        MAIL_FROM: 'Compass <no-reply@example.com>',
         SMTP_USER: 'no-reply@example.com',
         SMTP_PASSWORD: 'secret-value',
       });

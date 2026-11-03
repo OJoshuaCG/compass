@@ -211,7 +211,7 @@ Está integrado en la interfaz y en la API.
 | Vista compartida | Un conjunto de filtros de un buzón que se comparte con personas o grupos | "Códigos de acceso de Facebook" |
 | Cuarentena | Lo que llegó pero no cumple ningún filtro o no pudo comprobarse que viene de quien dice | Un correo que dice ser de Facebook pero no está firmado por Facebook |
 
-El sistema **no entra a ninguna bandeja de correo** ni guarda contraseñas de correo: el correo llega directamente a una dirección propia de la plataforma interna.
+El sistema **no entra a ninguna bandeja de correo** ni guarda contraseñas de correo: el correo llega directamente a una dirección propia de Compass.
 
 ### 14.2 Cómo se decide qué se muestra
 

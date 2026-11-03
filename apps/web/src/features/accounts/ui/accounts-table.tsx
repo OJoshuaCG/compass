@@ -1,4 +1,4 @@
-import type { Account, Platform } from '@iam/contracts';
+import type { Account, AccountListItem, Platform } from '@iam/contracts';
 import {
   Badge,
   Button,
@@ -9,11 +9,13 @@ import {
   type Column,
 } from '@iam/ui';
 import { Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { TablePaging } from '../../../shared/api';
 import { useDataTableLabels } from '../../../shared/i18n';
+
+import { PasswordAgeIndicator } from './password-age-indicator';
 
 export type AccountsTableProps = {
   /**
@@ -21,7 +23,7 @@ export type AccountsTableProps = {
    * metadatos; el nivel siempre llega en `null`, así que ni se pinta ni se ofrecen acciones.
    */
   variant: 'mine' | 'inventory';
-  accounts: Account[];
+  accounts: AccountListItem[];
   platforms: readonly Platform[];
   status: 'loading' | 'success' | 'error';
   /** Mensaje ya traducido del error de carga. */
@@ -35,6 +37,12 @@ export type AccountsTableProps = {
   /** Hay una recarga en curso conservando las filas anteriores. */
   refreshing: boolean;
   paging: TablePaging;
+  /** Búsqueda y filtros; la tabla solo los ubica en su barra superior. */
+  toolbar?: ReactNode;
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
+  /** Zona horaria del perfil para la fecha exacta del último cambio. */
+  timeZone?: string | undefined;
 };
 
 /**
@@ -54,6 +62,10 @@ export function AccountsTable({
   onArchive,
   refreshing,
   paging,
+  toolbar,
+  hasActiveFilters = false,
+  onClearFilters,
+  timeZone,
 }: AccountsTableProps) {
   const { t } = useTranslation('accounts');
   const labels = useDataTableLabels();
@@ -63,8 +75,8 @@ export function AccountsTable({
     [platforms],
   );
 
-  const columns = useMemo<Column<Account>[]>(() => {
-    const nameColumn: Column<Account> = {
+  const columns = useMemo<Column<AccountListItem>[]>(() => {
+    const nameColumn: Column<AccountListItem> = {
       id: 'name',
       header: t('col.name'),
       // Como el diseño de Compass: mosaico de la plataforma, nombre y, debajo, el identificador. En
@@ -99,18 +111,29 @@ export function AccountsTable({
         );
       },
     };
-    const platformColumn: Column<Account> = {
+    const platformColumn: Column<AccountListItem> = {
       id: 'platform',
       header: t('col.platform'),
       cell: (row) => platformNames.get(row.platformId) ?? t('platform.unknown'),
     };
-    const levelColumn: Column<Account> = {
+    const levelColumn: Column<AccountListItem> = {
       id: 'level',
       header: t('col.level'),
       cell: (row) =>
         row.myLevel === null ? t('level.none') : <Badge>{t(`level.${row.myLevel}`)}</Badge>,
     };
-    const statusColumn: Column<Account> = {
+    const lastChangedColumn: Column<AccountListItem> = {
+      id: 'lastChanged',
+      header: t('col.lastChanged'),
+      cell: (row) => (
+        <PasswordAgeIndicator
+          age={row.passwordAge}
+          lastChangedAt={row.lastChangedAt}
+          timeZone={timeZone}
+        />
+      ),
+    };
+    const statusColumn: Column<AccountListItem> = {
       id: 'status',
       header: t('col.status'),
       cell: (row) =>
@@ -121,16 +144,16 @@ export function AccountsTable({
         ),
     };
     return variant === 'mine'
-      ? [nameColumn, platformColumn, levelColumn, statusColumn]
-      : [nameColumn, platformColumn, statusColumn];
-  }, [platformNames, t, variant]);
+      ? [nameColumn, platformColumn, levelColumn, lastChangedColumn, statusColumn]
+      : [nameColumn, platformColumn, lastChangedColumn, statusColumn];
+  }, [platformNames, t, timeZone, variant]);
 
   const emptyTitle = variant === 'mine' ? t('empty.title') : t('inventory.empty.title');
   const emptyDescription =
     variant === 'mine' ? t('empty.description') : t('inventory.empty.description');
 
   return (
-    <DataTable<Account>
+    <DataTable<AccountListItem>
       caption={variant === 'mine' ? t('caption') : t('inventory.caption')}
       columns={columns}
       rows={accounts}
@@ -141,6 +164,9 @@ export function AccountsTable({
       onLimitChange={paging.onLimitChange}
       pagination={paging.pagination}
       refreshing={refreshing}
+      hasActiveFilters={hasActiveFilters}
+      {...(onClearFilters === undefined ? {} : { onClearFilters })}
+      {...(toolbar === undefined ? {} : { toolbar })}
       labels={labels}
       emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
       errorState={{ message: errorMessage, onRetry }}

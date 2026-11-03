@@ -1,4 +1,4 @@
-import type { Account, Credential, Permission, ShareLevel } from '@iam/contracts';
+import type { AccountListItem, Credential, Permission, ShareLevel } from '@iam/contracts';
 import { act, configure, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -34,7 +34,7 @@ const ALL_PERMISSIONS: Permission[] = [
   'credential.reveal_password',
 ];
 
-const accountFixture = (myLevel: ShareLevel | null): Account => ({
+const accountFixture = (myLevel: ShareLevel | null): AccountListItem => ({
   id: ACCOUNT_ID,
   platformId: PLATFORM_ID,
   displayName: 'Nómina',
@@ -44,6 +44,8 @@ const accountFixture = (myLevel: ShareLevel | null): Account => ({
   status: 'active',
   myLevel,
   createdAt: '2026-01-01T00:00:00.000Z',
+  lastChangedAt: null,
+  passwordAge: 'none',
 });
 
 const ROTATED: Credential = {

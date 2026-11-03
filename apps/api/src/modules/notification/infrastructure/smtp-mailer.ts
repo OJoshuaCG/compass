@@ -44,7 +44,7 @@ export interface SmtpOptions {
   readonly security: SmtpSecurity;
   readonly user: string | undefined;
   readonly password: string | undefined;
-  /** Remitente, por ejemplo `IAM <no-reply@tudominio.com>`: debe pertenecer al dominio propio. */
+  /** Remitente, por ejemplo `Compass <no-reply@tudominio.com>`: debe pertenecer al dominio propio. */
   readonly from: string;
   /** Origen público de la aplicación, para construir el enlace de invitación. */
   readonly baseUrl: string;

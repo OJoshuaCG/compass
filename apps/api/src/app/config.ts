@@ -52,7 +52,7 @@ const envSchema = z
     SMTP_PASSWORD: z.string().min(1).optional(),
     MAIL_FROM: z.string().min(3).optional(),
     /** Nombre que el autenticador muestra al registrar una llave de acceso. */
-    WEBAUTHN_RP_NAME: z.string().min(1).max(100).default('IAM'),
+    WEBAUTHN_RP_NAME: z.string().min(1).max(100).default('Compass'),
     /**
      * Publicador de eventos del outbox dentro de la API (ADR 0035). Apagado salvo que se active
      * expresamente: un manejador mal configurado no debe empezar a actuar por un despliegue.

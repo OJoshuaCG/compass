@@ -1,4 +1,4 @@
-import type { Account, DirectoryUser, Permission, Share, ShareLevel } from '@iam/contracts';
+import type { AccountListItem, DirectoryUser, Permission, Share, ShareLevel } from '@iam/contracts';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -20,7 +20,7 @@ const SELF_ID = '5c9e6f3e-4c1a-4a53-9d9e-6b0f0a1f7a01';
 const PAGE = `/accounts/${ACCOUNT_ID}/shares`;
 const SHARES_PATH = `/accounts/${ACCOUNT_ID}/shares`;
 
-const accountFixture = (myLevel: ShareLevel | null): Account => ({
+const accountFixture = (myLevel: ShareLevel | null): AccountListItem => ({
   id: ACCOUNT_ID,
   platformId: PLATFORM_ID,
   displayName: 'Nómina',
@@ -30,6 +30,8 @@ const accountFixture = (myLevel: ShareLevel | null): Account => ({
   status: 'active',
   myLevel,
   createdAt: '2026-01-01T00:00:00.000Z',
+  lastChangedAt: null,
+  passwordAge: 'none',
 });
 
 const PERSON_SHARE: Share = {

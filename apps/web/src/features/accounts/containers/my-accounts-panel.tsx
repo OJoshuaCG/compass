@@ -1,17 +1,22 @@
-import type { Account, Platform } from '@iam/contracts';
+import type { Account, AccountListFilter, Platform } from '@iam/contracts';
 
-import { useFixedOrderTable } from '../../../shared/api';
-import { usePermission } from '../../../shared/auth';
+import { useMe, usePermission } from '../../../shared/auth';
 import { useErrorMessage } from '../../../shared/i18n';
 import { accountsKeys, fetchAccountsPage } from '../api/accounts-api';
 import { canArchiveAccount, canEditAccount } from '../model/account-access';
 import { AccountsTable } from '../ui/accounts-table';
+import { AccountsToolbar } from '../ui/accounts-toolbar';
+
+import { useAccountListTable } from './use-account-list-table';
 
 export type MyAccountsPanelProps = {
   platforms: readonly Platform[];
   onEdit: (account: Account) => void;
   onArchive: (account: Account) => void;
 };
+
+const toAccountListFilter = (value: string | undefined): AccountListFilter | undefined =>
+  value === 'review' || value === 'no-2fa' ? value : undefined;
 
 /** Listado "Mis cuentas": las cuentas con acceso efectivo y las acciones que permiten permiso y nivel. */
 export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPanelProps) {
@@ -20,7 +25,9 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
   const hasUpdatePermission = usePermission('account.update');
   const hasArchivePermission = usePermission('account.archive');
 
-  const table = useFixedOrderTable({
+  const timeZone = useMe()?.user.timezone;
+
+  const table = useAccountListTable({
     queryKey: accountsKeys.mine(),
     fetchPage: fetchAccountsPage,
   });
@@ -39,6 +46,18 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
       onArchive={onArchive}
       refreshing={table.refreshing}
       paging={table}
+      hasActiveFilters={table.hasActiveFilters}
+      onClearFilters={table.clearFilters}
+      timeZone={timeZone}
+      toolbar={
+        <AccountsToolbar
+          searchDraft={table.draft}
+          onSearchChange={table.setDraft}
+          filter={toAccountListFilter(table.filter)}
+          onFilterChange={table.onFilterChange}
+          showQuickFilters
+        />
+      }
     />
   );
 }
