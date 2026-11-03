@@ -140,3 +140,11 @@ export type {
   SourceConnectionWrite,
 } from './application/ports/inbound-source-connection-repository.js';
 export { PgInboundSourceConnectionRepository } from './infrastructure/pg-inbound-source-connection-repository.js';
+export { NotifyResetRevealed } from './application/notify-reset-revealed.js';
+export type { NotifyResetRevealedDeps } from './application/notify-reset-revealed.js';
+export {
+  RESET_REVEAL_NOTICE_AGGREGATE,
+  RESET_REVEAL_NOTICE_EVENT_TYPE,
+  resetRevealNoticeHandlerKey,
+  serializeResetRevealNotice,
+} from './domain/reset-reveal-notice.js';

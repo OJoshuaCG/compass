@@ -77,6 +77,21 @@ export interface RankChangeNoticeMessage {
   readonly changedAt: Date;
 }
 
+/**
+ * Aviso a la Raíz de que alguien vio restablecimientos (códigos o enlaces) recibidos por una vista de códigos
+ * entrantes (ADR 0045). Dice quién, cuántos y cuándo. NO incluye el motivo (va a la auditoría), el valor, la
+ * dirección de la fuente, el nombre de la vista ni enlaces.
+ */
+export interface ResetRevealAlertMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  /** Nombre visible de la persona; `null` si ya no se puede resolver (el aviso sale igual, sin nombre). */
+  readonly actorDisplayName: string | null;
+  /** Restablecimientos revelados en esa petición (al menos uno). */
+  readonly revealedCount: number;
+  readonly occurredAt: Date;
+}
+
 /** Correo saliente detrás de un puerto (SES en producción; el proveedor es intercambiable). */
 export interface Mailer {
   sendInvitation(message: InvitationMessage): Promise<void>;
@@ -86,6 +101,8 @@ export interface Mailer {
   sendSecurityNotice(message: SecurityNoticeMessage): Promise<void>;
   /** Avisa a la Raíz de que una persona alcanzó el tope de revelaciones por hora (sin secretos ni credenciales). */
   sendRevealLimitAlert(message: RevealLimitAlertMessage): Promise<void>;
+  /** Avisa a la Raíz de que alguien vio restablecimientos de códigos entrantes (sin valores, motivos ni direcciones). */
+  sendResetRevealAlert(message: ResetRevealAlertMessage): Promise<void>;
   /** Avisa a quien registró un segundo factor de que sigue sin confirmarse pasadas 24 horas (sin secretos ni nombres). */
   sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void>;
   /** Avisa a la persona de que su rango cambió, con el nombre de quien lo hizo (sin motivo, roles ni enlaces). */

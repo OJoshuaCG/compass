@@ -6,6 +6,7 @@ import type {
   Mailer,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
+  ResetRevealAlertMessage,
   RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
@@ -48,6 +49,15 @@ export class LogMailer implements Mailer {
         occurredAt: message.occurredAt,
       },
       'reveal limit alert (dev)',
+    );
+    return Promise.resolve();
+  }
+
+  sendResetRevealAlert(message: ResetRevealAlertMessage): Promise<void> {
+    // Sin destinatario ni nombre de la persona: son datos personales y aquí solo importa el conteo.
+    this.logger.warn(
+      { revealedCount: message.revealedCount, occurredAt: message.occurredAt },
+      'reset reveal alert (dev)',
     );
     return Promise.resolve();
   }

@@ -110,7 +110,10 @@ import {
   PgInboundSourceConnectionRepository,
   PgInboundViewReader,
   PgInboundViewShareRepository,
+  NotifyResetRevealed,
   ReadInboundCodes,
+  RESET_REVEAL_NOTICE_EVENT_TYPE,
+  resetRevealNoticeHandlerKey,
 } from '../modules/inbound-codes/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
 import type { Clock } from '../shared/kernel/index.js';
@@ -255,6 +258,20 @@ export function buildContainer(options: ContainerOptions) {
   });
   outboxHandlers.register(RANK_CHANGE_NOTICE_EVENT_TYPE, (event) =>
     notifyRankChanged.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Aviso a la Raíz cada vez que alguien revela restablecimientos de una vista (ADR 0045, IC-5c).
+  const notifyResetRevealed = new NotifyResetRevealed({
+    directory,
+    mailer,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, resetRevealNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, resetRevealNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(RESET_REVEAL_NOTICE_EVENT_TYPE, (event) =>
+    notifyResetRevealed.handle({ eventId: event.id, payload: event.payload }),
   );
   // Aviso de seguridad a la dueña de la cuenta (hoy: baja de su app de autenticación). Solo a ella.
   const notifySecurityNotice = new NotifySecurityNotice({

@@ -4,6 +4,7 @@ import type {
   Mailer,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
+  ResetRevealAlertMessage,
   RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
@@ -52,6 +53,17 @@ export class InMemoryMailer implements Mailer {
       return Promise.reject(new Error('mail provider unavailable'));
     }
     this.revealLimitAlerts.push(message);
+    return Promise.resolve();
+  }
+
+  readonly resetRevealAlerts: ResetRevealAlertMessage[] = [];
+
+  sendResetRevealAlert(message: ResetRevealAlertMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.resetRevealAlerts.push(message);
     return Promise.resolve();
   }
 
