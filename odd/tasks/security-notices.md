@@ -44,8 +44,9 @@ Si un evento no existe todavía como flujo, no se inventa una regla de negocio: 
 - [x] Documentación: negocio, backend, traspaso.
 - [x] Aserción en `emergency.e2e.test.ts` de que el restablecimiento con código de emergencia encola el evento (escrita, sin ejecutar).
 - [ ] Revisión humana de las pruebas marcadas `SENSIBLE`.
-- [ ] Mutación deliberada (quitar el `enqueue` de `consumeRecoveryCode`) y comprobar que falla la aserción e2e; pendiente porque no se ha ejecutado ninguna prueba.
+- [x] Mutación deliberada (quitar el `enqueue` de `consumeRecoveryCode`) y comprobar que falla la aserción e2e (2026-11-02: falla `emergency.e2e.test.ts:172`).
 
 ## Bitácora
 
 - 2026-10-29: implementado el aviso de baja del TOTP por outbox; omitidos dispositivo nuevo y regeneración de códigos por no existir el flujo. Pruebas escritas sin ejecutar: renderizador, manejador, dominio del evento e integración. Formato, tipos y lint de `@iam/api` verificados; ninguna prueba se corrió.
+- 2026-11-02: pruebas ejecutadas por `test-runner` y en verde: renderizador, manejador, dominio del evento, `security-notice.test.ts`, integración con PostgreSQL real, `emergency.e2e.test.ts` y `passkeys.e2e.test.ts` (7 archivos, 61 de 61). Mutación deliberada: desactivar el `enqueue` de `totp_removed` en `second-factor.ts:257` hizo fallar `emergency.e2e.test.ts:172` (esperaba 1 evento en la bandeja de salida, hubo 0); el archivo se restauró y quedó idéntico a HEAD. Hallazgo: solo esa prueba e2e detecta la falta del aviso; las unitarias e integración del aviso no cubren el encolado desde `consumeRecoveryCode`. Sigue pendiente la revisión humana de las pruebas `SENSIBLE`.

@@ -1,6 +1,6 @@
 # D5 · Permiso propio para restaurar una versión de la contraseña
 
-Estado: **código y pruebas escritos, pruebas SIN ejecutar** (2026-10-30). Falta ejecutarlas y la revisión humana de las rutas protegidas.
+Estado: **pruebas ejecutadas y en verde (2026-11-02); mutación detectada**. Falta la revisión humana de las rutas protegidas y desplegar la 0021.
 
 Origen: lo encargó explícitamente el dueño y lo recomendó por unanimidad el panel de dos jueces (ciegos A y B). Cierra la decisión abierta de M2 en `odd/tasks/phase-1b-vault.md` ("¿permiso propio para restaurar?"). Es ruta protegida (acceso, migración con permisos de roles): la revisión humana es obligatoria.
 
@@ -57,3 +57,5 @@ Otras pruebas que enumeran `PERMISSIONS` se adaptan solas (`identity.e2e.test.ts
 ## Bitácora
 
 - 2026-10-30, D5 (código, migración, pruebas y documentación escritos; pruebas NO ejecutadas). Verificación estática al cierre: ver el reporte de la tarea. Pendiente: ejecución por otro agente, revisión humana (autorización, migración y auditoría), mutación a propósito.
+- 2026-11-02: pruebas ejecutadas por `test-runner`. En verde 7 de 8 archivos (140 de 141 pruebas), incluidas las dos de base de datos (`role-rank-ceiling` y `credential-restore-version-migration`) y la e2e de credenciales. Falla `credentials.test.tsx` › "is reachable from the accounts screen" (línea 123), y no es de D5: B6 (f37a3ac) validó el listado `GET /accounts` con `accountListItemSchema`, que exige `lastChangedAt` y `passwordAge`, y el fixture de la prueba (línea 37, tipo `Account`) no los trae; el listado no se valida y la tabla queda vacía. Corregir el fixture requiere decisión humana (regla: no tocar una prueba sin preguntar). Mutación a propósito: `manage-credentials.ts:219` exigiendo `credential.update` hizo fallar 6 pruebas (4 unitarias de `manage-credentials.restore-version.test.ts` y 2 SENSIBLE de `vault-credentials.e2e.test.ts`: 201 en vez de 403 y 403 en vez de 201); el archivo se restauró y quedó idéntico a HEAD. Pendientes: el fixture, la revisión humana y desplegar la 0021.
+- 2026-11-02: corregido el fixture de `credentials.test.tsx` (nuevo `accountListItemFixture` con `lastChangedAt: null` y `passwordAge: 'none'`, usado solo en el mock del listado `GET /accounts`); el archivo queda en verde (55 de 55). Las 8 pruebas de D5 pasan. Pendientes: revisión humana y desplegar la 0021.
