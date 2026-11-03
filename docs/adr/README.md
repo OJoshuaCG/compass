@@ -63,6 +63,7 @@ Plantilla: [`template.md`](template.md).
 | [0044](0044-identities-and-memberships-model.md) | Modelo de `identities` y `memberships` (`TODO.md` C5) | Propuesta (borrador; no bloquea la fase 1) | Cuando una persona deba entrar a varias organizaciones |
 | [0045](0045-inbound-codes-mail-and-sms.md) | Lectura de códigos entrantes por correo y SMS, compartida por vistas filtradas (encargo del dueño, 2026-10-30; `TODO.md` épica T) | Propuesta (borrador; subdominio, vía de recepción, proveedor de SMS y retención legal abiertos) | Antes de implementar la rebanada de migraciones (IC-2) |
 | [0046](0046-first-root-one-time-setup.md) | Alta de la primera organización y su Raíz por un enlace de un solo uso, sin rol privilegiado (encargo del dueño, 2026-11-02) | Aceptada | Al desplegar un entorno nuevo |
+| [0047](0047-user-configured-integrations.md) | Integraciones configurables por la persona administradora: alertas por Telegram (Raíz) y recepción de SMS por API genérica de consulta (encargo del dueño, 2026-11-03) | Aceptada | Al construir las integraciones |
 
 Las fases indicadas son una recomendación de este registro, no una decisión del plan.
 
