@@ -102,6 +102,7 @@ import {
   REVEAL_LIMIT_NOTICE_EVENT_TYPE,
   revealLimitNoticeHandlerKey,
 } from '../modules/vault/index.js';
+import { PgInboundViewReader, ReadInboundCodes } from '../modules/inbound-codes/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
 import type { Clock } from '../shared/kernel/index.js';
 import { AsyncLocalRequestContext } from '../shared/infrastructure/async-local-request-context.js';
@@ -468,6 +469,16 @@ export function buildContainer(options: ContainerOptions) {
       ids,
       clock,
       confirmAttempts: new InMemoryTotpConfirmAttemptStore(),
+    }),
+    readInboundCodes: new ReadInboundCodes({
+      context: requestContext,
+      uow,
+      authorizer,
+      views: new PgInboundViewReader(uow),
+      cipher,
+      audit,
+      auditCounter: auditEvents,
+      clock,
     }),
     idempotency: new IdempotencyService({
       scope,

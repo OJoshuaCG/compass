@@ -107,3 +107,12 @@ export { AuthenticationResultsVerifier } from './infrastructure/authentication-r
 export { ImapFlowMailboxConnector } from './infrastructure/imapflow-mailbox-connector.js';
 export { ChildProcessMimeParser } from './infrastructure/mime-child-process-parser.js';
 export { NetworkGuard } from './infrastructure/network-guard.js';
+export { ReadInboundCodes } from './application/read-inbound-codes.js';
+export type {
+  DeliveredInboundCode,
+  InboundHistoryEntry,
+  InboundHistoryPage,
+  ReadInboundCodesDeps,
+} from './application/read-inbound-codes.js';
+export type { InboundViewReader } from './application/ports/inbound-view-reader.js';
+export { PgInboundViewReader } from './infrastructure/pg-inbound-view-reader.js';

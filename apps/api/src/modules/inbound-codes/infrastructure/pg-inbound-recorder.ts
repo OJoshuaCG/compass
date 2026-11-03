@@ -81,8 +81,8 @@ export class PgInboundRecorder implements InboundRecorder {
         const receipt = await this.transactions.current().query(
           `insert into inbound_receipts
              (organization_id, source_id, message_fingerprint, outcome, signing_domain,
-              template_kind, item_id, received_at)
-           values ($1, $2, $3, 'accepted', $4, $5, $6, $7)
+              template_kind, template_id, item_id, received_at)
+           values ($1, $2, $3, 'accepted', $4, $5, $6, $7, $8)
            on conflict (organization_id, source_id, message_fingerprint) do nothing
            returning id`,
           [
@@ -91,6 +91,7 @@ export class PgInboundRecorder implements InboundRecorder {
             record.fingerprint,
             record.signingDomain,
             record.kind,
+            record.templateId,
             itemId,
             record.receivedAt,
           ],

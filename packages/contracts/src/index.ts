@@ -230,3 +230,20 @@ export {
   firstSetupResponseSchema,
 } from './first-setup.js';
 export type { FirstSetupRequest, FirstSetupResponse } from './first-setup.js';
+export {
+  INBOUND_TEMPLATE_KINDS,
+  inboundCodeSchema,
+  inboundCodesResponseSchema,
+  inboundHistoryQuerySchema,
+  inboundHistoryResponseSchema,
+  inboundReceiptSchema,
+  inboundTemplateKindSchema,
+} from './inbound.js';
+export type {
+  InboundCode,
+  InboundCodesResponse,
+  InboundHistoryQuery,
+  InboundHistoryResponse,
+  InboundReceipt,
+  InboundTemplateKind,
+} from './inbound.js';
