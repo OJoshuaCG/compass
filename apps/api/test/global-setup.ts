@@ -5,6 +5,7 @@ import type { TestProject } from 'vitest/node';
 
 export const APP_PASSWORD = 'app-test-pw';
 export const MIGRATOR_PASSWORD = 'migrator-test-pw';
+export const INBOUND_WORKER_PASSWORD = 'inbound-worker-test-pw';
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -23,6 +24,7 @@ export default async function setup(project: TestProject): Promise<() => Promise
   try {
     await admin.query(`alter role iam_migrator login password '${MIGRATOR_PASSWORD}'`);
     await admin.query(`alter role iam_app login password '${APP_PASSWORD}'`);
+    await admin.query(`alter role iam_inbound_worker login password '${INBOUND_WORKER_PASSWORD}'`);
   } finally {
     await admin.end();
   }

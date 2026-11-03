@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { bootstrapRoles, migrate } from '@iam/db';
 import { Client, Pool } from 'pg';
 
-import { APP_PASSWORD, MIGRATOR_PASSWORD } from '../global-setup.js';
+import { APP_PASSWORD, INBOUND_WORKER_PASSWORD, MIGRATOR_PASSWORD } from '../global-setup.js';
 
 export interface TestDatabase {
   readonly adminUrl: string;
@@ -68,4 +68,16 @@ export async function createTestDatabase(clusterAdminUrl: string): Promise<TestD
       await admin.end();
     },
   };
+}
+
+/**
+ * Pool con el rol `iam_inbound_worker` (sin BYPASSRLS), el mismo que usará el proceso de sondeo. El login
+ * del rol se habilita una sola vez para todo el clúster en `global-setup.ts`. Es una función aparte y no
+ * parte de `createTestDatabase` para que solo lo pague el test que de verdad lo necesita.
+ */
+export function openInboundWorkerPool(db: TestDatabase): Pool {
+  const url = new URL(db.adminUrl);
+  url.username = 'iam_inbound_worker';
+  url.password = INBOUND_WORKER_PASSWORD;
+  return new Pool({ connectionString: url.toString(), max: 4 });
 }

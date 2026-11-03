@@ -87,3 +87,10 @@ export type {
   SourceRef,
 } from './application/ports/poll-state-store.js';
 export * as pollPolicy from './domain/poll-policy.js';
+export { inboundItemContext, INBOUND_ITEM_VALUE_FIELD } from './domain/inbound-item-context.js';
+export { PgInboundRecorder } from './infrastructure/pg-inbound-recorder.js';
+export { PgMailConnectionLoader } from './infrastructure/pg-mail-connection-loader.js';
+export { PgPollStateStore } from './infrastructure/pg-poll-state-store.js';
+export { PgSourceTemplateStore } from './infrastructure/pg-source-template-store.js';
+export { ReadOnlyDataKeyRepository } from './infrastructure/read-only-data-key-repository.js';
+export { Sha256MessageFingerprinter } from './infrastructure/sha256-message-fingerprinter.js';
