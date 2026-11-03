@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { asOrganizationId } from '../../../shared/kernel/index.js';
 import type { TenantScope } from '../../organization/index.js';
-import type { OutboxRetentionStore, ReplacedTotpSecretStore } from './ports/purge-ports.js';
+import type {
+  ArchivedSourcePollStateStore,
+  OutboxRetentionStore,
+  ReplacedTotpSecretStore,
+} from './ports/purge-ports.js';
 import {
   EXPIRED_RETENTION_GRACE_MS,
   OUTBOX_RETENTION_DAYS,
@@ -26,6 +30,10 @@ const noReplacedTotpSecrets: ReplacedTotpSecretStore = {
   purgeReplacedTotpSecrets: () => Promise.resolve(0),
 };
 
+const noArchivedSourcePollState: ArchivedSourcePollStateStore = {
+  purgeArchivedSourcePollState: () => Promise.resolve(0),
+};
+
 const noPublishedOutboxEvents: OutboxRetentionStore = {
   purgePublishedEvents: () => Promise.resolve({ events: 0, deliveries: 0 }),
 };
@@ -45,6 +53,7 @@ describe('PurgeExpiredEphemeral', () => {
       },
       replacedTotpSecrets: noReplacedTotpSecrets,
       outboxRetention: noPublishedOutboxEvents,
+      archivedSourcePollState: noArchivedSourcePollState,
       scope: passthroughScope,
       ids: { next: () => 'req-1' },
       clock: { now: () => NOW },
@@ -68,6 +77,7 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_BROKEN, ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(1),
@@ -104,6 +114,7 @@ describe('PurgeExpiredEphemeral', () => {
         },
       },
       outboxRetention: noPublishedOutboxEvents,
+      archivedSourcePollState: noArchivedSourcePollState,
       scope: passthroughScope,
       ids: { next: () => 'req-1' },
       clock: { now: () => NOW },
@@ -127,6 +138,7 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(0),
@@ -155,6 +167,7 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_BROKEN, ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(0),
@@ -200,6 +213,7 @@ describe('PurgeExpiredEphemeral', () => {
           return Promise.resolve({ events, deliveries: events * 2 });
         },
       },
+      archivedSourcePollState: noArchivedSourcePollState,
       scope: passthroughScope,
       ids: { next: () => 'req-1' },
       clock: { now: () => NOW },
@@ -225,6 +239,7 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(0),
@@ -255,6 +270,7 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_BROKEN, ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(0),

@@ -26,3 +26,13 @@ export type {
 } from './domain/inbound-template.js';
 export type { ItemVisibility } from './domain/inbound-classification.js';
 export { isItemExpired } from './domain/item-validity.js';
+export { ReencryptMailSourcePasswords } from './application/reencrypt-mail-source-passwords.js';
+export type {
+  MailConnectionSecretStore,
+  StaleMailPassword,
+} from './application/ports/mail-connection-secret-store.js';
+export { PgMailConnectionSecretStore } from './infrastructure/pg-mail-connection-secret-store.js';
+export {
+  MAIL_SOURCE_PASSWORD_FIELD,
+  mailSourcePasswordContext,
+} from './domain/mail-source-password-context.js';

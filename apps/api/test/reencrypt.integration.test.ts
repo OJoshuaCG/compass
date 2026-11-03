@@ -13,6 +13,11 @@ import {
   SecretCipher,
 } from '../src/modules/crypto/index.js';
 import { PgCredentialRepository, ReencryptTotpSecrets } from '../src/modules/identity/index.js';
+import {
+  PgMailConnectionSecretStore,
+  ReencryptMailSourcePasswords,
+  mailSourcePasswordContext,
+} from '../src/modules/inbound-codes/index.js';
 import { PgOrganizationLister, ReencryptSecrets } from '../src/modules/maintenance/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../src/modules/organization/index.js';
 import { AsyncLocalRequestContext } from '../src/shared/infrastructure/async-local-request-context.js';
@@ -253,5 +258,139 @@ describe('DEK re-encryption (ADR 0040)', () => {
     );
     expect(secondBatch).toMatchObject({ resealed: 1, failed: 0, examined: 1 });
     expect(await versionsOf(poisoned)).toEqual([1, 2]);
+  });
+});
+
+describe('DEK re-encryption of mail source passwords (ADR 0040, ADR 0045)', () => {
+  let organization: OrganizationId;
+  let store: PgMailConnectionSecretStore;
+  let mailReencryptor: ReencryptMailSourcePasswords;
+  let mailJob: ReencryptSecrets;
+  let withPassword: string;
+  let withoutPassword: string;
+
+  async function seedConnection(
+    org: OrganizationId,
+    userId: UserId,
+    address: string,
+    password: string | null,
+  ): Promise<string> {
+    const source = await db.admin.query<{ id: string }>(
+      `insert into mail_sources (organization_id, channel, address, display_name, created_by)
+       values ($1, 'mail', $2, 'Buzón', $3) returning id`,
+      [org, address, userId],
+    );
+    const sourceId = source.rows[0]?.id;
+    if (sourceId === undefined) throw new Error('seed failed');
+    let ciphertext: Buffer | null = null;
+    let nonce: Buffer | null = null;
+    let dekVersion: number | null = null;
+    if (password !== null) {
+      const sealed = await inOrg(org, () =>
+        cipher.encrypt(mailSourcePasswordContext(org, sourceId, 1), text(password)),
+      );
+      if (!sealed.ok) throw new Error(sealed.error.code);
+      ciphertext = Buffer.from(sealed.value.ciphertext);
+      nonce = Buffer.from(sealed.value.nonce);
+      dekVersion = sealed.value.dekVersion;
+    }
+    await db.admin.query(
+      `insert into mail_source_connections
+         (organization_id, source_id, host, port, username, tls_mode, authserv_id, accepted_recipients,
+          password_ciphertext, password_nonce, dek_version, created_by)
+       values ($1, $2, 'imap.example.test', 993, 'codes', 'tls', 'mx.example.test', array[$3::text], $4, $5, $6, $7)`,
+      [org, sourceId, address, ciphertext, nonce, dekVersion, userId],
+    );
+    return sourceId;
+  }
+
+  async function dekVersionOf(sourceId: string): Promise<number | null> {
+    const row = await db.admin.query<{ dek_version: number | null }>(
+      'select dek_version from mail_source_connections where source_id = $1',
+      [sourceId],
+    );
+    return row.rows[0]?.dek_version ?? null;
+  }
+
+  async function openPassword(sourceId: string): Promise<string> {
+    return inOrg(organization, async () => {
+      const rows = await db.admin.query<{
+        password_ciphertext: Buffer;
+        password_nonce: Buffer;
+        dek_version: number;
+        secret_version: number;
+      }>(
+        'select password_ciphertext, password_nonce, dek_version, secret_version from mail_source_connections where source_id = $1',
+        [sourceId],
+      );
+      const row = rows.rows[0];
+      if (row === undefined) throw new Error('no connection');
+      const opened = await cipher.decrypt(
+        mailSourcePasswordContext(organization, sourceId, row.secret_version),
+        {
+          ciphertext: new Uint8Array(row.password_ciphertext),
+          nonce: new Uint8Array(row.password_nonce),
+          dekVersion: row.dek_version,
+        },
+      );
+      if (!opened.ok) throw new Error(opened.error.code);
+      return read(opened.value);
+    });
+  }
+
+  beforeAll(async () => {
+    organization = asOrganizationId(await db.seedOrganization('reenc-mail'));
+    const owner = await seedUser(organization, 'dueno@reenc-mail.test');
+    withPassword = await seedConnection(organization, owner, 'con@reenc-mail.test', 'IMAP-SECRET');
+    withoutPassword = await seedConnection(organization, owner, 'sin@reenc-mail.test', null);
+    store = new PgMailConnectionSecretStore(uow);
+    mailReencryptor = new ReencryptMailSourcePasswords({ store, cipher });
+    mailJob = new ReencryptSecrets({
+      organizations: new PgOrganizationLister(db.appPool),
+      reencryptors: [mailReencryptor],
+      scope: new PgTenantScope(requestContext, uow),
+      ids: new UuidV7Generator(),
+      clock: new SystemClock(),
+    });
+  });
+
+  it('recrypts the password with the active DEK and it still opens with the same context', async () => {
+    await inOrg(organization, () => keys.rotate(organization));
+    expect(await inOrg(organization, () => mailReencryptor.countPending(organization))).toBe(1);
+
+    const summary = await mailJob.execute();
+
+    const report = summary.reports.find((r) => r.organizationId === organization);
+    expect(report).toMatchObject({ resealed: 1, conflicts: 0, failed: 0, pending: 0 });
+    expect(await dekVersionOf(withPassword)).toBe(2);
+    expect(await openPassword(withPassword)).toBe('IMAP-SECRET');
+  });
+
+  it('leaves a connection without password alone', async () => {
+    expect(await dekVersionOf(withoutPassword)).toBeNull();
+  });
+
+  it('refuses to replace a password whose DEK or secret version changed meanwhile', async () => {
+    const replaced = await inOrg(organization, async () => {
+      const wrongSecretVersion = await store.replacePassword({
+        sourceId: withPassword,
+        expectedDekVersion: 2,
+        expectedSecretVersion: 9,
+        ciphertext: new Uint8Array(32),
+        nonce: new Uint8Array(12),
+        dekVersion: 2,
+      });
+      const wrongDekVersion = await store.replacePassword({
+        sourceId: withPassword,
+        expectedDekVersion: 1,
+        expectedSecretVersion: 1,
+        ciphertext: new Uint8Array(32),
+        nonce: new Uint8Array(12),
+        dekVersion: 2,
+      });
+      return { wrongSecretVersion, wrongDekVersion };
+    });
+    expect(replaced).toEqual({ wrongSecretVersion: false, wrongDekVersion: false });
+    expect(await openPassword(withPassword)).toBe('IMAP-SECRET');
   });
 });

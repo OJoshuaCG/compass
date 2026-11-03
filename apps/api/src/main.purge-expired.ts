@@ -12,6 +12,7 @@ import {
   PurgeExpiredEphemeral,
   PgExpiredEphemeralStore,
   PgOrganizationLister,
+  PgArchivedSourcePollStateStore,
   PgOutboxRetentionStore,
   PgReplacedTotpSecretStore,
 } from './modules/maintenance/index.js';
@@ -36,13 +37,14 @@ try {
     store: new PgExpiredEphemeralStore(uow),
     replacedTotpSecrets: new PgReplacedTotpSecretStore(uow),
     outboxRetention: new PgOutboxRetentionStore(uow),
+    archivedSourcePollState: new PgArchivedSourcePollStateStore(uow),
     scope: new PgTenantScope(requestContext, uow),
     ids: new UuidV7Generator(),
     clock: new SystemClock(),
   }).execute();
 
   process.stdout.write(
-    `Organizaciones: ${String(summary.organizations)}; claves de idempotencia borradas: ${String(summary.idempotencyKeys)}; desafíos borrados: ${String(summary.webauthnChallenges)}; versiones de segundo factor reemplazadas borradas: ${String(summary.replacedTotpSecrets)}; eventos del outbox borrados: ${String(summary.outboxEvents)}; acuses del outbox borrados: ${String(summary.outboxDeliveries)}; organizaciones con fallo: ${String(summary.failedOrganizations.length)}\n`,
+    `Organizaciones: ${String(summary.organizations)}; claves de idempotencia borradas: ${String(summary.idempotencyKeys)}; desafíos borrados: ${String(summary.webauthnChallenges)}; versiones de segundo factor reemplazadas borradas: ${String(summary.replacedTotpSecrets)}; eventos del outbox borrados: ${String(summary.outboxEvents)}; acuses del outbox borrados: ${String(summary.outboxDeliveries)}; estados de sondeo de fuentes archivadas borrados: ${String(summary.archivedSourcePollStates)}; organizaciones con fallo: ${String(summary.failedOrganizations.length)}\n`,
   );
   for (const failure of summary.failedOrganizations) {
     process.stderr.write(`Falló la organización ${failure.organizationId}: ${failure.reason}\n`);

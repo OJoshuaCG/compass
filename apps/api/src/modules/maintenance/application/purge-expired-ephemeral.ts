@@ -1,6 +1,7 @@
 import type { Clock, IdGenerator, OrganizationId } from '../../../shared/kernel/index.js';
 import type { TenantScope } from '../../organization/index.js';
 import type {
+  ArchivedSourcePollStateStore,
   ExpiredEphemeralStore,
   OrganizationLister,
   OutboxRetentionStore,
@@ -50,6 +51,7 @@ interface PurgeTally {
   replacedTotpSecrets: number;
   outboxEvents: number;
   outboxDeliveries: number;
+  archivedSourcePollStates: number;
 }
 
 export interface PurgeSummary {
@@ -62,6 +64,8 @@ export interface PurgeSummary {
   readonly outboxEvents: number;
   /** Acuses de entrega (`outbox_deliveries`) de esos eventos, borrados con ellos. */
   readonly outboxDeliveries: number;
+  /** Estados de sondeo de fuentes de correo archivadas (IC-3a), ya borrados. */
+  readonly archivedSourcePollStates: number;
   /** Organizaciones cuyo borrado falló; el resto se procesó igual. */
   readonly failedOrganizations: readonly OrganizationFailure[];
 }
@@ -71,6 +75,7 @@ interface Dependencies {
   readonly store: ExpiredEphemeralStore;
   readonly replacedTotpSecrets: ReplacedTotpSecretStore;
   readonly outboxRetention: OutboxRetentionStore;
+  readonly archivedSourcePollState: ArchivedSourcePollStateStore;
   readonly scope: TenantScope;
   readonly ids: IdGenerator;
   readonly clock: Clock;
@@ -100,6 +105,7 @@ export class PurgeExpiredEphemeral {
       replacedTotpSecrets: 0,
       outboxEvents: 0,
       outboxDeliveries: 0,
+      archivedSourcePollStates: 0,
     };
     const failedOrganizations: OrganizationFailure[] = [];
 
@@ -125,6 +131,7 @@ export class PurgeExpiredEphemeral {
       replacedTotpSecrets: tally.replacedTotpSecrets,
       outboxEvents: tally.outboxEvents,
       outboxDeliveries: tally.outboxDeliveries,
+      archivedSourcePollStates: tally.archivedSourcePollStates,
       failedOrganizations,
     };
   }
@@ -174,6 +181,15 @@ export class PurgeExpiredEphemeral {
       },
       (deleted) => {
         tally.outboxEvents += deleted;
+      },
+    );
+    await this.drain(
+      (limit) =>
+        this.inBatch(organizationId, () =>
+          this.deps.archivedSourcePollState.purgeArchivedSourcePollState(limit),
+        ),
+      (deleted) => {
+        tally.archivedSourcePollStates += deleted;
       },
     );
   }

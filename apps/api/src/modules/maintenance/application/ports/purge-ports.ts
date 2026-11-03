@@ -41,3 +41,12 @@ export interface OutboxRetentionBatchResult {
 export interface OutboxRetentionStore {
   purgePublishedEvents(publishedBefore: Date, limit: number): Promise<OutboxRetentionBatchResult>;
 }
+
+/**
+ * Borra, en la organización en curso, el estado de sondeo (`mail_source_poll_state`) de las fuentes de
+ * correo archivadas (ADR 0045, IC-3a): una fuente archivada ya no se sondea y su cursor no sirve. Cada
+ * llamada borra como máximo `limit` filas. Solo toca metadatos del cursor; no lee secretos.
+ */
+export interface ArchivedSourcePollStateStore {
+  purgeArchivedSourcePollState(limit: number): Promise<number>;
+}

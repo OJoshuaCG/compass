@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import {
+  PgArchivedSourcePollStateStore,
   PgExpiredEphemeralStore,
   PgOrganizationLister,
   PgOutboxRetentionStore,
@@ -81,6 +82,7 @@ beforeAll(async () => {
     organizations: new PgOrganizationLister(db.appPool),
     store: new PgExpiredEphemeralStore(uow),
     replacedTotpSecrets: new PgReplacedTotpSecretStore(uow),
+    archivedSourcePollState: new PgArchivedSourcePollStateStore(uow),
     outboxRetention: new PgOutboxRetentionStore(uow),
     scope: new PgTenantScope(requestContext, uow),
     ids: new UuidV7Generator(),
@@ -488,5 +490,58 @@ describe('PurgeExpiredEphemeral: outbox retention (D6)', () => {
     );
 
     expect(result.rows[0]).toEqual({ can_delete: true, can_update: false });
+  });
+
+  // SENSIBLE (revisión humana): solo se borra el cursor de fuentes archivadas, nunca el de las vivas.
+  describe('poll state of archived mail sources (IC-3a)', () => {
+    async function seedSourceWithPollState(
+      organizationId: string,
+      userId: string,
+      address: string,
+      status: 'active' | 'suspended' | 'archived',
+    ): Promise<string> {
+      const source = await db.admin.query<{ id: string }>(
+        `insert into mail_sources (organization_id, channel, address, display_name, created_by, status, archived_at)
+         values ($1, 'mail', $2, 'Buzón', $3, $4, case when $4 = 'archived' then now() else null end)
+         returning id`,
+        [organizationId, address, userId, status],
+      );
+      const sourceId = source.rows[0]?.id;
+      if (sourceId === undefined) throw new Error('seed failed');
+      await db.admin.query(
+        'insert into mail_source_poll_state (organization_id, source_id) values ($1, $2)',
+        [organizationId, sourceId],
+      );
+      return sourceId;
+    }
+
+    async function pollStateExists(sourceId: string): Promise<boolean> {
+      const result = await db.admin.query(
+        'select 1 from mail_source_poll_state where source_id = $1',
+        [sourceId],
+      );
+      return result.rowCount === 1;
+    }
+
+    it('deletes the state of archived sources in every organization and keeps active and suspended ones', async () => {
+      const archivedA = await seedSourceWithPollState(orgA, userA, 'old-a@purge.test', 'archived');
+      const activeA = await seedSourceWithPollState(orgA, userA, 'live-a@purge.test', 'active');
+      const suspendedA = await seedSourceWithPollState(
+        orgA,
+        userA,
+        'pause-a@purge.test',
+        'suspended',
+      );
+      const archivedB = await seedSourceWithPollState(orgB, userB, 'old-b@purge.test', 'archived');
+
+      const summary = await purge.execute();
+
+      expect(summary.failedOrganizations).toEqual([]);
+      expect(summary.archivedSourcePollStates).toBe(2);
+      expect(await pollStateExists(archivedA)).toBe(false);
+      expect(await pollStateExists(archivedB)).toBe(false);
+      expect(await pollStateExists(activeA)).toBe(true);
+      expect(await pollStateExists(suspendedA)).toBe(true);
+    });
   });
 });
