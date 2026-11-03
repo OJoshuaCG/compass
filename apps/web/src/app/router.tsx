@@ -178,6 +178,15 @@ const inboundViewRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/inbound-view-route'), 'InboundViewRoute'),
 });
 
+const inboundViewSharesRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/inbound/views/$viewId/shares',
+  component: lazyRouteComponent(
+    () => import('../routes/inbound-view-shares-route'),
+    'InboundViewSharesRoute',
+  ),
+});
+
 // El catálogo solo existe en desarrollo: en producción el `import()` queda como código muerto
 // (se elimina del bundle) y la ruta responde 404.
 const loadCatalog = import.meta.env.DEV
@@ -218,6 +227,7 @@ const routeTree = rootRoute.addChildren([
     sharesRoute,
     inboundRoute,
     inboundViewRoute,
+    inboundViewSharesRoute,
     inboundSourcesRoute,
     inboundViewSettingsRoute,
     catalogRoute,

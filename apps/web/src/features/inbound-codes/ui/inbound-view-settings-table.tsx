@@ -1,11 +1,12 @@
 import type { InboundConfigurableView } from '@iam/contracts';
-import { Badge, Button, DataTable, EmptyState, type Column } from '@iam/ui';
+import { Badge, Button, buttonVariants, DataTable, EmptyState, type Column } from '@iam/ui';
+import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDataTableLabels } from '../../../shared/i18n';
 import { formatDateTime, type ClientPagination } from '../../../shared/lib';
-import { canArchiveView, canEditView } from '../model/inbound-view-model';
+import { canArchiveView, canEditView, canManageViewShares } from '../model/inbound-view-model';
 
 const NO_OP = () => undefined;
 
@@ -19,6 +20,8 @@ export type InboundViewSettingsTableProps = {
   onRetry: () => void;
   onEdit: (view: InboundConfigurableView) => void;
   onArchive: (view: InboundConfigurableView) => void;
+  /** Si la persona tiene el permiso `share.manage`; junto con MANAGE ofrece los accesos de la vista. */
+  hasSharePermission: boolean;
   /** El servidor entrega el listado completo (tope de 200): se pagina en memoria. */
   paging: Pick<ClientPagination<InboundConfigurableView>, 'limit' | 'onLimitChange' | 'pagination'>;
   /** Zona horaria del perfil para la fecha de alta. */
@@ -37,6 +40,7 @@ export function InboundViewSettingsTable({
   onRetry,
   onEdit,
   onArchive,
+  hasSharePermission,
   paging,
   timeZone,
 }: InboundViewSettingsTableProps) {
@@ -102,6 +106,16 @@ export function InboundViewSettingsTable({
             >
               {t('viewSettings.action.edit')}
             </Button>
+          ) : null}
+          {canManageViewShares(hasSharePermission, row) ? (
+            <Link
+              to="/inbound/views/$viewId/shares"
+              params={{ viewId: row.id }}
+              className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+              aria-label={t('viewSettings.action.sharesLabel', { name: row.name })}
+            >
+              {t('viewSettings.action.shares')}
+            </Link>
           ) : null}
           {canArchiveView(row) ? (
             <Button

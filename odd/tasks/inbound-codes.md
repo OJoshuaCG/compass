@@ -61,7 +61,7 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | **Hecha 2026-11-02** (jueces A/B, mutación; falta el e2e HTTP y la web) |
 | IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | En curso: **IC-5b-1 hecha** (compartir y revocar vistas); **IC-5b-2 hecha** (alta, edición y archivo de fuentes y vistas); **IC-5b-3 hecha** (conexión: contraseña, `acceptedRecipients`, reautenticación) |
 | IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | En curso: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); **IC-5c-2 hecha** (tareas de rotación al revocar) |
-| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API), IC-6b (web de lectura) e IC-6c (revelación de restablecimientos) , IC-6d-1 (listados para configurar), IC-6d-2 (web de fuentes) IC-6d-3 (conexión IMAP) e IC-6d-4 (configuración de vistas) hechas; faltan las comparticiones de vistas (IC-6d-5) |
+| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API), IC-6b (web de lectura) e IC-6c (revelación de restablecimientos) , IC-6d-1 (listados para configurar), IC-6d-2 (web de fuentes) IC-6d-3 (conexión IMAP), IC-6d-4 (configuración de vistas) e IC-6d-5 (comparticiones de vistas) hechas |
 | IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Se cubre en `odd/tasks/integrations.md` (T5, "completa IC-7"), de otra sesión: no se duplica aquí |
 | IC-8 | Adaptadores reales y operación: recepción de correo, proveedor de SMS, DNS (SPF, DKIM, DMARC), runbook, `docs/threat-model.md`, `docs/database.md` y `docs/backend.md`, alcance de la prueba de intrusión | IC-5c más las decisiones abiertas | **Bloqueada** por decisiones |
 
@@ -385,3 +385,20 @@ Candidato: solo el commit `e0cab4e` (el rango completo de 7125 líneas excedió 
 - `INBOUND.VIEW_NAME_TAKEN` e `INBOUND.TEMPLATE_INVALID` se muestran en su campo.
 - Pruebas dirigidas en verde: 7 archivos, 126 pruebas. También pasan prettier, eslint y tsc de `apps/web`. Esta rebanada no maneja secretos ni permisos nuevos, así que no pasó por jueces ciegos.
 
+### 2026-11-03 · IC-6d-5 hecha (comparticiones de vistas)
+
+- Nueva pantalla `/inbound/views/:viewId/shares`, enlazada desde la configuración de vistas con el botón «Accesos». Lista con quién se comparte la vista y permite compartirla y revocar accesos.
+- Solo se ofrece con las dos llaves del servidor: el permiso `share.manage` y MANAGE sobre la vista. Sin alguna de ellas, la página responde igual que a una vista que no existe y no pide el listado, porque el servidor lo negaría y cada intento quedaría como una negación en la auditoría.
+- El formulario de compartir y la tabla de accesos de las cuentas pasaron a ser genéricos en el feature `shares` (`ShareWithPersonForm`, `SharesTable`). Las vistas los reutilizan con sus propios textos y con el significado de cada nivel en una vista.
+- Jueces ciegos A y B. Ambos confirmaron dos cosas y las corregí:
+  1. La página pedía el listado de accesos sin las dos llaves.
+  2. Un 404 al revocar se anunciaba como éxito. El servidor responde igual cuando quien revoca perdió la vista, así que ahora el error queda a la vista y se recargan los listados.
+- Lo que señaló un solo juez lo verifiqué en el código y también lo corregí:
+  - Una respuesta tardía podía cerrar otro diálogo; ahora el cierre es por tipo de diálogo.
+  - El botón de confirmar ya no queda activo durante la espera por límite de intentos.
+  - Los nombres de los niveles quedaron alineados con la tabla (Usar, Ver, Editar, Administrar).
+  - La descripción de la página dice ahora «quién tiene acceso».
+  - Queda sin hacer, por menor: los estados de error y de no encontrada no tienen encabezado propio.
+- Ronda de mutaciones. Cuatro mutaciones, las cuatro atrapadas: administrar los accesos por debajo de MANAGE, 404 como éxito, pedir el listado sin las llaves y revocar con un identificador equivocado. Después restauré los archivos y comprobé con `cmp` que quedaron idénticos.
+- Pruebas: `inbound-view-shares.test.tsx` en verde. En `shares.test.tsx` falla una sola prueba, «is reachable from the accounts screen», y es ajena a esta rebanada. Su fixture de `GET /accounts` no trae `lastChangedAt` ni `passwordAge`, que el esquema `accountListItemSchema` exige desde el cambio de otra sesión. No la toqué porque corregir una prueba requiere consultarlo.
+- Limitación: el texto de `SHARE.ALREADY_EXISTS` habla de «acceso a la cuenta». El catálogo `errors.json` lo lleva otra sesión.

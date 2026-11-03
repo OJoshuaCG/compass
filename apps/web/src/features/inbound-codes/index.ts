@@ -5,3 +5,5 @@ export { InboundViewPage } from './containers/inbound-view-page';
 export { InboundSourcesPage } from './containers/inbound-sources-page';
 /** Configuración de las vistas de las fuentes (permiso `inbound.configure`). */
 export { InboundViewSettingsPage } from './containers/inbound-view-settings-page';
+/** Con quién se comparte una vista (permiso `share.manage` y MANAGE sobre la vista). */
+export { InboundViewSharesPage } from './containers/inbound-view-shares-page';

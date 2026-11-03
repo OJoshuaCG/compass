@@ -6,8 +6,14 @@ import { useTranslation } from 'react-i18next';
 import { useDataTableLabels } from '../../../shared/i18n';
 import { formatDateTime, useClientPagination } from '../../../shared/lib';
 
-export type SharesTableProps = {
-  shares: Share[];
+/** Campos comunes a toda compartición (de cuenta o de vista de códigos) que la tabla muestra. */
+export type ShareRow = Pick<
+  Share,
+  'id' | 'granteeType' | 'granteeName' | 'level' | 'expiresAt' | 'createdAt'
+>;
+
+export type SharesTableProps<Row extends ShareRow> = {
+  shares: Row[];
   status: 'loading' | 'success' | 'error';
   /** Mensaje ya traducido del error de carga. */
   errorMessage: string;
@@ -16,7 +22,12 @@ export type SharesTableProps = {
   timeZone: string | undefined;
   /** Decisión de comodidad (permiso + nivel) que toma el container; el servidor decide siempre. */
   canRevoke: boolean;
-  onRevoke: (share: Share) => void;
+  onRevoke: (share: Row) => void;
+  /**
+   * Textos que dependen del recurso compartido, ya traducidos. Sin ellos se usan los de una cuenta
+   * de la bóveda.
+   */
+  copy?: { caption: string; emptyTitle: string; emptyDescription: string } | undefined;
 };
 
 const NO_OP = () => undefined;
@@ -26,7 +37,7 @@ const NO_OP = () => undefined;
  * (el tipo va como texto, no solo como color). El listado llega completo, sin cursor: se pagina
  * en memoria y el pie se muestra siempre porque la lista puede crecer.
  */
-export function SharesTable({
+export function SharesTable<Row extends ShareRow>({
   shares,
   status,
   errorMessage,
@@ -34,12 +45,13 @@ export function SharesTable({
   timeZone,
   canRevoke,
   onRevoke,
-}: SharesTableProps) {
+  copy,
+}: SharesTableProps<Row>) {
   const { t, i18n } = useTranslation('shares');
   const labels = useDataTableLabels();
   const paging = useClientPagination(shares);
 
-  const columns = useMemo<Column<Share>[]>(
+  const columns = useMemo<Column<Row>[]>(
     () => [
       { id: 'grantee', header: t('col.grantee'), cell: (row) => row.granteeName },
       {
@@ -66,8 +78,8 @@ export function SharesTable({
   );
 
   return (
-    <DataTable<Share>
-      caption={t('caption')}
+    <DataTable<Row>
+      caption={copy?.caption ?? t('caption')}
       columns={columns}
       rows={paging.pageRows}
       getRowId={(row) => row.id}
@@ -77,7 +89,12 @@ export function SharesTable({
       onLimitChange={paging.onLimitChange}
       pagination={paging.pagination}
       labels={labels}
-      emptyState={<EmptyState title={t('empty.title')} description={t('empty.description')} />}
+      emptyState={
+        <EmptyState
+          title={copy?.emptyTitle ?? t('empty.title')}
+          description={copy?.emptyDescription ?? t('empty.description')}
+        />
+      }
       errorState={{ message: errorMessage, onRetry }}
       rowActions={
         canRevoke

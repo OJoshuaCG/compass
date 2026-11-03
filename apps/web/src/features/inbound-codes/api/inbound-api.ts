@@ -8,8 +8,10 @@ import {
   inboundSourcesResponseSchema,
   inboundReceiptSchema,
   inboundResetsResponseSchema,
+  inboundViewShareSchema,
   inboundViewsResponseSchema,
   type CreateInboundSourceRequest,
+  type CreateShareRequest,
   type CreateInboundViewRequest,
   type InboundConfigurableView,
   type InboundTemplateSummary,
@@ -21,6 +23,7 @@ import {
   type InboundSourceSummary,
   type InboundResetsResponse,
   type InboundReceipt,
+  type InboundViewShare,
   type InboundViewSummary,
   type PutInboundSourceConnectionRequest,
 } from '@iam/contracts';
@@ -47,6 +50,7 @@ export const inboundKeys = {
   sources: () => [...inboundKeys.all, 'sources'] as const,
   connection: (sourceId: string) => [...inboundKeys.all, 'connection', sourceId] as const,
   history: (viewId: string) => [...inboundKeys.all, 'history', viewId] as const,
+  viewShares: (viewId: string) => [...inboundKeys.all, 'view-shares', viewId] as const,
 };
 
 /** `GET /inbound/views` (permiso `inbound.read_codes`): las vistas que la persona puede leer, sin paginar. */
@@ -214,4 +218,44 @@ export function updateInboundView(
 /** `POST /inbound/views/:id/archive` (204, exige MANAGE): la vista deja de mostrarse y se revocan sus accesos compartidos. */
 export function archiveInboundView(id: string, client: ApiClient = apiClient) {
   return client.post(`/inbound/views/${id}/archive`, noContentSchema);
+}
+
+const inboundViewSharesResponseSchema = z.object({ data: z.array(inboundViewShareSchema) });
+
+/**
+ * `GET /inbound/views/:id/shares` (exige `share.manage` y MANAGE sobre la vista): quién tiene acceso
+ * vigente a la vista, completo y sin paginar.
+ */
+export async function fetchInboundViewShares(
+  viewId: string,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<InboundViewShare[]> {
+  const response = await client.get(
+    `/inbound/views/${viewId}/shares`,
+    inboundViewSharesResponseSchema,
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+  return response.data;
+}
+
+/**
+ * `POST /inbound/views/:id/shares`: comparte la vista con una persona. El cliente HTTP añade la clave
+ * de idempotencia, estable ante reintentos.
+ */
+export function createInboundViewShare(
+  viewId: string,
+  body: CreateShareRequest,
+  client: ApiClient = apiClient,
+): Promise<InboundViewShare> {
+  return client.post(`/inbound/views/${viewId}/shares`, inboundViewShareSchema, { body });
+}
+
+/** `POST /inbound/views/:id/shares/:shareId/revoke` (204): el acceso se corta desde la siguiente petición. */
+export function revokeInboundViewShare(
+  viewId: string,
+  shareId: string,
+  client: ApiClient = apiClient,
+) {
+  return client.post(`/inbound/views/${viewId}/shares/${shareId}/revoke`, noContentSchema);
 }

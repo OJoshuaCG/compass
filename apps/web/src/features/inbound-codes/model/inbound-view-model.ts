@@ -88,3 +88,14 @@ export function canEditView(view: InboundConfigurableView): boolean {
 export function canArchiveView(view: InboundConfigurableView): boolean {
   return view.level === 'MANAGE';
 }
+
+/**
+ * Ver, dar y revocar accesos a una vista exige dos llaves: el permiso `share.manage` y MANAGE sobre la
+ * vista. Solo es comodidad para la interfaz: el servidor vuelve a decidir (AUTHZ.SHARE).
+ */
+export function canManageViewShares(
+  hasSharePermission: boolean,
+  view: InboundConfigurableView,
+): boolean {
+  return hasSharePermission && view.level === 'MANAGE';
+}

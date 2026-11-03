@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useMe } from '../../../shared/auth';
+import { useMe, usePermission } from '../../../shared/auth';
 import { useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useClientPagination } from '../../../shared/lib';
@@ -40,6 +40,7 @@ export function InboundViewSettingsPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const timeZone = useMe()?.user.timezone;
+  const hasSharePermission = usePermission('share.manage');
   const [dialog, setDialog] = useState<DialogState>(null);
 
   // El nivel puede cambiar desde otra pestaña o persona: siempre se recarga al volver.
@@ -123,6 +124,7 @@ export function InboundViewSettingsPage() {
         onArchive={(view) => {
           setDialog({ kind: 'archive', view });
         }}
+        hasSharePermission={hasSharePermission}
         paging={paging}
         timeZone={timeZone}
       />
