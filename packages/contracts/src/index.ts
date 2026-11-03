@@ -238,6 +238,7 @@ export {
   inboundHistoryResponseSchema,
   inboundReceiptSchema,
   inboundTemplateKindSchema,
+  inboundViewShareSchema,
 } from './inbound.js';
 export type {
   InboundCode,
@@ -246,4 +247,5 @@ export type {
   InboundHistoryResponse,
   InboundReceipt,
   InboundTemplateKind,
+  InboundViewShare,
 } from './inbound.js';

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { shareLevelSchema } from './accounts.js';
 import { fixedOrderPageQuerySchema, pageSchema } from './pagination.js';
+import { shareGranteeTypeSchema } from './shares.js';
 
 /** Tipo de plantilla que casó con una recepción del historial. */
 export const INBOUND_TEMPLATE_KINDS = ['login_code', 'reset_code', 'reset_link'] as const;
@@ -36,3 +38,18 @@ export type InboundHistoryQuery = z.infer<typeof inboundHistoryQuerySchema>;
 
 export const inboundHistoryResponseSchema = pageSchema(inboundReceiptSchema);
 export type InboundHistoryResponse = z.infer<typeof inboundHistoryResponseSchema>;
+
+/** Una compartición vigente de una vista de correo. `granteeName` es el nombre visible de la persona o del grupo. */
+export const inboundViewShareSchema = z.object({
+  id: z.uuid(),
+  viewId: z.uuid(),
+  granteeType: shareGranteeTypeSchema,
+  granteeId: z.uuid(),
+  granteeName: z.string(),
+  level: shareLevelSchema,
+  /** `null` cuando el acceso no caduca. */
+  expiresAt: z.iso.datetime().nullable(),
+  grantedBy: z.uuid(),
+  createdAt: z.iso.datetime(),
+});
+export type InboundViewShare = z.infer<typeof inboundViewShareSchema>;

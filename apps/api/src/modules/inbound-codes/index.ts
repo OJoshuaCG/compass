@@ -116,3 +116,10 @@ export type {
 } from './application/read-inbound-codes.js';
 export type { InboundViewReader } from './application/ports/inbound-view-reader.js';
 export { PgInboundViewReader } from './infrastructure/pg-inbound-view-reader.js';
+export { ManageInboundViewShares } from './application/manage-inbound-view-shares.js';
+export type { ManageInboundViewSharesDeps } from './application/manage-inbound-view-shares.js';
+export type {
+  InboundViewShareRepository,
+  ViewShareView,
+} from './application/ports/inbound-view-share-repository.js';
+export { PgInboundViewShareRepository } from './infrastructure/pg-inbound-view-share-repository.js';
