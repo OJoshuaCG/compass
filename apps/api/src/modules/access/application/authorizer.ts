@@ -138,6 +138,8 @@ export class Authorizer {
     readonly targetAccountId?: string;
     /** Vista de códigos entrantes sobre la que recae la acción (ADR 0045). */
     readonly targetViewId?: string;
+    /** Fuente de mensajes entrantes sobre la que recae la acción (ADR 0045). */
+    readonly targetSourceId?: string;
   }): Promise<void> {
     await this.recordDenial(input);
   }
@@ -148,6 +150,7 @@ export class Authorizer {
     readonly targetUserId?: UserId;
     readonly targetAccountId?: string;
     readonly targetViewId?: string;
+    readonly targetSourceId?: string;
   }): Promise<void> {
     const { audit, context, independently, denialGrouper } = this.deps;
     const current = context.current();
@@ -160,10 +163,11 @@ export class Authorizer {
       targetUserId: input.targetUserId ?? null,
       targetAccountId: input.targetAccountId ?? null,
       targetViewId: input.targetViewId ?? null,
+      targetSourceId: input.targetSourceId ?? null,
     };
     const grouping = denialGrouper.decide(groupKey);
     if (!grouping.record) return;
-    // Una negación apunta a un usuario, a una cuenta o a una vista, nunca a varios.
+    // Una negación apunta a un usuario, a una cuenta, a una vista o a una fuente, nunca a varios.
     const targetType =
       input.targetUserId !== undefined
         ? 'user'
@@ -171,13 +175,20 @@ export class Authorizer {
           ? 'account'
           : input.targetViewId !== undefined
             ? 'mail_view'
-            : null;
+            : input.targetSourceId !== undefined
+              ? 'mail_source'
+              : null;
     const recorded = await independently(async () => {
       return audit.record({
         action: 'authz.denied',
         actorId: current.actorId,
         targetType,
-        targetId: input.targetUserId ?? input.targetAccountId ?? input.targetViewId ?? null,
+        targetId:
+          input.targetUserId ??
+          input.targetAccountId ??
+          input.targetViewId ??
+          input.targetSourceId ??
+          null,
         outcome: 'denied',
         reasonCode: input.code,
         ip: null,

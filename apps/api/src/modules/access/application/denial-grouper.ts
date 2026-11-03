@@ -33,6 +33,7 @@ export interface DenialKey {
   /** Cuenta de la bóveda a la que apuntó la negación; sin ella, probar varias cuentas se colapsaría en un evento. */
   readonly targetAccountId?: string | null;
   readonly targetViewId?: string | null;
+  readonly targetSourceId?: string | null;
 }
 
 export type DenialGroupingDecision =
@@ -98,6 +99,7 @@ export class DenialGrouper {
       key.targetUserId,
       key.targetAccountId ?? null,
       key.targetViewId ?? null,
+      key.targetSourceId ?? null,
     ]);
   }
 

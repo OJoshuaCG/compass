@@ -123,3 +123,11 @@ export type {
   ViewShareView,
 } from './application/ports/inbound-view-share-repository.js';
 export { PgInboundViewShareRepository } from './infrastructure/pg-inbound-view-share-repository.js';
+export { ManageInboundConfiguration } from './application/manage-inbound-configuration.js';
+export type { ManageInboundConfigurationDeps } from './application/manage-inbound-configuration.js';
+export type {
+  InboundConfigurationRepository,
+  SourceRecord,
+  ViewRecord,
+} from './application/ports/inbound-configuration-repository.js';
+export { PgInboundConfigurationRepository } from './infrastructure/pg-inbound-configuration-repository.js';

@@ -239,6 +239,14 @@ export {
   inboundReceiptSchema,
   inboundTemplateKindSchema,
   inboundViewShareSchema,
+  inboundSourceSchema,
+  inboundViewSchema,
+  createInboundSourceRequestSchema,
+  updateInboundSourceRequestSchema,
+  createInboundViewRequestSchema,
+  updateInboundViewRequestSchema,
+  INBOUND_SOURCE_STATUSES,
+  MAX_TEMPLATES_PER_VIEW,
 } from './inbound.js';
 export type {
   InboundCode,
@@ -248,4 +256,10 @@ export type {
   InboundReceipt,
   InboundTemplateKind,
   InboundViewShare,
+  InboundSource,
+  InboundView,
+  CreateInboundSourceRequest,
+  UpdateInboundSourceRequest,
+  CreateInboundViewRequest,
+  UpdateInboundViewRequest,
 } from './inbound.js';
