@@ -49,6 +49,7 @@ import {
 import { CredentialImportController } from '../modules/vault/interface/credential-import.controller.js';
 import { TotpController } from '../modules/vault/interface/totp.controller.js';
 import {
+  ListInboundDirectory,
   ManageInboundConfiguration,
   ManageInboundSourceConnection,
   ManageInboundViewShares,
@@ -58,6 +59,7 @@ import {
 import { InboundConfigurationController } from '../modules/inbound-codes/interface/inbound-configuration.controller.js';
 import { InboundSourceConnectionController } from '../modules/inbound-codes/interface/inbound-source-connection.controller.js';
 import { InboundCodesController } from '../modules/inbound-codes/interface/inbound-codes.controller.js';
+import { InboundDirectoryController } from '../modules/inbound-codes/interface/inbound-directory.controller.js';
 import { InboundResetsController } from '../modules/inbound-codes/interface/inbound-resets.controller.js';
 import { InboundViewSharesController } from '../modules/inbound-codes/interface/inbound-view-shares.controller.js';
 import { CsrfGuard } from '../shared/http/csrf.guard.js';
@@ -111,6 +113,7 @@ export class AppModule {
       { provide: ManageShares, useValue: container.manageShares },
       { provide: ImportCredentials, useValue: container.importCredentials },
       { provide: ManageTotp, useValue: container.manageTotp },
+      { provide: ListInboundDirectory, useValue: container.listInboundDirectory },
       { provide: ReadInboundCodes, useValue: container.readInboundCodes },
       { provide: RevealInboundResets, useValue: container.revealInboundResets },
       { provide: ManageInboundConfiguration, useValue: container.manageInboundConfiguration },
@@ -143,6 +146,7 @@ export class AppModule {
         CredentialImportController,
         TotpController,
         InboundCodesController,
+        InboundDirectoryController,
         InboundResetsController,
         InboundViewSharesController,
         InboundConfigurationController,

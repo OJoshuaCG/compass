@@ -255,6 +255,11 @@ export {
   MAIL_PORT_BY_TLS_MODE,
   putInboundSourceConnectionRequestSchema,
   inboundSourceConnectionSchema,
+  MAX_INBOUND_LISTING,
+  inboundViewSummarySchema,
+  inboundViewsResponseSchema,
+  inboundSourceSummarySchema,
+  inboundSourcesResponseSchema,
 } from './inbound.js';
 export type {
   InboundCode,
@@ -276,4 +281,8 @@ export type {
   MailTlsMode,
   PutInboundSourceConnectionRequest,
   InboundSourceConnection,
+  InboundViewSummary,
+  InboundViewsResponse,
+  InboundSourceSummary,
+  InboundSourcesResponse,
 } from './inbound.js';

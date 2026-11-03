@@ -103,10 +103,12 @@ import {
   revealLimitNoticeHandlerKey,
 } from '../modules/vault/index.js';
 import {
+  ListInboundDirectory,
   ManageInboundConfiguration,
   ManageInboundSourceConnection,
   ManageInboundViewShares,
   PgInboundConfigurationRepository,
+  PgInboundDirectory,
   PgInboundSourceConnectionRepository,
   PgInboundViewReader,
   PgInboundViewShareRepository,
@@ -497,6 +499,12 @@ export function buildContainer(options: ContainerOptions) {
       ids,
       clock,
       confirmAttempts: new InMemoryTotpConfirmAttemptStore(),
+    }),
+    listInboundDirectory: new ListInboundDirectory({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory: new PgInboundDirectory(uow),
     }),
     readInboundCodes: new ReadInboundCodes({
       context: requestContext,

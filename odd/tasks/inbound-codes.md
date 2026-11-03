@@ -61,7 +61,7 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | **Hecha 2026-11-02** (jueces A/B, mutación; falta el e2e HTTP y la web) |
 | IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | En curso: **IC-5b-1 hecha** (compartir y revocar vistas); **IC-5b-2 hecha** (alta, edición y archivo de fuentes y vistas); **IC-5b-3 hecha** (conexión: contraseña, `acceptedRecipients`, reautenticación) |
 | IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | En curso: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); **IC-5c-2 hecha** (tareas de rotación al revocar) |
-| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | Pendiente |
+| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API) hecha; falta la web |
 | IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Pendiente |
 | IC-8 | Adaptadores reales y operación: recepción de correo, proveedor de SMS, DNS (SPF, DKIM, DMARC), runbook, `docs/threat-model.md`, `docs/database.md` y `docs/backend.md`, alcance de la prueba de intrusión | IC-5c más las decisiones abiertas | **Bloqueada** por decisiones |
 
@@ -319,3 +319,11 @@ Candidato: solo el commit `e0cab4e` (el rango completo de 7125 líneas excedió 
   - En la revocación a un grupo solo cuentan sus miembros actuales, como en la bóveda.
   - La consulta filtra por una clave JSON sin índice, aceptable con el volumen actual.
 
+### 2026-11-03 · IC-6a hecha (listados de fuentes y vistas para la web)
+- La web necesita saber qué fuentes y vistas alcanza la persona; no había listado. Se agregan `GET /inbound/views` (permiso `inbound.read_codes`) y `GET /inbound/sources` (permiso `inbound.configure`), ambos `full-session` en la matriz y con `Cache-Control: no-store`.
+- Solo se lista lo que la persona alcanza por `effective_access` (directo o por grupo, el mayor nivel). Compartir la fuente no da sus vistas, ni una vista da la configuración de su fuente.
+- Las vistas listadas usan el mismo filtro que la lectura de códigos (vista no archivada, fuente activa, cuenta ligada activa). El listado de vistas no lleva la dirección de la fuente ni la cuenta: quien solo tiene USE ve códigos, no la configuración (decisión conservadora mía).
+- Las fuentes listadas excluyen las archivadas y muestran las suspendidas, para que quien configura pueda reactivarlas.
+- Tope de 200 elementos (`MAX_INBOUND_LISTING`), orden por nombre e identificador; listar no se audita porque no entrega códigos ni secretos.
+- Pruebas: unitarias del caso de uso (permiso, tope, sesión) e integración con RLS real (archivadas, suspendidas, cuenta archivada, revocadas, grupo, otra persona de la misma organización, tope, otra organización).
+- Mutaciones: admitir fuentes suspendidas en las vistas y quitar el filtro por persona; las dos las detecta alguna prueba. La segunda no la detectaba la primera versión (solo una persona tenía comparticiones) y se agregó el caso de otra persona.

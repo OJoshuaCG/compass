@@ -116,6 +116,14 @@ export type {
 } from './application/read-inbound-codes.js';
 export type { InboundViewReader } from './application/ports/inbound-view-reader.js';
 export { PgInboundViewReader } from './infrastructure/pg-inbound-view-reader.js';
+export { ListInboundDirectory } from './application/list-inbound-directory.js';
+export type { ListInboundDirectoryDeps } from './application/list-inbound-directory.js';
+export type {
+  ConfigurableSourceSummary,
+  InboundDirectory,
+  ReadableViewSummary,
+} from './application/ports/inbound-directory.js';
+export { PgInboundDirectory } from './infrastructure/pg-inbound-directory.js';
 export { ManageInboundViewShares } from './application/manage-inbound-view-shares.js';
 export type { ManageInboundViewSharesDeps } from './application/manage-inbound-view-shares.js';
 export type {

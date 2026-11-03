@@ -126,6 +126,33 @@ export const inboundViewSchema = z.object({
 });
 export type InboundView = z.infer<typeof inboundViewSchema>;
 
+/** Tope de elementos de los listados de fuentes y vistas: una organización real tiene unas decenas. */
+export const MAX_INBOUND_LISTING = 200;
+
+/**
+ * Una vista que la persona puede leer, con su nivel. No lleva la dirección de la fuente ni la cuenta ligada:
+ * quien solo tiene USE ve códigos, no la configuración.
+ */
+export const inboundViewSummarySchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  sourceId: z.uuid(),
+  sourceDisplayName: z.string(),
+  channel: z.enum(['mail', 'sms']),
+  level: shareLevelSchema,
+});
+export type InboundViewSummary = z.infer<typeof inboundViewSummarySchema>;
+
+export const inboundViewsResponseSchema = z.object({ data: z.array(inboundViewSummarySchema) });
+export type InboundViewsResponse = z.infer<typeof inboundViewsResponseSchema>;
+
+/** Una fuente que la persona configura, con su nivel sobre ella. */
+export const inboundSourceSummarySchema = inboundSourceSchema.extend({ level: shareLevelSchema });
+export type InboundSourceSummary = z.infer<typeof inboundSourceSummarySchema>;
+
+export const inboundSourcesResponseSchema = z.object({ data: z.array(inboundSourceSummarySchema) });
+export type InboundSourcesResponse = z.infer<typeof inboundSourcesResponseSchema>;
+
 const templateIdsSchema = z.array(z.uuid()).min(1).max(MAX_TEMPLATES_PER_VIEW);
 
 export const createInboundViewRequestSchema = z.object({
