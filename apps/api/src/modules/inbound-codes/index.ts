@@ -94,3 +94,16 @@ export { PgPollStateStore } from './infrastructure/pg-poll-state-store.js';
 export { PgSourceTemplateStore } from './infrastructure/pg-source-template-store.js';
 export { ReadOnlyDataKeyRepository } from './infrastructure/read-only-data-key-repository.js';
 export { Sha256MessageFingerprinter } from './infrastructure/sha256-message-fingerprinter.js';
+export { PollInboundSources } from './application/poll-inbound-sources.js';
+export type {
+  InboundSourcePoller,
+  PollInboundSourcesSettings,
+  PollInboundSourcesSummary,
+} from './application/poll-inbound-sources.js';
+export type { PollableSourceLister } from './application/ports/pollable-source-lister.js';
+export { PgPollableSourceLister } from './infrastructure/pg-pollable-source-lister.js';
+export { LogPollObserver } from './infrastructure/log-poll-observer.js';
+export { AuthenticationResultsVerifier } from './infrastructure/authentication-results-verifier.js';
+export { ImapFlowMailboxConnector } from './infrastructure/imapflow-mailbox-connector.js';
+export { ChildProcessMimeParser } from './infrastructure/mime-child-process-parser.js';
+export { NetworkGuard } from './infrastructure/network-guard.js';

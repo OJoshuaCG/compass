@@ -16,6 +16,7 @@ import {
 import {
   PgInboundRecorder,
   PgMailConnectionLoader,
+  PgPollableSourceLister,
   PgPollStateStore,
   PgSourceTemplateStore,
   ReadOnlyDataKeyRepository,
@@ -651,5 +652,53 @@ describe('PgMailConnectionLoader', () => {
     });
 
     expect(loaded).toEqual({ ok: false, code: 'CONNECTION_MISSING' });
+  });
+});
+
+describe('PgPollableSourceLister', () => {
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+  const idsOf = async (): Promise<string[]> =>
+    (await new PgPollableSourceLister(workerPool).list()).map((source) => source.sourceId);
+
+  it('lists an active source with a stored password and nothing from the other organizations it cannot see', async () => {
+    const source = await seedSource('lister-ok');
+
+    expect(await idsOf()).toContain(source.sourceId);
+  });
+
+  it('skips a source whose lease is held and lists it again once released', async () => {
+    const source = await seedSource('lister-lease');
+    // La base compara con su propio reloj: el arrendamiento y el backoff se fijan con la hora real.
+    await pollState.claim(source.ref, new Date(), ONE_HOUR_MS);
+    expect(await idsOf()).not.toContain(source.sourceId);
+
+    await pollState.releaseAfterSuccess(source.ref, new Date());
+    expect(await idsOf()).toContain(source.sourceId);
+  });
+
+  it('skips a source in backoff', async () => {
+    const source = await seedSource('lister-backoff');
+    await pollState.claim(source.ref, new Date(), ONE_HOUR_MS);
+    await pollState.releaseAfterFailure(
+      source.ref,
+      { errorCode: 'NETWORK', nextAttemptAt: new Date(Date.now() + ONE_HOUR_MS) },
+      new Date(),
+    );
+
+    expect(await idsOf()).not.toContain(source.sourceId);
+  });
+
+  it('skips a source without a stored password and an archived one', async () => {
+    const noPassword = await seedSource('lister-nopw', { password: null });
+    const archived = await seedSource('lister-archived');
+    await db.admin.query(
+      `update mail_sources set status = 'archived', archived_at = now() where id = $1`,
+      [archived.sourceId],
+    );
+
+    const listed = await idsOf();
+
+    expect(listed).not.toContain(noPassword.sourceId);
+    expect(listed).not.toContain(archived.sourceId);
   });
 });

@@ -6,7 +6,12 @@ import type { Config } from './config.js';
  * Crea el adaptador de gestión de claves que pide la configuración. Lo comparten la API y el
  * recifrado para que ambos abran las DEK con el mismo KMS (ADR 0020).
  */
-export function createKeyManagement(config: Config): KeyManagementPort {
+export type KeyManagementConfig = Pick<
+  Config,
+  'KMS_ADAPTER' | 'AWS_KMS_KEY_ID' | 'AWS_REGION' | 'LOCAL_KMS_KEY_FILE' | 'NODE_ENV'
+>;
+
+export function createKeyManagement(config: KeyManagementConfig): KeyManagementPort {
   if (config.KMS_ADAPTER === 'aws') {
     // La configuración ya exige ambos valores con `aws`; esta comprobación estrecha el tipo.
     if (config.AWS_KMS_KEY_ID === undefined || config.AWS_REGION === undefined) {

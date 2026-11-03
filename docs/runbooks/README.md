@@ -23,6 +23,7 @@ Tipo de documento: how-to (guías de tarea para operadores con experiencia).
 | [Restaurar con el KMS](restore-with-kms.md) | Tras restaurar la base, comprobar que la clave correcta abre las DEK | Borrador |
 | [Regenerar la contraseña inicial de la Raíz](regenerate-root-initial-password.md) | La Raíz recién dada de alta perdió o nunca recibió su contraseña inicial | Borrador |
 | [Programar la purga de filas vencidas](purge-expired.md) | Primer despliegue: programar `purge-expired` cada hora y vigilar su salida | Borrador |
+| [Programar el sondeo de correo entrante](inbound-poll.md) | Activar `inbound-poll` cada minuto y vigilar su salida | Borrador |
 
 ## Convenciones
 
