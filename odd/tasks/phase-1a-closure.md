@@ -1,6 +1,6 @@
 # Cierre de la Fase 1a · Identidad
 
-Objetivo: dejar la Fase 1a completa según sus criterios de salida del plan antes de abrir la bóveda (1b). **Estado final (2026-10-27): funcionalmente completa; A8 parcial (falta Redis) y A9 despriorizada por el dueño.** El siguiente trabajo es la fase 1b ([`phase-1b-vault.md`](phase-1b-vault.md), no iniciada); el orden de lo que sigue, incluidos los pendientes de la 1a, está en [`docs/handoff.md`](../../docs/handoff.md), sección 4. Método: el mismo de `phase-1a-identity.md` (iteraciones hasta 5, revisión adversarial ciega, mutación manual, commits convencionales por parte).
+Objetivo: dejar la Fase 1a completa según sus criterios de salida del plan antes de abrir la bóveda (1b). **Estado final (2026-10-27): funcionalmente completa; A8 parcial (falta Redis) y A9 despriorizada por el dueño.** El siguiente trabajo es la fase 1b ([`phase-1b-vault.md`](phase-1b-vault.md), iniciada después de este cierre; su estado está en ese documento); el orden de lo que sigue, incluidos los pendientes de la 1a, está en [`docs/handoff.md`](../../docs/handoff.md), sección 4. Método: el mismo de `phase-1a-identity.md` (iteraciones hasta 5, revisión adversarial ciega, mutación manual, commits convencionales por parte).
 
 ## Specs
 

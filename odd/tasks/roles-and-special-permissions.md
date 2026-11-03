@@ -1,6 +1,6 @@
 # Pantalla de roles y permisos, y permisos especiales por persona
 
-Estado: **en curso** (2026-10-31), sin commitear. Ruta protegida (acceso, autorización, migración con aislamiento por filas, auditoría): el dueño asignó el trabajo; requiere jueces ciegos y prueba de mutación (ambas hechas en el backend).
+Estado: **commiteada** (159f866, 6949ebf, 8db773d, 7a08c56; revisado 2026-11-03). Pendiente: volver a correr las pruebas después de la simplificación. Ruta protegida (acceso, autorización, migración con aislamiento por filas, auditoría): el dueño asignó el trabajo; requiere jueces ciegos y prueba de mutación (ambas hechas en el backend).
 
 ## Especificación
 

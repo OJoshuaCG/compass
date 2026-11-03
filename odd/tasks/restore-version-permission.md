@@ -37,7 +37,7 @@ Fuera de alcance: el rojo previo de `authorization-matrix.e2e.test.ts` por las r
 - [x] Web: `canRestoreVersion` (`credential-access.ts`) y `HistoryDialog` ocultan "Restaurar" sin el permiso.
 - [x] Pruebas (ver abajo).
 - [x] Documentación: `docs/business/vault.md`, `docs/business/permissions-and-sharing.md`, `docs/backend.md`, `docs/database.md`, cuentas de "27 permisos" → 28, `TODO.md`, `docs/handoff.md`, `odd/tasks/phase-1b-vault.md`.
-- [ ] Ejecutar las pruebas (otro agente), revisión humana y mutación a propósito (quitar el permiso del caso de uso y comprobar que falla alguna prueba SENSIBLE).
+- [ ] Ejecutar las pruebas (hecho 2026-11-02, en verde), revisión humana (pendiente) y mutación a propósito (hecha, detectada) (quitar el permiso del caso de uso y comprobar que falla alguna prueba SENSIBLE).
 - [ ] Desplegar: correr `migrate` (la 0021 concede a roles de sistema). Después, `sync-system-roles` es opcional (no debe encontrar diferencias) y sirve de comprobación.
 
 ## Pruebas nuevas o ajustadas (sin ejecutar)

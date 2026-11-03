@@ -20,7 +20,7 @@ Objetivo: implementar el [ADR 0035](../../docs/adr/0035-transactional-outbox-for
 | H1b   | Manejadores reales: aviso de 24 h del segundo factor (N1a)                                                   | Hecha, pruebas escritas sin ejecutar |
 | R2a   | Manejador del aviso de revelaciones a la Raíz (ADR 0031) con acuses de entrega idempotentes (migración 0019) | Hecha, pruebas escritas sin ejecutar |
 | H1b-2 | Purga de versiones de secreto TOTP reemplazadas a los 30 días, dentro de `purge-expired` (ADR 0038)           | Hecha, pruebas escritas sin ejecutar |
-| G1    | Retención de publicados: propuesta de 7 días NO definitiva, decide el dueño                                  | Pendiente                            |
+| G1    | Retención de publicados: propuesta de 7 días NO definitiva, decide el dueño                                  | Implementada con 7 días (0c53dac); falta que el dueño la haga definitiva |
 
 ## Bitácora
 
