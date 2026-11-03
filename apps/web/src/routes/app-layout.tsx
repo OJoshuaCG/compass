@@ -14,6 +14,8 @@ export function AppLayout() {
   const { t } = useTranslation('common');
   const me = useMe();
   const canManageRoles = usePermission('role.manage');
+  // Solo comodidad: el enlace se ofrece a quien puede leer códigos; el servidor decide siempre.
+  const canReadInboundCodes = usePermission('inbound.read_codes');
   const { logout, pending } = useLogout();
   return (
     <AppShell
@@ -75,6 +77,13 @@ export function AppLayout() {
                 {t('nav.accounts')}
               </Link>
             </li>
+            {canReadInboundCodes ? (
+              <li>
+                <Link to="/inbound" className={linkClass} activeProps={activeProps}>
+                  {t('nav.inbound')}
+                </Link>
+              </li>
+            ) : null}
             {canManageRoles ? (
               <li>
                 <Link to="/roles" className={linkClass} activeProps={activeProps}>

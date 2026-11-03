@@ -61,8 +61,8 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | **Hecha 2026-11-02** (jueces A/B, mutación; falta el e2e HTTP y la web) |
 | IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | En curso: **IC-5b-1 hecha** (compartir y revocar vistas); **IC-5b-2 hecha** (alta, edición y archivo de fuentes y vistas); **IC-5b-3 hecha** (conexión: contraseña, `acceptedRecipients`, reautenticación) |
 | IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | En curso: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); **IC-5c-2 hecha** (tareas de rotación al revocar) |
-| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API) hecha; falta la web |
-| IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Pendiente |
+| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API) e IC-6b (web de lectura) hechas; faltan la revelación de restablecimientos (IC-6c, ruta protegida) y la configuración (IC-6d) |
+| IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Se cubre en `odd/tasks/integrations.md` (T5, "completa IC-7"), de otra sesión: no se duplica aquí |
 | IC-8 | Adaptadores reales y operación: recepción de correo, proveedor de SMS, DNS (SPF, DKIM, DMARC), runbook, `docs/threat-model.md`, `docs/database.md` y `docs/backend.md`, alcance de la prueba de intrusión | IC-5c más las decisiones abiertas | **Bloqueada** por decisiones |
 
 ## Criterios de aceptación
@@ -327,3 +327,13 @@ Candidato: solo el commit `e0cab4e` (el rango completo de 7125 líneas excedió 
 - Tope de 200 elementos (`MAX_INBOUND_LISTING`), orden por nombre e identificador; listar no se audita porque no entrega códigos ni secretos.
 - Pruebas: unitarias del caso de uso (permiso, tope, sesión) e integración con RLS real (archivadas, suspendidas, cuenta archivada, revocadas, grupo, otra persona de la misma organización, tope, otra organización).
 - Mutaciones: admitir fuentes suspendidas en las vistas y quitar el filtro por persona; las dos las detecta alguna prueba. La segunda no la detectaba la primera versión (solo una persona tenía comparticiones) y se agregó el caso de otra persona.
+
+### 2026-11-03 · IC-6b hecha (web de lectura de códigos)
+- Pantallas `/inbound` (vistas que la persona puede leer, tabla estándar) y `/inbound/views/:viewId` (códigos vigentes con cuenta regresiva visible y silenciosa para el lector de pantalla, copiar con borrado del portapapeles a los 30 s, actualizar a mano, e historial paginado por cursor). El enlace del menú se ofrece solo con `inbound.read_codes`; el servidor decide siempre.
+- Los códigos se piden con `useAsyncAction`, sin clave de Query: viven solo en el estado del componente y se descartan al vencer, al cambiar de vista y ante un 403 o 404. Una prueba comprueba que no quedan en la caché, el almacenamiento ni la URL.
+- Espacio de nombres `inbound` en es-MX y en-US, registrado como diferido; la prueba de paridad lo cubre.
+- Hecha por el agente `frontend-developer`; las dos pruebas de error buscaban la región antes de que la página diferida se pintara y se corrigió la espera (sin tocar las aserciones).
+- Pendiente de esta rebanada: el reloj del navegador decide el vencimiento (un reloj desfasado puede ocultar antes o mostrar tarde); el tope de 30 s y el intervalo están duplicados de `credentials` porque su fachada no los exporta.
+
+### 2026-11-03 · IC-7 se deja a la otra sesión
+- `odd/tasks/integrations.md` (ADR 0047) ya planea el SMS por consulta con proveedor genérico como su T5 y dice que completa IC-7. Hacerlo aquí duplicaría el puerto y chocaría con ese módulo; se elige lo conservador y no se toca.

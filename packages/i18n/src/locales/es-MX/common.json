@@ -90,5 +90,6 @@
   "validation.recoveryCode": "El código de recuperación no tiene un formato válido.",
   "nav.roles": "Roles",
   "nav.security": "Seguridad",
-  "nav.accounts": "Cuentas"
+  "nav.accounts": "Cuentas",
+  "nav.inbound": "Códigos de acceso"
 }

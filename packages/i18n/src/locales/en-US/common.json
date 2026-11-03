@@ -90,5 +90,6 @@
   "validation.recoveryCode": "The recovery code is not in a valid format.",
   "nav.roles": "Roles",
   "nav.security": "Security",
-  "nav.accounts": "Accounts"
+  "nav.accounts": "Accounts",
+  "nav.inbound": "Access codes"
 }

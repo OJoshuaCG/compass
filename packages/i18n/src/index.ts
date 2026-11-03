@@ -25,7 +25,7 @@ export const resources = {
 /**
  * Catálogos que NO viajan en el JavaScript inicial: se descargan con la pantalla que los usa
  * (docs/frontend.md §12). `directory` solo hace falta en `/users`; `sessions`, en `/sessions` y en
- * el diálogo "Cerrar sesiones" de la gestión del equipo; `roles`, en `/roles`; `security`, en `/security`; `accounts`, en `/accounts`; `credentials`, en `/accounts/:id/credentials`; `shares`, en `/accounts/:id/shares`. Cada cargador trae los dos idiomas.
+ * el diálogo "Cerrar sesiones" de la gestión del equipo; `roles`, en `/roles`; `security`, en `/security`; `accounts`, en `/accounts`; `credentials`, en `/accounts/:id/credentials`; `shares`, en `/accounts/:id/shares`; `inbound`, en `/inbound` y `/inbound/views/:viewId`. Cada cargador trae los dos idiomas.
  */
 export const LAZY_NAMESPACES = [
   'directory',
@@ -35,6 +35,7 @@ export const LAZY_NAMESPACES = [
   'accounts',
   'credentials',
   'shares',
+  'inbound',
 ] as const;
 export type LazyNamespace = (typeof LAZY_NAMESPACES)[number];
 export type LazyCatalog = Record<Locale, Record<string, string>>;
@@ -90,6 +91,12 @@ export const loadSharesCatalog = () =>
     import('./locales/en-US/shares.json', { with: { type: 'json' } }),
   );
 
+export const loadInboundCatalog = () =>
+  bothLocales(
+    import('./locales/es-MX/inbound.json', { with: { type: 'json' } }),
+    import('./locales/en-US/inbound.json', { with: { type: 'json' } }),
+  );
+
 export const lazyCatalogLoaders: Record<LazyNamespace, () => Promise<LazyCatalog>> = {
   directory: loadDirectoryCatalog,
   sessions: loadSessionsCatalog,
@@ -98,6 +105,7 @@ export const lazyCatalogLoaders: Record<LazyNamespace, () => Promise<LazyCatalog
   accounts: loadAccountsCatalog,
   credentials: loadCredentialsCatalog,
   shares: loadSharesCatalog,
+  inbound: loadInboundCatalog,
 };
 
 export type CommonKey = keyof (typeof resources)['es-MX']['common'];
