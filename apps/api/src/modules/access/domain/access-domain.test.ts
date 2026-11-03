@@ -47,12 +47,14 @@ const PLAN_CEILINGS: ReadonlyArray<readonly [string, Rank]> = [
   ['inbound.read_codes', 3],
   ['inbound.configure', 2],
   ['inbound.reveal_reset', 1],
+  ['alerts.infra.manage', 0],
+  ['alerts.security.manage', 1],
 ];
 
 describe('permission catalog', () => {
-  it('has the 32 permissions of the catalog (27 of the plan, credential.restore_version, the three inbound ones and user.invite_link), each with its ceiling', () => {
-    expect(PERMISSIONS).toHaveLength(32);
-    expect(PLAN_CEILINGS).toHaveLength(32);
+  it('has the 34 permissions of the catalog (27 of the plan, credential.restore_version, the three inbound ones, user.invite_link and the two alert ones), each with its ceiling', () => {
+    expect(PERMISSIONS).toHaveLength(34);
+    expect(PLAN_CEILINGS).toHaveLength(34);
     for (const [permission, ceiling] of PLAN_CEILINGS) {
       expect(PERMISSION_CEILING[permission as Permission], permission).toBe(ceiling);
     }
@@ -96,10 +98,14 @@ describe('system role templates', () => {
     });
   });
 
-  it('Administrator has everything except organization settings', () => {
+  // SENSIBLE (revisión humana): el Administrador no recibe los permisos de techo 0, que solo puede tener
+  // la Raíz (organization settings y las alertas de infraestructura, ADR 0047).
+  it('Administrator has everything except the permissions only Root can hold (ceiling 0)', () => {
     const admin = new Set(systemRole('administrator').permissions);
-    expect(admin.has('org.settings')).toBe(false);
-    expect(admin.size).toBe(PERMISSIONS.length - 1);
+    const rootOnly = PERMISSIONS.filter((permission) => PERMISSION_CEILING[permission] === 0);
+    expect(rootOnly).toEqual(['org.settings', 'alerts.infra.manage']);
+    for (const permission of rootOnly) expect(admin.has(permission), permission).toBe(false);
+    expect(admin.size).toBe(PERMISSIONS.length - rootOnly.length);
   });
 
   it('Leader and Operator only hold permissions their rank can have', () => {
