@@ -61,7 +61,7 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | **Hecha 2026-11-02** (jueces A/B, mutación; falta el e2e HTTP y la web) |
 | IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | En curso: **IC-5b-1 hecha** (compartir y revocar vistas); **IC-5b-2 hecha** (alta, edición y archivo de fuentes y vistas); **IC-5b-3 hecha** (conexión: contraseña, `acceptedRecipients`, reautenticación) |
 | IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | En curso: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); **IC-5c-2 hecha** (tareas de rotación al revocar) |
-| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API), IC-6b (web de lectura) e IC-6c (revelación de restablecimientos) , IC-6d-1 (listados para configurar), IC-6d-2 (web de fuentes) e IC-6d-3 (conexión IMAP) hechas; faltan las vistas (IC-6d-4) y sus comparticiones (IC-6d-5) |
+| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API), IC-6b (web de lectura) e IC-6c (revelación de restablecimientos) , IC-6d-1 (listados para configurar), IC-6d-2 (web de fuentes) IC-6d-3 (conexión IMAP) e IC-6d-4 (configuración de vistas) hechas; faltan las comparticiones de vistas (IC-6d-5) |
 | IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Se cubre en `odd/tasks/integrations.md` (T5, "completa IC-7"), de otra sesión: no se duplica aquí |
 | IC-8 | Adaptadores reales y operación: recepción de correo, proveedor de SMS, DNS (SPF, DKIM, DMARC), runbook, `docs/threat-model.md`, `docs/database.md` y `docs/backend.md`, alcance de la prueba de intrusión | IC-5c más las decisiones abiertas | **Bloqueada** por decisiones |
 
@@ -375,3 +375,13 @@ Candidato: solo el commit `e0cab4e` (el rango completo de 7125 líneas excedió 
 - Lo que señaló un solo juez (el aviso no anunciado) no aplica: `Alert` en tono warning es `role="status"`.
 - Ronda de mutaciones. Las cuatro mutaciones quedaron atrapadas: contraseña siempre enviada, destinatarios siempre enviados, aviso nunca mostrado y sin cancelación al cerrar. La última sobrevivió al principio porque la prueba esperaba poco; la reforcé y ahora falla.
 - Pendiente fuera de esta rebanada: los archivos de IC-6c `inbound-resets.test.tsx` e `inbound-reset-policy.ts` no pasan `prettier --check` tal como están en HEAD.
+
+### 2026-11-03 · IC-6d-4 hecha (configuración de vistas)
+
+- Nueva pantalla `/inbound/view-settings`, enlazada en la navegación solo con `inbound.configure`. Lista las vistas configurables con la tabla estándar y permite crear, editar y archivar vistas.
+- Crear exige EDIT sobre una fuente que no esté archivada. Editar exige EDIT sobre la vista; archivar exige MANAGE porque revoca las comparticiones. Estas reglas solo deciden qué se ofrece en la interfaz; quien decide es siempre el servidor.
+- El selector de plantillas usa `GET /inbound/templates` y respeta el rango de 1 a 20 (`MAX_TEMPLATES_PER_VIEW`). Al editar, `PATCH` manda solo los campos que cambiaron, con su propia `Idempotency-Key`.
+- Decisión menor: al guardar un cambio de plantillas se descartan las archivadas de la vista. Es lo conservador, porque el servidor rechaza las plantillas archivadas.
+- `INBOUND.VIEW_NAME_TAKEN` e `INBOUND.TEMPLATE_INVALID` se muestran en su campo.
+- Pruebas dirigidas en verde: 7 archivos, 126 pruebas. También pasan prettier, eslint y tsc de `apps/web`. Esta rebanada no maneja secretos ni permisos nuevos, así que no pasó por jueces ciegos.
+

@@ -1,4 +1,7 @@
 import {
+  inboundConfigurableViewsResponseSchema,
+  inboundTemplatesResponseSchema,
+  inboundViewSchema,
   inboundCodesResponseSchema,
   inboundSourceConnectionSchema,
   inboundSourceSchema,
@@ -7,6 +10,11 @@ import {
   inboundResetsResponseSchema,
   inboundViewsResponseSchema,
   type CreateInboundSourceRequest,
+  type CreateInboundViewRequest,
+  type InboundConfigurableView,
+  type InboundTemplateSummary,
+  type InboundView,
+  type UpdateInboundViewRequest,
   type InboundCodesResponse,
   type InboundSource,
   type InboundSourceConnection,
@@ -34,6 +42,8 @@ import {
 export const inboundKeys = {
   all: ['inbound'] as const,
   views: () => [...inboundKeys.all, 'views'] as const,
+  configurableViews: () => [...inboundKeys.all, 'configurable-views'] as const,
+  templates: () => [...inboundKeys.all, 'templates'] as const,
   sources: () => [...inboundKeys.all, 'sources'] as const,
   connection: (sourceId: string) => [...inboundKeys.all, 'connection', sourceId] as const,
   history: (viewId: string) => [...inboundKeys.all, 'history', viewId] as const,
@@ -155,4 +165,53 @@ export function putInboundSourceConnection(
   return client.put(`/inbound/sources/${sourceId}/connection`, inboundSourceConnectionSchema, {
     body,
   });
+}
+
+/** `GET /inbound/configurable-views` (permiso `inbound.configure`): las vistas que la persona puede administrar, con su nivel. */
+export async function fetchInboundConfigurableViews(
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<InboundConfigurableView[]> {
+  const response = await client.get(
+    '/inbound/configurable-views',
+    inboundConfigurableViewsResponseSchema,
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+  return response.data;
+}
+
+/** `GET /inbound/templates`: las plantillas vigentes (nombre y tipo) para armar una vista. */
+export async function fetchInboundTemplates(
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<InboundTemplateSummary[]> {
+  const response = await client.get('/inbound/templates', inboundTemplatesResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+  return response.data;
+}
+
+/** `POST /inbound/views` (201): idempotente; exige EDIT o MANAGE sobre la fuente. 409 si el nombre ya existe en ella. */
+export function createInboundView(
+  body: CreateInboundViewRequest,
+  client: ApiClient = apiClient,
+): Promise<InboundView> {
+  return client.post('/inbound/views', inboundViewSchema, { body });
+}
+
+/** `PATCH /inbound/views/:id` (exige EDIT o MANAGE): solo viajan los campos que cambiaron. La ruta exige la clave. */
+export function updateInboundView(
+  id: string,
+  body: UpdateInboundViewRequest,
+  client: ApiClient = apiClient,
+): Promise<InboundView> {
+  return client.patch(`/inbound/views/${id}`, inboundViewSchema, {
+    body,
+    idempotencyKey: crypto.randomUUID(),
+  });
+}
+
+/** `POST /inbound/views/:id/archive` (204, exige MANAGE): la vista deja de mostrarse y se revocan sus accesos compartidos. */
+export function archiveInboundView(id: string, client: ApiClient = apiClient) {
+  return client.post(`/inbound/views/${id}/archive`, noContentSchema);
 }

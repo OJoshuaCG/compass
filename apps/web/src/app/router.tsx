@@ -163,6 +163,15 @@ const inboundSourcesRoute = createRoute({
   ),
 });
 
+const inboundViewSettingsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/inbound/view-settings',
+  component: lazyRouteComponent(
+    () => import('../routes/inbound-view-settings-route'),
+    'InboundViewSettingsRoute',
+  ),
+});
+
 const inboundViewRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/inbound/views/$viewId',
@@ -210,6 +219,7 @@ const routeTree = rootRoute.addChildren([
     inboundRoute,
     inboundViewRoute,
     inboundSourcesRoute,
+    inboundViewSettingsRoute,
     catalogRoute,
   ]),
 ]);

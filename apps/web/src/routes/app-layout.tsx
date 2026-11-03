@@ -87,11 +87,18 @@ export function AppLayout() {
               </li>
             ) : null}
             {canConfigureInbound ? (
-              <li>
-                <Link to="/inbound/sources" className={linkClass} activeProps={activeProps}>
-                  {t('nav.inboundSources')}
-                </Link>
-              </li>
+              <>
+                <li>
+                  <Link to="/inbound/sources" className={linkClass} activeProps={activeProps}>
+                    {t('nav.inboundSources')}
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/inbound/view-settings" className={linkClass} activeProps={activeProps}>
+                    {t('nav.inboundViewSettings')}
+                  </Link>
+                </li>
+              </>
             ) : null}
             {canManageRoles ? (
               <li>

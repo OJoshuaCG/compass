@@ -92,5 +92,6 @@
   "nav.security": "Security",
   "nav.accounts": "Accounts",
   "nav.inbound": "Access codes",
-  "nav.inboundSources": "Code sources"
+  "nav.inboundSources": "Code sources",
+  "nav.inboundViewSettings": "Code views"
 }
