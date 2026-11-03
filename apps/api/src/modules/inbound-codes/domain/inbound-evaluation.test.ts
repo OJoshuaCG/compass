@@ -53,6 +53,21 @@ describe('inbound mail evaluation', () => {
     });
   });
 
+  it('passes the accepted recipient set to the DKIM gate', () => {
+    const forwardedTo = 'original@dominio.example';
+    const forwarded = buildMessage({ toAddresses: [forwardedTo] });
+
+    const withoutSet = evaluateInboundMail(forwarded, [loginCodeTemplate], NO_KNOWN_FINGERPRINTS);
+    const withSet = evaluateInboundMail(
+      { ...forwarded, acceptedRecipients: [FIXTURE_ALIAS, forwardedTo] },
+      [loginCodeTemplate],
+      NO_KNOWN_FINGERPRINTS,
+    );
+
+    expect(quarantineReasonOf(withoutSet)).toBe('RECIPIENT_MISMATCH');
+    expect(withSet.outcome).toBe('accepted');
+  });
+
   describe('DKIM gate failures never reach a template', () => {
     it('quarantines a valid signature that is not aligned with the From domain (spoofed sender)', () => {
       const message = buildMessage({

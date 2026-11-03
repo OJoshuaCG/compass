@@ -1,6 +1,6 @@
 # Lectura de códigos entrantes por correo y SMS (IC)
 
-Estado: **IC-1, IC-2a, IC-2b e IC-2c hechas y revisadas por dos jueces ciegos (2026-10-30; commits locales, sin push). IC-3a hecha y revisada (2026-11-02, sin commit); dependencias IMAP/MIME ya instaladas; IC-3b en adelante pendientes.** Ruta protegida (identidad previa a la autenticación, criptografía, auditoría, permisos y migraciones con aislamiento): el dueño delegó el encargo humano para este lote; queda pendiente la revisión humana de las pruebas SENSIBLE (ver la bitácora de cada rebanada).
+Estado: **IC-1, IC-2a, IC-2b e IC-2c hechas y revisadas por dos jueces ciegos (2026-10-30; commits locales, sin push). IC-3a e IC-3b hechas y revisadas (2026-11-02); dependencias IMAP/MIME ya instaladas; IC-3c en adelante pendientes.** Ruta protegida (identidad previa a la autenticación, criptografía, auditoría, permisos y migraciones con aislamiento): el dueño delegó el encargo humano para este lote; queda pendiente la revisión humana de las pruebas SENSIBLE (ver la bitácora de cada rebanada).
 
 Diseño: [ADR 0045](../../docs/adr/0045-inbound-codes-mail-and-sms.md) (**Propuesta**). Negocio: `docs/business/vault.md` sección 14 (propuesta). Seguimiento: `TODO.md` épica T y fila S2.
 
@@ -55,7 +55,7 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-2c | Función `auth.resolve_inbound_address` y **rol de base de datos del worker** con sus grants ⚠ | IC-2b | Hecha 2026-10-30 (ver bitácora) |
 | IC-3 | **Dividida en IC-3a a IC-3d** (camino B, IMAP; diseño en el ADR 0045, sección "Diseño de IC-3 por IMAP"). Dependencias aprobadas e instaladas (`imapflow` 2.9.1, `postal-mime` 4.1.4) | IC-1, IC-2c | Diseño listo |
 | IC-3a | Migración 0029 ⚠: tablas de conexión y de estado de sondeo, grants (API, worker, definidor), función de listado, recifrador de la contraseña, purga de `poll_state` | IC-2c | **Hecha 2026-11-02** (jueces A/B, mutación 1) |
-| IC-3b | Dominio y aplicación ⚠: `acceptedRecipients` y `keyBitsPolicy` en el IC-1, caso de uso de sondeo contra puertos falsos | IC-3a | Pendiente |
+| IC-3b | Dominio y aplicación ⚠: `acceptedRecipients` y `keyBitsPolicy` en el IC-1, caso de uso de sondeo contra puertos falsos | IC-3a | **Hecha 2026-11-02** (jueces A/B, mutaciones 1 a 3) |
 | IC-3c | Infraestructura ⚠: guardia de red, analizadores de `Authentication-Results` y `DKIM-Signature`, adaptadores de `imapflow` y `postal-mime` (hijo), huella | IC-3b | Pendiente |
 | IC-3d | Punto de entrada, configuración propia, registro de DKIM, runbook ⚠ | IC-3c | Pendiente |
 | IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | Pendiente |
@@ -182,3 +182,10 @@ Se escribió el diseño del sondeo por IMAP (ADR 0045, sección "Diseño de IC-3
 - Jueces ciegos: A halló 2 avisos (predicado SMS sin prueba; privilegios de `iam_auth_reader` sin prueba), ya cubiertos con pruebas; B sin hallazgos. Sugerencia de A, no exigida por el ADR: la conexión y el cifrado de fuentes archivadas no se purgan (seguimiento).
 - Mutación 1 (quitar `s.channel = 'mail'`): la prueba SMS falla como debe; migración restaurada.
 - Verificación: 5 archivos / 56 pruebas en verde (db, reencrypt, purga integración y unitaria); typecheck y lint limpios.
+
+### 2026-11-02 · IC-3b hecha
+- Dominio: `keyBitsPolicy` (`'not_available'` exacto exime del tamaño de llave; cualquier otro valor sigue fallando cerrado) y `acceptedRecipients` en la compuerta DKIM; motivos nuevos de cuarentena (`AUTH_RESULTS_AMBIGUOUS`, `DKIM_SIGNATURE_AMBIGUOUS`, `MESSAGE_TOO_LARGE`, `FETCH_FAILED`, `PARSE_ERROR`); política de sondeo (`poll-policy.ts`: ventana, tope, retroceso, presupuesto).
+- Aplicación: `PollMailSource` con puertos (estado, conexión, buzón, MIME y autenticidad, registrador) y fakes en `testing/poll-fakes.ts`. Fallo de mensaje = cuarentena y el cursor avanza; fallo de conexión = retroceso sin avanzar el cursor.
+- Jueces ciegos A y B. **Confirmado por ambos y corregido**: con el presupuesto agotado el cursor saltaba los mensajes abandonados (siguen en la ventana; el código vive 10 min); ahora queda bajo el UID abandonado más bajo y el recibo deduplica los ya procesados. **Confirmado por ambos y cubierto**: los fakes no verificaban `SourceRef`, lease ni `maxBytes`; se añadieron pruebas de argumentos y de bordes (tamaño exacto, inicio de ventana). **Diferido a IC-3d (ambos)**: el registro por mensaje no lleva `d=`, `s=` ni alineación ni acota las cadenas de veredicto. **Solo un juez, sin aplicar y por verificar**: excepción no tipada de `parse`/`assess` tumba la pasada (B); `INTERNALDATE` sin tope superior (B); `computeBackoffMs(Infinity)` da 1 min (A); decodificar la contraseña antes de comprobar plantillas (B); UID fuera de 32 bits y lease sin token (A/B, sugerencias; el token y los tiempos por comando son del adaptador IC-3c).
+- Mutaciones detectadas y restauradas: (1) llave desconocida tratada como no aplicable (3 pruebas), (2) ignorar `acceptedRecipients` (3 pruebas), (3) cursor al UID más alto con abandonados por presupuesto (1 prueba).
+- Verificación: 4 archivos / 95 pruebas en verde, typecheck, lint y prettier limpios. **No verificado**: `pnpm build` y suite completa, revisión humana de las pruebas SENSIBLE.
