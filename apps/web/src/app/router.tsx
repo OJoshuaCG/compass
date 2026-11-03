@@ -154,6 +154,15 @@ const inboundRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/inbound-route'), 'InboundRoute'),
 });
 
+const inboundSourcesRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/inbound/sources',
+  component: lazyRouteComponent(
+    () => import('../routes/inbound-sources-route'),
+    'InboundSourcesRoute',
+  ),
+});
+
 const inboundViewRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/inbound/views/$viewId',
@@ -200,6 +209,7 @@ const routeTree = rootRoute.addChildren([
     sharesRoute,
     inboundRoute,
     inboundViewRoute,
+    inboundSourcesRoute,
     catalogRoute,
   ]),
 ]);

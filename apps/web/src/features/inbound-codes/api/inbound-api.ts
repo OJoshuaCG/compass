@@ -1,24 +1,36 @@
 import {
   inboundCodesResponseSchema,
+  inboundSourceSchema,
+  inboundSourcesResponseSchema,
   inboundReceiptSchema,
   inboundResetsResponseSchema,
   inboundViewsResponseSchema,
+  type CreateInboundSourceRequest,
   type InboundCodesResponse,
+  type InboundSource,
+  type InboundSourceSummary,
   type InboundResetsResponse,
   type InboundReceipt,
   type InboundViewSummary,
 } from '@iam/contracts';
 
-import { apiClient, createListFetcher, type ApiClient, type FetchPage } from '../../../shared/api';
+import {
+  apiClient,
+  createListFetcher,
+  noContentSchema,
+  type ApiClient,
+  type FetchPage,
+} from '../../../shared/api';
 
 /**
- * Claves de consulta de los códigos entrantes. Solo existen el listado de vistas y el historial,
- * que son metadatos. Los códigos NO tienen clave: se piden con `fetchInboundCodes`, que no pasa
+ * Claves de consulta de los códigos entrantes. Solo existen los listados de vistas y de fuentes y el
+ * historial, que son metadatos. Los códigos NO tienen clave: se piden con `fetchInboundCodes`, que no pasa
  * por Query, para que el valor viva solo en el estado del componente (docs/frontend.md §9).
  */
 export const inboundKeys = {
   all: ['inbound'] as const,
   views: () => [...inboundKeys.all, 'views'] as const,
+  sources: () => [...inboundKeys.all, 'sources'] as const,
   history: (viewId: string) => [...inboundKeys.all, 'history', viewId] as const,
 };
 
@@ -65,4 +77,40 @@ export function revealInboundResets(
   return client.post(`/inbound/views/${viewId}/resets/reveal`, inboundResetsResponseSchema, {
     body: { reason },
   });
+}
+
+/** `GET /inbound/sources` (permiso `inbound.configure`): las fuentes con el nivel propio, sin paginar (tope de 200). */
+export async function fetchInboundSources(
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<InboundSourceSummary[]> {
+  const response = await client.get('/inbound/sources', inboundSourcesResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+  return response.data;
+}
+
+/** `POST /inbound/sources` (201): idempotente; el cliente envía la `Idempotency-Key` en todo POST. 409 si la dirección ya existe. */
+export function createInboundSource(
+  body: CreateInboundSourceRequest,
+  client: ApiClient = apiClient,
+): Promise<InboundSource> {
+  return client.post('/inbound/sources', inboundSourceSchema, { body });
+}
+
+/** `PATCH /inbound/sources/:id` (exige nivel EDIT): solo el nombre. La ruta es idempotente y exige la clave. */
+export function renameInboundSource(
+  id: string,
+  displayName: string,
+  client: ApiClient = apiClient,
+): Promise<InboundSource> {
+  return client.patch(`/inbound/sources/${id}`, inboundSourceSchema, {
+    body: { displayName },
+    idempotencyKey: crypto.randomUUID(),
+  });
+}
+
+/** `POST /inbound/sources/:id/archive` (204, exige nivel MANAGE): deja de recibir códigos y oculta sus vistas. */
+export function archiveInboundSource(id: string, client: ApiClient = apiClient) {
+  return client.post(`/inbound/sources/${id}/archive`, noContentSchema);
 }

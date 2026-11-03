@@ -16,6 +16,8 @@ export function AppLayout() {
   const canManageRoles = usePermission('role.manage');
   // Solo comodidad: el enlace se ofrece a quien puede leer códigos; el servidor decide siempre.
   const canReadInboundCodes = usePermission('inbound.read_codes');
+  // Solo comodidad: el enlace de configurar fuentes se ofrece con `inbound.configure`; el servidor decide.
+  const canConfigureInbound = usePermission('inbound.configure');
   const { logout, pending } = useLogout();
   return (
     <AppShell
@@ -81,6 +83,13 @@ export function AppLayout() {
               <li>
                 <Link to="/inbound" className={linkClass} activeProps={activeProps}>
                   {t('nav.inbound')}
+                </Link>
+              </li>
+            ) : null}
+            {canConfigureInbound ? (
+              <li>
+                <Link to="/inbound/sources" className={linkClass} activeProps={activeProps}>
+                  {t('nav.inboundSources')}
                 </Link>
               </li>
             ) : null}

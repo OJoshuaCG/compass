@@ -91,5 +91,6 @@
   "nav.roles": "Roles",
   "nav.security": "Seguridad",
   "nav.accounts": "Cuentas",
-  "nav.inbound": "Códigos de acceso"
+  "nav.inbound": "Códigos de acceso",
+  "nav.inboundSources": "Fuentes de códigos"
 }
