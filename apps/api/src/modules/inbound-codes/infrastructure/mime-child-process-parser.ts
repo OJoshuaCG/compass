@@ -21,9 +21,12 @@ export interface ChildProcessCommand {
 }
 
 /**
- * Banderas del modelo de permisos de Node: con `--permission` el hijo no tiene red, ni procesos hijos, ni
- * hilos, ni complementos nativos, y solo lee las rutas que se le conceden. Un fallo del analizador que
- * ejecute código del remitente no alcanza `/proc/<padre>/environ`, archivos `.env` ni sockets de la API.
+ * Banderas del modelo de permisos de Node: con `--permission` el hijo no tiene procesos hijos, ni hilos, ni
+ * complementos nativos, y solo lee las rutas que se le conceden. Un fallo del analizador que ejecute código
+ * del remitente no alcanza `/proc/<padre>/environ` ni archivos `.env`.
+ * LÍMITE CONOCIDO: en Node 24 el modelo de permisos NO restringe la red (no existe `--allow-net`; se
+ * comprobó abriendo un socket local bajo `--permission`). La contención de red debe venir del despliegue
+ * (contenedor del worker sin salida salvo hacia los servidores IMAP); este código no la garantiza.
  */
 export function sandboxArgs(readablePaths: readonly string[]): string[] {
   return [

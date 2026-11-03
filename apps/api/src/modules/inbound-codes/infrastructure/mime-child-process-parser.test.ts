@@ -292,16 +292,20 @@ describe('MIME worker sandbox', () => {
     expect(parsed.bodyText).toBe('ERR_ACCESS_DENIED');
   });
 
-  it('denies the network', async () => {
+  // Documenta un límite, no una garantía: en Node 24 `--permission` no bloquea sockets. Si una versión
+  // futura lo bloquea, esta prueba fallará y habrá que convertirla en una prueba de denegación.
+  it('does not restrict the network (known limit of the Node 24 permission model)', async () => {
     const parsed = await sandboxed(`
       const result = ${VALID_RESULT};
-      const socket = require('node:net').connect(9, '127.0.0.1');
-      socket.on('connect', () => { socket.destroy(); result.bodyText = 'ALLOWED'; done(); });
-      socket.on('error', (error) => { result.bodyText = String(error.code); done(); });
+      const server = require('node:net').createServer((peer) => peer.end('x')).listen(0, '127.0.0.1', () => {
+        const socket = require('node:net').connect(server.address().port, '127.0.0.1');
+        socket.on('data', () => { result.bodyText = 'ALLOWED'; socket.destroy(); server.close(); done(); });
+        socket.on('error', (error) => { result.bodyText = String(error.code); server.close(); done(); });
+      });
       function done() { process.stdout.write(JSON.stringify(result)); }
     `).parse(INPUT);
 
-    expect(parsed.bodyText).not.toBe('ALLOWED');
+    expect(parsed.bodyText).toBe('ALLOWED');
   });
 
   it('launches the production worker with the permission model and no broad grants', () => {
