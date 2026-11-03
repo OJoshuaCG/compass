@@ -57,3 +57,8 @@ export const usersSearchSchema = z.object({
     .catch(25),
   q: z.string().max(200).optional().catch(undefined),
 });
+
+/** "Nuevo rol": `?from=` es el rol que se duplica; un valor que no es UUID se descarta. */
+export const roleEditorSearchSchema = z.object({
+  from: z.uuid().optional().catch(undefined),
+});

@@ -26,11 +26,19 @@ const CUSTOM: Role = {
 };
 
 const MINE: Permission[] = ['role.manage', 'user.invite', 'user.update', 'audit.read_scope'];
+// Quien edita debe tener TODOS los permisos actuales del rol (ADR 0012): a `Soporte` le suma uno.
+const EDITOR: Permission[] = [...MINE, 'credential.use_totp'];
 
+const fill = (template: string, values: Record<string, string | number>) =>
+  Object.entries(values).reduce(
+    (text, [key, value]) => text.replace(`{{${key}}}`, String(value)),
+    template,
+  );
 const label = (permission: string) =>
   (es.roles as Record<string, string>)[`permission.${permission}`] ?? permission;
-const cardLabel = (name: string) => es.roles['card.openLabel'].replace('{{name}}', name);
+const cardLabel = (name: string) => fill(es.roles['card.openLabel'], { name });
 const rolesCalls = (api: ReturnType<typeof stubApi>) => api.callsTo('GET', '/roles');
+const archiveOption = new RegExp(`^${es.roles['archive.confirm']}`);
 
 function setup(
   extra: Record<string, Parameters<typeof stubApi>[0][string]> = {},
@@ -44,20 +52,29 @@ function setup(
 }
 
 /** Las tarjetas llegan después del estado de carga: se espera a la del rol personalizado. */
-const rowsLoaded = () => screen.findByRole('button', { name: cardLabel('Soporte') });
+const rowsLoaded = () => screen.findByRole('link', { name: cardLabel('Soporte') });
 
-/** Abre el panel de detalle de un rol desde su tarjeta. */
-async function openDetail(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(await screen.findByRole('button', { name: cardLabel(name) }));
-  return screen.findByRole('dialog', { name });
+/** Abre el editor de un rol desde su tarjeta y devuelve el contenido principal de la página. */
+async function openEditor(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await screen.findByRole('link', { name: cardLabel(name) }));
+  await screen.findByRole('heading', { level: 1, name });
+  return screen.getByRole('main');
 }
 
-/** Detalle de Soporte y luego "Archivar rol": devuelve el diálogo de confirmación. */
+/** "Nuevo rol" desde la lista: devuelve el contenido principal del editor vacío. */
+async function openCreate(user: ReturnType<typeof userEvent.setup>) {
+  await rowsLoaded();
+  await user.click(screen.getByRole('link', { name: es.roles['create.open'] }));
+  await screen.findByRole('heading', { level: 1, name: es.roles['editor.newTitle'] });
+  return screen.getByRole('main');
+}
+
+/** Editor de Soporte y luego "Archivar rol": devuelve el diálogo de confirmación. */
 async function openArchive(user: ReturnType<typeof userEvent.setup>) {
-  const detail = await openDetail(user, 'Soporte');
-  await user.click(within(detail).getByRole('button', { name: es.roles['archive.confirm'] }));
+  const page = await openEditor(user, 'Soporte');
+  await user.click(within(page).getByRole('button', { name: archiveOption }));
   return screen.findByRole('dialog', {
-    name: es.roles['archive.title'].replace('{{name}}', 'Soporte'),
+    name: fill(es.roles['archive.title'], { name: 'Soporte' }),
   });
 }
 
@@ -85,6 +102,27 @@ describe('roles navigation', () => {
     expect(await screen.findByText(es.errors.NOT_FOUND)).toBeInTheDocument();
     expect(rolesCalls(api)).toHaveLength(0);
   });
+
+  it('answers as not found for the editor URLs without role.manage', async () => {
+    const api = setup({}, ['user.invite']);
+    renderApp(`/roles/${CUSTOM_ID}`);
+    expect(await screen.findByText(es.errors.NOT_FOUND)).toBeInTheDocument();
+    expect(rolesCalls(api)).toHaveLength(0);
+  });
+
+  it('answers as not found for an id that is not a UUID, without calling the API', async () => {
+    const api = setup();
+    renderApp('/roles/not-a-uuid');
+    expect(await screen.findByText(es.errors.NOT_FOUND)).toBeInTheDocument();
+    expect(rolesCalls(api)).toHaveLength(0);
+  });
+
+  it('says the role no longer exists when it is not in the list', async () => {
+    setup();
+    renderApp(`/roles/${NEW_ID}`);
+    expect(await screen.findByText(es.roles['editor.notFound'])).toBeVisible();
+    expect(screen.getByRole('link', { name: es.roles['editor.back'] })).toBeVisible();
+  });
 });
 
 describe('roles cards', () => {
@@ -111,7 +149,7 @@ describe('roles cards', () => {
         ].join(' · '),
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: cardLabel('Soporte') })).toHaveAccessibleDescription(
+    expect(screen.getByRole('link', { name: cardLabel('Soporte') })).toHaveAccessibleDescription(
       new RegExp(es.roles['kind.custom']),
     );
     expect(await axeViolations(container)).toEqual([]);
@@ -134,35 +172,27 @@ describe('roles cards', () => {
     expect(await screen.findByText(es.roles['empty.title'])).toBeInTheDocument();
   });
 
-  it('opens the detail of a role with its permissions grouped by area', async () => {
+  it('opens the editor page of a role with its permissions by area, without violations', async () => {
     const user = userEvent.setup();
-    setup();
-    renderApp('/roles');
-    const dialog = await openDetail(user, 'Soporte');
-    expect(dialog).toHaveAccessibleDescription(
-      es.roles['detail.summary_other']
-        .replace('{{count}}', '3')
-        .replace('{{kind}}', es.roles['kind.custom']),
-    );
+    setup({}, EDITOR);
+    const { router, container } = renderApp('/roles');
+    const page = await openEditor(user, 'Soporte');
+    expect(router.state.location.pathname).toBe(`/roles/${CUSTOM_ID}`);
+    expect(within(page).getByText(es.roles['kind.custom'])).toBeVisible();
     expect(
-      within(dialog).getByRole('heading', { name: es.roles['permission.group.audit'] }),
+      within(page).getByText(fill(es.roles['editor.selected_other'], { count: 3 })),
     ).toBeVisible();
     expect(
-      within(dialog)
-        .getAllByRole('listitem')
-        .map((li) => li.textContent),
-    ).toEqual([label('user.invite'), label('credential.use_totp'), label('audit.read_scope')]);
-    expect(await axeViolations(dialog)).toEqual([]);
+      within(page).getByRole('group', { name: es.roles['permission.group.audit'] }),
+    ).toBeVisible();
+    for (const permission of CUSTOM.permissions) {
+      expect(within(page).getByRole('checkbox', { name: label(permission) })).toBeChecked();
+    }
+    expect(await axeViolations(container)).toEqual([]);
   });
 });
 
 describe('create role', () => {
-  async function openCreate(user: ReturnType<typeof userEvent.setup>) {
-    await rowsLoaded();
-    await user.click(screen.getByRole('button', { name: es.roles['create.open'] }));
-    return screen.findByRole('dialog', { name: es.roles['create.title'] });
-  }
-
   it('offers only the permissions the user has, grouped by area, and sends the chosen ones', async () => {
     const user = userEvent.setup();
     let created = false;
@@ -177,30 +207,32 @@ describe('create role', () => {
         return jsonResponse({ ...CUSTOM, id: NEW_ID, name: 'Nuevo rol' }, 201);
       },
     });
-    renderApp('/roles');
-    await screen.findByRole('button', { name: cardLabel('Administrador base') });
-    await user.click(screen.getByRole('button', { name: es.roles['create.open'] }));
-    const dialog = await screen.findByRole('dialog', { name: es.roles['create.title'] });
-    const offered = within(dialog)
+    const { router, container } = renderApp('/roles');
+    await screen.findByRole('link', { name: cardLabel('Administrador base') });
+    await user.click(screen.getByRole('link', { name: es.roles['create.open'] }));
+    await screen.findByRole('heading', { level: 1, name: es.roles['editor.newTitle'] });
+    expect(router.state.location.pathname).toBe('/roles/new');
+    const page = screen.getByRole('main');
+    const offered = within(page)
       .getAllByRole('checkbox')
       .map((box) => (box as HTMLInputElement).value);
     expect([...offered].sort()).toEqual([...MINE].sort());
     // Agrupado por área: cada área es un grupo con nombre.
     expect(
-      within(dialog).getByRole('group', { name: es.roles['permission.group.user'] }),
+      within(page).getByRole('group', { name: es.roles['permission.group.user'] }),
     ).toBeVisible();
     expect(
-      within(dialog).queryByRole('checkbox', { name: label('credential.reveal_password') }),
+      within(page).queryByRole('checkbox', { name: label('credential.reveal_password') }),
     ).toBeNull();
-    expect(await axeViolations(dialog)).toEqual([]);
+    expect(await axeViolations(container)).toEqual([]);
 
     await user.type(field(es.roles['create.name']), 'Nuevo rol');
-    await user.click(within(dialog).getByRole('checkbox', { name: label('user.invite') }));
-    await user.click(within(dialog).getByRole('checkbox', { name: label('audit.read_scope') }));
-    await user.click(within(dialog).getByRole('button', { name: es.roles['create.submit'] }));
+    await user.click(within(page).getByRole('checkbox', { name: label('user.invite') }));
+    await user.click(within(page).getByRole('checkbox', { name: label('audit.read_scope') }));
+    await user.click(within(page).getByRole('button', { name: es.roles['create.submit'] }));
 
     expect(
-      await screen.findByText(es.roles['create.toast'].replace('{{name}}', 'Nuevo rol')),
+      await screen.findByText(fill(es.roles['create.toast'], { name: 'Nuevo rol' })),
     ).toBeInTheDocument();
     const call = api.callsTo('POST', '/roles')[0];
     expect(call?.body).toEqual({
@@ -209,71 +241,90 @@ describe('create role', () => {
     });
     expect(call?.headers.get('Idempotency-Key')).toBeTruthy();
     expect(call?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('button', { name: cardLabel('Soporte') })).toBeInTheDocument();
-    });
+    // Vuelve a la lista, ya recargada.
+    expect(await screen.findByRole('link', { name: cardLabel('Soporte') })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/roles');
+  });
+
+  it('selects and clears a whole area, only with permissions the user has', async () => {
+    const user = userEvent.setup();
+    setup();
+    renderApp('/roles');
+    const page = await openCreate(user);
+    const area = es.roles['permission.group.user'];
+    await user.click(
+      within(page).getByRole('button', { name: fill(es.roles['editor.selectAllLabel'], { area }) }),
+    );
+    expect(within(page).getByRole('checkbox', { name: label('user.invite') })).toBeChecked();
+    expect(within(page).getByRole('checkbox', { name: label('user.update') })).toBeChecked();
+    // Otras áreas no cambian.
+    expect(within(page).getByRole('checkbox', { name: label('role.manage') })).not.toBeChecked();
+    await user.click(
+      within(page).getByRole('button', { name: fill(es.roles['editor.clearAllLabel'], { area }) }),
+    );
+    expect(within(page).getByRole('checkbox', { name: label('user.invite') })).not.toBeChecked();
+    expect(within(page).getByRole('checkbox', { name: label('user.update') })).not.toBeChecked();
   });
 
   it('requires a name and at least one permission, and sends nothing', async () => {
     const user = userEvent.setup();
     const api = setup();
-    renderApp('/roles');
-    const dialog = await openCreate(user);
-    await user.click(within(dialog).getByRole('button', { name: es.roles['create.submit'] }));
-    const alerts = await within(dialog).findAllByRole('alert');
+    const { container } = renderApp('/roles');
+    const page = await openCreate(user);
+    await user.click(within(page).getByRole('button', { name: es.roles['create.submit'] }));
+    const alerts = await within(page).findAllByRole('alert');
     expect(alerts.map((a) => a.textContent)).toContain(es.roles['create.permissionsRequired']);
     expect(alerts.map((a) => a.textContent)).toContain(es.common['validation.required']);
     expect(api.callsTo('POST', '/roles')).toHaveLength(0);
-    expect(await axeViolations(dialog)).toEqual([]);
+    expect(await axeViolations(container)).toEqual([]);
 
     // Tras el primer error, elegir un permiso limpia el aviso.
-    await user.click(within(dialog).getByRole('checkbox', { name: label('user.invite') }));
+    await user.click(within(page).getByRole('checkbox', { name: label('user.invite') }));
     await waitFor(() => {
       expect(
-        within(dialog).queryByText(es.roles['create.permissionsRequired'], {
+        within(page).queryByText(es.roles['create.permissionsRequired'], {
           selector: 'p[role=alert]',
         }),
       ).toBeNull();
     });
   });
 
-  it('shows ROLE.NAME_TAKEN on the name field and keeps the dialog open', async () => {
+  it('shows ROLE.NAME_TAKEN on the name field and stays on the page', async () => {
     const user = userEvent.setup();
     setup({ 'POST /roles': problem(409, 'ROLE.NAME_TAKEN') });
-    renderApp('/roles');
-    const dialog = await openCreate(user);
+    const { router } = renderApp('/roles');
+    const page = await openCreate(user);
     await user.type(field(es.roles['create.name']), 'Soporte');
-    await user.click(within(dialog).getByRole('checkbox', { name: label('user.invite') }));
-    await user.click(within(dialog).getByRole('button', { name: es.roles['create.submit'] }));
+    await user.click(within(page).getByRole('checkbox', { name: label('user.invite') }));
+    await user.click(within(page).getByRole('button', { name: es.roles['create.submit'] }));
     const nameField = field(es.roles['create.name']);
     await waitFor(() => {
       expect(nameField).toHaveAttribute('aria-invalid', 'true');
     });
-    expect(within(dialog).getByText(es.errors['ROLE.NAME_TAKEN'])).toBeVisible();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(within(page).getByText(es.errors['ROLE.NAME_TAKEN'])).toBeVisible();
+    expect(router.state.location.pathname).toBe('/roles/new');
   });
 
-  it('shows AUTHZ.ROLE_ESCALATION in the dialog', async () => {
+  it('shows AUTHZ.ROLE_ESCALATION on the page', async () => {
     const user = userEvent.setup();
     setup({ 'POST /roles': problem(403, 'AUTHZ.ROLE_ESCALATION') });
-    renderApp('/roles');
-    const dialog = await openCreate(user);
+    const { router } = renderApp('/roles');
+    const page = await openCreate(user);
     await user.type(field(es.roles['create.name']), 'Escalada');
-    await user.click(within(dialog).getByRole('checkbox', { name: label('role.manage') }));
-    await user.click(within(dialog).getByRole('button', { name: es.roles['create.submit'] }));
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    await user.click(within(page).getByRole('checkbox', { name: label('role.manage') }));
+    await user.click(within(page).getByRole('button', { name: es.roles['create.submit'] }));
+    expect(await within(page).findByRole('alert')).toHaveTextContent(
       es.errors['AUTHZ.ROLE_ESCALATION'],
     );
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/roles/new');
   });
 
   it('offers the whole catalog to someone holding every permission', async () => {
     const user = userEvent.setup();
     setup({}, [...PERMISSIONS]);
     renderApp('/roles');
-    const dialog = await openCreate(user);
-    expect(within(dialog).getAllByRole('checkbox')).toHaveLength(PERMISSIONS.length);
+    const page = await openCreate(user);
+    expect(within(page).getAllByRole('checkbox')).toHaveLength(PERMISSIONS.length);
   });
 
   it('has a Spanish and an English label for every permission and area', async () => {
@@ -292,23 +343,63 @@ describe('create role', () => {
   });
 });
 
-describe('archive role', () => {
-  it('never offers Edit or Archive for system roles but does for custom ones', async () => {
+describe('duplicate role', () => {
+  it('opens "New role" with the name and permissions of the original', async () => {
     const user = userEvent.setup();
-    setup();
-    renderApp('/roles');
-    const system = await openDetail(user, 'Administrador base');
-    expect(within(system).getByText(es.roles['detail.systemNote'])).toBeVisible();
-    expect(within(system).queryByRole('button', { name: es.roles['archive.confirm'] })).toBeNull();
-    expect(within(system).queryByRole('button', { name: es.roles['detail.edit'] })).toBeNull();
-    expect(await axeViolations(system)).toEqual([]);
-    await user.keyboard('{Escape}');
-    const custom = await openDetail(user, 'Soporte');
-    expect(within(custom).getByRole('button', { name: es.roles['archive.confirm'] })).toBeVisible();
-    expect(within(custom).getByRole('button', { name: es.roles['detail.edit'] })).toBeVisible();
+    const api = setup(
+      { 'POST /roles': jsonResponse({ ...CUSTOM, id: NEW_ID, name: 'Soporte (copia)' }, 201) },
+      EDITOR,
+    );
+    const { router } = renderApp('/roles');
+    const page = await openEditor(user, 'Soporte');
+    await user.click(
+      within(page).getByRole('link', { name: new RegExp(es.roles['options.duplicate']) }),
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Soporte (copia)' });
+    expect(router.state.location.pathname).toBe('/roles/new');
+    expect(field(es.roles['create.name'])).toHaveValue('Soporte (copia)');
+    const fresh = screen.getByRole('main');
+    for (const permission of CUSTOM.permissions) {
+      expect(within(fresh).getByRole('checkbox', { name: label(permission) })).toBeChecked();
+    }
+    await user.click(within(fresh).getByRole('button', { name: es.roles['create.submit'] }));
+    await waitFor(() => {
+      expect(api.callsTo('POST', '/roles')[0]?.body).toEqual({
+        name: 'Soporte (copia)',
+        permissions: CUSTOM.permissions,
+      });
+    });
   });
 
-  it('asks for confirmation, archives only that role and refetches the list', async () => {
+  it('leaves out the permissions the user does not have, and says so', async () => {
+    setup();
+    renderApp(`/roles/new?from=${CUSTOM_ID}`);
+    // MINE no incluye `credential.use_totp`: no se ofrece ni se copia.
+    expect(
+      await screen.findByText(fill(es.roles['editor.copyDropped_one'], { count: 1 })),
+    ).toBeVisible();
+    const page = screen.getByRole('main');
+    expect(within(page).getByRole('checkbox', { name: label('user.invite') })).toBeChecked();
+    expect(within(page).getByRole('checkbox', { name: label('audit.read_scope') })).toBeChecked();
+    expect(within(page).queryByRole('checkbox', { name: label('credential.use_totp') })).toBeNull();
+  });
+});
+
+describe('archive role', () => {
+  it('shows system templates read-only, without Save or Archive', async () => {
+    const user = userEvent.setup();
+    setup();
+    const { container } = renderApp('/roles');
+    const page = await openEditor(user, 'Administrador base');
+    expect(within(page).getByText(es.roles['detail.systemNote'])).toBeVisible();
+    expect(within(page).queryByRole('button', { name: archiveOption })).toBeNull();
+    expect(within(page).queryByRole('button', { name: es.roles['edit.submit'] })).toBeNull();
+    for (const box of within(page).getAllByRole('checkbox')) expect(box).toBeDisabled();
+    expect(field(es.roles['create.name'])).toHaveAttribute('readonly');
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  it('asks for confirmation, archives only that role and returns to the refetched list', async () => {
     const user = userEvent.setup();
     let archived = false;
     const api = setup({
@@ -322,24 +413,22 @@ describe('archive role', () => {
         return noContent();
       },
     });
-    renderApp('/roles');
+    const { router } = renderApp('/roles');
     const dialog = await openArchive(user);
     expect(await axeViolations(dialog)).toEqual([]);
     expect(api.callsTo('POST', `/roles/${CUSTOM_ID}/archive`)).toHaveLength(0);
-    const before = rolesCalls(api).length;
 
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
 
     expect(
-      await screen.findByText(es.roles['archive.toast'].replace('{{name}}', 'Soporte')),
+      await screen.findByText(fill(es.roles['archive.toast'], { name: 'Soporte' })),
     ).toBeInTheDocument();
     expect(
       api.callsTo('POST', `/roles/${CUSTOM_ID}/archive`)[0]?.headers.get('Idempotency-Key'),
     ).toBeTruthy();
-    await waitFor(() => {
-      expect(rolesCalls(api).length).toBeGreaterThan(before);
-      expect(screen.queryByRole('button', { name: cardLabel('Soporte') })).toBeNull();
-    });
+    await screen.findByRole('link', { name: cardLabel('Administrador base') });
+    expect(router.state.location.pathname).toBe('/roles');
+    expect(screen.queryByRole('link', { name: cardLabel('Soporte') })).toBeNull();
   });
 
   it('cancelling sends nothing', async () => {
@@ -377,9 +466,9 @@ describe('archive role', () => {
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
     const alert = await within(dialog).findByRole('alert');
     expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
-    expect(alert).not.toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
+    expect(alert).not.toHaveTextContent(fill(es.errors.retryIn, { seconds: 30 }));
     expect(within(dialog).getByRole('timer')).toHaveTextContent(
-      es.errors.retryIn.replace('{{seconds}}', '30'),
+      fill(es.errors.retryIn, { seconds: 30 }),
     );
 
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
@@ -391,8 +480,8 @@ describe('archive role', () => {
     const api = setup({ [`POST /roles/${CUSTOM_ID}/archive`]: problem(404, 'NOT_FOUND') });
     renderApp('/roles');
     await rowsLoaded();
-    const before = rolesCalls(api).length;
     const dialog = await openArchive(user);
+    const before = rolesCalls(api).length;
     await user.click(within(dialog).getByRole('button', { name: es.roles['archive.confirm'] }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
@@ -402,16 +491,6 @@ describe('archive role', () => {
 });
 
 describe('edit role', () => {
-  // Quien edita debe tener TODOS los permisos actuales del rol (ADR 0012): a `Soporte` le suma uno.
-  const EDITOR: Permission[] = [...MINE, 'credential.use_totp'];
-  const editTitle = (name: string) => es.roles['edit.title'].replace('{{name}}', name);
-
-  async function openEdit(user: ReturnType<typeof userEvent.setup>) {
-    const detail = await openDetail(user, 'Soporte');
-    await user.click(within(detail).getByRole('button', { name: es.roles['detail.edit'] }));
-    return screen.findByRole('dialog', { name: editTitle('Soporte') });
-  }
-
   it('opens with the current name and permissions and sends the full replacement', async () => {
     const user = userEvent.setup();
     let updated = false;
@@ -429,43 +508,36 @@ describe('edit role', () => {
       },
       EDITOR,
     );
-    renderApp('/roles');
-    const dialog = await openEdit(user);
+    const { router } = renderApp('/roles');
+    const page = await openEditor(user, 'Soporte');
     expect(field(es.roles['create.name'])).toHaveValue('Soporte');
-    for (const permission of CUSTOM.permissions) {
-      expect(within(dialog).getByRole('checkbox', { name: label(permission) })).toBeChecked();
-    }
-    expect(within(dialog).getByRole('checkbox', { name: label('user.update') })).not.toBeChecked();
-    expect(await axeViolations(dialog)).toEqual([]);
+    expect(within(page).getByRole('checkbox', { name: label('user.update') })).not.toBeChecked();
 
     await user.clear(field(es.roles['create.name']));
     await user.type(field(es.roles['create.name']), 'Soporte N2');
-    await user.click(within(dialog).getByRole('checkbox', { name: label('audit.read_scope') }));
-    await user.click(within(dialog).getByRole('checkbox', { name: label('credential.use_totp') }));
-    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
+    await user.click(within(page).getByRole('checkbox', { name: label('audit.read_scope') }));
+    await user.click(within(page).getByRole('checkbox', { name: label('credential.use_totp') }));
+    await user.click(within(page).getByRole('button', { name: es.roles['edit.submit'] }));
 
     expect(
-      await screen.findByText(es.roles['edit.toast'].replace('{{name}}', 'Soporte N2')),
+      await screen.findByText(fill(es.roles['edit.toast'], { name: 'Soporte N2' })),
     ).toBeInTheDocument();
     const call = api.callsTo('PATCH', `/roles/${CUSTOM_ID}`)[0];
     expect(call?.body).toEqual({ name: 'Soporte N2', permissions: ['user.invite'] });
     expect(call?.headers.get('Idempotency-Key')).toBeTruthy();
     expect(call?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('button', { name: cardLabel('Soporte N2') })).toBeInTheDocument();
-    });
+    expect(await screen.findByRole('link', { name: cardLabel('Soporte N2') })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/roles');
   });
 
-  it('cancelling sends nothing', async () => {
+  it('cancelling sends nothing and returns to the list', async () => {
     const user = userEvent.setup();
     const api = setup({ [`PATCH /roles/${CUSTOM_ID}`]: jsonResponse(CUSTOM) }, EDITOR);
-    renderApp('/roles');
-    const dialog = await openEdit(user);
-    await user.click(within(dialog).getByRole('button', { name: es.common['actions.cancel'] }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
-    });
+    const { router } = renderApp('/roles');
+    const page = await openEditor(user, 'Soporte');
+    await user.click(within(page).getByRole('link', { name: es.common['actions.cancel'] }));
+    await rowsLoaded();
+    expect(router.state.location.pathname).toBe('/roles');
     expect(api.callsTo('PATCH', `/roles/${CUSTOM_ID}`)).toHaveLength(0);
   });
 
@@ -473,39 +545,38 @@ describe('edit role', () => {
     const user = userEvent.setup();
     const api = setup({ [`PATCH /roles/${CUSTOM_ID}`]: jsonResponse(CUSTOM) }, EDITOR);
     renderApp('/roles');
-    const dialog = await openEdit(user);
+    const page = await openEditor(user, 'Soporte');
     for (const permission of CUSTOM.permissions) {
-      await user.click(within(dialog).getByRole('checkbox', { name: label(permission) }));
+      await user.click(within(page).getByRole('checkbox', { name: label(permission) }));
     }
-    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
-    const alerts = await within(dialog).findAllByRole('alert');
+    await user.click(within(page).getByRole('button', { name: es.roles['edit.submit'] }));
+    const alerts = await within(page).findAllByRole('alert');
     expect(alerts.map((a) => a.textContent)).toContain(es.roles['create.permissionsRequired']);
     expect(api.callsTo('PATCH', `/roles/${CUSTOM_ID}`)).toHaveLength(0);
   });
 
-  it('shows ROLE.NAME_TAKEN on the name field and keeps the dialog open', async () => {
+  it('shows ROLE.NAME_TAKEN on the name field and stays on the page', async () => {
     const user = userEvent.setup();
     setup({ [`PATCH /roles/${CUSTOM_ID}`]: problem(409, 'ROLE.NAME_TAKEN') }, EDITOR);
-    renderApp('/roles');
-    const dialog = await openEdit(user);
-    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
+    const { router } = renderApp('/roles');
+    const page = await openEditor(user, 'Soporte');
+    await user.click(within(page).getByRole('button', { name: es.roles['edit.submit'] }));
     await waitFor(() => {
       expect(field(es.roles['create.name'])).toHaveAttribute('aria-invalid', 'true');
     });
-    expect(within(dialog).getByText(es.errors['ROLE.NAME_TAKEN'])).toBeVisible();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(within(page).getByText(es.errors['ROLE.NAME_TAKEN'])).toBeVisible();
+    expect(router.state.location.pathname).toBe(`/roles/${CUSTOM_ID}`);
   });
 
-  it('shows AUTHZ.ROLE_ESCALATION from the server in the dialog', async () => {
+  it('shows AUTHZ.ROLE_ESCALATION from the server on the page', async () => {
     const user = userEvent.setup();
     setup({ [`PATCH /roles/${CUSTOM_ID}`]: problem(403, 'AUTHZ.ROLE_ESCALATION') }, EDITOR);
     renderApp('/roles');
-    const dialog = await openEdit(user);
-    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    const page = await openEditor(user, 'Soporte');
+    await user.click(within(page).getByRole('button', { name: es.roles['edit.submit'] }));
+    expect(await within(page).findByRole('alert')).toHaveTextContent(
       es.errors['AUTHZ.ROLE_ESCALATION'],
     );
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('disables the submit button during a 429 and shows the wait time', async () => {
@@ -519,27 +590,32 @@ describe('edit role', () => {
       EDITOR,
     );
     renderApp('/roles');
-    const dialog = await openEdit(user);
-    await user.click(within(dialog).getByRole('button', { name: es.roles['edit.submit'] }));
-    const alert = await within(dialog).findByRole('alert');
+    const page = await openEditor(user, 'Soporte');
+    await user.click(within(page).getByRole('button', { name: es.roles['edit.submit'] }));
+    const alert = await within(page).findByRole('alert');
     expect(alert).toHaveTextContent(es.errors.RATE_LIMITED);
-    expect(alert).not.toHaveTextContent(es.errors.retryIn.replace('{{seconds}}', '30'));
-    expect(within(dialog).getByRole('timer')).toHaveTextContent(
-      es.errors.retryIn.replace('{{seconds}}', '30'),
+    expect(alert).not.toHaveTextContent(fill(es.errors.retryIn, { seconds: 30 }));
+    expect(within(page).getByRole('timer')).toHaveTextContent(
+      fill(es.errors.retryIn, { seconds: 30 }),
     );
-    expect(within(dialog).getByRole('button', { name: es.roles['edit.submit'] })).toBeDisabled();
+    expect(within(page).getByRole('button', { name: es.roles['edit.submit'] })).toBeDisabled();
   });
 
-  it('warns and blocks saving when the role has permissions the editor lacks', async () => {
+  it('shows the role read-only and explains why when it has permissions the editor lacks', async () => {
     const user = userEvent.setup();
     // MINE no incluye `credential.use_totp`, que `Soporte` sí tiene.
     const api = setup({ [`PATCH /roles/${CUSTOM_ID}`]: jsonResponse(CUSTOM) });
-    renderApp('/roles');
-    const dialog = await openEdit(user);
-    expect(within(dialog).getByText(es.roles['edit.missingPermissions'])).toBeVisible();
-    expect(within(dialog).getByRole('button', { name: es.roles['edit.submit'] })).toBeDisabled();
+    const { container } = renderApp('/roles');
+    const page = await openEditor(user, 'Soporte');
+    expect(within(page).getByText(es.roles['edit.missingPermissions'])).toBeVisible();
+    expect(within(page).queryByRole('button', { name: es.roles['edit.submit'] })).toBeNull();
+    for (const box of within(page).getAllByRole('checkbox')) expect(box).toBeDisabled();
+    // Se ven los permisos del rol, también el que quien edita no tiene.
+    expect(
+      within(page).getByRole('checkbox', { name: label('credential.use_totp') }),
+    ).toBeChecked();
     expect(api.callsTo('PATCH', `/roles/${CUSTOM_ID}`)).toHaveLength(0);
-    expect(await axeViolations(dialog)).toEqual([]);
+    expect(await axeViolations(container)).toEqual([]);
   });
 });
 
@@ -555,23 +631,39 @@ describe('system template names', () => {
       }),
     });
     renderApp('/roles');
-    expect(
-      await screen.findByRole('button', { name: cardLabel(es.common['rank.2']) }),
-    ).toBeVisible();
-    expect(screen.getByRole('button', { name: cardLabel('Leader') })).toBeVisible();
+    expect(await screen.findByRole('link', { name: cardLabel(es.common['rank.2']) })).toBeVisible();
+    expect(screen.getByRole('link', { name: cardLabel('Leader') })).toBeVisible();
+  });
+
+  it('shows the translated template name in the read-only editor too', async () => {
+    const user = userEvent.setup();
+    setup({
+      'GET /roles': jsonResponse({
+        data: [{ ...SYSTEM, id: NEW_ID, name: 'Leader' }, CUSTOM],
+        page: { nextCursor: null, limit: 25 },
+      }),
+    });
+    renderApp('/roles');
+    await openEditor(user, es.common['rank.2']);
+    expect(field(es.roles['create.name'])).toHaveValue(es.common['rank.2']);
   });
 });
 
 describe('roles screen in English', () => {
-  it('renders in English too', async () => {
+  it('renders the list and the editor in English too', async () => {
     const { loadRolesCatalog } = await import('@iam/i18n');
     const en = (await loadRolesCatalog())['en-US'];
-    setup();
+    const user = userEvent.setup();
+    setup({}, EDITOR);
     renderApp('/roles', 'en-US');
     expect(await screen.findByRole('list', { name: en.caption })).toBeInTheDocument();
     expect(screen.getByText(en['kind.system'])).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: en['card.openLabel'].replace('{{name}}', 'Soporte') }),
-    ).toBeVisible();
+    await user.click(
+      screen.getByRole('link', { name: en['card.openLabel'].replace('{{name}}', 'Soporte') }),
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Soporte' });
+    expect(screen.getByRole('link', { name: en['editor.back'] })).toBeVisible();
+    expect(screen.getByRole('button', { name: en['edit.submit'] })).toBeVisible();
+    expect(screen.getByRole('heading', { name: en['options.title'] })).toBeVisible();
   });
 });

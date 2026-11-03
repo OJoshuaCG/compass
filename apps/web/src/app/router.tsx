@@ -21,6 +21,7 @@ import {
   invitationSearchSchema,
   mfaSearchSchema,
   returnToSearchSchema,
+  roleEditorSearchSchema,
   usersSearchSchema,
 } from '../routes/search-schemas';
 
@@ -117,6 +118,19 @@ const rolesRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/roles-route'), 'RolesRoute'),
 });
 
+const newRoleRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/roles/new',
+  validateSearch: roleEditorSearchSchema,
+  component: lazyRouteComponent(() => import('../routes/roles-route'), 'NewRoleRoute'),
+});
+
+const roleRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/roles/$roleId',
+  component: lazyRouteComponent(() => import('../routes/roles-route'), 'RoleRoute'),
+});
+
 const accountsRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/accounts',
@@ -211,6 +225,8 @@ const routeTree = rootRoute.addChildren([
     sessionsRoute,
     securityRoute,
     rolesRoute,
+    newRoleRoute,
+    roleRoute,
     accountsRoute,
     credentialsRoute,
     credentialImportRoute,

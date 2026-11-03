@@ -1,5 +1,6 @@
 import type { Role } from '@iam/contracts';
 import { Button, EmptyState, IconBubble, Pagination, ShieldCheck, Skeleton, Users } from '@iam/ui';
+import { Link } from '@tanstack/react-router';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +14,6 @@ export type RoleCardsProps = {
   /** Mensaje ya traducido del error de carga. */
   errorMessage: string;
   onRetry: () => void;
-  onOpen: (role: Role) => void;
   /** Hay una recarga en curso conservando las tarjetas anteriores. */
   refreshing: boolean;
   /** Tamaño y navegación de página que entrega el container. */
@@ -25,7 +25,7 @@ const PLACEHOLDERS = 3;
 
 /**
  * Roles en tarjetas, como en el diseño de Compass: ícono, nombre, tipo, áreas que cubre y número de
- * permisos. Cada tarjeta es un botón que abre el detalle. Presentacional: la paginación por cursor
+ * permisos. Cada tarjeta es un enlace al editor del rol. Presentacional: la paginación por cursor
  * y los textos de rango son los mismos de la tabla estándar.
  */
 export function RoleCards({
@@ -33,7 +33,6 @@ export function RoleCards({
   status,
   errorMessage,
   onRetry,
-  onOpen,
   refreshing,
   paging,
 }: RoleCardsProps) {
@@ -90,12 +89,7 @@ export function RoleCards({
         >
           {roles.map((role) => (
             <li key={role.id} className="flex">
-              <RoleCard
-                role={role}
-                onOpen={() => {
-                  onOpen(role);
-                }}
-              />
+              <RoleCard role={role} />
             </li>
           ))}
         </ul>
@@ -119,7 +113,7 @@ export function RoleCards({
   );
 }
 
-function RoleCard({ role, onOpen }: { role: Role; onOpen: () => void }) {
+function RoleCard({ role }: { role: Role }) {
   const { t } = useTranslation('roles');
   const roleLabel = useRoleLabel();
   const name = roleLabel(role);
@@ -130,12 +124,11 @@ function RoleCard({ role, onOpen }: { role: Role; onOpen: () => void }) {
       ? t('view.empty')
       : groups.map((group) => t(`permission.group.${group.id}`)).join(' · ');
   return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
+    <Link
+      to="/roles/$roleId"
+      params={{ roleId: role.id }}
       aria-label={t('card.openLabel', { name })}
       aria-describedby={detailsId}
-      onClick={onOpen}
       className="flex w-full flex-col gap-3 rounded-lg border border-border bg-surface p-5 text-start shadow-card transition-colors duration-fast hover:border-accent"
     >
       <span className="flex w-full items-center gap-3">
@@ -169,6 +162,6 @@ function RoleCard({ role, onOpen }: { role: Role; onOpen: () => void }) {
           {t('card.areas', { count: groups.length })}
         </span>
       </span>
-    </button>
+    </Link>
   );
 }
