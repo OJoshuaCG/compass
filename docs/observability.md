@@ -26,6 +26,7 @@ Tipo de documento: referencia para quien opera o amplía el sistema.
 - Formato JSON de `pino`, creado en `apps/api/src/shared/infrastructure/logger.ts`. El nivel sale de la configuración validada al arrancar.
 - Cada petición recibe un identificador (`uuidv7`) que viaja en la cabecera de respuesta `x-request-id` y en el registro del error. Las respuestas de error de la API llevan ese mismo `requestId`, para que soporte rastree el caso sin ver detalles internos.
 - Eventos que hoy se registran: arranque del servidor, resultado de las migraciones, errores no controlados de peticiones y, con el transporte de correo de desarrollo, el aviso de que se "envió" un correo.
+- El proceso `inbound-poll` (sondeo de correo entrante, [runbook](runbooks/inbound-poll.md)) escribe por la salida estándar una línea JSON por mensaje con `event: inbound.message`: id de fuente, huella, resultado, motivo y veredictos `spf`, `dkim` y `dmarc`. Nunca lleva asunto, cuerpo, direcciones, código ni enlace. Es un proceso aparte de la API: sus líneas salen en el registro del anfitrión, no en el de la API.
 
 ### Redacción
 

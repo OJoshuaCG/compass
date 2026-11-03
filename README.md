@@ -6,7 +6,7 @@ Está pensada para una sola organización de unas tres personas operando, aunque
 
 ## Nombre
 
-El producto se llama **Compass**. Los nombres técnicos conservan `iam` (paquetes `@iam/*`, roles de base de datos `iam_app`, `iam_migrator` e `iam_auth_reader`) porque cambiarlos exigiría migraciones y tocar bases ya creadas, sin ningún beneficio para quien usa la herramienta.
+El producto se llama **Compass**. Los nombres técnicos conservan `iam` (paquetes `@iam/*`, roles de base de datos `iam_app`, `iam_migrator`, `iam_auth_reader` e `iam_inbound_worker`) porque cambiarlos exigiría migraciones y tocar bases ya creadas, sin ningún beneficio para quien usa la herramienta.
 
 ## Qué resuelve
 
@@ -25,7 +25,8 @@ El producto se llama **Compass**. Los nombres técnicos conservan `iam` (paquete
 | 1a · Identidad | Invitaciones, contraseña, segundo factor, sesiones, permisos y directorio de personas | **Funciona en lo esencial; faltan piezas.** Ya incluye la gestión de personas, el cambio obligatorio de la contraseña inicial, la gestión de sesiones, los roles personalizados con reenvío de invitaciones, la protección contra peticiones repetidas, las llaves de acceso (passkeys), los códigos de emergencia de la Raíz y el envío real de invitaciones por el correo del dominio de la organización. También incluye la limpieza de datos temporales vencidos, el procedimiento de recuperación de la Raíz que pierde contraseña y factores (con dos custodios) y el adaptador de claves de AWS KMS para producción (aún sin probar contra AWS real). Faltan el almacén compartido de contadores de intentos (mientras tanto el sistema debe correr en una sola instancia), la estrategia de respaldos de la base y la primera ejecución del CI en GitHub, que el dueño dejó para después |
 | 1b · Bóveda y segundo factor | Guardar y compartir cuentas, revelar contraseñas con reautenticación y generar códigos | **En curso.** Ya funcionan cuentas, credenciales con revelado auditado, compartición, segundo factor (por clave manual y por imagen del QR) y la importación desde CSV y desde Google Authenticator; faltan la búsqueda avanzada y la entrega por celular (ver el traspaso) |
 | 1c · Gobernanza | Pantalla de auditoría, bajas con rotación, salud de credenciales y acceso temporal | Pendiente |
-| 2 a 7 | Inicio de sesión único, lectura de correos y SMS, extensión de navegador y broker | Pendientes |
+| 4 · Códigos por correo | Lectura de códigos que llegan por correo, compartidos por vistas filtradas | **Construidos en lo esencial.** Ya funcionan las fuentes, las conexiones al buzón, el sondeo, las vistas y su compartición. Faltan los adaptadores reales y probarlo contra un servidor de correo real; la ratificación del dueño sigue pendiente |
+| 2, 3, 5, 6 y 7 | Inicio de sesión único, SAML y SCIM, lectura de SMS, extensión de navegador y broker | Pendientes |
 
 **Todavía no debe cargarse ninguna credencial real.** Antes hace falta terminar la fase 1 y pasar una prueba de penetración externa.
 

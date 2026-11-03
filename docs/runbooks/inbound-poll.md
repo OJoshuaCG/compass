@@ -1,10 +1,12 @@
 # Runbook: Programar el sondeo de correo entrante (IMAP)
 
-> **Borrador, pendiente de ensayo en un entorno de pruebas.** El comando existe y sus piezas están probadas por separado ([ADR 0045](../adr/0045-inbound-codes-imap-polling.md)); no se ha probado contra un servidor IMAP real ni la programación en el anfitrión. La programación es una propuesta que Ops debe ratificar.
+> **Borrador, pendiente de ensayo en un entorno de pruebas.** El comando existe y sus piezas están probadas por separado ([ADR 0045](../adr/0045-inbound-codes-mail-and-sms.md)); no se ha probado contra un servidor IMAP real ni la programación en el anfitrión. La programación es una propuesta que Ops debe ratificar.
 
 ## Objetivo
 
 Que `inbound-poll` revise cada minuto los buzones configurados, extraiga los códigos de acceso de los correos que cumplan una plantilla y los guarde cifrados para los usuarios con permiso de lectura.
+
+Las fuentes y sus conexiones IMAP (servidor, puerto, modo TLS, usuario y contraseña) se configuran desde la plataforma, en `/inbound/sources`; este proceso solo las lee. Una fuente sin conexión o sin contraseña guardada no se sondea.
 
 ## Qué hace una pasada
 
@@ -26,6 +28,7 @@ Un fallo de una fuente (buzón caído, contraseña mala) no detiene a las demás
 | `NODE_ENV`                              | `production` en producción. Con otro valor se acepta la KEK local, solo para desarrollo.                    |
 | `DATABASE_URL_INBOUND_WORKER`           | Conexión con el rol `iam_inbound_worker`. Nunca la de la aplicación ni la de migraciones.                  |
 | `KMS_ADAPTER`, `AWS_KMS_KEY_ID`, `AWS_REGION` | El mismo KMS que la API. En producción solo `aws`. La política del KMS del worker debe permitir solo `Decrypt`. |
+| `LOCAL_KMS_KEY_FILE`                    | Opcional, `.local-kms/kek.key` por defecto. Ruta de la KEK local; solo se usa con `KMS_ADAPTER=local`, que en producción se rechaza. |
 | `INBOUND_POLL_ALLOWED_PRIVATE_NETWORKS` | Opcional. IP o CIDR privados (coma) donde puede vivir el servidor de correo. Vacío: solo direcciones públicas. |
 | `INBOUND_POLL_MAX_SOURCES_PER_RUN`      | Opcional, 50 por defecto.                                                                                   |
 | `INBOUND_POLL_RUN_BUDGET_SECONDS`       | Opcional, 50 por defecto. Solo impide **empezar** otra fuente pasado ese tiempo; una fuente en curso puede tardar hasta 60 s más (su propio presupuesto) y los tiempos de red. |

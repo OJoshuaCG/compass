@@ -163,6 +163,7 @@ Esta ruta se armó a partir del código y de `pnpm stack`; todavía **no se ha e
 | PostgreSQL | Servidor dedicado, fuera de Dokploy | Por provisionar |
 | Claves (KEK) | AWS KMS (`KMS_ADAPTER=aws`, [ADR 0020](adr/0020-reference-cloud-aws.md)) | Adaptador listo; **no probado contra AWS real**. La API comprueba el acceso a la clave al arrancar y no arranca si falla (ver la sonda de arranque en [`backend.md`](backend.md) §6) |
 | Correo | SMTP del dominio de la organización | Ver [configurar correo](runbooks/configure-mail.md) |
+| Sondeo de correo entrante (`inbound-poll`) | Proceso periódico aparte, programado desde el anfitrión; el contenedor solo arranca la API (`docker/start.sh` ejecuta `main.http.js`) | Opcional, solo si se usan los códigos entrantes. Entorno y rol propios; ver [programar el sondeo](runbooks/inbound-poll.md). **Sin ensayar contra un servidor IMAP real** |
 | Respaldos de la base | Servidor dedicado | **Por definir** (decisión pendiente) |
 
 Restricción vigente: **una sola réplica** de la API ([ADR 0039](adr/0039-single-instance-until-redis.md), [runbook](runbooks/single-instance-operation.md)).
@@ -196,11 +197,13 @@ Detalle de los roles en [`database.md`](database.md) §3.
    DATABASE_URL='postgres://<admin>@<host>/<base>' node db/dist/cli.js bootstrap
    ```
 
-2. Los roles `iam_migrator` e `iam_app` se crean **sin login**. Asígnales `LOGIN` y una contraseña generada, guardada en tu gestor de secretos (`iam_auth_reader` no inicia sesión nunca):
+2. Los roles `iam_migrator` e `iam_app` se crean **sin login**. Asígnales `LOGIN` y una contraseña generada, guardada en tu gestor de secretos (`iam_auth_reader` no inicia sesión nunca). El `bootstrap` también crea `iam_inbound_worker`, el rol del sondeo de correo entrante: también nace sin login, y solo necesita `LOGIN` si vas a programar `inbound-poll` (ver su [runbook](runbooks/inbound-poll.md)):
 
    ```sql
    ALTER ROLE iam_migrator LOGIN PASSWORD '<secreto>';
    ALTER ROLE iam_app LOGIN PASSWORD '<secreto>';
+   -- Solo si programas el sondeo de correo entrante:
+   ALTER ROLE iam_inbound_worker LOGIN PASSWORD '<secreto>';
    ```
 
 3. Restringe `pg_hba.conf` y el firewall para que solo entre el servidor de Dokploy, y exige TLS.
@@ -243,7 +246,7 @@ El arranque lo hace [`docker/start.sh`](../docker/start.sh), que también atiend
    | `MAIL_TRANSPORT` | `smtp`, con `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` |
    | `TRUST_PROXY` | Ver 2.8 |
    | `WEBAUTHN_RP_NAME`, `LOG_LEVEL`, `DB_POOL_MAX` | Opcionales (ver `apps/api/src/app/config.ts`) |
-   | `OUTBOX_WORKER_ENABLED`, `OUTBOX_POLL_INTERVAL_MS` | Opcionales; el publicador del outbox está apagado por defecto (ver `docs/backend.md` §6.5) |
+   | `OUTBOX_WORKER_ENABLED`, `OUTBOX_POLL_INTERVAL_MS` | Opcionales; el publicador del outbox está apagado por defecto (ver `docs/backend.md` §6.5). **Con él apagado no sale el aviso por correo a la Raíz cuando alguien revela un restablecimiento de códigos entrantes**: el aviso viaja por el outbox. Si usas los códigos entrantes, pon `OUTBOX_WORKER_ENABLED=true` |
 
    La imagen ya fija `NODE_ENV=production`, `HOST=0.0.0.0`, `PORT=3000` y `WEB_DIST_DIR`. La API falla al arrancar si la configuración es inválida y el error nombra la variable, nunca su valor.
 
