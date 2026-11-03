@@ -96,6 +96,14 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'inbound.code_read': ['sourceId', 'viewId'],
   // Revelar un restablecimiento (evento crítico): motivo escrito, nunca el valor.
   'inbound.reset_revealed': ['sourceId', 'viewId', 'reason'],
+  // Integraciones configurables (ADR 0047). Solo el tipo, nombres de campo y conteos: nunca tokens, llaves,
+  // identificadores de chat ni el contenido de la configuración. `changedFields` son nombres de campo.
+  'integration.created': ['kind'],
+  'integration.updated': ['kind', 'changedFields'],
+  'integration.secret_rotated': ['kind', 'field', 'secretVersion'],
+  'integration.archived': ['kind'],
+  // Mensaje de prueba: `outcome` es `sent` o un código estable de fallo; nunca el texto de la respuesta.
+  'integration.test_sent': ['kind', 'outcome'],
   'audit.chain_verified': ['checked'],
   'auth.login_failed': [],
   'auth.login_password_verified': [],

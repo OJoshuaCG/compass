@@ -294,3 +294,23 @@ export type {
   InboundTemplateSummary,
   InboundTemplatesResponse,
 } from './inbound.js';
+
+export {
+  TELEGRAM_INTEGRATION_KIND_VALUES,
+  createTelegramIntegrationRequestSchema,
+  rotateTelegramBotTokenRequestSchema,
+  telegramIntegrationKindSchema,
+  telegramIntegrationSchema,
+  telegramIntegrationsResponseSchema,
+  telegramTestResultSchema,
+  updateTelegramIntegrationRequestSchema,
+} from './integrations.js';
+export type {
+  CreateTelegramIntegrationRequest,
+  RotateTelegramBotTokenRequest,
+  TelegramIntegration,
+  TelegramIntegrationKindValue,
+  TelegramIntegrationsResponse,
+  TelegramTestResult,
+  UpdateTelegramIntegrationRequest,
+} from './integrations.js';

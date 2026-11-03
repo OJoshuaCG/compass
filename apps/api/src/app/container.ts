@@ -2,6 +2,8 @@
  * Raíz de composición: el único lugar que conoce todas las capas y une cada puerto con su adaptador.
  * Los módulos no se importan entre sí salvo por su fachada; el cableado concreto vive aquí.
  */
+import { lookup as resolveDnsRecords } from 'node:dns/promises';
+
 import type { Pool } from 'pg';
 import type { Logger } from 'pino';
 
@@ -112,6 +114,7 @@ import {
   PgInboundSourceConnectionRepository,
   PgInboundViewReader,
   PgInboundViewShareRepository,
+  NetworkGuard,
   NotifyResetRevealed,
   PgInboundResetStore,
   ReadInboundCodes,
@@ -119,6 +122,16 @@ import {
   RESET_REVEAL_NOTICE_EVENT_TYPE,
   resetRevealNoticeHandlerKey,
 } from '../modules/inbound-codes/index.js';
+import {
+  GuardedHttpsClient,
+  INFRASTRUCTURE_ALERT_EVENT_TYPE,
+  ManageTelegramIntegrations,
+  NotifyInfrastructureAlert,
+  PgIntegrationRepository,
+  PgTelegramChannelStore,
+  TelegramBotSender,
+  createNodeHttpsTransport,
+} from '../modules/integrations/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
 import type { Clock } from '../shared/kernel/index.js';
 import { AsyncLocalRequestContext } from '../shared/infrastructure/async-local-request-context.js';
@@ -276,6 +289,26 @@ export function buildContainer(options: ContainerOptions) {
   });
   outboxHandlers.register(RESET_REVEAL_NOTICE_EVENT_TYPE, (event) =>
     notifyResetRevealed.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Alertas de infraestructura al chat de Telegram de la Raíz (ADR 0047). Telegram es un host público
+  // fijo: el guardia de red no lleva excepciones de redes privadas.
+  const telegramGuard = new NetworkGuard(async (host) => {
+    const records = await resolveDnsRecords(host, { all: true });
+    return records.map((record) => record.address);
+  });
+  const telegramSender = new TelegramBotSender(
+    new GuardedHttpsClient(telegramGuard, createNodeHttpsTransport()),
+  );
+  const notifyInfrastructureAlert = new NotifyInfrastructureAlert({
+    channels: new PgTelegramChannelStore(uow),
+    cipher,
+    sender: telegramSender,
+  });
+  outboxHandlers.register(INFRASTRUCTURE_ALERT_EVENT_TYPE, (event) =>
+    notifyInfrastructureAlert.handle({
+      organizationId: event.organizationId,
+      payload: event.payload,
+    }),
   );
   // Aviso de seguridad a la dueña de la cuenta (hoy: baja de su app de autenticación). Solo a ella.
   const notifySecurityNotice = new NotifySecurityNotice({
@@ -542,6 +575,16 @@ export function buildContainer(options: ContainerOptions) {
       configuration: new PgInboundConfigurationRepository(uow),
       connections: new PgInboundSourceConnectionRepository(uow),
       cipher,
+      audit,
+      clock,
+    }),
+    manageTelegramIntegrations: new ManageTelegramIntegrations({
+      context: requestContext,
+      uow,
+      authorizer,
+      integrations: new PgIntegrationRepository(uow),
+      cipher,
+      sender: telegramSender,
       audit,
       clock,
     }),
