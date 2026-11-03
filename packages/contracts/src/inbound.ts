@@ -153,6 +153,33 @@ export type InboundSourceSummary = z.infer<typeof inboundSourceSummarySchema>;
 export const inboundSourcesResponseSchema = z.object({ data: z.array(inboundSourceSummarySchema) });
 export type InboundSourcesResponse = z.infer<typeof inboundSourcesResponseSchema>;
 
+/** Vista que la persona puede configurar, con sus plantillas y su nivel (`inbound.configure`). */
+export const inboundConfigurableViewSchema = inboundViewSchema.extend({ level: shareLevelSchema });
+export type InboundConfigurableView = z.infer<typeof inboundConfigurableViewSchema>;
+
+export const inboundConfigurableViewsResponseSchema = z.object({
+  data: z.array(inboundConfigurableViewSchema),
+});
+export type InboundConfigurableViewsResponse = z.infer<
+  typeof inboundConfigurableViewsResponseSchema
+>;
+
+/**
+ * Plantilla vigente del catálogo, para elegirla al armar una vista. Solo su nombre y su tipo: la regla de
+ * remitente, asunto y extracción es de la plataforma (`platform.manage`) y no hace falta para referenciarla.
+ */
+export const inboundTemplateSummarySchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  kind: inboundTemplateKindSchema,
+});
+export type InboundTemplateSummary = z.infer<typeof inboundTemplateSummarySchema>;
+
+export const inboundTemplatesResponseSchema = z.object({
+  data: z.array(inboundTemplateSummarySchema),
+});
+export type InboundTemplatesResponse = z.infer<typeof inboundTemplatesResponseSchema>;
+
 const templateIdsSchema = z.array(z.uuid()).min(1).max(MAX_TEMPLATES_PER_VIEW);
 
 export const createInboundViewRequestSchema = z.object({

@@ -94,6 +94,8 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'POST /credentials/:id/reveal': 'full-session',
   'GET /credentials/:id/totp': 'full-session',
   'GET /inbound/sources': 'full-session',
+  'GET /inbound/configurable-views': 'full-session',
+  'GET /inbound/templates': 'full-session',
   'POST /inbound/sources': 'full-session',
   'PATCH /inbound/sources/:sourceId': 'full-session',
   'POST /inbound/sources/:sourceId/archive': 'full-session',

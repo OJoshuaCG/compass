@@ -5,6 +5,8 @@
  *   mayor): quien no tiene nivel no sabe que el recurso existe.
  * - Una vista solo se lista si hoy se puede leer: el mismo filtro que `PgInboundViewReader.findLiveView`.
  * - El listado de vistas no lleva la dirección de la fuente ni la cuenta ligada.
+ * - Las plantillas son configuración de la organización, no un recurso compartido: se listan las vigentes,
+ *   las mismas que una vista puede referenciar. Nunca se entrega su definición.
  */
 import type { ShareLevel } from '@iam/contracts';
 
@@ -12,8 +14,10 @@ import type { UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type {
   ConfigurableSourceSummary,
+  ConfigurableViewSummary,
   InboundDirectory,
   ReadableViewSummary,
+  TemplateSummary,
 } from '../application/ports/inbound-directory.js';
 
 interface ViewSummaryRow {
@@ -34,6 +38,21 @@ interface SourceSummaryRow {
   status: ConfigurableSourceSummary['status'];
   created_at: Date;
   level: ShareLevel;
+}
+
+interface ConfigurableViewRow {
+  id: string;
+  source_id: string;
+  name: string;
+  template_ids: string[];
+  created_at: Date;
+  level: ShareLevel;
+}
+
+interface TemplateRow {
+  id: string;
+  name: string;
+  kind: TemplateSummary['kind'];
 }
 
 export class PgInboundDirectory implements InboundDirectory {
@@ -94,5 +113,54 @@ export class PgInboundDirectory implements InboundDirectory {
       createdAt: row.created_at,
       level: row.level,
     }));
+  }
+
+  async listConfigurableViews(
+    userId: UserId,
+    limit: number,
+  ): Promise<readonly ConfigurableViewSummary[]> {
+    // Las plantillas se agregan en una subconsulta correlacionada para que el límite cuente vistas, no
+    // filas de la unión con sus plantillas.
+    const result = await this.transactions.current().query<ConfigurableViewRow>(
+      `select v.id, v.source_id, v.name, v.created_at, ea.level,
+              coalesce(
+                (select array_agg(vt.template_id order by vt.template_id)
+                   from mail_view_templates vt
+                  where vt.organization_id = v.organization_id and vt.view_id = v.id),
+                '{}'::uuid[]
+              ) as template_ids
+         from effective_access ea
+         join mail_views v
+           on v.organization_id = ea.organization_id and v.id = ea.resource_id
+         join mail_sources s
+           on s.organization_id = v.organization_id and s.id = v.source_id
+        where ea.resource_type = 'mail_view'
+          and ea.user_id = $1
+          and v.archived_at is null
+          and s.status <> 'archived'
+        order by v.name, v.id
+        limit $2`,
+      [userId, limit],
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      sourceId: row.source_id,
+      name: row.name,
+      templateIds: row.template_ids,
+      createdAt: row.created_at,
+      level: row.level,
+    }));
+  }
+
+  async listLiveTemplates(limit: number): Promise<readonly TemplateSummary[]> {
+    const result = await this.transactions.current().query<TemplateRow>(
+      `select t.id, t.name, t.kind
+         from inbound_templates t
+        where t.archived_at is null
+        order by t.name, t.id
+        limit $1`,
+      [limit],
+    );
+    return result.rows.map((row) => ({ id: row.id, name: row.name, kind: row.kind }));
   }
 }

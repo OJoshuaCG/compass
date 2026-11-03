@@ -131,6 +131,26 @@ async function seedAccount(fixture: Fixture, archived: boolean): Promise<string>
   );
 }
 
+async function seedTemplate(
+  fixture: Fixture,
+  name: string,
+  kind: 'login_code' | 'reset_code' | 'reset_link',
+  archived = false,
+): Promise<string> {
+  return insertOne(
+    `insert into inbound_templates (organization_id, name, kind, definition, created_by, archived_at)
+     values ($1, $2, $3, '{}'::jsonb, $4, case when $5 then now() else null end) returning id`,
+    [fixture.organization, name, kind, fixture.root, archived],
+  );
+}
+
+async function linkTemplate(fixture: Fixture, viewId: string, templateId: string): Promise<void> {
+  await db.admin.query(
+    'insert into mail_view_templates (organization_id, view_id, template_id) values ($1, $2, $3)',
+    [fixture.organization, viewId, templateId],
+  );
+}
+
 describe('PgInboundDirectory.listReadableViews', () => {
   it('lists only live views the person reaches, ordered by name, with the effective level', async () => {
     const fixture = await seedFixture('dir-views');
@@ -310,5 +330,130 @@ describe('PgInboundDirectory.listConfigurableSources', () => {
     );
 
     expect(fromOther).toEqual([]);
+  });
+});
+
+describe('PgInboundDirectory.listConfigurableViews', () => {
+  it('lists live views of non-archived sources the person reaches, with templates and level', async () => {
+    const fixture = await seedFixture('dir-config-views');
+    const active = await seedSource(fixture, 'Activa');
+    const suspended = await seedSource(fixture, 'Suspendida', { status: 'suspended' });
+    const archivedSource = await seedSource(fixture, 'Archivada', { status: 'archived' });
+    const zeta = await seedView(fixture, active, 'Zeta');
+    const alfa = await seedView(fixture, suspended, 'Alfa');
+    const empty = await seedView(fixture, active, 'Sin plantillas');
+    const archivedView = await seedView(fixture, active, 'Vista archivada', true);
+    const ofArchivedSource = await seedView(fixture, archivedSource, 'De fuente archivada');
+    const notShared = await seedView(fixture, active, 'Sin compartir');
+    const revoked = await seedView(fixture, active, 'Revocada');
+    const login = await seedTemplate(fixture, 'Acceso', 'login_code');
+    const reset = await seedTemplate(fixture, 'Restablecer', 'reset_code');
+    await linkTemplate(fixture, zeta, login);
+    await linkTemplate(fixture, zeta, reset);
+    await linkTemplate(fixture, alfa, login);
+    for (const viewId of [zeta, alfa, empty, archivedView, ofArchivedSource]) {
+      await share(fixture, 'mail_view', viewId, 'user', fixture.person, 'EDIT');
+    }
+    await share(fixture, 'mail_view', revoked, 'user', fixture.person, 'MANAGE', { revoked: true });
+    // Tener nivel sobre la fuente no da acceso a la configuración de sus vistas.
+    await share(fixture, 'mail_source', active, 'user', fixture.person, 'MANAGE');
+
+    const views = await inOrg(fixture.organization, () =>
+      directory.listConfigurableViews(asUserId(fixture.person), LIMIT),
+    );
+
+    expect(views.map((view) => view.id)).toEqual([alfa, empty, zeta]);
+    expect(views.find((view) => view.id === zeta)).toEqual({
+      id: zeta,
+      sourceId: active,
+      name: 'Zeta',
+      templateIds: [login, reset].sort(),
+      createdAt: expect.any(Date) as Date,
+      level: 'EDIT',
+    });
+    expect(views.find((view) => view.id === empty)?.templateIds).toEqual([]);
+    expect(views.map((view) => view.id)).not.toContain(notShared);
+  });
+
+  it('never lists what only another person of the same organization reaches', async () => {
+    const fixture = await seedFixture('dir-config-views-peer');
+    const peer = await insertOne(
+      `insert into users (organization_id, email, display_name, rank, managed_by, status)
+       values ($1, $2, 'Colega', 2, $3, 'active') returning id`,
+      [fixture.organization, `colega-${fixture.slug}@example.test`, fixture.root],
+    );
+    const source = await seedSource(fixture, 'Fuente');
+    const view = await seedView(fixture, source, 'Ajena');
+    await share(fixture, 'mail_view', view, 'user', peer, 'MANAGE');
+
+    const views = await inOrg(fixture.organization, () =>
+      directory.listConfigurableViews(asUserId(fixture.person), LIMIT),
+    );
+
+    expect(views).toEqual([]);
+  });
+
+  it('counts views, not template rows, against the limit', async () => {
+    const fixture = await seedFixture('dir-config-views-limit');
+    const source = await seedSource(fixture, 'Fuente');
+    const first = await seedView(fixture, source, 'A');
+    const second = await seedView(fixture, source, 'B');
+    for (const viewId of [first, second]) {
+      await share(fixture, 'mail_view', viewId, 'user', fixture.person, 'EDIT');
+    }
+    for (const name of ['T1', 'T2', 'T3']) {
+      await linkTemplate(fixture, first, await seedTemplate(fixture, name, 'login_code'));
+    }
+
+    const views = await inOrg(fixture.organization, () =>
+      directory.listConfigurableViews(asUserId(fixture.person), 2),
+    );
+
+    expect(views.map((view) => [view.id, view.templateIds.length])).toEqual([
+      [first, 3],
+      [second, 0],
+    ]);
+  });
+
+  it('never lists another organization views', async () => {
+    const owner = await seedFixture('dir-config-views-owner');
+    const other = await seedFixture('dir-config-views-other');
+    const source = await seedSource(owner, 'Ajena');
+    const view = await seedView(owner, source, 'Vista');
+    await share(owner, 'mail_view', view, 'user', owner.person, 'MANAGE');
+
+    const fromOther = await inOrg(other.organization, () =>
+      directory.listConfigurableViews(asUserId(owner.person), LIMIT),
+    );
+
+    expect(fromOther).toEqual([]);
+  });
+});
+
+describe('PgInboundDirectory.listLiveTemplates', () => {
+  it('lists only the live templates of the organization, ordered by name, without definitions', async () => {
+    const owner = await seedFixture('dir-templates');
+    const other = await seedFixture('dir-templates-other');
+    const zeta = await seedTemplate(owner, 'Zeta', 'reset_link');
+    const alfa = await seedTemplate(owner, 'Alfa', 'login_code');
+    await seedTemplate(owner, 'Archivada', 'login_code', true);
+    await seedTemplate(other, 'De otra organización', 'login_code');
+
+    const templates = await inOrg(owner.organization, () => directory.listLiveTemplates(LIMIT));
+
+    expect(templates).toEqual([
+      { id: alfa, name: 'Alfa', kind: 'login_code' },
+      { id: zeta, name: 'Zeta', kind: 'reset_link' },
+    ]);
+  });
+
+  it('honors the limit', async () => {
+    const fixture = await seedFixture('dir-templates-limit');
+    const first = await seedTemplate(fixture, 'A', 'login_code');
+    await seedTemplate(fixture, 'B', 'login_code');
+
+    const templates = await inOrg(fixture.organization, () => directory.listLiveTemplates(1));
+
+    expect(templates.map((template) => template.id)).toEqual([first]);
   });
 });

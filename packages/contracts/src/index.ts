@@ -260,6 +260,10 @@ export {
   inboundViewsResponseSchema,
   inboundSourceSummarySchema,
   inboundSourcesResponseSchema,
+  inboundConfigurableViewSchema,
+  inboundConfigurableViewsResponseSchema,
+  inboundTemplateSummarySchema,
+  inboundTemplatesResponseSchema,
 } from './inbound.js';
 export type {
   InboundCode,
@@ -285,4 +289,8 @@ export type {
   InboundViewsResponse,
   InboundSourceSummary,
   InboundSourcesResponse,
+  InboundConfigurableView,
+  InboundConfigurableViewsResponse,
+  InboundTemplateSummary,
+  InboundTemplatesResponse,
 } from './inbound.js';

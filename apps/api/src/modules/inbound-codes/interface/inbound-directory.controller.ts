@@ -1,4 +1,9 @@
-import type { InboundSourcesResponse, InboundViewsResponse } from '@iam/contracts';
+import type {
+  InboundConfigurableViewsResponse,
+  InboundSourcesResponse,
+  InboundTemplatesResponse,
+  InboundViewsResponse,
+} from '@iam/contracts';
 import { Controller, Get, Header } from '@nestjs/common';
 
 import { unwrap } from '../../../shared/http/http-decorators.js';
@@ -41,6 +46,35 @@ export class InboundDirectoryController {
         status: source.status,
         createdAt: source.createdAt.toISOString(),
         level: source.level,
+      })),
+    };
+  }
+
+  @Header('Cache-Control', NO_STORE)
+  @Get('configurable-views')
+  async configurableViews(): Promise<InboundConfigurableViewsResponse> {
+    const views = unwrap(await this.directory.listConfigurableViews());
+    return {
+      data: views.map((view) => ({
+        id: view.id,
+        sourceId: view.sourceId,
+        name: view.name,
+        templateIds: [...view.templateIds],
+        createdAt: view.createdAt.toISOString(),
+        level: view.level,
+      })),
+    };
+  }
+
+  @Header('Cache-Control', NO_STORE)
+  @Get('templates')
+  async templates(): Promise<InboundTemplatesResponse> {
+    const templates = unwrap(await this.directory.listTemplates());
+    return {
+      data: templates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        kind: template.kind,
       })),
     };
   }
