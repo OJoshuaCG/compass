@@ -19,7 +19,7 @@ La bóveda es el lugar donde el equipo guarda las cuentas de las plataformas ext
 11. [Importación](#11-importación)
 12. [Reglas numeradas](#12-reglas-numeradas)
 13. [Preguntas abiertas](#13-preguntas-abiertas)
-14. [Códigos que llegan por correo y SMS (propuesta)](#14-códigos-que-llegan-por-correo-y-sms-propuesta)
+14. [Códigos que llegan por correo y SMS](#14-códigos-que-llegan-por-correo-y-sms)
 
 ## 1. Los cinco conceptos
 
@@ -59,7 +59,7 @@ Decisión que se toma desde el primer día aunque la lectura de correos llegue d
 
 1. Se reserva un **subdominio exclusivo** para esto (por ejemplo, uno separado del correo de las personas).
 2. **Cada cuenta de plataforma recibe su propio alias único** de correo en ese subdominio.
-3. Mientras el sistema no lea correos (propuesta de lectura en la sección 14), el subdominio reenvía a un buzón operativo controlado por el equipo.
+3. Mientras no se ponga en operación la lectura de correos (construida, ver sección 14), el subdominio reenvía a un buzón operativo controlado por el equipo.
 4. Desde el inicio se configuran las protecciones estándar de autenticidad del correo (SPF, DKIM y DMARC).
 
 **Por qué.** Así las cuentas se crean desde el primer día con el correo definitivo que usarán siempre y no habrá que cambiarlo después en cada plataforma. El nombre y la configuración de este subdominio siguen como decisión pendiente (ver [`roadmap-and-status.md`](roadmap-and-status.md)).
@@ -198,29 +198,29 @@ Está integrado en la interfaz y en la API.
 | 5 | Qué restricciones de contraseña concretas trae cada plataforma del catálogo | El plan prevé el dato pero no los valores |
 | 6 | Qué ocurre con las vistas guardadas de una persona dada de baja | El plan no lo menciona |
 
-## 14. Códigos que llegan por correo y SMS (propuesta)
+## 14. Códigos que llegan por correo y SMS
 
-**Estado: propuesta, no implementada.** El dueño decidió el 2026-10-30 adelantar esta capacidad, que el plan tenía después de la prueba de intrusión. El diseño técnico está en el ADR 0045 (en estado de propuesta). Lo que sigue describe cómo funcionaría para el negocio; las cifras y los niveles marcados como propuesta los confirma una persona.
+**Estado: el correo está construido, salvo la operación real; el SMS sigue pendiente.** El dueño decidió el 2026-10-30 adelantar esta capacidad, que el plan tenía después de la prueba de intrusión. El diseño técnico está en el ADR 0045, que sigue en estado de propuesta hasta que el dueño lo ratifique. Falta ensayarlo con un servidor de correo real y ponerlo en operación, lo que depende de las decisiones abiertas de la sección 14.8. Las cifras y las reglas marcadas como propuesta las confirma una persona.
 
 ### 14.1 Qué es cada cosa
 
 | Concepto | Qué es | Ejemplo |
 | --- | --- | --- |
-| Buzón | Una dirección de correo propia de la cuenta (o un número de teléfono) que recibe los mensajes de la plataforma | La dirección de la cuenta de Facebook de la marca |
+| Buzón | Una dirección de correo dedicada a la plataforma, a la que el sistema se conecta para leer (o un número de teléfono), que recibe los mensajes de las plataformas | La dirección de la cuenta de Facebook de la marca |
 | Filtro | La regla que dice qué mensajes cuentan: quién los envía y, si hace falta, cómo empieza el asunto | "Del remitente de seguridad de Facebook, con asunto de código de acceso" |
 | Vista compartida | Un conjunto de filtros de un buzón que se comparte con personas o grupos | "Códigos de acceso de Facebook" |
 | Cuarentena | Lo que llegó pero no cumple ningún filtro o no pudo comprobarse que viene de quien dice | Un correo que dice ser de Facebook pero no está firmado por Facebook |
 
-El sistema **no entra a ninguna bandeja de correo** ni guarda contraseñas de correo: el correo llega directamente a una dirección propia de Compass.
+El sistema **entra al buzón dedicado** con la contraseña del buzón, que guarda cifrada. Es la vía que el dueño eligió el 2026-10-30, con el servidor de correo propio de la organización, y sustituye a la de recibir el correo directamente en una dirección propia de Compass, que queda como opción futura. Por eso el buzón debe ser **dedicado** a la plataforma: la contraseña da acceso a todo el buzón, así que nunca se usa uno personal. La conexión es de solo lectura (no marca ni borra mensajes).
 
 ### 14.2 Cómo se decide qué se muestra
 
-1. Llega un mensaje a la dirección del buzón.
-2. Si es correo, el sistema comprueba que de verdad lo envió el dominio que declara (la firma del correo). **Sin esa comprobación el filtro no se aplica**, porque el remitente de un correo se puede falsificar.
+1. El sistema consulta el buzón de forma periódica y encuentra un mensaje nuevo.
+2. Si es correo, el sistema comprueba que de verdad lo envió el dominio que declara (la firma del correo). Por ahora confía en el resultado de esa comprobación que registra el servidor de correo propio; con lecturas reales, el dueño decide si el sistema debe verificar la firma por su cuenta. **Sin esa comprobación el filtro no se aplica**, porque el remitente de un correo se puede falsificar.
 3. Si el mensaje coincide con una plantilla de código de acceso, se extrae solo el código y se guarda cifrado. **Ante la duda, se trata como sensible**: lo que no coincide con una plantilla explícita de código de acceso nunca se muestra a quien solo recibe la compartición y va a cuarentena. Las plantillas (quién envía, cómo empieza el asunto, qué tipo de mensaje es) las mantiene quien administra el catálogo de plataformas; quien configura un buzón solo elige cuáles usar, no puede cambiarles el tipo.
 4. El código vence a los **10 minutos**. La propuesta es **no guardar el mensaje completo en absoluto**: se lee, se extrae el código y se descarta. Si el proveedor obligara a guardarlo un instante, se guardaría cifrado y se borraría en minutos (aun así, copias técnicas de la base de datos podrían retenerlo un tiempo, por lo que es la segunda opción).
 
-### 14.3 Qué ve cada nivel de la vista (propuesta)
+### 14.3 Qué ve cada nivel de la vista
 
 | Nivel | Qué puede hacer |
 | --- | --- |
@@ -229,7 +229,15 @@ El sistema **no entra a ninguna bandeja de correo** ni guarda contraseñas de co
 | EDIT | Lo de VIEW, más configurar la vista (elegir qué plantillas usa). Sobre el **buzón** (no la vista), EDIT permite además configurarlo y revisar la cuarentena |
 | MANAGE | Lo de EDIT, más compartir, revocar, archivar y ver restablecimientos de contraseña (código y enlace) |
 
-Cada acción exige el nivel **y** el permiso correspondiente del catálogo: ver códigos y el historial, configurar, compartir (el permiso de compartir que ya existe) y ver restablecimientos son permisos distintos; la matriz completa está en el ADR 0045. Quien solo recibe la compartición **nunca ve la cuarentena ni el buzón completo**. Quien crea un buzón o una vista recibe MANAGE sobre ellos (propuesta).
+Cada acción exige el nivel **y** el permiso correspondiente del catálogo: ver códigos y el historial, configurar, compartir (el permiso de compartir que ya existe) y ver restablecimientos son permisos distintos; la matriz completa está en el ADR 0045. Quien solo recibe la compartición **nunca ve la cuarentena ni el buzón completo**. Quien crea un buzón o una vista recibe MANAGE sobre ellos (aprobado por el dueño el 2026-10-30). Las comparticiones sirven para las cuentas y también para los buzones y las vistas de correo.
+
+El rango más bajo que puede tener cada permiso nuevo es:
+
+| Permiso | Quién puede tenerlo |
+| --- | --- |
+| Leer códigos | Cualquier rango, hasta los Operadores |
+| Configurar buzones y vistas | Hasta los Líderes |
+| Ver restablecimientos de contraseña | Solo la Raíz y los Administradores |
 
 **Desvío del plan, por confirmar:** el plan entrega los códigos a quien tiene USE sobre la cuenta; esta propuesta los entrega según el acceso a la **vista**. Si se archiva la cuenta ligada, el buzón deja de recibir y las vistas dejan de mostrar; si se le quita a alguien el acceso a la cuenta, **hay que quitárselo también en la vista**. Para compartir una vista de un buzón ligado a una cuenta, quien comparte debe tener al menos USE sobre esa cuenta. El dueño decide si prefiere exigir ambos accesos a la vez.
 
@@ -237,9 +245,9 @@ Cada acción exige el nivel **y** el permiso correspondiente del catálogo: ver 
 
 Un enlace de "restablece tu contraseña" equivale a poder tomar la cuenta, así que:
 
-- Solo lo ve quien tiene **MANAGE** y el permiso específico, que se concede únicamente a la Raíz y a los Administradores (propuesta).
+- Solo lo ve quien tiene **MANAGE** sobre la vista y el permiso específico, que se concede únicamente a la Raíz y a los Administradores (aprobado por el dueño el 2026-10-30).
 - Pide reautenticación y un **motivo escrito**; verlo es un **evento crítico**: queda auditado y se avisa a la Raíz.
-- Los **códigos** de restablecimiento (distintos de los de inicio de sesión) plantean el mismo riesgo y se tratan igual que el enlace, con el mismo permiso. La propuesta ya lo define así; el dueño la ratifica.
+- Los **códigos** de restablecimiento (distintos de los de inicio de sesión) plantean el mismo riesgo y se tratan igual que el enlace, con el mismo permiso. Así está construido; queda pendiente que el dueño ratifique el documento técnico.
 
 ### 14.5 Qué pasa al revocar
 
@@ -253,16 +261,18 @@ Un enlace de "restablece tu contraseña" equivale a poder tomar la cuenta, así 
 - El SMS es el factor más débil (intercambio de SIM, intercepción). Se sigue prefiriendo el código de la aplicación autenticadora y el SMS solo se usa cuando la plataforma no ofrece otra cosa.
 - **El SMS no se usa como segundo factor de este sistema**, solo para leer códigos de plataformas externas.
 - A diferencia del correo, **el remitente de un SMS no se puede comprobar**: el filtro por remitente ayuda a ordenar pero no es una garantía, y la pantalla lo indicará.
-- El proveedor de números todavía no está elegido; mientras tanto se desarrolla con un proveedor de prueba.
+- El proveedor de números todavía no está elegido; mientras tanto se desarrolla con un proveedor de prueba. La lectura de SMS aún no está construida.
 
-### 14.7 Reglas propuestas
+### 14.7 Reglas
+
+Las marcadas como propuesta esperan la ratificación del ADR 0045.
 
 | N.º | Regla |
 | --- | --- |
 | BO-15 (propuesta) | Un correo solo coincide con una plantilla si su firma está verificada y alineada con el dominio del remitente; si no, va a cuarentena. Lo que no coincide con una plantilla explícita de código de acceso se trata como sensible |
 | BO-16 (propuesta) | Se comparte la vista filtrada, nunca el buzón completo ni la cuarentena |
 | BO-17 (propuesta) | Se guarda solo el código extraído, cifrado, con vigencia de 10 minutos; el mensaje completo no se guarda (o, si el proveedor lo obliga, solo cifrado y minutos) |
-| BO-18 (propuesta) | Ver un restablecimiento (enlace o código) exige MANAGE, permiso específico, reautenticación y motivo, y es un evento crítico |
+| BO-18 | Ver un restablecimiento (enlace o código) exige MANAGE, permiso específico, reautenticación y motivo, y es un evento crítico |
 | BO-19 (propuesta) | Revocar o archivar corta el acceso de inmediato |
 | BO-20 (propuesta) | El SMS no es segundo factor del sistema y su remitente se muestra como no verificado |
 
@@ -270,12 +280,12 @@ Un enlace de "restablece tu contraseña" equivale a poder tomar la cuenta, así 
 
 | N.º | Pregunta | Por qué importa |
 | --- | --- | --- |
-| 1 | Subdominio de los alias y su configuración de DNS | Sin él no hay direcciones reales (decisión 4 de la hoja de ruta) |
-| 2 | Cómo se recibe el correo: servicio de un proveedor o servidor propio | Cambia costo, dónde pasan los datos y **dónde se verifica la firma**; sin decidirlo no se puede construir la recepción |
+| 1 | Ratificar el documento técnico (ADR 0045), que sigue en propuesta | Mientras no se ratifique, las reglas marcadas como propuesta no son definitivas |
+| 2 | Subdominio de los alias y su configuración de DNS | Sin él no hay direcciones reales (decisión 4 de la hoja de ruta). Se difiere: solo hace falta antes de cargar credenciales reales |
 | 3 | Proveedor de SMS | Define costo, si entrega números no virtuales y cómo se autentican sus avisos |
-| 4 | Cuánto tiempo se puede conservar lo que llega, según el área legal | Los mensajes pueden traer datos personales |
+| 4 | Cuánto tiempo se puede conservar lo que llega, según el área legal | Los mensajes pueden traer datos personales. Mientras el área legal opina rige la propuesta: 10 minutos para los códigos, 30 días para el historial y 7 días para la cuarentena |
 | 5 | Si VIEW ve el historial y si EDIT ve la cuarentena | Define cuánto se expone a quien no administra |
 | 6 | Si el acceso a la vista basta o se exige también acceso a la cuenta ligada | Es un desvío del plan; afecta qué pasa al quitar a alguien de la cuenta |
 | 7 | Hasta la prueba de intrusión, ¿solo buzones de prueba? (recomendación: sí) | Aun sin credenciales guardadas, lo que llega son códigos reales |
 
-El descarte del acceso a buzones existentes de Gmail, Outlook u otros por usuario y contraseña (camino B) es deliberado: obligaría a guardar credenciales de correo reales con acceso a **todo** el correo, no solo a los códigos.
+Ya está decidido que el correo se recibe por sondeo del servidor de correo propio (decisión del dueño, 2026-10-30), por lo que ya no figura como pregunta abierta.

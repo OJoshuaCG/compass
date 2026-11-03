@@ -88,7 +88,7 @@ Un sistema "zero-knowledge" es aquel donde el servidor jamás puede leer los sec
 | Que el dueño (la Raíz) conserve control sobre la organización | Sin acceso del servidor, perder una clave personal significaría perder los secretos |
 | Recuperar el acceso de alguien que perdió sus factores | Sin acceso del servidor, no habría recuperación posible |
 | Generar los códigos de segundo factor en el servidor para que nadie se lleve el secreto | El servidor debe conocer el secreto para calcular el código |
-| Leer códigos que llegan por correo o SMS (fases futuras) | El servidor debe poder abrir el contenido para extraer el código |
+| Leer códigos que llegan por correo (construido, falta la operación real) o por SMS (fase futura) | El servidor debe poder abrir el contenido para extraer el código |
 
 **Qué significa en la práctica:**
 
@@ -101,7 +101,7 @@ Un sistema "zero-knowledge" es aquel donde el servidor jamás puede leer los sec
 | No incluye | Motivo o momento previsto |
 | --- | --- |
 | Servir como proveedor de inicio de sesión único para otras aplicaciones | Fases 2 y 3 |
-| Leer códigos de segundo factor que llegan por correo | Fase 4 |
+| Poner en operación real la lectura de códigos que llegan por correo | Fase 4: ya está construida; falta la operación con correo real, que depende de decisiones del dueño (ver [`roadmap-and-status.md`](roadmap-and-status.md)) |
 | Leer códigos que llegan por SMS | Fase 5 |
 | Autocompletar desde una extensión de navegador | Fase 6 |
 | Iniciar sesión en una plataforma sin revelar la contraseña (nivel USE completo) | Fase 7; se prepara desde la fase 1 pero no se construye |

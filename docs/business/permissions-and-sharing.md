@@ -8,7 +8,7 @@ Este documento explica cómo el sistema decide si una persona puede hacer algo: 
 
 | Tema | Estado hoy |
 | --- | --- |
-| Catálogo de 28 permisos con sus techos de rango | **Implementado y probado.** Es una lista fija; no se crean permisos desde la pantalla |
+| Catálogo de 34 permisos con sus techos de rango | **Implementado y probado.** Es una lista fija; no se crean permisos desde la pantalla |
 | Plantillas de rol del sistema (Raíz, Administrador, Líder, Operador) | **Funcionan.** Se crean con cada organización. Los conjuntos de Líder y Operador son una decisión asumida (ver [preguntas abiertas](#11-preguntas-abiertas)) |
 | Permisos efectivos (unión de roles recortada por el techo) | **Funciona** |
 | No escalamiento al invitar | **Funciona.** Quien invita no puede otorgar roles con permisos que no tiene ni que superen el techo del rango invitado |
@@ -121,7 +121,26 @@ Cómo leer el techo:
 | Aprobar solicitudes de acceso temporal | Aprobar o negar solicitudes | 2 | Reducir el acceso permanente (ver [`governance.md`](governance.md)) |
 | Gestionar tareas de rotación | Asignar y cerrar tareas de rotación | 2 | Que alguien responda por los cambios de contraseña tras una baja |
 
-### 2.6 Lo que no se mezcla
+### 2.6 Códigos que llegan por correo
+
+| Permiso | Qué permite | Techo | Nivel de compartición que exige | Por qué existe |
+| --- | --- | --- | --- | --- |
+| Leer códigos entrantes | Ver los códigos vigentes de una vista de correo compartida | 3 | USE (sobre la vista); VIEW para el historial | Que quien trabaja con una plataforma obtenga su código sin ver el buzón completo |
+| Configurar códigos entrantes | Dar de alta y editar buzones y vistas, y revisar la cuarentena del buzón | 2 | EDIT; MANAGE para archivar | Decide qué mensajes cuentan y a quién se muestran, por eso queda hasta los Líderes |
+| Ver restablecimientos de contraseña | Mostrar un enlace o código de restablecimiento recibido por correo | 1 | MANAGE (sobre la vista) | Un enlace de restablecimiento equivale a poder tomar la cuenta; por eso solo lo tienen la Raíz y los Administradores |
+
+Compartir una vista usa el permiso de compartir de la sección 2.4 y exige MANAGE sobre la vista. Quien crea un buzón o una vista recibe MANAGE sobre ellos. El detalle de cómo funciona está en [`vault.md`](vault.md#14-códigos-que-llegan-por-correo-y-sms).
+
+### 2.7 Avisos por Telegram
+
+| Permiso | Qué permite | Techo | Por qué existe |
+| --- | --- | --- | --- |
+| Gestionar los avisos de infraestructura | Configurar, probar y archivar el canal de avisos de infraestructura | 0 | Cambia a dónde salen los avisos de la plataforma; solo corresponde a la Raíz |
+| Gestionar los avisos de seguridad | Configurar el canal de avisos de seguridad y decidir quién los recibe | 1 | Cambia quién ve la actividad de la plataforma; llega hasta los Administradores |
+
+Ambos exigen reautenticación y se auditan como evento crítico. El detalle está en el [ADR 0047](../adr/0047-user-configured-integrations.md).
+
+### 2.8 Lo que no se mezcla
 
 Dos cosas distintas pueden parecer iguales y no lo son:
 
@@ -141,8 +160,8 @@ Un rol es un conjunto de permisos con nombre, para asignarlos juntos.
 
 | Plantilla | Qué incluye hoy |
 | --- | --- |
-| Líder | Los 20 permisos con techo 2 o 3: invitar, editar, transferir y desactivar personas, asignar roles, crear grupos y gestionar sus miembros, todas las acciones de cuentas y credenciales (incluidas archivar y exportar el secreto de segundo factor), compartir, aprobar accesos temporales, gestionar tareas de rotación y leer la auditoría de su ámbito |
-| Operador | Los 7 permisos con techo 3 que quedan al quitar el de revelar contraseñas (decisión B5): crear y editar cuentas, crear y editar credenciales, restaurar versiones de credenciales, usar códigos de segundo factor y compartir y revocar |
+| Líder | Los 23 permisos con techo 2 o 3: invitar, editar, transferir y desactivar personas, asignar roles, crear grupos y gestionar sus miembros, todas las acciones de cuentas y credenciales (incluidas archivar y exportar el secreto de segundo factor), compartir, aprobar accesos temporales, gestionar tareas de rotación, leer la auditoría de su ámbito, y leer y configurar los códigos que llegan por correo |
+| Operador | Los 8 permisos con techo 3 que quedan al quitar el de revelar contraseñas (decisión B5): crear y editar cuentas, crear y editar credenciales, restaurar versiones de credenciales, usar códigos de segundo factor, compartir y revocar, y leer los códigos que llegan por correo |
 
 Estos permisos solo se vuelven efectivos sobre una cuenta concreta cuando exista la compartición (fase 1b), porque una acción sobre un secreto exige el permiso y el nivel de compartición a la vez.
 
@@ -175,7 +194,7 @@ Del mismo modo, **nadie comparte un nivel superior al suyo** sobre una cuenta.
 
 ## 5. Niveles de compartición
 
-Una compartición otorga a una persona o a un grupo un nivel de acceso sobre una cuenta. Los niveles son acumulativos: cada uno incluye lo del anterior.
+Una compartición otorga a una persona o a un grupo un nivel de acceso sobre una cuenta, y también sobre un buzón o una vista de correo (ver [`vault.md`](vault.md#14-códigos-que-llegan-por-correo-y-sms)). Los niveles son acumulativos: cada uno incluye lo del anterior.
 
 | Nivel | Incluye | Qué NO puede hacer |
 | --- | --- | --- |
@@ -246,13 +265,16 @@ Para las acciones más sensibles, el sistema pide volver a demostrar quién eres
 
 | Acción | Reautenticación | Motivo escrito |
 | --- | --- | --- |
-| Revelar una contraseña | Sí | Sí |
+| Revelar una contraseña | Sí | No |
+| Ver un restablecimiento de contraseña recibido por correo | Sí | Sí |
 | Exportar el secreto de segundo factor | Sí | Sí |
 | Acceso de emergencia | Sí | Sí |
 | Cambiar el rango de una persona | Sí | No |
 | Cambiar los roles de una persona | Sí | No |
 | Transferir la Raíz | Sí | No |
 | Gestionar aplicaciones de inicio de sesión único | Sí | No |
+
+Revelar una contraseña dejó de pedir motivo escrito el 2026-10-31 (decisión del dueño): bastan la reautenticación y la auditoría. Ver un restablecimiento de contraseña, en cambio, es además un **evento crítico**: avisa en tiempo real a la Raíz.
 
 **Cómo funciona la reautenticación.** La persona verifica un factor (un toque con passkey o un código de su aplicación autenticadora). Vale **5 minutos**: durante ese tiempo no se le pide de nuevo. Detalles en [`authentication.md`](authentication.md).
 
@@ -292,12 +314,13 @@ Como concede VIEW y no MANAGE, con este acceso **no** se puede exportar el secre
 | PE-11 | Revelar contraseñas exige reautenticación y auditoría, sin motivo escrito; exportar el secreto de segundo factor y el acceso de emergencia exigen reautenticación y motivo escrito |
 | PE-12 | Cambiar rangos o roles, transferir la Raíz y gestionar aplicaciones de inicio de sesión único exigen reautenticación |
 | PE-13 | Las negaciones se auditan con su motivo |
+| PE-14 | Ver un restablecimiento de contraseña recibido por correo exige MANAGE sobre la vista, un permiso que solo tienen la Raíz y los Administradores, reautenticación y motivo escrito, y es un evento crítico |
 
 ## 11. Preguntas abiertas
 
 | N.º | Pregunta | Por qué importa |
 | --- | --- | --- |
-| 1 | Qué permisos incluye por defecto la plantilla de Líder y la de Operador | El plan indica "conjuntos por defecto" sin enumerarlos. **La implementación asumió** "todo lo que su rango puede tener" (19 permisos para el Líder y 7 para el Operador). Pendiente de confirmar con el negocio: con esa elección, un Operador puede revelar contraseñas y compartir cuentas por defecto (siempre que tenga el nivel de compartición que se exige), y un Líder puede archivar cuentas y exportar el secreto de segundo factor |
+| 1 | Qué permisos incluye por defecto la plantilla de Líder y la de Operador | El plan indica "conjuntos por defecto" sin enumerarlos. **La implementación asumió** "todo lo que su rango puede tener" (23 permisos para el Líder y 8 para el Operador). Pendiente de confirmar con el negocio: con esa elección, un Operador puede revelar contraseñas y compartir cuentas por defecto (siempre que tenga el nivel de compartición que se exige), y un Líder puede archivar cuentas y exportar el secreto de segundo factor |
 | 2 | Si el vencimiento de una compartición que ya tuvo una revelación debe también generar tarea de rotación | El plan solo la prevé al revocar y en las bajas |
 | 3 | Si el acceso de emergencia puede renovarse pasada la hora | El plan fija 1 hora, sin hablar de renovación |
 | 4 | Cuál es la lista cerrada de eventos que cuentan como "uso" de un secreto en la auditoría ligera (copiar el usuario, código de segundo factor) frente a la auditoría completa | Define el volumen y la utilidad de la auditoría |
