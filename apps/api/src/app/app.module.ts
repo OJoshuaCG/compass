@@ -50,10 +50,12 @@ import { CredentialImportController } from '../modules/vault/interface/credentia
 import { TotpController } from '../modules/vault/interface/totp.controller.js';
 import {
   ManageInboundConfiguration,
+  ManageInboundSourceConnection,
   ManageInboundViewShares,
   ReadInboundCodes,
 } from '../modules/inbound-codes/index.js';
 import { InboundConfigurationController } from '../modules/inbound-codes/interface/inbound-configuration.controller.js';
+import { InboundSourceConnectionController } from '../modules/inbound-codes/interface/inbound-source-connection.controller.js';
 import { InboundCodesController } from '../modules/inbound-codes/interface/inbound-codes.controller.js';
 import { InboundViewSharesController } from '../modules/inbound-codes/interface/inbound-view-shares.controller.js';
 import { CsrfGuard } from '../shared/http/csrf.guard.js';
@@ -109,6 +111,10 @@ export class AppModule {
       { provide: ManageTotp, useValue: container.manageTotp },
       { provide: ReadInboundCodes, useValue: container.readInboundCodes },
       { provide: ManageInboundConfiguration, useValue: container.manageInboundConfiguration },
+      {
+        provide: ManageInboundSourceConnection,
+        useValue: container.manageInboundSourceConnection,
+      },
       { provide: ManageInboundViewShares, useValue: container.manageInboundViewShares },
       { provide: IdempotencyService, useValue: container.idempotency },
       { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
@@ -136,6 +142,7 @@ export class AppModule {
         InboundCodesController,
         InboundViewSharesController,
         InboundConfigurationController,
+        InboundSourceConnectionController,
       ],
       providers,
     };

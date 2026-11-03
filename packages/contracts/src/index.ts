@@ -247,6 +247,11 @@ export {
   updateInboundViewRequestSchema,
   INBOUND_SOURCE_STATUSES,
   MAX_TEMPLATES_PER_VIEW,
+  MAX_ACCEPTED_RECIPIENTS,
+  MAIL_TLS_MODES,
+  MAIL_PORT_BY_TLS_MODE,
+  putInboundSourceConnectionRequestSchema,
+  inboundSourceConnectionSchema,
 } from './inbound.js';
 export type {
   InboundCode,
@@ -262,4 +267,7 @@ export type {
   UpdateInboundSourceRequest,
   CreateInboundViewRequest,
   UpdateInboundViewRequest,
+  MailTlsMode,
+  PutInboundSourceConnectionRequest,
+  InboundSourceConnection,
 } from './inbound.js';

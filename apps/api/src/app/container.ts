@@ -104,8 +104,10 @@ import {
 } from '../modules/vault/index.js';
 import {
   ManageInboundConfiguration,
+  ManageInboundSourceConnection,
   ManageInboundViewShares,
   PgInboundConfigurationRepository,
+  PgInboundSourceConnectionRepository,
   PgInboundViewReader,
   PgInboundViewShareRepository,
   ReadInboundCodes,
@@ -493,6 +495,16 @@ export function buildContainer(options: ContainerOptions) {
       authorizer,
       configuration: new PgInboundConfigurationRepository(uow),
       ids,
+      audit,
+      clock,
+    }),
+    manageInboundSourceConnection: new ManageInboundSourceConnection({
+      context: requestContext,
+      uow,
+      authorizer,
+      configuration: new PgInboundConfigurationRepository(uow),
+      connections: new PgInboundSourceConnectionRepository(uow),
+      cipher,
       audit,
       clock,
     }),

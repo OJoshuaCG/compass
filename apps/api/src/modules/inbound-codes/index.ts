@@ -131,3 +131,12 @@ export type {
   ViewRecord,
 } from './application/ports/inbound-configuration-repository.js';
 export { PgInboundConfigurationRepository } from './infrastructure/pg-inbound-configuration-repository.js';
+export { ManageInboundSourceConnection } from './application/manage-inbound-source-connection.js';
+export type { ManageInboundSourceConnectionDeps } from './application/manage-inbound-source-connection.js';
+export type {
+  InboundSourceConnectionRepository,
+  PasswordChange,
+  SourceConnectionRecord,
+  SourceConnectionWrite,
+} from './application/ports/inbound-source-connection-repository.js';
+export { PgInboundSourceConnectionRepository } from './infrastructure/pg-inbound-source-connection-repository.js';

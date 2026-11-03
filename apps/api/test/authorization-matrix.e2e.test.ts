@@ -99,6 +99,8 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'POST /inbound/views': 'full-session',
   'PATCH /inbound/views/:viewId': 'full-session',
   'POST /inbound/views/:viewId/archive': 'full-session',
+  'GET /inbound/sources/:sourceId/connection': 'full-session',
+  'PUT /inbound/sources/:sourceId/connection': 'full-session',
   'GET /inbound/views/:viewId/codes': 'full-session',
   'GET /inbound/views/:viewId/history': 'full-session',
   'GET /inbound/views/:viewId/shares': 'full-session',

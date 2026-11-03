@@ -120,3 +120,71 @@ export const updateInboundViewRequestSchema = z
     message: 'At least one field is required',
   });
 export type UpdateInboundViewRequest = z.infer<typeof updateInboundViewRequestSchema>;
+
+/** Tope de destinatarios aceptados por fuente (ADR 0045): entradas exactas, sin comodines ni dominios. */
+export const MAX_ACCEPTED_RECIPIENTS = 10;
+export const MAIL_TLS_MODES = ['tls', 'starttls'] as const;
+export type MailTlsMode = (typeof MAIL_TLS_MODES)[number];
+/**
+ * Puerto fijo por modo (ADR 0045): 993 con TLS implícito o 143 con STARTTLS forzado. Cualquier otro puerto
+ * se rechaza al guardar: un puerto arbitrario convierte al worker en un escáner de la red.
+ */
+export const MAIL_PORT_BY_TLS_MODE: Readonly<Record<MailTlsMode, number>> = {
+  tls: 993,
+  starttls: 143,
+};
+const MAIL_PASSWORD_MAX_LENGTH = 1024;
+const MAIL_USERNAME_MAX_LENGTH = 320;
+const HOSTNAME_MAX_LENGTH = 253;
+const HOSTNAME_LABEL = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?';
+const HOSTNAME_PATTERN = new RegExp(`^${HOSTNAME_LABEL}(?:\\.${HOSTNAME_LABEL})+$`);
+const NUMERIC_LABEL_PATTERN = /^[0-9]+$/;
+
+/**
+ * Nombre de host DNS en minúsculas, con al menos un punto. Una IP literal se rechaza (su última etiqueta es
+ * numérica): el destino se decide por DNS y la guardia de red del worker lo vuelve a comprobar al conectar.
+ */
+const hostnameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1)
+  .max(HOSTNAME_MAX_LENGTH)
+  .regex(HOSTNAME_PATTERN)
+  .refine((host) => !NUMERIC_LABEL_PATTERN.test(host.split('.').at(-1) ?? ''), {
+    message: 'An IP address is not allowed; use a host name',
+  });
+
+export const putInboundSourceConnectionRequestSchema = z
+  .object({
+    host: hostnameSchema,
+    port: z.number().int(),
+    tlsMode: z.enum(MAIL_TLS_MODES),
+    username: z.string().trim().min(1).max(MAIL_USERNAME_MAX_LENGTH),
+    /** `authserv-id` del servidor del buzón: solo se confía en su cabecera `Authentication-Results`. */
+    authservId: hostnameSchema,
+    acceptedRecipients: z.array(emailSchema).min(1).max(MAX_ACCEPTED_RECIPIENTS).optional(),
+    /** Nunca se devuelve ni se registra. Guardarla exige reautenticación reciente. */
+    password: z.string().min(1).max(MAIL_PASSWORD_MAX_LENGTH).optional(),
+  })
+  .refine((body) => body.port === MAIL_PORT_BY_TLS_MODE[body.tlsMode], {
+    path: ['port'],
+    message: 'Port must be 993 with TLS or 143 with STARTTLS',
+  });
+export type PutInboundSourceConnectionRequest = z.infer<
+  typeof putInboundSourceConnectionRequestSchema
+>;
+
+export const inboundSourceConnectionSchema = z.object({
+  sourceId: z.uuid(),
+  host: z.string(),
+  port: z.number().int(),
+  tlsMode: z.enum(MAIL_TLS_MODES),
+  username: z.string(),
+  authservId: z.string(),
+  acceptedRecipients: z.array(z.string()),
+  /** Si hay contraseña guardada; la contraseña en sí nunca sale de la API. */
+  hasPassword: z.boolean(),
+  updatedAt: z.iso.datetime(),
+});
+export type InboundSourceConnection = z.infer<typeof inboundSourceConnectionSchema>;
