@@ -60,7 +60,7 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-3d | Punto de entrada, configuración propia, registro de DKIM, runbook ⚠ | IC-3c | **Hecha 2026-11-02** (jueces A/B, mutación; faltan `d=`/`s=` en el registro y el umbral de N fallos consecutivos) |
 | IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | **Hecha 2026-11-02** (jueces A/B, mutación; falta el e2e HTTP y la web) |
 | IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | En curso: **IC-5b-1 hecha** (compartir y revocar vistas); **IC-5b-2 hecha** (alta, edición y archivo de fuentes y vistas); **IC-5b-3 hecha** (conexión: contraseña, `acceptedRecipients`, reautenticación) |
-| IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | Pendiente |
+| IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | En curso: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); IC-5c-2 (tareas de rotación al revocar) pendiente |
 | IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | Pendiente |
 | IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Pendiente |
 | IC-8 | Adaptadores reales y operación: recepción de correo, proveedor de SMS, DNS (SPF, DKIM, DMARC), runbook, `docs/threat-model.md`, `docs/database.md` y `docs/backend.md`, alcance de la prueba de intrusión | IC-5c más las decisiones abiertas | **Bloqueada** por decisiones |
@@ -255,3 +255,36 @@ Candidato: solo el commit `e0cab4e` (el rango completo de 7125 líneas excedió 
 - Jueces ciegos A y B. **Confirmado por ambos y corregido**: no se comprobaba el canal; una fuente de SMS podía recibir conexión IMAP (ahora NOT_FOUND después de comprobar el nivel). **Solo B, verificado y corregido**: la negación por reautenticación no se auditaba (ahora `auditDenial` en transacción independiente antes del `throw`). **No aplicado**: bloquear fuente y conexión antes de leer el nivel (mismo orden que IC-5b-2, ventana corta); la comprobación de correos de personas corre aunque la lista no cambie (se deja así: si un destinatario guardado pasa a ser el correo de alguien, la fuente debe dejar de aceptarse hasta que MANAGE la corrija).
 - Mutación (5 reglas a la vez): MANAGE para destinatarios, borrado al cambiar destino, ventana de reautenticación, subida de `secret_version` y canal; las 5 rompieron su prueba. Archivo restaurado (`cmp`).
 - Pendiente (fuera de esta parte): la comprobación contra el subdominio reservado de alias (C10 abierta, no existe en la configuración); la comprobación de correos de personas de otras organizaciones (pediría una función `auth.*` con definer); la prueba HTTP e2e y la suite completa no se corrieron.
+
+### 2026-11-03 · IC-5c-1a hecha (aviso a la Raíz al revelar restablecimientos, `abff6eb`)
+
+- Evento de outbox `inbound.reset_revealed_notice` (agregado `mail_view`) con `actorId`, `viewId`, `revealedCount` y `revealedAt`, nunca el valor. `NotifyResetRevealed` manda un correo a cada Raíz activa, con un recibo por (evento, destinatario) para no repetir envíos. Cuarentena si la carga útil no es válida. 34/34 pruebas verdes.
+
+### 2026-11-03 · IC-5c-1b hecha (revelación de restablecimientos)
+
+- `RevealInboundResets` y `POST /inbound/views/:viewId/resets/reveal` (`full-session`, `Cache-Control: no-store`, sin `@Idempotent`), puerto propio `InboundResetStore` (una lectura de USE no puede llegar a un restablecimiento), `PgInboundResetStore` y contratos `revealInboundResetsRequestSchema` / `inboundResetsResponseSchema`.
+- Reglas, en este orden:
+  1. `inbound.reveal_reset`: el motor exige reautenticación, motivo y auditoría crítica.
+  2. MANAGE sobre la vista. Sin nivel o sin vista, `NOT_FOUND`; con menos nivel, `AUTHZ.SHARE`. Ambas negaciones se auditan.
+  3. Motivo válido (`isValidRevealReason`). Si falta, `CREDENTIAL.REASON_INVALID`, auditado.
+  4. Solo `reset_code` / `reset_link` `sensitive` vigentes de la fuente de la vista, como máximo 20, descifrados por `SecretCipher`.
+  5. Una auditoría `inbound.reset_revealed` por elemento, cada vez, con el motivo y nunca el valor.
+  6. Un aviso a la Raíz por revelación.
+- Pruebas: 21 unitarias y de integración del almacén y del caso de uso con auditoría y outbox reales, verdes. Las 2 fallas de la matriz son las preexistentes de `POST /setup`.
+- Hallazgos de los jueces ciegos A y B:
+  - Confirmados por ambos y corregidos:
+    - el resultado de `audit.record` se ignoraba (ahora se lanza y revierte);
+    - un intento vacío o un fallo de descifrado no dejaban rastro (ahora se audita en la vista, o como fallo `CRYPTO.DECRYPT_FAILED`);
+    - el `max(2000)` de Zod negaba antes de auditar (el esquema acepta cualquier motivo y el caso de uso niega y audita; el cuerpo lo acota el límite por defecto de Fastify, 1 MiB).
+- Supuesto conservador: una revelación autorizada sin restablecimientos vigentes se audita como `inbound.reset_revealed` exitosa con destino `mail_view`, sin aviso a la Raíz.
+- Mutaciones, cada una rompió al menos una prueba (archivos restaurados, `cmp`):
+  1. MANAGE→EDIT;
+  2. permiso `read_codes`;
+  3. sin validación del motivo;
+  4. sin `throw` de auditoría;
+  5. `reauth: false` en el catálogo (rompe `access-domain.test.ts:92`).
+- Decisiones abiertas del dueño:
+  - límite de revelaciones por persona (lo señalaron ambos jueces; el ADR 0045 no fija ninguno);
+  - el tope de 20 recorta en silencio.
+- No cubierto: e2e HTTP (`no-store`, reautenticación real, cuerpo ausente) y una integración con el `Authorizer` real.
+

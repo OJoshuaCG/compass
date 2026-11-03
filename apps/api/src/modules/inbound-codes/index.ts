@@ -148,3 +148,13 @@ export {
   resetRevealNoticeHandlerKey,
   serializeResetRevealNotice,
 } from './domain/reset-reveal-notice.js';
+export { RevealInboundResets, MAX_RESETS_PER_REVEAL } from './application/reveal-inbound-resets.js';
+export type {
+  RevealedInboundReset,
+  RevealInboundResetsDeps,
+} from './application/reveal-inbound-resets.js';
+export type {
+  InboundResetStore,
+  LiveResetRecord,
+} from './application/ports/inbound-reset-store.js';
+export { PgInboundResetStore } from './infrastructure/pg-inbound-reset-store.js';

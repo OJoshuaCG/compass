@@ -111,7 +111,9 @@ import {
   PgInboundViewReader,
   PgInboundViewShareRepository,
   NotifyResetRevealed,
+  PgInboundResetStore,
   ReadInboundCodes,
+  RevealInboundResets,
   RESET_REVEAL_NOTICE_EVENT_TYPE,
   resetRevealNoticeHandlerKey,
 } from '../modules/inbound-codes/index.js';
@@ -504,6 +506,16 @@ export function buildContainer(options: ContainerOptions) {
       cipher,
       audit,
       auditCounter: auditEvents,
+      clock,
+    }),
+    revealInboundResets: new RevealInboundResets({
+      context: requestContext,
+      uow,
+      authorizer,
+      views: new PgInboundViewReader(uow),
+      resets: new PgInboundResetStore(uow),
+      cipher,
+      audit,
       clock,
     }),
     manageInboundConfiguration: new ManageInboundConfiguration({

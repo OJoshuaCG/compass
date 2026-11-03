@@ -24,6 +24,30 @@ export type InboundCode = z.infer<typeof inboundCodeSchema>;
 export const inboundCodesResponseSchema = z.object({ data: z.array(inboundCodeSchema) });
 export type InboundCodesResponse = z.infer<typeof inboundCodesResponseSchema>;
 
+/**
+ * Revelación de restablecimientos de una vista (ADR 0045): exige MANAGE, reautenticación y motivo escrito.
+ * El esquema acepta cualquier motivo a propósito: uno ausente, que no es texto o fuera de largo llega al
+ * caso de uso, que lo niega con auditoría (`isValidRevealReason`). Rechazarlo aquí sería una negación sin
+ * rastro. El tamaño total del cuerpo lo acota el límite por defecto de Fastify (1 MiB).
+ */
+export const revealInboundResetsRequestSchema = z.object({
+  reason: z.unknown().optional(),
+});
+export type RevealInboundResetsRequest = z.infer<typeof revealInboundResetsRequestSchema>;
+
+/** Un restablecimiento vigente (código o enlace). Solo viaja en esta respuesta, sin caché, y nunca por SSE. */
+export const inboundResetSchema = z.object({
+  itemId: z.uuid(),
+  kind: z.enum(['reset_code', 'reset_link']),
+  valueType: z.enum(['code', 'link']),
+  value: z.string().min(1),
+  expiresAt: z.iso.datetime(),
+});
+export type InboundReset = z.infer<typeof inboundResetSchema>;
+
+export const inboundResetsResponseSchema = z.object({ data: z.array(inboundResetSchema) });
+export type InboundResetsResponse = z.infer<typeof inboundResetsResponseSchema>;
+
 /** Recepción aceptada que casó con la vista: sin asunto, remitente ni valores. */
 export const inboundReceiptSchema = z.object({
   id: z.uuid(),
