@@ -14,14 +14,17 @@ import { InboundSourcesTable } from '../ui/inbound-sources-table';
 
 import { ArchiveInboundSourceDialog } from './archive-inbound-source-dialog';
 import { CreateInboundSourceDialog } from './create-inbound-source-dialog';
+import { InboundSourceConnectionDialog } from './inbound-source-connection-dialog';
 import { RenameInboundSourceDialog } from './rename-inbound-source-dialog';
 
 type DialogState =
-  { kind: 'rename' | 'archive'; source: InboundSourceSummary } | { kind: 'create' } | null;
+  | { kind: 'rename' | 'connection' | 'archive'; source: InboundSourceSummary }
+  | { kind: 'create' }
+  | null;
 
 /**
  * Container de `/inbound/sources`: las fuentes de correo con la `DataTable` estándar. Crear,
- * renombrar y archivar se ofrecen según el nivel de cada fila; tras cada cambio se recargan las
+ * renombrar, configurar la conexión y archivar se ofrecen según el nivel de cada fila; tras cada cambio se recargan las
  * fuentes y las vistas (archivar una fuente oculta sus vistas).
  */
 export function InboundSourcesPage() {
@@ -79,6 +82,9 @@ export function InboundSourcesPage() {
         onRename={(source) => {
           setDialog({ kind: 'rename', source });
         }}
+        onEditConnection={(source) => {
+          setDialog({ kind: 'connection', source });
+        }}
         onArchive={(source) => {
           setDialog({ kind: 'archive', source });
         }}
@@ -99,6 +105,15 @@ export function InboundSourcesPage() {
           onClose={close}
           onRenamed={(displayName) => {
             done(t('sources.rename.toast', { ns: 'inbound', name: displayName }));
+          }}
+        />
+      ) : null}
+      {dialog?.kind === 'connection' ? (
+        <InboundSourceConnectionDialog
+          source={dialog.source}
+          onClose={close}
+          onSaved={() => {
+            done(t('sources.connection.toast', { ns: 'inbound', name: dialog.source.displayName }));
           }}
         />
       ) : null}

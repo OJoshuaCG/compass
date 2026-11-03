@@ -1,5 +1,6 @@
 import {
   inboundCodesResponseSchema,
+  inboundSourceConnectionSchema,
   inboundSourceSchema,
   inboundSourcesResponseSchema,
   inboundReceiptSchema,
@@ -8,11 +9,14 @@ import {
   type CreateInboundSourceRequest,
   type InboundCodesResponse,
   type InboundSource,
+  type InboundSourceConnection,
   type InboundSourceSummary,
   type InboundResetsResponse,
   type InboundReceipt,
   type InboundViewSummary,
+  type PutInboundSourceConnectionRequest,
 } from '@iam/contracts';
+import { z } from 'zod';
 
 import {
   apiClient,
@@ -31,6 +35,7 @@ export const inboundKeys = {
   all: ['inbound'] as const,
   views: () => [...inboundKeys.all, 'views'] as const,
   sources: () => [...inboundKeys.all, 'sources'] as const,
+  connection: (sourceId: string) => [...inboundKeys.all, 'connection', sourceId] as const,
   history: (viewId: string) => [...inboundKeys.all, 'history', viewId] as const,
 };
 
@@ -113,4 +118,41 @@ export function renameInboundSource(
 /** `POST /inbound/sources/:id/archive` (204, exige nivel MANAGE): deja de recibir códigos y oculta sus vistas. */
 export function archiveInboundSource(id: string, client: ApiClient = apiClient) {
   return client.post(`/inbound/sources/${id}/archive`, noContentSchema);
+}
+
+/** Respuesta de `GET /inbound/sources/:id/connection`: `null` si la fuente aún no tiene conexión. */
+const inboundSourceConnectionResponseSchema = z.object({
+  connection: inboundSourceConnectionSchema.nullable(),
+});
+
+/**
+ * `GET /inbound/sources/:id/connection` (nivel EDIT): servidor, usuario y destinatarios, nunca la
+ * contraseña (solo `hasPassword`). Al no llevar secretos puede pasar por Query.
+ */
+export async function fetchInboundSourceConnection(
+  sourceId: string,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<InboundSourceConnection | null> {
+  const response = await client.get(
+    `/inbound/sources/${sourceId}/connection`,
+    inboundSourceConnectionResponseSchema,
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+  return response.connection;
+}
+
+/**
+ * `PUT /inbound/sources/:id/connection` (nivel EDIT; los destinatarios exigen MANAGE). El cuerpo puede
+ * llevar la contraseña de la casilla: se invoca con `useAsyncAction`, nunca con una mutación de Query,
+ * para que no quede en su caché. Guardar una contraseña exige reautenticación, que abre el cliente.
+ */
+export function putInboundSourceConnection(
+  sourceId: string,
+  body: PutInboundSourceConnectionRequest,
+  client: ApiClient = apiClient,
+): Promise<InboundSourceConnection> {
+  return client.put(`/inbound/sources/${sourceId}/connection`, inboundSourceConnectionSchema, {
+    body,
+  });
 }

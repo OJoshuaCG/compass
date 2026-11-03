@@ -61,7 +61,7 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | **Hecha 2026-11-02** (jueces A/B, mutación; falta el e2e HTTP y la web) |
 | IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | En curso: **IC-5b-1 hecha** (compartir y revocar vistas); **IC-5b-2 hecha** (alta, edición y archivo de fuentes y vistas); **IC-5b-3 hecha** (conexión: contraseña, `acceptedRecipients`, reautenticación) |
 | IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | En curso: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); **IC-5c-2 hecha** (tareas de rotación al revocar) |
-| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API), IC-6b (web de lectura) e IC-6c (revelación de restablecimientos) , IC-6d-1 (listados para configurar) e IC-6d-2 (web de fuentes) hechas; faltan la conexión IMAP (IC-6d-3), las vistas (IC-6d-4) y sus comparticiones (IC-6d-5) |
+| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | En curso: IC-6a (listados de la API), IC-6b (web de lectura) e IC-6c (revelación de restablecimientos) , IC-6d-1 (listados para configurar), IC-6d-2 (web de fuentes) e IC-6d-3 (conexión IMAP) hechas; faltan las vistas (IC-6d-4) y sus comparticiones (IC-6d-5) |
 | IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Se cubre en `odd/tasks/integrations.md` (T5, "completa IC-7"), de otra sesión: no se duplica aquí |
 | IC-8 | Adaptadores reales y operación: recepción de correo, proveedor de SMS, DNS (SPF, DKIM, DMARC), runbook, `docs/threat-model.md`, `docs/database.md` y `docs/backend.md`, alcance de la prueba de intrusión | IC-5c más las decisiones abiertas | **Bloqueada** por decisiones |
 
@@ -359,3 +359,19 @@ Candidato: solo el commit `e0cab4e` (el rango completo de 7125 líneas excedió 
 - Hecha por el agente `frontend-developer` con alcance cerrado. Revisé el diff contra ese alcance y quedó dentro.
 - Pendiente: la prueba de que archivar recarga las vistas es débil (la consulta de vistas no tiene observador en esta pantalla).
 - Simplificación aplicada: el diálogo de alta se monta solo mientras está abierto, como los de renombrar y archivar, y la tabla usa directamente las reglas del modelo. Quedan como mejoras transversales, fuera de esta rebanada: compartir `levelSatisfies` en `shared/lib` (hoy hay copias en `accounts` y `credentials`, y aquí se comparan niveles por nombre); que el cliente HTTP mande `Idempotency-Key` en todo PATCH, en vez de que cada llamada pase una clave aleatoria; un único criterio de «404 al archivar cuenta como hecho»; `onSortChange` opcional en `DataTable`.
+
+### 2026-11-03 · IC-6d-3 hecha (conexión IMAP de una fuente)
+
+- La acción «Conexión» aparece en fuentes de correo no archivadas con nivel EDIT o MANAGE. Abre un diálogo que lee la conexión guardada una sola vez (sin recargas en segundo plano), con servidor, modo TLS (el puerto sale del modo: 993 o 143), usuario, `authserv-id`, destinatarios y contraseña.
+- La contraseña viaja solo por `useAsyncAction`: nunca toca la caché de Query, el almacenamiento, la URL ni el DOM después de cerrar. El campo vacío conserva la guardada, y el diálogo avisa cuando cambiar servidor, modo o usuario sin contraseña nueva la borrará en el servidor.
+- Con EDIT los destinatarios se muestran solo como texto y no se envían; solo MANAGE los cambia.
+- El cliente web ganó `put`. No manda `Idempotency-Key` a propósito: una caché de idempotencia guardaría un cuerpo con la contraseña. La reautenticación la resuelve el cliente, con un solo reintento y el mismo cuerpo.
+- La validación local usa el mismo esquema del contrato que el servidor, y los 422 del servidor se traducen al campo del formulario (`acceptedRecipients` → destinatarios, `port` → modo TLS).
+- Jueces ciegos A y B. Ambos confirmaron cuatro cosas y las corregí:
+  1. Una recarga en segundo plano podía desmontar el formulario con lo escrito.
+  2. Un guardado que terminaba después de cerrar el diálogo avisaba éxito y cerraba otro diálogo; ahora se cancela al desmontar.
+  3. La prueba de «sin contraseña en el DOM» solo miraba `textContent`.
+  4. Faltaban pruebas de ramas.
+- Lo que señaló un solo juez (el aviso no anunciado) no aplica: `Alert` en tono warning es `role="status"`.
+- Ronda de mutaciones. Las cuatro mutaciones quedaron atrapadas: contraseña siempre enviada, destinatarios siempre enviados, aviso nunca mostrado y sin cancelación al cerrar. La última sobrevivió al principio porque la prueba esperaba poco; la reforcé y ahora falla.
+- Pendiente fuera de esta rebanada: los archivos de IC-6c `inbound-resets.test.tsx` e `inbound-reset-policy.ts` no pasan `prettier --check` tal como están en HEAD.

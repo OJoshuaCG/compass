@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useDataTableLabels } from '../../../shared/i18n';
 import { formatDateTime, type ClientPagination } from '../../../shared/lib';
+import { canEditConnection } from '../model/inbound-connection-model';
 import { canArchiveSource, canRenameSource } from '../model/inbound-source-model';
 
 const NO_OP = () => undefined;
@@ -31,6 +32,7 @@ export type InboundSourcesTableProps = {
   errorMessage: string;
   onRetry: () => void;
   onRename: (source: InboundSourceSummary) => void;
+  onEditConnection: (source: InboundSourceSummary) => void;
   onArchive: (source: InboundSourceSummary) => void;
   /** El servidor entrega el listado completo (tope de 200): se pagina en memoria. */
   paging: Pick<ClientPagination<InboundSourceSummary>, 'limit' | 'onLimitChange' | 'pagination'>;
@@ -48,6 +50,7 @@ export function InboundSourcesTable({
   errorMessage,
   onRetry,
   onRename,
+  onEditConnection,
   onArchive,
   paging,
   timeZone,
@@ -108,6 +111,18 @@ export function InboundSourcesTable({
               }}
             >
               {t('sources.action.rename')}
+            </Button>
+          ) : null}
+          {canEditConnection(row) ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={t('sources.action.connectionLabel', { name: row.displayName })}
+              onClick={() => {
+                onEditConnection(row);
+              }}
+            >
+              {t('sources.action.connection')}
             </Button>
           ) : null}
           {canArchiveSource(row) ? (
