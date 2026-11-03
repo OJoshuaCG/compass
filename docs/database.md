@@ -34,7 +34,11 @@ Diseño de la base de datos de la plataforma (PostgreSQL 18). Este documento des
 | `0025_inbound_resolution_and_worker_role.sql` | Códigos entrantes (ADR 0045, IC-2c): `auth.resolve_inbound_address(canal, dirección)` (excepción de aislamiento previa a la organización, molde de la 0008: dueño `iam_auth_reader`, `search_path` fijo, búsqueda exacta, una dirección archivada responde igual que una inexistente); guardia entre `mail_sources.address` y `accounts.recovery_email_alias` mediante triggers con función definer y candado consultivo por dirección (la misma dirección solo coincide si la fuente está ligada a esa cuenta; mismo error 23505 sin eco); rol `iam_inbound_worker` con permisos mínimos (lee lo necesario para extraer, inserta elementos y recibos, no lee el valor cifrado, no actualiza ni borra) |
 | `0026_invitation_link_permission.sql` | Permiso `user.invite_link` (techo 2) en `permission_rank_ceiling()` (se redefine con todas las líneas de 0023 más esta) y concesión a los roles de sistema vivos que ya tienen `user.invite` (Raíz, Administrador y Líder). Levanta y restablece el aislamiento forzado de `roles` en la misma transacción, sube `version` en 1, no toca roles personalizados ni archivados y no escribe auditoría; sin tablas nuevas |
 | `0027_personal_roles.sql` | Roles personales (permisos especiales de una persona): columna `roles.personal_user_id` (con comentario), clave foránea compuesta a `users (organization_id, id)`, restricción que impide que un rol personal sea de sistema, índice único parcial de un rol personal vivo por persona y reemplazo del índice único de nombres vivos para excluir los roles personales (así un rol con el nombre interno no bloquea ni revela permisos especiales). Sin tablas nuevas; el trigger de techo de rango de 0015 sigue aplicando porque la asignación usa `user_roles` |
+| `0028_first_organization_setup.sql` | Alta de la primera organización desde el enlace de configuración de un solo uso (ADR 0046): `grant insert (id, name, slug) on organizations to iam_auth_reader` y la función `auth.*` `SECURITY DEFINER` que crea solo la fila de la organización y se niega (`IAM01`) si ya existe cualquier organización; sin tablas nuevas |
+| `0029_inbound_mail_connections.sql` | Conexión IMAP de las fuentes de correo (ADR 0045): tablas `mail_source_connections` (host, puerto, usuario, `tls_mode`, `authserv_id`, `accepted_recipients` y la contraseña cifrada: `password_ciphertext`, `password_nonce`, `dek_version`, `secret_version`) y `mail_source_poll_state` (cursor `uid_validity`/`last_uid`, arrendamiento `claimed_until`, `consecutive_failures`, `next_attempt_at`, `last_error_code`; sin secretos), ambas con aislamiento por filas. Función `auth.list_pollable_inbound_sources()` (`SECURITY DEFINER`, dueño `iam_auth_reader`, ejecutable solo por `iam_inbound_worker`) que lista las fuentes activas con contraseña y sondeo vencido. Concesiones a `iam_inbound_worker`: `select` por columnas sobre `mail_source_connections` (incluye el texto cifrado de la contraseña), `select, insert, update` por columnas sobre `mail_source_poll_state` y `select` por columnas `(organization_id, version, wrapped_dek, kms_key_ref, status)` sobre `data_keys`, para descifrar la contraseña |
 | `0030_inbound_receipt_template.sql` | Códigos entrantes (ADR 0045, IC-5a): `inbound_receipts.template_id` (solo en recepciones aceptadas, CHECK `inbound_receipts_template_only_accepted`; clave foránea compuesta con la organización a `inbound_templates`) para atribuir el historial de una vista después de que el elemento se purga a los 10 minutos. Índice parcial `(organization_id, template_id, received_at desc, id desc)` para la paginación por cursor. Sin relleno de filas previas: el sondeo aún no está desplegado, así que no hay recepciones aceptadas sin plantilla |
+| `0031_alerts_permissions.sql` | Permisos `alerts.infra.manage` (techo 0) y `alerts.security.manage` (techo 1) en `permission_rank_ceiling()` (ADR 0047) y concesión a los roles de sistema vivos que corresponden; sin tablas nuevas |
+| `0032_integrations.sql` | Integraciones configurables por la persona administradora (ADR 0047): tablas `integrations` (configuración no secreta) e `integration_secrets` (secreto cifrado por el módulo de criptografía, mismo patrón que la contraseña del buzón de 0029), ambas con aislamiento por filas. Solo `iam_app` las toca y ninguna permite `DELETE`: se archiva y el secreto se reemplaza |
 
 ### Cómo se ejecuta
 
@@ -81,7 +85,7 @@ Los roles son del clúster, no de la base, por eso **no** los crea una migració
 | `iam_migrator`    | Dueño de todas las tablas, vistas y funciones | DDL, sembrar el catálogo global                                                       | Reescribir `audit_events` (se revocó `UPDATE`/`DELETE`/`TRUNCATE` incluso al dueño). Con `FORCE RLS` tampoco lee datos de tenants sin `app.org_id` |
 | `iam_app`         | Rol de la API y los workers                   | `SELECT/INSERT/UPDATE` (y `DELETE` en las excepciones) con RLS; `EXECUTE` en `auth.*` | `BYPASSRLS`, ser dueño, DDL, `UPDATE/DELETE` en `audit_events`, modificar el catálogo global, reescribir `ciphertext` o `wrapped_dek`              |
 | `iam_auth_reader` | Dueño de las funciones `auth.*`               | `SELECT` por columnas, solo a través de esas funciones                                | Login, `BYPASSRLS`, leer otras columnas                                                                                                            |
-| `iam_inbound_worker` | Proceso que recibe y procesa códigos entrantes (ADR 0045) | `SELECT` por columnas de fuentes, plantillas y vistas; `INSERT` de elementos y recibos; `EXECUTE` de `auth.resolve_inbound_address` | `BYPASSRLS`, ser dueño, leer el valor cifrado, `UPDATE`/`DELETE`, tocar cuentas, usuarios, comparticiones o auditoría. Puede fijar `app.org_id` como cualquier sesión de la aplicación; que el valor vaya cifrado es disciplina del código |
+| `iam_inbound_worker` | Proceso que recibe y procesa códigos entrantes (ADR 0045) | `SELECT` por columnas de fuentes, plantillas y vistas; `INSERT` de elementos y recibos; `SELECT` por columnas de la conexión IMAP de cada fuente (con la contraseña cifrada), del estado de sondeo (también lo escribe) y de `data_keys` (versión, DEK envuelta, referencia KMS y estado); `EXECUTE` de `auth.resolve_inbound_address` y `auth.list_pollable_inbound_sources` (0025, 0029) | `BYPASSRLS`, ser dueño, leer el valor cifrado, `UPDATE`/`DELETE`, tocar cuentas, usuarios, comparticiones o auditoría. Puede fijar `app.org_id` como cualquier sesión de la aplicación; que el valor vaya cifrado es disciplina del código |
 
 Además: `revoke create on schema public from public` y `revoke temporary on database ... from public`. Los grants son por tabla y explícitos; los `UPDATE` de `credential_secrets` y `data_keys` son **por columna** (`is_current` y `status`), de modo que el texto cifrado y el material de claves son inmutables para la aplicación.
 
@@ -421,6 +425,27 @@ erDiagram
   }
 ```
 
+### 4.6 Códigos entrantes
+
+```mermaid
+erDiagram
+  accounts |o--o{ mail_sources : "account_id"
+  mail_sources ||--o| mail_source_connections : "source_id"
+  mail_sources ||--o| mail_source_poll_state : "source_id"
+  mail_sources ||--o{ mail_views : "source_id"
+  mail_views ||--o{ mail_view_templates : "view_id"
+  inbound_templates ||--o{ mail_view_templates : "template_id"
+  mail_sources ||--o{ inbound_items : "source_id"
+  inbound_templates ||--o{ inbound_items : "template_id"
+  mail_sources ||--o{ inbound_receipts : "source_id"
+  inbound_items |o--o{ inbound_receipts : "item_id"
+  inbound_templates |o--o{ inbound_receipts : "template_id"
+  data_keys ||--o{ inbound_items : "dek_version"
+  data_keys |o--o{ mail_source_connections : "dek_version"
+  mail_sources ||--o{ shares : "resource_id (mail_source)"
+  mail_views ||--o{ shares : "resource_id (mail_view)"
+```
+
 ## 5. Catálogo de tablas (fase 1)
 
 Notación: **PK** clave primaria (`id`), **UK** único, **FK(c)** clave foránea compuesta con `organization_id`. Todas las tablas (salvo `organizations`) tienen además `organization_id uuid not null`, `id uuid` (UUIDv7) y `created_at timestamptz not null default now()`; las editables, `updated_at` y, donde se indica, `version`. Las columnas `created_at`/`updated_at`/`version` no se repiten abajo.
@@ -503,7 +528,7 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 
 **`credential_totp`** (migración 0018): una fila por credencial con el estado del segundo factor vigente: `secret_version`, `status` `pending` \| `verified` \| `retired`, parámetros públicos (`algorithm`, `digits`, `period_seconds`), `registered_by` FK(c), `registered_at`, `verified_at`, `retired_at`, `exposed_at` y `pending_notice_at` (cuándo se encoló el aviso de "pendiente por más de 24 h"; nulo hasta entonces, y un re-registro lo limpia). El secreto NO está aquí: es el campo cifrado `totp_uri` de `credential_secrets`. **UK** `(organization_id, credential_id)`. Índice parcial `(organization_id, registered_at) where status = 'pending'`, que usa el barrido del aviso de 24 h (N1a, sin migración nueva: la columna y el índice ya existían). Aislamiento por fila forzado; la aplicación puede leer, insertar y actualizar.
 
-**`shares`**: `resource_type` (hoy solo `account`), `resource_id`, `grantee_type` `user` \| `group`, `grantee_id` (polimórficos, sin FK; el trigger `shares_check_refs` comprueba como invocador que existan en la organización), `level` `USE` \| `VIEW` \| `EDIT` \| `MANAGE`, `expires_at`, `granted_by` FK(c), `reason`, `revoked_at +`, `revoked_by +` FK(c) (consistentes entre sí). Revocar marca `revoked_at`: quién tuvo acceso y cuándo es evidencia forense. Único parcial `(organization_id, resource_type, resource_id, grantee_type, grantee_id) where revoked_at is null`; índice `(organization_id, grantee_type, grantee_id) where revoked_at is null`; `unique (organization_id, id)`.
+**`shares`**: `resource_type` (`account`, `mail_source` o `mail_view`; las dos últimas desde la 0024), `resource_id`, `grantee_type` `user` \| `group`, `grantee_id` (polimórficos, sin FK; el trigger `shares_check_refs` comprueba como invocador que existan en la organización), `level` `USE` \| `VIEW` \| `EDIT` \| `MANAGE`, `expires_at`, `granted_by` FK(c), `reason`, `revoked_at +`, `revoked_by +` FK(c) (consistentes entre sí). Revocar marca `revoked_at`: quién tuvo acceso y cuándo es evidencia forense. Único parcial `(organization_id, resource_type, resource_id, grantee_type, grantee_id) where revoked_at is null`; índice `(organization_id, grantee_type, grantee_id) where revoked_at is null`; `unique (organization_id, id)`.
 
 **`password_fingerprints`**: `credential_id` FK(c) **UK**(org, credential), `hmac bytea(32)`; índice `(organization_id, hmac)` para detectar reutilización sin guardar texto.
 
@@ -530,6 +555,24 @@ Los ciclos en la cadena `managed_by` y el cambio de rango no se validan en SQL: 
 ### 5.6 Vista `effective_access`
 
 `effective_access(organization_id, resource_type, resource_id, user_id, level, sources)`: une comparticiones **directas** y **por grupo** vigentes (sin `revoked_at`, sin `expires_at` vencido, grupos no archivados) y devuelve el nivel máximo (`USE < VIEW < EDIT < MANAGE`) y su origen (`{direct}`, `{group}` o ambos). Se declara `security_invoker = true`: corre con los privilegios de quien consulta, así RLS de `shares`, `groups` y `group_memberships` sigue aplicando. Sin esa opción correría como dueño y las políticas se evaluarían contra el dueño, no contra el tenant. Los listados la unen en SQL; nunca se filtra en memoria. Los permisos (RBAC) y la jerarquía no están aquí: la vista responde solo "¿sobre qué recursos?".
+
+### 5.7 Códigos entrantes
+
+Migraciones 0024, 0025, 0029 y 0030 ([ADR 0045](adr/0045-inbound-codes-mail-and-sms.md)). Todas llevan aislamiento por filas; `iam_inbound_worker` solo tiene los permisos que se indican.
+
+**`inbound_templates`** `version`: `name`, `kind` `login_code` \| `reset_code` \| `reset_link`, `definition jsonb` (objeto), `platform_id +` (opcional), `created_by` FK(c), `archived_at +`. **UK** `(organization_id, id, kind)` para que un elemento no contradiga el tipo de su plantilla.
+
+**`mail_sources`** `version`: `channel` `mail` \| `sms`, `address` (en minúsculas; **UK** `(channel, address)` en toda la base, para resolver la organización por la dirección), `display_name`, `account_id +` (opcional), `status` `active` \| `suspended` \| `archived` (consistente con `archived_at`), `created_by` FK(c). La función `auth.resolve_inbound_address` (0025) y los disparadores que impiden que una dirección coincida con `accounts.recovery_email_alias` de otra cuenta viven en el esquema `auth`.
+
+**`mail_source_connections`** `version` (0029): una por fuente (**PK** `(organization_id, source_id)`). `host`, `port`, `username`, `tls_mode` `tls` \| `starttls`, `authserv_id`, `accepted_recipients text[]` (1 a 10), y la contraseña cifrada (`password_ciphertext`, `password_nonce`, `dek_version` FK(c) a `data_keys`, nulas las tres a la vez) con `secret_version` para el contexto de cifrado. `iam_app` puede reemplazar el texto cifrado (la rotación de DEK lo necesita).
+
+**`mail_source_poll_state`** (0029): cursor y retroceso del sondeo de una fuente (**PK** `(organization_id, source_id)`): `uid_validity`, `last_uid`, `last_polled_at`, `claimed_until` (arrendamiento), `consecutive_failures`, `next_attempt_at`, `last_error_code`. Sin secretos.
+
+**`mail_views`** `version`: `source_id` FK(c), `name` (único entre las vivas de una fuente), `created_by` FK(c), `archived_at +`. **`mail_view_templates`**: **PK** `(organization_id, view_id, template_id)`, relación N a N entre vistas y plantillas.
+
+**`inbound_items`**: código o enlace extraído, inmutable: `source_id`, `template_id`, `kind`, `value_type` `code` \| `link`, `visibility` `visible_with_use` \| `sensitive`, `ciphertext`, `nonce bytea(12)`, `dek_version` FK(c), `expires_at`. CHECK: solo un `login_code` puede ser `visible_with_use`; `value_type = 'link'` si y solo si `kind = 'reset_link'`. `iam_app` tiene `select, insert, delete` y ningún `UPDATE`.
+
+**`inbound_receipts`**: un recibo por mensaje procesado: `source_id`, `message_fingerprint` (**UK** con la fuente), `outcome` `accepted` \| `quarantined`, `reason` (obligatoria si y solo si hay cuarentena), `signing_domain`, `template_kind`, `item_id` (se anula si el elemento se purga; solo en aceptados), `template_id` (0030, solo en aceptados; atribuye el historial), `received_at`.
 
 ## 6. RLS
 
@@ -652,7 +695,7 @@ El plan retenía 2 años en línea y más en archivo; el dueño decidió el 2026
 
 ## 9. Estado final (fases 2 a 7)
 
-Cómo quedará la base de datos al terminar la hoja de ruta. Las tablas de esta sección **no existen todavía**: solo se documentan para que nombres y relaciones no choquen. Todas seguirán las mismas convenciones (UUIDv7, `organization_id`, índice compuesto, `ENABLE + FORCE RLS` y política en la misma migración) y cada una llega con su prueba de aislamiento.
+Cómo quedará la base de datos al terminar la hoja de ruta. Las tablas de esta sección **no existen todavía**, salvo las de la fase 4 (correos), que ya existen con otros nombres y están en §5.7: solo se documentan para que nombres y relaciones no choquen. Todas seguirán las mismas convenciones (UUIDv7, `organization_id`, índice compuesto, `ENABLE + FORCE RLS` y política en la misma migración) y cada una llega con su prueba de aislamiento.
 
 ### 9.1 Mapa por fase
 
@@ -660,8 +703,8 @@ Cómo quedará la base de datos al terminar la hoja de ruta. Las tablas de esta 
 | --------------- | ---------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2 · SSO OIDC    | Proveedor OpenID Connect                 | `oidc_clients`, `oidc_grants`, `signing_keys`                      | Permisos `sso.clients.manage` (en código); acciones de auditoría nuevas                                                                    |
 | 3 · SAML y SCIM | SAML IdP, SCIM como cliente              | `saml_service_providers`, `scim_targets`, `federated_identities`   | `users.external_id` (expandir) si el SCIM lo requiere                                                                                      |
-| 4 · Correos     | Ingesta de correo entrante               | `mailboxes`, `mail_aliases`, `inbound_messages`, `extracted_codes` | `platforms.mail_rules` se llena; `accounts.recovery_email_alias` se enlaza con `mail_aliases`                                              |
-| 5 · SMS         | Números virtuales                        | `sms_numbers`                                                      | `extracted_codes` admite origen SMS                                                                                                        |
+| 4 · Correos     | Lectura de códigos entrantes por IMAP (hecha salvo los adaptadores reales) | Ya existen (§5.7): `inbound_templates`, `mail_sources`, `mail_source_connections`, `mail_source_poll_state`, `mail_views`, `mail_view_templates`, `inbound_items`, `inbound_receipts` | `shares.resource_type` admite `mail_source` y `mail_view`; `accounts.recovery_email_alias` no puede coincidir con la dirección de otra fuente (disparadores de la 0025) |
+| 5 · SMS         | Números virtuales                        | `sms_numbers`                                                      | `mail_sources.channel` ya admite `sms`; falta el canal                                                                                     |
 | 6 · Extensión   | Autocompletado con sesión de dispositivo | (ninguna nueva)                                                    | `sessions.kind` (`web` \| `device`) y `sessions.device_id` para el tipo de sesión `device`                                                 |
 | 7 · Broker      | Login USE sin revelar contraseña         | `login_intents`, `broker_sessions`                                 | `platforms.login_strategy` se llena; acciones de auditoría `credential.injected`, `broker.session.started`, `credential.rotated_by_system` |
 
@@ -683,14 +726,11 @@ Las claves foráneas serán compuestas con `organization_id` salvo que se indiqu
 
 **Fase 4 (correos)**
 
-- `mailboxes`: destino lógico de una organización para el subdominio dedicado (`id.dominio.com`): `domain`, `status`, `forward_to` (buzón operativo mientras no hay lectura).
-- `mail_aliases`: un alias único por cuenta: `account_id` → `accounts`, `address` **único global**, `mailbox_id` → `mailboxes`, `status`. Reemplaza el uso informal de `accounts.recovery_email_alias` (que queda como espejo de solo lectura). El alias identifica cuenta y organización: **la ingesta de correo es otro acceso previo a la autenticación**: necesitará su función `auth.resolve_mail_alias(address)` (misma plantilla de la sección 7) y su propio rol de worker.
-- `inbound_messages`: metadatos del correo recibido: `alias_id` → `mail_aliases`, `from_domain`, `dkim_verified boolean`, `received_at`, `status` (`accepted` \| `quarantined` \| `discarded`), `body_ciphertext/nonce/dek_version` solo si se retiene para depurar reglas, con retención corta. El HTML nunca se renderiza; adjuntos ignorados.
-- `extracted_codes`: código cifrado con TTL de 10 minutos: `credential_id` o `account_id` → `accounts`, `source` (`email` \| `sms`), `message_id` → `inbound_messages`, `code_ciphertext/nonce/dek_version`, `expires_at`, `consumed_at`, `consumed_by`. Purga física al vencer. Los enlaces de restablecimiento exigen MANAGE y auditoría crítica.
+- Construida con otros nombres que los previstos aquí (`mailboxes`, `mail_aliases`, `inbound_messages` y `extracted_codes` no existen): ver §5.7 y [ADR 0045](adr/0045-inbound-codes-mail-and-sms.md).
 
 **Fase 5 (SMS)**
 
-- `sms_numbers`: números virtuales: `e164` único global, `provider`, `provider_ref`, `account_id` o `group_id` (uno por cuenta o por grupo de cuentas), `status`. Misma tubería que el correo: recepción, asociación, extracción hacia `extracted_codes` (con `source = 'sms'`), auditoría. También necesita su resolución previa a la autenticación (número → organización).
+- `sms_numbers`: números virtuales: `e164` único global, `provider`, `provider_ref`, `account_id` o `group_id` (uno por cuenta o por grupo de cuentas), `status`. Misma tubería que el correo: recepción, asociación, extracción hacia `inbound_items`, auditoría. También necesita su resolución previa a la autenticación (número → organización).
 
 **Fase 6 (extensión)**
 
@@ -713,13 +753,7 @@ erDiagram
   platforms ||--o{ saml_service_providers : "platform_id"
   platforms ||--o{ scim_targets : "platform_id"
   users ||--o{ scim_targets : "mapeo remoto"
-  mailboxes ||--o{ mail_aliases : "mailbox_id"
-  accounts ||--o{ mail_aliases : "account_id"
-  mail_aliases ||--o{ inbound_messages : "alias_id"
-  inbound_messages ||--o{ extracted_codes : "message_id"
-  accounts ||--o{ extracted_codes : "account_id"
   accounts ||--o{ sms_numbers : "account_id"
-  sms_numbers ||--o{ extracted_codes : "origen sms"
   credentials ||--o{ login_intents : "credential_id"
   users ||--o{ login_intents : "user_id"
   login_intents ||--o| broker_sessions : "login_intent_id"
@@ -731,10 +765,6 @@ erDiagram
   saml_service_providers { uuid id PK }
   scim_targets { uuid id PK }
   federated_identities { uuid id PK }
-  mailboxes { uuid id PK }
-  mail_aliases { uuid id PK }
-  inbound_messages { uuid id PK }
-  extracted_codes { uuid id PK }
   sms_numbers { uuid id PK }
   login_intents { uuid id PK }
   broker_sessions { uuid id PK }
@@ -742,11 +772,11 @@ erDiagram
 
 ### 9.4 Cómo cambiarán las garantías
 
-- **Superficie `auth`.** Pasa de 4 a ~8 funciones de lectura (más alias de correo y números SMS en las fases 4 y 5, y el listado de organizaciones para workers). Cada una con ADR.
+- **Superficie `auth`.** Pasa de 4 a ~8 funciones de lectura (la fase 4 ya sumó `auth.resolve_inbound_address` y `auth.list_pollable_inbound_sources`; falta la del SMS en la fase 5, y el listado de organizaciones para workers). Cada una con ADR.
 - **Secretos nuevos**, mismo molde: claves de firma, secretos de SCIM, cuerpos de correo y códigos extraídos se cifran con `SecretCipher` (AAD con `organization_id`); nunca texto plano en la base.
 - **Datos efímeros** (códigos, intenciones de login, grants vencidos, mensajes): con TTL y purga física permitida a `iam_app`, igual que `sessions`.
 - **Auditoría.** Mismas reglas: tablas de dominio nuevas solo se tocan en transacciones que auditan; las acciones reservadas (`credential.injected`, etc.) usan `audit_events` sin cambios de esquema. Con el volumen del correo y SMS se evalúa el particionado de la sección 8.5.
-- **Particionado e índices.** `inbound_messages` y `extracted_codes` son las primeras candidatas a particionar por tiempo.
+- **Particionado e índices.** `inbound_receipts` e `inbound_items` son las primeras candidatas a particionar por tiempo.
 - **Tamaño esperado.** La tabla dominante seguirá siendo `audit_events`; el resto crece con usuarios y cuentas de plataforma (miles), no con tráfico.
 - **Multiorganización.** Si llega una segunda organización o una persona que entra a varias (ADR futuro), `identities` se separa de `memberships` y `users.email` deja de ser único global; el cambio toca `auth.find_login_by_email` y las pruebas de aislamiento, no las políticas RLS.
 
