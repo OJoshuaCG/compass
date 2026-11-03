@@ -542,6 +542,7 @@ export function buildContainer(options: ContainerOptions) {
       uow,
       authorizer,
       shares: new PgInboundViewShareRepository(uow),
+      rotations: shareRepository,
       ids,
       audit,
       clock,

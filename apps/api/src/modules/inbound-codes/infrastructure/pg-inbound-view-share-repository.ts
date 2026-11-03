@@ -89,6 +89,12 @@ export class PgInboundViewShareRepository implements InboundViewShareRepository 
       .query('select 1 from accounts where id = $1 for share', [accountId]);
   }
 
+  async lockAccountForRotation(accountId: string): Promise<void> {
+    await this.transactions
+      .current()
+      .query('select 1 from accounts where id = $1 for update', [accountId]);
+  }
+
   async accountLevel(accountId: string, userId: UserId): Promise<ShareLevel | null> {
     return this.levelOf('account', accountId, userId);
   }
@@ -190,6 +196,50 @@ export class PgInboundViewShareRepository implements InboundViewShareRepository 
       .current()
       .query('select 1 from groups where id = $1 and archived_at is null', [groupId]);
     return result.rows.length > 0;
+  }
+
+  async groupMemberIds(groupId: string): Promise<readonly string[]> {
+    const result = await this.transactions
+      .current()
+      .query<{ user_id: string }>('select user_id from group_memberships where group_id = $1', [
+        groupId,
+      ]);
+    return result.rows.map((row) => row.user_id);
+  }
+
+  async usersWhoRevealedResets(
+    viewId: string,
+    userIds: readonly string[],
+    since: Date,
+  ): Promise<readonly string[]> {
+    if (userIds.length === 0) return [];
+    // La revelación audita un evento por elemento con la vista en los metadatos; un intento sin nada
+    // vigente apunta a la vista (`mail_view`) y no reveló nada, así que no cuenta. Tampoco los fallos.
+    const result = await this.transactions.current().query<{ actor_id: string }>(
+      `select distinct ae.actor_id
+         from audit_events ae
+        where ae.action = 'inbound.reset_revealed'
+          and ae.outcome = 'success'
+          and ae.target_type = 'inbound_item'
+          and ae.metadata ->> 'viewId' = $1
+          and ae.actor_id = any($2::uuid[])
+          and ae.created_at > $3
+        order by ae.actor_id`,
+      [viewId, [...userIds], since],
+    );
+    return result.rows.map((row) => row.actor_id);
+  }
+
+  async liveCredentialIds(accountId: string): Promise<readonly string[]> {
+    const result = await this.transactions.current().query<{ id: string }>(
+      `select c.id
+         from credentials c
+        where c.account_id = $1
+          and c.archived_at is null
+        order by c.id`,
+      [accountId],
+    );
+    return result.rows.map((row) => row.id);
   }
 
   private async selectView(viewId: string, lockClause: string): Promise<ShareableView | null> {

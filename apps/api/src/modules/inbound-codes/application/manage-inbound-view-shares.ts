@@ -11,8 +11,11 @@
  *   serializan y nadie decide con un nivel que ya venció.
  * - Una compartición vencida deja de dar acceso por sí sola (la vista `effective_access` la ignora); aquí
  *   solo se cierra la fila vencida cuando estorba al compartir de nuevo con el mismo destinatario.
- * - Revocar corta el acceso desde la siguiente petición. Las tareas de rotación por haber visto un
- *   restablecimiento pertenecen a IC-5c: hoy `rotationTasks` se audita en 0.
+ * - Revocar corta el acceso desde la siguiente petición. Si la fuente está ligada a una cuenta de la
+ *   bóveda y alguien que pierde MANAGE sobre la vista reveló un restablecimiento desde ella (ADR 0045 §5),
+ *   se crea una tarea de rotación por cada credencial viva de la cuenta: el enlace o código externo puede
+ *   seguir sirviendo horas después y una toma de la cuenta compromete todas sus credenciales. Los
+ *   `login_code` no generan tarea (vencen en minutos y se leen con USE, no se revelan).
  * - Todo cambio escribe su auditoría como último paso (ADR 0023).
  */
 import type { CreateShareRequest, Permission, ShareLevel } from '@iam/contracts';
@@ -28,12 +31,20 @@ import type {
 import type { Authorizer } from '../../access/index.js';
 import type { AuditLog } from '../../audit/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
-import { canGrant, levelSatisfies } from '../../vault/index.js';
+import {
+  canGrant,
+  levelSatisfies,
+  REVEAL_LOOKBACK_DAYS,
+  ROTATION_TASK_DUE_DAYS,
+} from '../../vault/index.js';
+import type { ShareRepository } from '../../vault/index.js';
 import type {
   InboundViewShareRepository,
   ShareableView,
   ViewShareView,
 } from './ports/inbound-view-share-repository.js';
+// Solo quien conserva el nivel con que se revela puede volver a revelar: rotar no le quita nada.
+import { REVEAL_REQUIRED_LEVEL } from './reveal-inbound-resets.js';
 
 const SHARE_PERMISSION: Permission = 'share.manage';
 const REQUIRED_VIEW_LEVEL: ShareLevel = 'MANAGE';
@@ -54,6 +65,8 @@ export interface ManageInboundViewSharesDeps {
   readonly uow: UnitOfWork;
   readonly authorizer: Authorizer;
   readonly shares: InboundViewShareRepository;
+  /** Las tareas de rotación son de la bóveda: se reutiliza su repositorio para no duplicar el SQL. */
+  readonly rotations: Pick<ShareRepository, 'openRotationTaskExists' | 'insertRotationTask'>;
   readonly ids: IdGenerator;
   readonly audit: AuditLog;
   readonly clock: Clock;
@@ -168,7 +181,15 @@ export class ManageInboundViewShares {
       const share = await shares.findOpenById(view.id, shareId);
       if (share === null) return err(new DomainError('NOT_FOUND', 'Share not found'));
 
-      await shares.revoke(share.id, clock.now(), actorId);
+      const now = clock.now();
+      await shares.revoke(share.id, now, actorId);
+      const rotationTasks = await this.createRotationTasks(
+        view,
+        share.granteeType,
+        share.granteeId,
+        actorId,
+        now,
+      );
 
       await audit.record({
         action: 'inbound.view_share_revoked',
@@ -183,12 +204,56 @@ export class ManageInboundViewShares {
           level: share.level,
           granteeType: share.granteeType,
           granteeId: share.granteeId,
-          // Las tareas de rotación por restablecimientos vistos llegan con IC-5c.
-          rotationTasks: 0,
+          rotationTasks,
         },
       });
       return ok(undefined);
     });
+  }
+
+  /**
+   * Una tarea por credencial viva de la cuenta ligada cuando alguien que pierde MANAGE sobre la vista
+   * reveló un restablecimiento desde ella dentro de la ventana de revelaciones de la bóveda. Sin cuenta
+   * ligada no hay nada que rotar en la bóveda. Si ya hay una tarea abierta por revocación, no se repite.
+   */
+  private async createRotationTasks(
+    view: ShareableView,
+    granteeType: 'user' | 'group',
+    granteeId: string,
+    assignedTo: UserId,
+    now: Date,
+  ): Promise<number> {
+    if (view.accountId === null) return 0;
+    const { shares, rotations } = this.deps;
+    await shares.lockAccountForRotation(view.accountId);
+
+    const candidates =
+      granteeType === 'user' ? [granteeId] : await shares.groupMemberIds(granteeId);
+    const withoutRevealAccess: string[] = [];
+    for (const userId of candidates) {
+      const remainingLevel = await shares.viewLevel(view.id, userId as UserId);
+      const canStillReveal =
+        remainingLevel !== null && levelSatisfies(remainingLevel, REVEAL_REQUIRED_LEVEL);
+      if (!canStillReveal) withoutRevealAccess.push(userId);
+    }
+
+    const since = addDays(now, -REVEAL_LOOKBACK_DAYS);
+    const revealers = await shares.usersWhoRevealedResets(view.id, withoutRevealAccess, since);
+    if (revealers.length === 0) return 0;
+
+    const credentialIds = await shares.liveCredentialIds(view.accountId);
+    let created = 0;
+    for (const credentialId of credentialIds) {
+      if (await rotations.openRotationTaskExists(credentialId)) continue;
+      await rotations.insertRotationTask({
+        credentialId,
+        triggeredByUser: granteeType === 'user' ? granteeId : null,
+        assignedTo,
+        dueAt: addDays(now, ROTATION_TASK_DUE_DAYS),
+      });
+      created += 1;
+    }
+    return created;
   }
 
   /**

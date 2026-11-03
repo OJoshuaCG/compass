@@ -18,6 +18,12 @@ export interface LiveResetRecord {
  */
 export interface InboundResetStore {
   /**
+   * Bloqueo compartido de la fila de la vista (si existe) hasta el fin de la transacción. Revocar una
+   * compartición la bloquea en exclusiva: así revelar y revocar se serializan.
+   */
+  lockViewForReveal(viewId: string): Promise<void>;
+
+  /**
    * Restablecimientos vigentes que casan con la vista (plantilla de la vista y elemento de SU fuente), del más
    * reciente al más antiguo, hasta `limit`. Lo vencido no se devuelve aunque la purga no haya corrido.
    */

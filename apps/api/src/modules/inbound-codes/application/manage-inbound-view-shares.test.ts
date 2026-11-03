@@ -15,6 +15,12 @@ const VIEW_ID = '0198bbbb-0000-7000-8000-000000000001';
 const SOURCE_ID = '0198bbbb-0000-7000-8000-000000000002';
 const ACCOUNT_ID = '0198bbbb-0000-7000-8000-000000000003';
 const SHARE_ID = '0198cccc-0000-7000-8000-000000000001';
+const GROUP_ID = '0198eeee-0000-7000-8000-000000000001';
+const MEMBER_A = '0198aaaa-0000-7000-8000-000000000003';
+const MEMBER_B = '0198aaaa-0000-7000-8000-000000000004';
+const CREDENTIAL_1 = '0198ffff-0000-7000-8000-000000000001';
+const CREDENTIAL_2 = '0198ffff-0000-7000-8000-000000000002';
+const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-11-02T12:00:00Z');
 
 type Level = 'USE' | 'VIEW' | 'EDIT' | 'MANAGE' | null;
@@ -27,6 +33,14 @@ interface HarnessOptions {
   readonly granteeActive?: boolean;
   readonly open?: ViewShareRecord | null;
   readonly permissionRejection?: DomainError;
+  /** Nivel que conserva cada persona sobre la vista tras revocar (el actor usa `viewLevel`). */
+  readonly remainingLevels?: Readonly<Record<string, Level>>;
+  /** Quiénes revelaron un restablecimiento desde la vista dentro de la ventana. */
+  readonly revealers?: readonly string[];
+  readonly groupMembers?: readonly string[];
+  readonly credentialIds?: readonly string[];
+  /** Credenciales que ya tienen una tarea de rotación abierta. */
+  readonly openRotationFor?: readonly string[];
 }
 
 const createdShare: ViewShareView = {
@@ -64,6 +78,15 @@ function buildHarness(options: HarnessOptions = {}) {
   const auditRecord = vi.fn((event: { action: string }) => Promise.resolve(ok(event as never)));
   const insert = vi.fn(() => Promise.resolve());
   const revoke = vi.fn(() => Promise.resolve());
+  const usersWhoRevealedResets = vi.fn((_viewId: string, userIds: readonly string[]) =>
+    Promise.resolve((options.revealers ?? []).filter((userId) => userIds.includes(userId))),
+  );
+  const liveCredentialIds = vi.fn(() => Promise.resolve(options.credentialIds ?? []));
+  const lockAccountForRotation = vi.fn(() => Promise.resolve());
+  const insertRotationTask = vi.fn(() => Promise.resolve());
+  const openRotationTaskExists = vi.fn((credentialId: string) =>
+    Promise.resolve((options.openRotationFor ?? []).includes(credentialId)),
+  );
   const view =
     options.viewExists === false
       ? null
@@ -75,9 +98,14 @@ function buildHarness(options: HarnessOptions = {}) {
   const shares: InboundViewShareRepository = {
     findView: () => Promise.resolve(view),
     findViewForUpdate: () => Promise.resolve(view),
-    viewLevel: () =>
-      Promise.resolve(options.viewLevel === undefined ? 'MANAGE' : options.viewLevel),
+    viewLevel: (_viewId, userId) => {
+      if (userId === ACTOR_ID) {
+        return Promise.resolve(options.viewLevel === undefined ? 'MANAGE' : options.viewLevel);
+      }
+      return Promise.resolve(options.remainingLevels?.[userId] ?? null);
+    },
     lockAccountForShare: () => Promise.resolve(),
+    lockAccountForRotation,
     accountLevel: () =>
       Promise.resolve(options.accountLevel === undefined ? null : options.accountLevel),
     listLive: () => Promise.resolve([createdShare]),
@@ -88,6 +116,9 @@ function buildHarness(options: HarnessOptions = {}) {
     revoke,
     userIsActive: () => Promise.resolve(options.granteeActive !== false),
     groupIsLive: () => Promise.resolve(true),
+    groupMemberIds: () => Promise.resolve(options.groupMembers ?? []),
+    usersWhoRevealedResets,
+    liveCredentialIds,
   };
   const useCase = new ManageInboundViewShares({
     context: {
@@ -105,11 +136,23 @@ function buildHarness(options: HarnessOptions = {}) {
     },
     authorizer: { require, auditDenial } as unknown as Authorizer,
     shares,
+    rotations: { openRotationTaskExists, insertRotationTask },
     ids: { next: () => SHARE_ID },
     audit: { record: auditRecord },
     clock: { now: () => NOW },
   });
-  return { useCase, require, auditDenial, auditRecord, insert, revoke };
+  return {
+    useCase,
+    require,
+    auditDenial,
+    auditRecord,
+    insert,
+    revoke,
+    usersWhoRevealedResets,
+    liveCredentialIds,
+    lockAccountForRotation,
+    insertRotationTask,
+  };
 }
 
 const shareInput = { granteeType: 'user', granteeId: GRANTEE_ID, level: 'USE' } as const;
@@ -259,6 +302,147 @@ describe('ManageInboundViewShares.revoke', () => {
         action: 'inbound.view_share_revoked',
         metadata: { level: 'USE', granteeType: 'user', granteeId: GRANTEE_ID, rotationTasks: 0 },
       }),
+    );
+  });
+
+  it('sin cuenta ligada no crea tareas de rotación aunque el destinatario haya revelado', async () => {
+    const harness = buildHarness({
+      open: openShare(null),
+      accountId: null,
+      revealers: [GRANTEE_ID],
+      credentialIds: [CREDENTIAL_1],
+    });
+
+    await harness.useCase.revoke(VIEW_ID, SHARE_ID);
+
+    expect(harness.usersWhoRevealedResets).not.toHaveBeenCalled();
+    expect(harness.insertRotationTask).not.toHaveBeenCalled();
+  });
+
+  it('crea una tarea por credencial viva si el destinatario reveló un restablecimiento', async () => {
+    const harness = buildHarness({
+      open: openShare(null),
+      accountId: ACCOUNT_ID,
+      revealers: [GRANTEE_ID],
+      credentialIds: [CREDENTIAL_1, CREDENTIAL_2],
+    });
+
+    const result = await harness.useCase.revoke(VIEW_ID, SHARE_ID);
+
+    expect(result.ok).toBe(true);
+    // La cuenta se bloquea en exclusiva: otra revocación sobre la misma cuenta no duplica tareas.
+    expect(harness.lockAccountForRotation).toHaveBeenCalledWith(ACCOUNT_ID);
+    expect(harness.liveCredentialIds).toHaveBeenCalledWith(ACCOUNT_ID);
+    expect(harness.insertRotationTask).toHaveBeenCalledTimes(2);
+    expect(harness.insertRotationTask).toHaveBeenCalledWith({
+      credentialId: CREDENTIAL_1,
+      triggeredByUser: GRANTEE_ID,
+      assignedTo: ACTOR_ID,
+      dueAt: new Date(NOW.getTime() + 7 * DAY_MS),
+    });
+    expect(harness.auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'inbound.view_share_revoked',
+        metadata: { level: 'USE', granteeType: 'user', granteeId: GRANTEE_ID, rotationTasks: 2 },
+      }),
+    );
+  });
+
+  it('busca revelaciones de esta vista dentro de la ventana de 180 días', async () => {
+    const harness = buildHarness({ open: openShare(null), accountId: ACCOUNT_ID });
+
+    await harness.useCase.revoke(VIEW_ID, SHARE_ID);
+
+    expect(harness.usersWhoRevealedResets).toHaveBeenCalledWith(
+      VIEW_ID,
+      [GRANTEE_ID],
+      new Date(NOW.getTime() - 180 * DAY_MS),
+    );
+  });
+
+  it('sin revelaciones no crea tareas ni lee credenciales', async () => {
+    const harness = buildHarness({
+      open: openShare(null),
+      accountId: ACCOUNT_ID,
+      revealers: [],
+      credentialIds: [CREDENTIAL_1],
+    });
+
+    await harness.useCase.revoke(VIEW_ID, SHARE_ID);
+
+    expect(harness.liveCredentialIds).not.toHaveBeenCalled();
+    expect(harness.insertRotationTask).not.toHaveBeenCalled();
+  });
+
+  it('quien conserva MANAGE por otra vía no genera tarea: puede volver a revelar', async () => {
+    const harness = buildHarness({
+      open: openShare(null),
+      accountId: ACCOUNT_ID,
+      remainingLevels: { [GRANTEE_ID]: 'MANAGE' },
+      revealers: [GRANTEE_ID],
+      credentialIds: [CREDENTIAL_1],
+    });
+
+    await harness.useCase.revoke(VIEW_ID, SHARE_ID);
+
+    expect(harness.insertRotationTask).not.toHaveBeenCalled();
+  });
+
+  it('quien conserva un nivel menor que MANAGE sí genera tarea: ya no puede revelar', async () => {
+    const harness = buildHarness({
+      open: openShare(null),
+      accountId: ACCOUNT_ID,
+      remainingLevels: { [GRANTEE_ID]: 'EDIT' },
+      revealers: [GRANTEE_ID],
+      credentialIds: [CREDENTIAL_1],
+    });
+
+    await harness.useCase.revoke(VIEW_ID, SHARE_ID);
+
+    expect(harness.insertRotationTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('no repite la tarea si la credencial ya tiene una abierta', async () => {
+    const harness = buildHarness({
+      open: openShare(null),
+      accountId: ACCOUNT_ID,
+      revealers: [GRANTEE_ID],
+      credentialIds: [CREDENTIAL_1, CREDENTIAL_2],
+      openRotationFor: [CREDENTIAL_1],
+    });
+
+    await harness.useCase.revoke(VIEW_ID, SHARE_ID);
+
+    expect(harness.insertRotationTask).toHaveBeenCalledTimes(1);
+    expect(harness.insertRotationTask).toHaveBeenCalledWith(
+      expect.objectContaining({ credentialId: CREDENTIAL_2 }),
+    );
+    expect(harness.auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { level: 'USE', granteeType: 'user', granteeId: GRANTEE_ID, rotationTasks: 1 },
+      }),
+    );
+  });
+
+  it('al revocar a un grupo considera a sus miembros y no atribuye la tarea a una persona', async () => {
+    const harness = buildHarness({
+      open: { ...openShare(null), granteeType: 'group', granteeId: GROUP_ID },
+      accountId: ACCOUNT_ID,
+      groupMembers: [MEMBER_A, MEMBER_B],
+      remainingLevels: { [MEMBER_A]: 'MANAGE' },
+      revealers: [MEMBER_A, MEMBER_B],
+      credentialIds: [CREDENTIAL_1],
+    });
+
+    await harness.useCase.revoke(VIEW_ID, SHARE_ID);
+
+    expect(harness.usersWhoRevealedResets).toHaveBeenCalledWith(
+      VIEW_ID,
+      [MEMBER_B],
+      expect.any(Date),
+    );
+    expect(harness.insertRotationTask).toHaveBeenCalledWith(
+      expect.objectContaining({ credentialId: CREDENTIAL_1, triggeredByUser: null }),
     );
   });
 

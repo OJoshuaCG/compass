@@ -5,7 +5,11 @@ export type {
   ManageAccountsDeps,
   UpdateAccountInput,
 } from './application/manage-accounts.js';
-export { ManageShares } from './application/manage-shares.js';
+export {
+  ManageShares,
+  REVEAL_LOOKBACK_DAYS,
+  ROTATION_TASK_DUE_DAYS,
+} from './application/manage-shares.js';
 export type { ManageSharesDeps } from './application/manage-shares.js';
 export { ManageCredentials } from './application/manage-credentials.js';
 export type {
@@ -80,6 +84,7 @@ export type {
   PlatformRecord,
 } from './application/ports/account-repository.js';
 export type {
+  NewRotationTask,
   ShareRecord,
   ShareRepository,
   ShareView,

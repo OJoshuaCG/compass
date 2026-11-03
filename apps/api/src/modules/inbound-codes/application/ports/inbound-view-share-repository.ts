@@ -46,6 +46,11 @@ export interface InboundViewShareRepository {
   viewLevel(viewId: string, userId: UserId): Promise<ShareLevel | null>;
   /** Bloquea en modo compartido la fila de la cuenta ligada: serializa contra quien revoca accesos a ella. */
   lockAccountForShare(accountId: string): Promise<void>;
+  /**
+   * Bloquea en modo exclusivo la fila de la cuenta ligada, como `ManageShares.revoke`: dos revocaciones
+   * de vistas distintas ligadas a la misma cuenta no pueden crear dos veces la misma tarea de rotación.
+   */
+  lockAccountForRotation(accountId: string): Promise<void>;
   /** Nivel efectivo de la persona sobre la cuenta de la bóveda, o `null`. */
   accountLevel(accountId: string, userId: UserId): Promise<ShareLevel | null>;
   listLive(viewId: string, now: Date): Promise<readonly ViewShareView[]>;
@@ -62,4 +67,17 @@ export interface InboundViewShareRepository {
   revoke(shareId: string, at: Date, revokedBy: UserId): Promise<void>;
   userIsActive(userId: string): Promise<boolean>;
   groupIsLive(groupId: string): Promise<boolean>;
+  /** Miembros actuales del grupo, para saber a quién deja sin acceso revocar una compartición a grupo. */
+  groupMemberIds(groupId: string): Promise<readonly string[]>;
+  /**
+   * De las personas dadas, quiénes revelaron con éxito un restablecimiento desde ESTA vista después de
+   * `since` (según la auditoría `inbound.reset_revealed`). Sin duplicados.
+   */
+  usersWhoRevealedResets(
+    viewId: string,
+    userIds: readonly string[],
+    since: Date,
+  ): Promise<readonly string[]>;
+  /** Credenciales no archivadas de la cuenta de la bóveda: las que una toma de la cuenta compromete. */
+  liveCredentialIds(accountId: string): Promise<readonly string[]>;
 }

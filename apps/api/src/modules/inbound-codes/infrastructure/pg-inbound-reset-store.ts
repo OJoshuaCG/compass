@@ -31,6 +31,12 @@ interface ResetRow {
 export class PgInboundResetStore implements InboundResetStore {
   constructor(private readonly transactions: TransactionProvider) {}
 
+  async lockViewForReveal(viewId: string): Promise<void> {
+    await this.transactions
+      .current()
+      .query('select 1 from mail_views where id = $1 for share', [viewId]);
+  }
+
   async listLiveResets(
     viewId: string,
     now: Date,

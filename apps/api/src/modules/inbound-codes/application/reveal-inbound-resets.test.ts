@@ -50,6 +50,11 @@ function buildHarness(options: HarnessOptions = {}) {
   const auditDenial = vi.fn(() => Promise.resolve());
   const auditRecord = vi.fn((event: { action: string }) => Promise.resolve(ok(event as never)));
   const listLiveResets = vi.fn(() => Promise.resolve(options.records ?? [resetRecord(ITEM_CODE)]));
+  const lockOrder: string[] = [];
+  const lockViewForReveal = vi.fn((viewId: string) => {
+    lockOrder.push(`lock:${viewId}`);
+    return Promise.resolve();
+  });
   const enqueuedNotices: ResetRevealNoticePayload[] = [];
   const enqueueRevealNotice = vi.fn((notice: ResetRevealNoticePayload) => {
     enqueuedNotices.push(notice);
@@ -83,9 +88,12 @@ function buildHarness(options: HarnessOptions = {}) {
     views: {
       findLiveView: () =>
         Promise.resolve(options.viewExists === false ? null : { id: VIEW_ID, sourceId: SOURCE_ID }),
-      effectiveLevel: () => Promise.resolve(options.level === undefined ? 'MANAGE' : options.level),
+      effectiveLevel: () => {
+        lockOrder.push('level');
+        return Promise.resolve(options.level === undefined ? 'MANAGE' : options.level);
+      },
     },
-    resets: { listLiveResets, enqueueRevealNotice },
+    resets: { lockViewForReveal, listLiveResets, enqueueRevealNotice },
     cipher: { decrypt } as unknown as SecretCipher,
     audit: { record: auditRecord },
     clock: { now: () => NOW },
@@ -96,6 +104,7 @@ function buildHarness(options: HarnessOptions = {}) {
     auditDenial,
     auditRecord,
     listLiveResets,
+    lockOrder,
     enqueueRevealNotice,
     enqueuedNotices,
     decrypt,
@@ -104,6 +113,14 @@ function buildHarness(options: HarnessOptions = {}) {
 }
 
 describe('RevealInboundResets: autorización', () => {
+  it('bloquea la vista antes de leer el nivel para serializarse con una revocación', async () => {
+    const { useCase, lockOrder } = buildHarness();
+
+    await useCase.reveal(VIEW_ID, VALID_REASON);
+
+    expect(lockOrder).toEqual([`lock:${VIEW_ID}`, 'level']);
+  });
+
   it('pide el permiso inbound.reveal_reset (el motor exige la reautenticación)', async () => {
     const { useCase, require } = buildHarness();
 

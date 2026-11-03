@@ -60,7 +60,7 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-3d | Punto de entrada, configuración propia, registro de DKIM, runbook ⚠ | IC-3c | **Hecha 2026-11-02** (jueces A/B, mutación; faltan `d=`/`s=` en el registro y el umbral de N fallos consecutivos) |
 | IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | **Hecha 2026-11-02** (jueces A/B, mutación; falta el e2e HTTP y la web) |
 | IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | En curso: **IC-5b-1 hecha** (compartir y revocar vistas); **IC-5b-2 hecha** (alta, edición y archivo de fuentes y vistas); **IC-5b-3 hecha** (conexión: contraseña, `acceptedRecipients`, reautenticación) |
-| IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | En curso: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); IC-5c-2 (tareas de rotación al revocar) pendiente |
+| IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | En curso: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); **IC-5c-2 hecha** (tareas de rotación al revocar) |
 | IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | Pendiente |
 | IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Pendiente |
 | IC-8 | Adaptadores reales y operación: recepción de correo, proveedor de SMS, DNS (SPF, DKIM, DMARC), runbook, `docs/threat-model.md`, `docs/database.md` y `docs/backend.md`, alcance de la prueba de intrusión | IC-5c más las decisiones abiertas | **Bloqueada** por decisiones |
@@ -287,4 +287,35 @@ Candidato: solo el commit `e0cab4e` (el rango completo de 7125 líneas excedió 
   - límite de revelaciones por persona (lo señalaron ambos jueces; el ADR 0045 no fija ninguno);
   - el tope de 20 recorta en silencio.
 - No cubierto: e2e HTTP (`no-store`, reautenticación real, cuerpo ausente) y una integración con el `Authorizer` real.
+
+### 2026-11-03 · IC-5c-2 hecha (tareas de rotación al revocar una vista)
+
+- `ManageInboundViewShares.revoke` crea tareas de rotación (ADR 0045 §5) bajo estas condiciones:
+  - Solo si la fuente está ligada a una cuenta de la bóveda.
+  - Solo si alguien que pierde MANAGE sobre la vista reveló un restablecimiento desde ella en los últimos 180 días (`REVEAL_LOOKBACK_DAYS` de la bóveda). Cuenta solo la auditoría `inbound.reset_revealed` exitosa sobre `inbound_item`, con `metadata.viewId` de la vista.
+- Detalle de las tareas:
+  - Se crea una tarea `share_revoked` por credencial viva de la cuenta.
+  - El SQL y la deduplicación de tareas abiertas se reutilizan de `PgShareRepository`, con el mismo vencimiento de 7 días.
+  - Si se revoca a un grupo, la tarea no queda atribuida a una persona.
+  - `rotationTasks` se audita con el número real.
+  - Sin cuenta ligada no hay tarea. Los `login_code` no generan tarea, porque no se revelan.
+- Hallazgos de los jueces ciegos:
+
+  | Hallazgo | Quién | Qué se hizo |
+  |---|---|---|
+  | Una revelación en curso podía escapar de la revocación | Ambos | Corregido: la revelación bloquea la vista en modo compartido (`lockViewForReveal`) antes de leer el nivel, y la revocación la bloquea en exclusiva. |
+  | Dos revocaciones de vistas distintas de la misma cuenta podían duplicar la tarea | Solo A, verificado | Corregido: se bloquea la cuenta en exclusiva (`lockAccountForRotation`), como `ManageShares.revoke`. |
+  | El nivel que permite revelar estaba duplicado | Solo B | Corregido: se exporta `REVEAL_REQUIRED_LEVEL`. |
+  | Faltaban pruebas de grupo con base de datos real | Ambos (sugerencia) | Agregadas. |
+
+- Pruebas: 75/75 verdes en las unitarias y de integración de compartir vistas y de revelación.
+- Mutaciones (4 a la vez), las 4 rompieron pruebas; archivos restaurados y verificados con `cmp`:
+  - quitar el bloqueo de la vista;
+  - quitar el bloqueo de la cuenta;
+  - contar a quien conserva MANAGE;
+  - quitar el filtro `target_type` del SQL.
+- Limitaciones abiertas, sin aplicar:
+  - La cuenta se toma de la fuente al revocar. Si la fuente se re-ligó a otra cuenta después de la revelación, se rota la cuenta actual y no la original (solo B). La auditoría de revelación no guarda la cuenta; corregirlo pide agregar `accountId` a la lista permitida de auditoría, que es ruta protegida.
+  - En la revocación a un grupo solo cuentan sus miembros actuales, como en la bóveda.
+  - La consulta filtra por una clave JSON sin índice, aceptable con el volumen actual.
 

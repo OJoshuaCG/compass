@@ -15,6 +15,8 @@
  *   una auditoría de fallo: nadie con MANAGE puede sondear la vista sin dejar rastro.
  * - Si una auditoría no se puede escribir se LANZA el error: la transacción revierte y ningún valor sale
  *   sin su auditoría (el `UnitOfWork` confirma ante cualquier retorno sin excepción).
+ * - Bloquea la vista en modo compartido antes de leer el nivel: una revocación concurrente espera a que
+ *   esta revelación termine (y ve su auditoría) o esta espera a la revocación (y ya no tiene acceso).
  * - Con al menos un elemento revelado se encola el aviso a la Raíz en la misma transacción. Nada de esto
  *   sale por SSE.
  */
@@ -38,7 +40,8 @@ import type { InboundResetStore } from './ports/inbound-reset-store.js';
 import type { InboundViewReader } from './ports/inbound-view-reader.js';
 
 const REVEAL_PERMISSION: Permission = 'inbound.reveal_reset';
-const REVEAL_REQUIRED_LEVEL: ShareLevel = 'MANAGE';
+/** Nivel sobre la vista para revelar; revocar lo usa para saber quién ya no puede volver a hacerlo. */
+export const REVEAL_REQUIRED_LEVEL: ShareLevel = 'MANAGE';
 
 /** Tope de restablecimientos por revelación: cada uno deja una auditoría crítica, más sería abuso o ruido. */
 export const MAX_RESETS_PER_REVEAL = 20;
@@ -77,6 +80,10 @@ export class RevealInboundResets {
       await authorizer.require({ permission: REVEAL_PERMISSION });
       const actorId = this.requireActorId();
 
+      // Bloqueo compartido de la vista: serializa contra una revocación (que la bloquea en exclusiva). Así
+      // nadie revela con un nivel que se está revocando y la revocación siempre ve esta auditoría para
+      // crear las tareas de rotación.
+      await resets.lockViewForReveal(viewId);
       const view = await views.findLiveView(viewId);
       if (view === null) return this.denyAsNotFound(viewId);
       const level = await views.effectiveLevel(viewId, actorId);
