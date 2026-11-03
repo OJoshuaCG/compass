@@ -1,4 +1,4 @@
-import type { Account, Credential, Permission, ShareLevel } from '@iam/contracts';
+import type { Account, AccountListItem, Credential, Permission, ShareLevel } from '@iam/contracts';
 import { act, configure, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -44,6 +44,14 @@ const accountFixture = (myLevel: ShareLevel | null): Account => ({
   status: 'active',
   myLevel,
   createdAt: '2026-01-01T00:00:00.000Z',
+});
+
+// El listado `GET /accounts` se valida con `accountListItemSchema`, que además exige el semáforo de
+// antigüedad de la contraseña (B6); sin estos campos el listado no se valida y la tabla queda vacía.
+const accountListItemFixture = (myLevel: ShareLevel | null): AccountListItem => ({
+  ...accountFixture(myLevel),
+  lastChangedAt: null,
+  passwordAge: 'none',
 });
 
 const ROTATED: Credential = {
@@ -125,7 +133,7 @@ describe('credentials list', () => {
     setup({
       extra: {
         'GET /accounts': jsonResponse({
-          data: [accountFixture('USE')],
+          data: [accountListItemFixture('USE')],
           page: { nextCursor: null, limit: 25 },
         }),
         'GET /platforms': jsonResponse({ data: [] }),
