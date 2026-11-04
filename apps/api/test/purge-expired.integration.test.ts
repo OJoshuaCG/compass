@@ -7,6 +7,7 @@ import {
   PgExpiredEphemeralStore,
   PgOrganizationLister,
   PgOutboxRetentionStore,
+  PgReplacedPasswordSecretStore,
   PgReplacedTotpSecretStore,
   PurgeExpiredEphemeral,
 } from '../src/modules/maintenance/index.js';
@@ -82,6 +83,7 @@ beforeAll(async () => {
     organizations: new PgOrganizationLister(db.appPool),
     store: new PgExpiredEphemeralStore(uow),
     replacedTotpSecrets: new PgReplacedTotpSecretStore(uow),
+    replacedPasswordSecrets: new PgReplacedPasswordSecretStore(uow),
     archivedSourcePollState: new PgArchivedSourcePollStateStore(uow),
     outboxRetention: new PgOutboxRetentionStore(uow),
     scope: new PgTenantScope(requestContext, uow),
@@ -269,11 +271,6 @@ describe('PurgeExpiredEphemeral: replaced TOTP secret versions (H1b)', () => {
     credentialsA['onlyCurrent'] = await seedCredentialWithVersions(totpOrgA, [
       { field: TOTP_FIELD, version: 1, isCurrent: true, createdAt: daysAgo(400) },
     ]);
-    // Contraseñas reemplazadas hace mucho: fuera del alcance de esta purga.
-    credentialsA['password'] = await seedCredentialWithVersions(totpOrgA, [
-      { field: 'password', version: 1, isCurrent: false, createdAt: daysAgo(400) },
-      { field: 'password', version: 2, isCurrent: true, createdAt: daysAgo(390) },
-    ]);
     credentialB = await seedCredentialWithVersions(totpOrgB, [
       { field: TOTP_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(40) },
       { field: TOTP_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(35) },
@@ -290,7 +287,6 @@ describe('PurgeExpiredEphemeral: replaced TOTP secret versions (H1b)', () => {
     expect(await versionsOf(credentialsA['recent'] ?? '', TOTP_FIELD)).toEqual([1, 2]);
     expect(await versionsOf(credentialsA['chain'] ?? '', TOTP_FIELD)).toEqual([2, 3]);
     expect(await versionsOf(credentialsA['onlyCurrent'] ?? '', TOTP_FIELD)).toEqual([1]);
-    expect(await versionsOf(credentialsA['password'] ?? '', 'password')).toEqual([1, 2]);
     expect(await versionsOf(credentialB, TOTP_FIELD)).toEqual([2]);
   });
 
@@ -332,6 +328,121 @@ describe('PurgeExpiredEphemeral: replaced TOTP secret versions (H1b)', () => {
     expect(await versionsOf(credentialsA['chain'] ?? '', TOTP_FIELD)).toEqual([3]);
     expect(await versionsOf(credentialOnlyCurrent, TOTP_FIELD)).toEqual([1]);
     expect(await versionsOf(isolatedB, TOTP_FIELD)).toEqual([1, 2]);
+  });
+});
+
+// SENSIBLE (revisión humana): destrucción de versiones de contraseña (C9), aislamiento por organización y
+// protección de la versión vigente y de los campos cuya retención no se decidió.
+describe('PurgeExpiredEphemeral: replaced password versions (C9)', () => {
+  const PASSWORD_FIELD = 'password';
+  const FAR_FUTURE = new Date('2100-01-01T00:00:00.000Z');
+  let passwordOrgA: TotpOrganizationSeed;
+  let passwordOrgB: TotpOrganizationSeed;
+  const credentialsA: Record<string, string> = {};
+  let credentialB: string;
+
+  beforeAll(async () => {
+    passwordOrgA = await seedTotpOrganization('purge-password-a');
+    passwordOrgB = await seedTotpOrganization('purge-password-b');
+
+    // Reemplazada hace 35 días: se borra la v1; la v2 vigente se queda.
+    credentialsA['old'] = await seedCredentialWithVersions(passwordOrgA, [
+      { field: PASSWORD_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(40) },
+      { field: PASSWORD_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(35) },
+    ]);
+    // Reemplazada hace 29 días: aún dentro de los 30 días de retención.
+    credentialsA['recent'] = await seedCredentialWithVersions(passwordOrgA, [
+      { field: PASSWORD_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(400) },
+      { field: PASSWORD_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(29) },
+    ]);
+    // Contraseña vigente muy antigua y sin reemplazo: nunca se borra.
+    credentialsA['onlyCurrent'] = await seedCredentialWithVersions(passwordOrgA, [
+      { field: PASSWORD_FIELD, version: 1, isCurrent: true, createdAt: daysAgo(400) },
+    ]);
+    // Campos cuya retención no está decidida: sus versiones viejas se conservan.
+    credentialsA['otherFields'] = await seedCredentialWithVersions(passwordOrgA, [
+      { field: 'username', version: 1, isCurrent: false, createdAt: daysAgo(400) },
+      { field: 'username', version: 2, isCurrent: true, createdAt: daysAgo(390) },
+      { field: 'recovery_codes', version: 1, isCurrent: false, createdAt: daysAgo(400) },
+      { field: 'recovery_codes', version: 2, isCurrent: true, createdAt: daysAgo(390) },
+      { field: 'secret_notes', version: 1, isCurrent: false, createdAt: daysAgo(400) },
+      { field: 'secret_notes', version: 2, isCurrent: true, createdAt: daysAgo(390) },
+    ]);
+    credentialB = await seedCredentialWithVersions(passwordOrgB, [
+      { field: PASSWORD_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(40) },
+      { field: PASSWORD_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(35) },
+    ]);
+  });
+
+  it('deletes only superseded password versions replaced more than 30 days ago, in every organization', async () => {
+    const summary = await purge.execute();
+
+    expect(summary.failedOrganizations).toEqual([]);
+    // Organización A: v1 de "old". Organización B: v1 de su credencial.
+    expect(summary.replacedPasswordSecrets).toBe(2);
+    expect(await versionsOf(credentialsA['old'] ?? '', PASSWORD_FIELD)).toEqual([2]);
+    expect(await versionsOf(credentialsA['recent'] ?? '', PASSWORD_FIELD)).toEqual([1, 2]);
+    expect(await versionsOf(credentialsA['onlyCurrent'] ?? '', PASSWORD_FIELD)).toEqual([1]);
+    expect(await versionsOf(credentialsA['otherFields'] ?? '', 'username')).toEqual([1, 2]);
+    expect(await versionsOf(credentialsA['otherFields'] ?? '', 'recovery_codes')).toEqual([1, 2]);
+    expect(await versionsOf(credentialsA['otherFields'] ?? '', 'secret_notes')).toEqual([1, 2]);
+    expect(await versionsOf(credentialB, PASSWORD_FIELD)).toEqual([2]);
+  });
+
+  it('is idempotent: a second run deletes nothing', async () => {
+    const summary = await purge.execute();
+
+    expect(summary.replacedPasswordSecrets).toBe(0);
+  });
+
+  it('the TOTP store never deletes password versions, even with a far-future cutoff', async () => {
+    const requestContext = new AsyncLocalRequestContext();
+    const uow = new PgUnitOfWork(db.appPool, requestContext, db.independentPool);
+    const scope = new PgTenantScope(requestContext, uow);
+    const totpStore = new PgReplacedTotpSecretStore(uow);
+
+    const deleted = await scope.runAs(
+      {
+        organizationId: asOrganizationId(passwordOrgA.organizationId),
+        actorId: null,
+        requestId: 'req-totp-ignores-passwords',
+      },
+      () => totpStore.purgeReplacedTotpSecrets(FAR_FUTURE, 1000),
+    );
+
+    expect(deleted).toBe(0);
+    expect(await versionsOf(credentialsA['recent'] ?? '', PASSWORD_FIELD)).toEqual([1, 2]);
+  });
+
+  it('cannot delete the current version, other fields or another organization even with a far-future cutoff', async () => {
+    const requestContext = new AsyncLocalRequestContext();
+    const uow = new PgUnitOfWork(db.appPool, requestContext, db.independentPool);
+    const scope = new PgTenantScope(requestContext, uow);
+    const store = new PgReplacedPasswordSecretStore(uow);
+
+    // Una v1 de B no vigente y reemplazada para comprobar el aislamiento.
+    const isolatedB = await seedCredentialWithVersions(passwordOrgB, [
+      { field: PASSWORD_FIELD, version: 1, isCurrent: false, createdAt: daysAgo(10) },
+      { field: PASSWORD_FIELD, version: 2, isCurrent: true, createdAt: daysAgo(9) },
+    ]);
+
+    const deletedAsA = await scope.runAs(
+      {
+        organizationId: asOrganizationId(passwordOrgA.organizationId),
+        actorId: null,
+        requestId: 'req-isolation-password',
+      },
+      () => store.purgeReplacedPasswordSecrets(FAR_FUTURE, 1000),
+    );
+
+    // Con el corte en el futuro solo cae la v1 de "recent": es la única no vigente de A con sucesora.
+    expect(deletedAsA).toBe(1);
+    expect(await versionsOf(credentialsA['recent'] ?? '', PASSWORD_FIELD)).toEqual([2]);
+    expect(await versionsOf(credentialsA['onlyCurrent'] ?? '', PASSWORD_FIELD)).toEqual([1]);
+    expect(await versionsOf(credentialsA['otherFields'] ?? '', 'username')).toEqual([1, 2]);
+    expect(await versionsOf(credentialsA['otherFields'] ?? '', 'recovery_codes')).toEqual([1, 2]);
+    expect(await versionsOf(credentialsA['otherFields'] ?? '', 'secret_notes')).toEqual([1, 2]);
+    expect(await versionsOf(isolatedB, PASSWORD_FIELD)).toEqual([1, 2]);
   });
 });
 

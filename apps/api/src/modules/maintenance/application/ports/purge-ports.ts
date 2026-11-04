@@ -24,6 +24,16 @@ export interface ReplacedTotpSecretStore {
   purgeReplacedTotpSecrets(replacedBefore: Date, limit: number): Promise<number>;
 }
 
+/**
+ * Destruye físicamente, en la organización en curso, las versiones viejas de la contraseña de una credencial
+ * (`credential_secrets.field = 'password'`) reemplazadas por una edición hace más de `replacedBefore`. Nunca
+ * toca la versión vigente ni los demás campos. Cada llamada borra como máximo `limit` filas y devuelve
+ * cuántas borró. No descifra nada: solo borra filas.
+ */
+export interface ReplacedPasswordSecretStore {
+  purgeReplacedPasswordSecrets(replacedBefore: Date, limit: number): Promise<number>;
+}
+
 /** Lo que borró un lote de la retención del outbox. */
 export interface OutboxRetentionBatchResult {
   /** Eventos publicados borrados; el recorrido continúa mientras un lote llegue lleno. */

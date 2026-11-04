@@ -4,13 +4,14 @@
 
 ## Objetivo
 
-Que `purge-expired` corra solo, cada hora, para que las tablas efímeras no crezcan sin límite y las versiones del segundo factor reemplazadas se destruyan a los 30 días (`docs/business/two-factor.md` DF-10).
+Que `purge-expired` corra solo, cada hora, para que las tablas efímeras no crezcan sin límite y las versiones reemplazadas del segundo factor y de las contraseñas se destruyan a los 30 días (`docs/business/two-factor.md` DF-10 y `docs/business/vault.md` BO-6).
 
 ## Qué borra
 
 - Claves de idempotencia y desafíos de WebAuthn vencidos hace más de una hora.
-- Versiones del secreto del segundo factor que un re-registro reemplazó hace 30 días o más. Nunca toca la versión vigente, contraseñas ni otros campos.
-
+- Versiones del secreto del segundo factor que un re-registro reemplazó hace 30 días o más.
+- Versiones viejas de la contraseña de una credencial que una edición reemplazó hace 30 días o más (C9, decisión del dueño del 2026-11-04).
+- Nunca toca la versión vigente de ningún campo, ni las versiones viejas de usuario, códigos de recuperación o notas: su retención no está decidida.
 - Eventos del outbox publicados hace más de 7 días y sus acuses de entrega (`outbox_deliveries`), decisión del dueño (D6). Borra primero los acuses y luego los eventos. **Nunca** toca los eventos sin publicar ni los que están en cuarentena (dead letter): esos esperan revisión humana. Requiere la migración `0022` (permiso `delete` sobre `outbox_deliveries` para `iam_app`); aplícala antes de desplegar esta versión del comando, o la purga de esas organizaciones fallará con un error de permisos (las demás limpiezas siguen y el código de salida es `1`). Corre con el mismo cron horario: no hace falta otra programación. Los 7 días son una constante del código (`OUTBOX_RETENTION_DAYS`) hasta que exista la tabla de ajustes del sistema.
 
 No descifra nada, no escribe auditoría (decisión 6 del ADR) y es idempotente: correrlo dos veces seguidas no hace daño.
@@ -33,7 +34,7 @@ El minuto `17` evita chocar con otras tareas a la hora en punto. Un temporizador
 
 ## Salida y alertas
 
-Una línea de conteos: organizaciones recorridas, claves de idempotencia borradas, desafíos borrados, versiones de segundo factor reemplazadas borradas, eventos del outbox borrados, acuses del outbox borrados y organizaciones con fallo. No imprime identificadores ni contenido.
+Una línea de conteos: organizaciones recorridas, claves de idempotencia borradas, desafíos borrados, versiones de segundo factor reemplazadas borradas, versiones de contraseña reemplazadas borradas, eventos del outbox borrados, acuses del outbox borrados y organizaciones con fallo. No imprime identificadores ni contenido.
 
 - Código de salida `0`: todo en orden.
 - Código de salida `1`: alguna organización falló (el motivo sale por stderr con su identificador). Las demás se procesaron. Alerta al equipo de guardia si ocurre en dos ejecuciones seguidas.
