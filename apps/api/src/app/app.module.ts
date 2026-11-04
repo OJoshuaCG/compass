@@ -62,7 +62,8 @@ import { InboundCodesController } from '../modules/inbound-codes/interface/inbou
 import { InboundDirectoryController } from '../modules/inbound-codes/interface/inbound-directory.controller.js';
 import { InboundResetsController } from '../modules/inbound-codes/interface/inbound-resets.controller.js';
 import { InboundViewSharesController } from '../modules/inbound-codes/interface/inbound-view-shares.controller.js';
-import { ManageTelegramIntegrations } from '../modules/integrations/index.js';
+import { ManageAlertSettings, ManageTelegramIntegrations } from '../modules/integrations/index.js';
+import { AlertSettingsController } from '../modules/integrations/interface/alert-settings.controller.js';
 import { IntegrationsController } from '../modules/integrations/interface/integrations.controller.js';
 import { CsrfGuard } from '../shared/http/csrf.guard.js';
 import { RateLimitGuard } from '../shared/http/rate-limit.guard.js';
@@ -123,6 +124,7 @@ export class AppModule {
         provide: ManageInboundSourceConnection,
         useValue: container.manageInboundSourceConnection,
       },
+      { provide: ManageAlertSettings, useValue: container.manageAlertSettings },
       { provide: ManageTelegramIntegrations, useValue: container.manageTelegramIntegrations },
       { provide: ManageInboundViewShares, useValue: container.manageInboundViewShares },
       { provide: IdempotencyService, useValue: container.idempotency },
@@ -155,6 +157,7 @@ export class AppModule {
         InboundConfigurationController,
         InboundSourceConnectionController,
         IntegrationsController,
+        AlertSettingsController,
       ],
       providers,
     };

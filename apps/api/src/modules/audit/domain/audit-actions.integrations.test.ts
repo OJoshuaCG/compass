@@ -17,6 +17,13 @@ describe('audit metadata allowlist for integrations', () => {
     expect(
       sanitizeMetadata('integration.test_sent', { kind: 'telegram_security', outcome: 'sent' }),
     ).toEqual({ kind: 'telegram_security', outcome: 'sent' });
+    expect(
+      sanitizeMetadata('integration.alert_settings_updated', {
+        infraEmail: true,
+        infraTelegram: false,
+        version: 2,
+      }),
+    ).toEqual({ infraEmail: true, infraTelegram: false, version: 2 });
   });
 
   it.each([
@@ -25,6 +32,7 @@ describe('audit metadata allowlist for integrations', () => {
     ['integration.secret_rotated', 'value'],
     ['integration.archived', 'config'],
     ['integration.test_sent', 'responseBody'],
+    ['integration.alert_settings_updated', 'chatId'],
   ])('rejects the field %s.%s so a secret cannot reach the audit trail', (action, field) => {
     expect(() => sanitizeMetadata(action, { [field]: 'x' })).toThrow(
       expect.objectContaining({ code: 'AUDIT.METADATA_FIELD_NOT_ALLOWED' }) as Error,

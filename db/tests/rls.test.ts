@@ -46,6 +46,8 @@ const PHASE1_TENANT_TABLES = [
   'integration_secrets',
   // SENSIBLE (revisión humana): registro local del ancla externa de la auditoría (migración 0033, ADR 0042).
   'audit_anchors',
+  // SENSIBLE (revisión humana): canales de alerta de la Raíz (migración 0034).
+  'alert_settings',
 ];
 
 let adminUrl = '';

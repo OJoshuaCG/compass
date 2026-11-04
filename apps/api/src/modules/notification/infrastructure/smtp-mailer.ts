@@ -7,10 +7,12 @@ import {
 import { renderPendingTotpEmail } from '../application/render-pending-totp-email.js';
 import { renderRankChangeEmail } from '../application/render-rank-change-email.js';
 import { renderRevealLimitEmail } from '../application/render-reveal-limit-email.js';
+import { renderInfrastructureAlertEmail } from '../application/render-infrastructure-alert-email.js';
 import { renderResetRevealEmail } from '../application/render-reset-reveal-email.js';
 import { renderSecurityNoticeEmail } from '../application/render-security-notice-email.js';
 import type {
   EmergencyAlertMessage,
+  InfrastructureAlertMessage,
   InvitationMessage,
   Mailer,
   PendingTotpNoticeMessage,
@@ -130,6 +132,15 @@ export class SmtpMailer implements Mailer {
 
   async sendResetRevealAlert(message: ResetRevealAlertMessage): Promise<void> {
     const email = renderResetRevealEmail(message);
+    try {
+      await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
+    } catch {
+      throw new Error('Mail delivery failed');
+    }
+  }
+
+  async sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void> {
+    const email = renderInfrastructureAlertEmail(message);
     try {
       await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
     } catch {

@@ -125,8 +125,10 @@ import {
 import {
   GuardedHttpsClient,
   INFRASTRUCTURE_ALERT_EVENT_TYPE,
+  ManageAlertSettings,
   ManageTelegramIntegrations,
   NotifyInfrastructureAlert,
+  PgAlertSettingsStore,
   PgIntegrationRepository,
   PgTelegramChannelStore,
   TelegramBotSender,
@@ -300,12 +302,17 @@ export function buildContainer(options: ContainerOptions) {
     new GuardedHttpsClient(telegramGuard, createNodeHttpsTransport()),
   );
   const notifyInfrastructureAlert = new NotifyInfrastructureAlert({
+    settings: new PgAlertSettingsStore(uow),
     channels: new PgTelegramChannelStore(uow),
     cipher,
     sender: telegramSender,
+    directory,
+    mailer,
+    deliveries: outboxDeliveryReceipts,
   });
   outboxHandlers.register(INFRASTRUCTURE_ALERT_EVENT_TYPE, (event) =>
     notifyInfrastructureAlert.handle({
+      eventId: event.id,
       organizationId: event.organizationId,
       payload: event.payload,
     }),
@@ -577,6 +584,13 @@ export function buildContainer(options: ContainerOptions) {
       cipher,
       audit,
       clock,
+    }),
+    manageAlertSettings: new ManageAlertSettings({
+      context: requestContext,
+      uow,
+      authorizer,
+      settings: new PgAlertSettingsStore(uow),
+      audit,
     }),
     manageTelegramIntegrations: new ManageTelegramIntegrations({
       context: requestContext,

@@ -30,7 +30,7 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
 | T4 | S4 | inline, ruta protegida y migración | pendiente | |
 | T5 | S2 | inline, ruta protegida y migración | pendiente: depende de T6 para retirar particiones | |
 | T6 | S5 (ancla) | inline, ruta protegida | hecha en código (L7); falta que Ops cree y ensaye el bucket real | 37 pruebas dirigidas en verde; mutación (quitar la sobrescritura de `anchored_seq`) detectada por 3 pruebas; commit siguiente a este registro |
-| T7 | S5 (panel de alertas) | inline | desbloqueada (L6): tabla nueva de ajustes; Telegram guarda un secreto cifrado | |
+| T7 | S5 (panel de alertas) | inline, migración con aislamiento | API hecha (L8); falta la pantalla del panel y el productor de `integration.infra_alert` | 73 pruebas dirigidas en verde, más 2 tras la corrección de los jueces; mutación de L8 |
 
 ## Log
 
@@ -65,3 +65,20 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
     - pruebas dirigidas por `test-runner`: 37 verdes. La primera corrida falló porque la prueba de concurrencia nueva usaba la organización «vacía»; se le dio la suya y quedó en verde;
     - mutación: quitar `new.anchored_seq := …` del trigger hace fallar 3 pruebas; la migración se restauró y `cmp` confirma que es idéntica.
   - Siguiente paso: T7. Mapa del explorador: `integration.infra_alert` no tiene productor; `NotifyInfrastructureAlert` solo usa Telegram; `organizations.settings` no se usa; existe el permiso `alerts.infra.manage`.
+- L8 (2026-11-04): T7, API del panel de alertas de la Raíz.
+  - Qué hay:
+    - tabla `alert_settings` (migración 0034): una fila por organización, al menos un canal encendido (dominio y `check`), sin borrado, aislamiento por filas;
+    - `GET` y `PUT /integrations/alert-settings` con el permiso `alerts.infra.manage` (reautenticación y auditoría crítica del catálogo), versión optimista (`CONFLICT.VERSION`) y error `INTEGRATIONS.ALERT_CHANNEL_REQUIRED` (422);
+    - el manejador de `integration.infra_alert` envía por correo a cada Raíz activa, en su idioma, y/o por Telegram, con acuse por destino.
+  - Decisiones conservadoras:
+    - sin fila rigen correo y Telegram encendidos: conserva el aviso por Telegram que ya existía y suma el correo (ADR 0047);
+    - sin ningún destino real, el evento va a cuarentena (`INTEGRATIONS.ALERT_CONFIG_INVALID`, no reintentable) en vez de perderse;
+    - la prueba anterior «no hace nada sin canal activo» fijaba el comportamiento previo; cambia por decisión del dueño, porque ahora el correo sale por omisión (mismo criterio que L3).
+  - Jueces ciegos A y B. Lo que confirmaron ambos se corrigió: una falla permanente de Telegram mandaba el evento a cuarentena aunque el correo ya hubiera llegado. Ahora solo va a cuarentena si la alerta no llegó a nadie; dos pruebas nuevas lo fijan. La sospecha compartida sobre el cambio de clave de acuse se descartó: en HEAD no había acuses.
+  - Señalado por un solo juez, para revisión humana, sin corregir:
+    - A: aislar cada canal de excepciones (hoy una excepción en Telegram impide intentar el correo en ese intento); avisar al guardar «solo Telegram» sin chat activo; la etiqueta del permiso todavía dice «(Telegram)».
+    - B: tope de `expectedVersion` (un valor mayor que un entero de 32 bits daría 500 en vez de 409); pruebas de la llave foránea de `updated_by` y del UPDATE bajo otra organización.
+  - Evidencia: formato, tipos y lint de la API en verde; pruebas dirigidas por `test-runner`: 73 verdes en la primera corrida. Mutación: quitar el `check` de al menos un canal hace fallar las 2 pruebas que lo fijan (y una tercera en cascada); la migración se restauró y `cmp` confirma que es idéntica.
+  - Seguimiento: `integration.infra_alert` todavía no tiene productor (ni `anchor-audit` ni otro trabajo lo emite), y falta la pantalla del panel en la web.
+  - La lint de `db` falla en `db/tests/first-organization-setup.test.ts:128-129`, archivo que este cambio no toca (idéntico a HEAD).
+

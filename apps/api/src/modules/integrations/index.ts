@@ -21,7 +21,14 @@ export type {
   InfrastructureAlertCode,
   InfrastructureAlertPayload,
 } from './domain/infrastructure-alert.js';
+export {
+  INFRASTRUCTURE_ALERT_HANDLER_KEY,
+  infrastructureAlertEmailKey,
+  infrastructureAlertTelegramKey,
+} from './domain/infrastructure-alert.js';
 export { NotifyInfrastructureAlert } from './application/notify-infrastructure-alert.js';
+export { ManageAlertSettings } from './application/manage-alert-settings.js';
+export { PgAlertSettingsStore } from './infrastructure/pg-alert-settings-store.js';
 export type {
   ActiveTelegramChannel,
   TelegramChannelKind,

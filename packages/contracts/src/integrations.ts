@@ -57,3 +57,27 @@ export type TelegramIntegrationsResponse = z.infer<typeof telegramIntegrationsRe
 /** Resultado de enviar un mensaje de prueba: `sent` o el código estable de fallo, nunca el texto de Telegram. */
 export const telegramTestResultSchema = z.object({ outcome: z.string().min(1) });
 export type TelegramTestResult = z.infer<typeof telegramTestResultSchema>;
+
+/**
+ * Canales de las alertas de infraestructura de la Raíz: correo y/o Telegram (decisión del dueño del
+ * 2026-11-04). Al menos uno debe quedar encendido; lo valida el caso de uso.
+ */
+export const infrastructureAlertChannelsSchema = z.object({
+  email: z.boolean(),
+  telegram: z.boolean(),
+});
+export type InfrastructureAlertChannels = z.infer<typeof infrastructureAlertChannelsSchema>;
+
+/** `version` 0 significa que aún no hay ajuste guardado y rige el valor por omisión (ambos encendidos). */
+export const alertSettingsSchema = z.object({
+  infrastructure: infrastructureAlertChannelsSchema,
+  version: z.number().int().min(0),
+  updatedAt: z.iso.datetime().nullable(),
+});
+export type AlertSettings = z.infer<typeof alertSettingsSchema>;
+
+export const updateAlertSettingsRequestSchema = z.object({
+  infrastructure: infrastructureAlertChannelsSchema,
+  expectedVersion: z.number().int().min(0),
+});
+export type UpdateAlertSettingsRequest = z.infer<typeof updateAlertSettingsRequestSchema>;

@@ -297,20 +297,26 @@ export type {
 
 export {
   TELEGRAM_INTEGRATION_KIND_VALUES,
+  alertSettingsSchema,
   createTelegramIntegrationRequestSchema,
+  infrastructureAlertChannelsSchema,
   rotateTelegramBotTokenRequestSchema,
   telegramIntegrationKindSchema,
   telegramIntegrationSchema,
   telegramIntegrationsResponseSchema,
   telegramTestResultSchema,
+  updateAlertSettingsRequestSchema,
   updateTelegramIntegrationRequestSchema,
 } from './integrations.js';
 export type {
+  AlertSettings,
   CreateTelegramIntegrationRequest,
+  InfrastructureAlertChannels,
   RotateTelegramBotTokenRequest,
   TelegramIntegration,
   TelegramIntegrationKindValue,
   TelegramIntegrationsResponse,
   TelegramTestResult,
+  UpdateAlertSettingsRequest,
   UpdateTelegramIntegrationRequest,
 } from './integrations.js';

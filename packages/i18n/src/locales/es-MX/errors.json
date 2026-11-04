@@ -22,6 +22,7 @@
   "INTEGRATIONS.CHANNEL_ALREADY_ACTIVE": "Ya hay un canal activo de este tipo. Archívalo antes de crear otro.",
   "INTEGRATIONS.ARCHIVED": "La integración está archivada y ya no se puede modificar.",
   "INTEGRATIONS.NOT_CONFIGURED": "La integración no tiene token guardado. Guárdalo antes de enviar una prueba.",
+  "INTEGRATIONS.ALERT_CHANNEL_REQUIRED": "Deja al menos un canal encendido (correo o Telegram) para que la Raíz se entere cuando la plataforma falle.",
   "ACCOUNT.ARCHIVED": "La cuenta está archivada y ya no admite cambios.",
   "SHARE.ALREADY_EXISTS": "Esa persona o grupo ya tiene acceso a la cuenta. Revoca el acceso actual antes de compartir con otro nivel.",
   "SHARE.GRANTEE_INVALID": "La persona o el grupo elegido no existe, no está activo o es quien comparte.",

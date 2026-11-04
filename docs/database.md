@@ -40,6 +40,7 @@ Diseño de la base de datos de la plataforma (PostgreSQL 18). Este documento des
 | `0031_alerts_permissions.sql` | Permisos `alerts.infra.manage` (techo 0) y `alerts.security.manage` (techo 1) en `permission_rank_ceiling()` (ADR 0047) y concesión a los roles de sistema vivos que corresponden; sin tablas nuevas |
 | `0032_integrations.sql` | Integraciones configurables por la persona administradora (ADR 0047): tablas `integrations` (configuración no secreta) e `integration_secrets` (secreto cifrado por el módulo de criptografía, mismo patrón que la contraseña del buzón de 0029), ambas con aislamiento por filas. Solo `iam_app` las toca y ninguna permite `DELETE`: se archiva y el secreto se reemplaza |
 | `0033_audit_anchors.sql` | Registro local del ancla externa de la auditoría (ADR 0042): tabla `audit_anchors`, de solo lectura e inserción para `iam_app`, con aislamiento por filas. Un trigger asigna el número de manifiesto, la cabeza anclada y los hashes, y otro rechaza cambios y borrados incluso del dueño |
+| `0034_alert_settings.sql` | Preferencias de alerta de la Raíz (decisión del dueño del 2026-11-04): tabla `alert_settings`, una fila por organización con los canales de las alertas de infraestructura (correo y/o Telegram). Un `check` exige al menos un canal encendido; `iam_app` lee, inserta y actualiza, sin borrar ni cambiar la organización; aislamiento por filas. Sin fila rigen ambos canales encendidos |
 
 ### Cómo se ejecuta
 

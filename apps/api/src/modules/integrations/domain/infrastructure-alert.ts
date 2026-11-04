@@ -9,6 +9,20 @@
 /** `type` del evento en `outbox_events`; lo escribe quien detecta el problema y lo consume el notificador. */
 export const INFRASTRUCTURE_ALERT_EVENT_TYPE = 'integration.infra_alert';
 
+/**
+ * Clave del acuse de entrega por destino (tabla de acuses del outbox): el reintento de un evento solo reenvía
+ * a los destinos que faltaron, así una falla del correo no repite el aviso por Telegram ni al revés.
+ */
+export const INFRASTRUCTURE_ALERT_HANDLER_KEY = 'integration.infra-alert';
+
+export function infrastructureAlertTelegramKey(): string {
+  return `${INFRASTRUCTURE_ALERT_HANDLER_KEY}:telegram`;
+}
+
+export function infrastructureAlertEmailKey(recipientId: string): string {
+  return `${INFRASTRUCTURE_ALERT_HANDLER_KEY}:email:${recipientId}`;
+}
+
 /** Agregado del evento en `outbox_events`. */
 export const INFRASTRUCTURE_ALERT_AGGREGATE = 'integration';
 

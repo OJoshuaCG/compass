@@ -60,7 +60,7 @@ Una línea de conteos: organizaciones recorridas, ancladas y con fallo. Por cada
 - Código de salida `1`: alguna quedó sin ancla hoy. Revisa el nombre del error: `AccessDenied` apunta a la política del paso 2, `InvalidRequest` a la configuración de Object Lock del bucket, y un `TimeoutError` a la red.
 - Más de 26 horas sin una línea nueva en el registro: la programación dejó de correr y la protección se degrada en silencio. Alerta por ausencia.
 
-Los avisos por correo o Telegram a la Raíz llegan con el panel de alertas (tarea T7 de `odd/tasks/owner-decisions-2026-11-04.md`). Mientras tanto, la alerta depende de la vigilancia del registro.
+La Raíz ya elige en la API (`GET` y `PUT /integrations/alert-settings`) si las alertas de infraestructura le llegan por correo, por Telegram o por ambos, pero este comando todavía no emite esa alerta (`integration.infra_alert`): falta conectarlo y la pantalla del panel. Mientras tanto, la alerta depende de la vigilancia del registro.
 
 ## Verificación
 

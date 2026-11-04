@@ -92,6 +92,17 @@ export interface ResetRevealAlertMessage {
   readonly occurredAt: Date;
 }
 
+/**
+ * Alerta de infraestructura a una cuenta Raíz (ADR 0047; decisión del dueño del 2026-11-04: correo y/o
+ * Telegram). Solo un código de una lista cerrada y la hora: ningún mensaje de error, ruta, host ni nombre.
+ */
+export interface InfrastructureAlertMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  readonly code: 'service_unhealthy' | 'job_failed' | 'events_quarantined';
+  readonly occurredAt: Date;
+}
+
 /** Correo saliente detrás de un puerto (SES en producción; el proveedor es intercambiable). */
 export interface Mailer {
   sendInvitation(message: InvitationMessage): Promise<void>;
@@ -107,4 +118,6 @@ export interface Mailer {
   sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void>;
   /** Avisa a la persona de que su rango cambió, con el nombre de quien lo hizo (sin motivo, roles ni enlaces). */
   sendRankChangeNotice(message: RankChangeNoticeMessage): Promise<void>;
+  /** Avisa a la Raíz de una falla de la plataforma (solo un código fijo y la hora). */
+  sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void>;
 }

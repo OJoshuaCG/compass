@@ -104,6 +104,8 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'integration.archived': ['kind'],
   // Mensaje de prueba: `outcome` es `sent` o un código estable de fallo; nunca el texto de la respuesta.
   'integration.test_sent': ['kind', 'outcome'],
+  // Canales de las alertas de infraestructura de la Raíz (migración 0034): solo booleanos y la versión.
+  'integration.alert_settings_updated': ['infraEmail', 'infraTelegram', 'version'],
   'audit.chain_verified': ['checked'],
   'auth.login_failed': [],
   'auth.login_password_verified': [],

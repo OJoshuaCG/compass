@@ -2,6 +2,7 @@ import type { Logger } from 'pino';
 
 import type {
   EmergencyAlertMessage,
+  InfrastructureAlertMessage,
   InvitationMessage,
   Mailer,
   PendingTotpNoticeMessage,
@@ -49,6 +50,15 @@ export class LogMailer implements Mailer {
         occurredAt: message.occurredAt,
       },
       'reveal limit alert (dev)',
+    );
+    return Promise.resolve();
+  }
+
+  sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void> {
+    // Sin destinatario: es un dato personal y aquí solo importa el código.
+    this.logger.warn(
+      { code: message.code, occurredAt: message.occurredAt },
+      'infrastructure alert (dev)',
     );
     return Promise.resolve();
   }

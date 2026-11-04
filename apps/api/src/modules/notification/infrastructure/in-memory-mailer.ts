@@ -1,5 +1,6 @@
 import type {
   EmergencyAlertMessage,
+  InfrastructureAlertMessage,
   InvitationMessage,
   Mailer,
   PendingTotpNoticeMessage,
@@ -64,6 +65,17 @@ export class InMemoryMailer implements Mailer {
       return Promise.reject(new Error('mail provider unavailable'));
     }
     this.resetRevealAlerts.push(message);
+    return Promise.resolve();
+  }
+
+  readonly infrastructureAlerts: InfrastructureAlertMessage[] = [];
+
+  sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.infrastructureAlerts.push(message);
     return Promise.resolve();
   }
 
