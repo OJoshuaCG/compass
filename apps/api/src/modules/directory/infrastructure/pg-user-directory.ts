@@ -18,6 +18,7 @@ import type {
   ManagedPage,
   ManagedRow,
   NewUser,
+  SuperiorLink,
   UserDirectory,
 } from '../application/ports/user-directory.js';
 import type { UserRecord, UserStatus } from '../domain/user.js';
@@ -114,6 +115,32 @@ export class PgUserDirectory implements UserDirectory {
       [managerId, userId],
     );
     return result.rows[0]?.found ?? false;
+  }
+
+  async listSuperiorChain(userId: UserId): Promise<readonly SuperiorLink[]> {
+    // `path` guarda los ids ya recorridos: un ciclo en `managed_by` corta la cadena en lugar de repetirla.
+    const result = await this.transactions.current().query<{
+      id: string;
+      rank: number;
+      status: UserStatus;
+    }>(
+      `with recursive chain(id, managed_by, rank, status, depth, path) as (
+         select m.id, m.managed_by, m.rank, m.status, 1, array[u.id, m.id]
+         from users u join users m on m.id = u.managed_by
+         where u.id = $1
+         union all
+         select m.id, m.managed_by, m.rank, m.status, c.depth + 1, c.path || m.id
+         from chain c join users m on m.id = c.managed_by
+         where m.id <> all(c.path)
+       )
+       select id, rank, status from chain order by depth`,
+      [userId],
+    );
+    return result.rows.map((row) => ({
+      id: asUserId(row.id),
+      rank: toRank(row.rank),
+      status: row.status,
+    }));
   }
 
   async hasReports(userId: UserId): Promise<boolean> {

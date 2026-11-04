@@ -44,6 +44,7 @@ export type {
   ManagedPage,
   ManagedRow,
   NewUser,
+  SuperiorLink,
   UserDirectory,
 } from './application/ports/user-directory.js';
 export {

@@ -47,6 +47,13 @@ export interface DirectoryPage {
   readonly nextCursor: string | null;
 }
 
+/** Un superior en la cadena de responsables de una persona. */
+export interface SuperiorLink {
+  readonly id: UserId;
+  readonly rank: Rank;
+  readonly status: UserStatus;
+}
+
 /** Todo corre en la transacción en curso, con la organización fijada por RLS. */
 export interface UserDirectory {
   findById(id: UserId): Promise<UserRecord | null>;
@@ -56,6 +63,12 @@ export interface UserDirectory {
   setStatus(id: UserId, status: UserStatus): Promise<void>;
   /** ¿`userId` está en el subárbol de gestión de `managerId` (su cadena de responsables llega a él)? */
   isInSubtree(managerId: UserId, userId: UserId): Promise<boolean>;
+  /**
+   * Cadena de responsables de `userId`, del más cercano al más lejano (el responsable directo primero y
+   * la Raíz al final), sin incluir a `userId`. No filtra por estado: quien llama decide quién cuenta.
+   * Un ciclo en los datos corta la cadena en vez de repetirla.
+   */
+  listSuperiorChain(userId: UserId): Promise<readonly SuperiorLink[]>;
   hasReports(userId: UserId): Promise<boolean>;
   /**
    * Serializa las mutaciones de jerarquía de la organización hasta el fin de la transacción: las
