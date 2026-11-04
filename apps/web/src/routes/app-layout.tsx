@@ -18,6 +18,8 @@ export function AppLayout() {
   const canReadInboundCodes = usePermission('inbound.read_codes');
   // Solo comodidad: el enlace de configurar fuentes se ofrece con `inbound.configure`; el servidor decide.
   const canConfigureInbound = usePermission('inbound.configure');
+  // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
+  const canManageInfraAlerts = usePermission('alerts.infra.manage');
   const { logout, pending } = useLogout();
   return (
     <AppShell
@@ -104,6 +106,13 @@ export function AppLayout() {
               <li>
                 <Link to="/roles" className={linkClass} activeProps={activeProps}>
                   {t('nav.roles')}
+                </Link>
+              </li>
+            ) : null}
+            {canManageInfraAlerts ? (
+              <li>
+                <Link to="/alerts" className={linkClass} activeProps={activeProps}>
+                  {t('nav.alerts')}
                 </Link>
               </li>
             ) : null}

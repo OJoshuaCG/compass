@@ -93,5 +93,6 @@
   "nav.accounts": "Cuentas",
   "nav.inbound": "Códigos de acceso",
   "nav.inboundSources": "Fuentes de códigos",
-  "nav.inboundViewSettings": "Vistas de códigos"
+  "nav.inboundViewSettings": "Vistas de códigos",
+  "nav.alerts": "Alertas de infraestructura"
 }

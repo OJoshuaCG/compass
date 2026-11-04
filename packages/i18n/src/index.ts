@@ -36,6 +36,7 @@ export const LAZY_NAMESPACES = [
   'credentials',
   'shares',
   'inbound',
+  'integrations',
 ] as const;
 export type LazyNamespace = (typeof LAZY_NAMESPACES)[number];
 export type LazyCatalog = Record<Locale, Record<string, string>>;
@@ -97,6 +98,12 @@ export const loadInboundCatalog = () =>
     import('./locales/en-US/inbound.json', { with: { type: 'json' } }),
   );
 
+export const loadIntegrationsCatalog = () =>
+  bothLocales(
+    import('./locales/es-MX/integrations.json', { with: { type: 'json' } }),
+    import('./locales/en-US/integrations.json', { with: { type: 'json' } }),
+  );
+
 export const lazyCatalogLoaders: Record<LazyNamespace, () => Promise<LazyCatalog>> = {
   directory: loadDirectoryCatalog,
   sessions: loadSessionsCatalog,
@@ -106,6 +113,7 @@ export const lazyCatalogLoaders: Record<LazyNamespace, () => Promise<LazyCatalog
   credentials: loadCredentialsCatalog,
   shares: loadSharesCatalog,
   inbound: loadInboundCatalog,
+  integrations: loadIntegrationsCatalog,
 };
 
 export type CommonKey = keyof (typeof resources)['es-MX']['common'];

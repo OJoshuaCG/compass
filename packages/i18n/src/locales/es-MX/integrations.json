@@ -1,0 +1,15 @@
+{
+  "alerts.title": "Alertas de infraestructura",
+  "alerts.description": "Una alerta de infraestructura avisa a la Raíz cuando algo de la plataforma falla, por ejemplo cuando no se logra anclar la auditoría del día.",
+  "alerts.rule": "Elige por dónde se envían. Al menos un canal debe quedar encendido.",
+  "alerts.defaults": "Aún no se ha guardado ninguna configuración: rigen los valores por omisión (correo y Telegram encendidos) hasta que guardes.",
+  "alerts.channels.legend": "Canales de aviso",
+  "alerts.channels.email.label": "Correo",
+  "alerts.channels.email.description": "Cada Raíz activa lo recibe en su idioma.",
+  "alerts.channels.telegram.label": "Telegram",
+  "alerts.channels.telegram.description": "El canal de Telegram de infraestructura.",
+  "alerts.save": "Guardar cambios",
+  "alerts.saved": "Configuración de alertas guardada.",
+  "alerts.conflict": "Otra persona cambió esta configuración mientras la editabas. Se cargaron los valores actuales; revísalos y vuelve a guardar.",
+  "alerts.updatedAt": "Última actualización: {{date}}"
+}

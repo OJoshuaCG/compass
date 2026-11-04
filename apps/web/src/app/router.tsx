@@ -115,6 +115,12 @@ const securityRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/security-route'), 'SecurityRoute'),
 });
 
+const alertsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/alerts',
+  component: lazyRouteComponent(() => import('../routes/alerts-route'), 'AlertsRoute'),
+});
+
 const rolesRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/roles',
@@ -220,6 +226,7 @@ const routeTree = rootRoute.addChildren([
     usersRoute,
     sessionsRoute,
     securityRoute,
+    alertsRoute,
     rolesRoute,
     accountsRoute,
     credentialsRoute,

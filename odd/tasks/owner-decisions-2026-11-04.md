@@ -30,7 +30,7 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
 | T4 | S4 | inline, ruta protegida y migración | pendiente | |
 | T5 | S2 | inline, ruta protegida y migración | pendiente: depende de T6 para retirar particiones | |
 | T6 | S5 (ancla) | inline, ruta protegida | hecha en código (L7) y alerta a la Raíz si falla (L9); falta que Ops cree y ensaye el bucket real | 37 pruebas dirigidas en verde; mutación (quitar la sobrescritura de `anchored_seq`) detectada por 3 pruebas; commit siguiente a este registro |
-| T7 | S5 (panel de alertas) | inline, migración con aislamiento | API hecha (L8) y productor desde `anchor-audit` (L9); falta la pantalla del panel | 73 pruebas dirigidas en verde, más 2 tras la corrección de los jueces; mutación de L8 |
+| T7 | S5 (panel de alertas) | inline, migración con aislamiento; pantalla con `frontend-developer` | hecha: API (L8), productor desde `anchor-audit` (L9) y pantalla `/alerts` (L10) | 73 pruebas dirigidas en verde, más 2 tras la corrección de los jueces; mutación de L8; pantalla: 36 pruebas dirigidas en verde (L10) |
 
 ## Log
 
@@ -92,3 +92,13 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
     - Solo B, para revisión humana: ninguna prueba ejecuta el adaptador de `main.anchor-audit.ts` (la prueba de integración copia la lambda); la rama `alerted: false` solo se prueba con dobles.
   - Evidencia: tipos y lint en verde; pruebas dirigidas por `test-runner`: 25 verdes en 3 archivos. Mutación: quitar la llamada a la alerta hace fallar 2 pruebas (unitaria e integración); el archivo se restauró y `cmp` confirma que es idéntico.
   - Seguimiento: la pantalla del panel en la web; ningún otro trabajo programado emite todavía `integration.infra_alert`.
+- L10 (2026-11-04): T7, pantalla del panel de alertas.
+  - `/alerts` (pantalla «Alertas de infraestructura»): la Raíz enciende o apaga correo y Telegram. Solo aparece en el menú y responde con el permiso `alerts.infra.manage`; sin él muestra «no encontrado», igual que `/roles`. El servidor decide siempre.
+  - Regla en la interfaz: con los dos canales apagados no se puede guardar y el motivo se lee junto al botón. El texto es el mismo que el del error `INTEGRATIONS.ALERT_CHANNEL_REQUIRED` del servidor.
+  - Conflicto de versión: se descarta el borrador, se recargan los valores vigentes y se avisa. Con versión 0 se avisa que rigen los valores por defecto (los dos canales).
+  - Textos en el catálogo diferido nuevo `integrations` (es-MX y en-US), igual que los demás módulos; en `common` solo queda la entrada del menú.
+  - Corrección del montaje de una prueba nueva que nunca había corrido: fallaba una sola vez y Query reintenta los 5xx, así que el error no llegaba a verse. Ahora falla hasta que aparece el aviso, como en la prueba de cuentas. No se debilitó ninguna aserción.
+  - Simplificación: se quitó `sameChannels`, que no se usaba; el rechazo del servidor se deriva del error de la acción, como en los formularios vecinos. Se conserva `staleTime: 0`, igual que en las pantallas vecinas, para ver cambios de otra Raíz.
+  - Evidencia: tipos y lint en verde (`@iam/web`, `@iam/i18n`). Pruebas dirigidas por `test-runner`: 36 de 36 en 3 archivos. La revisión de seguridad no aplica (no toca autenticación, pagos ni SQL).
+  - No verificado: el e2e no se corrió porque `docs/frontend.md` §11 no lo exige para esta pantalla; no hubo revisión visual en el navegador.
+  - Pendiente fuera de T7: ningún otro trabajo programado emite todavía `integration.infra_alert`.
