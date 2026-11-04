@@ -23,9 +23,18 @@ export type {
   SharedByLister,
 } from './application/ports/shared-by-lister.js';
 export { ReassignOffboardedAccounts } from './application/reassign-offboarded-accounts.js';
+export {
+  OFFBOARDING_ROTATION_DEADLINE_HOURS,
+  OffboardAccounts,
+} from './application/offboard-accounts.js';
+export type {
+  OffboardAccountsDeps,
+  OffboardAccountsReport,
+} from './application/offboard-accounts.js';
 export type {
   AccountReassignment,
   OffboardedAccountsReport,
+  OffboardingReceiver,
   ReassignOffboardedAccountsDeps,
 } from './application/reassign-offboarded-accounts.js';
 export { NotifyRankChanged } from './application/notify-rank-changed.js';

@@ -13,9 +13,11 @@
  * - Este caso de uso solo cambia quién gestiona; la auditoría, los avisos y las tareas de rotación los
  *   encadena quien lo llama con el informe que devuelve.
  */
+import { RANK } from '../../../shared/kernel/index.js';
 import type { UserId } from '../../../shared/kernel/index.js';
 import { selectAccountManager } from '../domain/account-manager-selection.js';
 import type {
+  AccountManagerSelection,
   AccountManagerSelectionReason,
   ManagerCandidate,
 } from '../domain/account-manager-selection.js';
@@ -47,6 +49,13 @@ export interface OffboardedAccountsReport {
   readonly unassignedAccountIds: readonly string[];
 }
 
+/** Quién recibe las cuentas de una baja y quién es la Raíz activa, que es el último recurso para rotar. */
+export interface OffboardingReceiver {
+  readonly selection: AccountManagerSelection;
+  /** `null` solo si la cadena no llega a una Raíz activa; quien llama decide cómo tratarlo. */
+  readonly rootId: UserId | null;
+}
+
 const NO_ACCOUNTS_AFFECTED: OffboardedAccountsReport = {
   reassigned: [],
   unassignedAccountIds: [],
@@ -55,19 +64,41 @@ const NO_ACCOUNTS_AFFECTED: OffboardedAccountsReport = {
 export class ReassignOffboardedAccounts {
   constructor(private readonly deps: ReassignOffboardedAccountsDeps) {}
 
+  /**
+   * Resuelve a quién se le dan las cuentas. Lee la cadena de superiores y consulta permisos solo de los
+   * activos; no escribe nada.
+   */
+  async selectReceiver(input: {
+    readonly leaverId: UserId;
+    readonly actorId: UserId;
+  }): Promise<OffboardingReceiver> {
+    const { directory, permissions } = this.deps;
+    const superiors = await directory.listSuperiorChain(input.leaverId);
+    const candidates = await this.describeCandidates(superiors, input.actorId, permissions);
+    const activeRoot = superiors.find(
+      (superior) => superior.rank === RANK.ROOT && superior.status === 'active',
+    );
+    return {
+      selection: selectAccountManager(candidates),
+      rootId: activeRoot?.id ?? null,
+    };
+  }
+
+  /**
+   * @param input.receiver resultado previo de `selectReceiver`; si quien llama ya lo calculó para otro
+   *   fin (las tareas de rotación) se evita leer la cadena y consultar permisos dos veces.
+   */
   async run(input: {
     readonly leaverId: UserId;
     readonly actorId: UserId;
+    readonly receiver?: OffboardingReceiver;
   }): Promise<OffboardedAccountsReport> {
-    const { directory, accounts, permissions } = this.deps;
-
-    const accountIds = await accounts.lockAccountsOnlyManagedBy(input.leaverId);
+    const accountIds = await this.deps.accounts.lockAccountsOnlyManagedBy(input.leaverId);
     // Sin cuentas huérfanas no hace falta recorrer la cadena ni consultar permisos.
     if (accountIds.length === 0) return NO_ACCOUNTS_AFFECTED;
 
-    const superiors = await directory.listSuperiorChain(input.leaverId);
-    const candidates = await this.describeCandidates(superiors, input.actorId, permissions);
-    const selection = selectAccountManager(candidates);
+    const receiver = input.receiver ?? (await this.selectReceiver(input));
+    const selection = receiver.selection;
 
     if (selection.outcome === 'unassigned') {
       return { reassigned: [], unassignedAccountIds: accountIds };
@@ -75,7 +106,7 @@ export class ReassignOffboardedAccounts {
 
     const reassigned: AccountReassignment[] = [];
     for (const accountId of accountIds) {
-      const grant = await accounts.grantManagement({
+      const grant = await this.deps.accounts.grantManagement({
         accountId,
         granteeId: selection.managerId,
         grantedBy: input.actorId,
