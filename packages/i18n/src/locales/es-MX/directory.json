@@ -113,5 +113,12 @@
   "access.special.catalogError": "No pudimos comprobar qué permisos admite este rango; el servidor validará al guardar.",
   "access.special.empty": "No hay permisos que se puedan asignar a este rango.",
   "access.special.submit": "Guardar permisos especiales",
-  "access.special.toast": "Se actualizaron los permisos especiales de {{name}}."
+  "access.special.toast": "Se actualizaron los permisos especiales de {{name}}.",
+  "users.tabs.hierarchy": "Jerarquía",
+  "hierarchy.label": "Árbol de responsabilidad",
+  "hierarchy.empty.title": "Aún no tienes personas a tu cargo",
+  "hierarchy.empty.description": "Cuando alguien responda a ti aparecerá en el árbol.",
+  "hierarchy.detached.title": "Sin responsable visible",
+  "hierarchy.detached.description": "Personas cuyo responsable no se pudo cargar. Pueden faltar niveles del árbol.",
+  "hierarchy.you": "Tú"
 }

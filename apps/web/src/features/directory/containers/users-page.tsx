@@ -8,12 +8,13 @@ import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { canManageTeam } from '../model/team-actions';
 
 import { DirectoryTable } from './directory-table';
+import { HierarchyPanel } from './hierarchy-panel';
 import { InvitationsPanel } from './invitations-panel';
 import { InviteUserDialog } from './invite-user-dialog';
 import { TeamManagement } from './team-management';
 
 /** Sección activa de la página: se guarda en la URL como el resto del estado de la vista. */
-export type UsersView = 'directory' | 'team' | 'invitations';
+export type UsersView = 'directory' | 'team' | 'hierarchy' | 'invitations';
 
 export type UsersSearch = TableSearch & { view?: UsersView | undefined };
 
@@ -42,9 +43,11 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
   const view: UsersView =
     showTeam && search.view === 'team'
       ? 'team'
-      : canInvite && search.view === 'invitations'
-        ? 'invitations'
-        : 'directory';
+      : showTeam && search.view === 'hierarchy'
+        ? 'hierarchy'
+        : canInvite && search.view === 'invitations'
+          ? 'invitations'
+          : 'directory';
   const tableSearch: TableSearch = {
     limit: search.limit,
     sort: search.sort,
@@ -57,6 +60,9 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
   const tabs = [
     { id: 'directory', label: t('users.tabs.directory', { ns: 'directory' }) },
     ...(showTeam ? [{ id: 'team', label: t('users.tabs.team', { ns: 'directory' }) }] : []),
+    ...(showTeam
+      ? [{ id: 'hierarchy', label: t('users.tabs.hierarchy', { ns: 'directory' }) }]
+      : []),
     ...(canInvite
       ? [{ id: 'invitations', label: t('users.tabs.invitations', { ns: 'directory' }) }]
       : []),
@@ -65,6 +71,10 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
   const panel =
     view === 'invitations' ? (
       <InvitationsPanel />
+    ) : view === 'hierarchy' && me !== undefined ? (
+      <HierarchyPanel
+        actor={{ id: me.user.id, displayName: me.user.displayName, rank: me.user.rank }}
+      />
     ) : view === 'team' && me !== undefined ? (
       <TeamManagement
         search={tableSearch}
@@ -103,7 +113,10 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
             // Cada sección tiene su propia búsqueda y orden: al cambiar se parte de cero
             // (el límite de filas sí se conserva).
             onSearchChange({
-              view: next === 'team' || next === 'invitations' ? next : undefined,
+              view:
+                next === 'team' || next === 'hierarchy' || next === 'invitations'
+                  ? next
+                  : undefined,
               q: undefined,
               sort: undefined,
               dir: undefined,

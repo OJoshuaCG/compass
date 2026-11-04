@@ -25,6 +25,7 @@ export const directoryKeys = {
   all: ['directory'] as const,
   users: () => [...directoryKeys.all, 'users'] as const,
   managed: () => [...directoryKeys.all, 'managed'] as const,
+  hierarchy: () => [...directoryKeys.all, 'hierarchy'] as const,
   invitations: () => [...directoryKeys.all, 'invitations'] as const,
   invitableRoles: () => [...directoryKeys.all, 'invitable-roles'] as const,
   assignableRoles: () => [...directoryKeys.all, 'assignable-roles'] as const,
