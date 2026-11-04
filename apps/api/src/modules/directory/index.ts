@@ -38,6 +38,10 @@ export { PgRankChangeNoticeQueue } from './infrastructure/pg-rank-change-notice-
 export { ListDirectory } from './application/list-directory.js';
 export type { ListDirectoryQuery } from './application/list-directory.js';
 export type {
+  ManagementGrantOutcome,
+  OffboardingAccountStore,
+} from './application/ports/offboarding-account-store.js';
+export type {
   DirectoryPage,
   DirectoryQuery,
   DirectoryRow,

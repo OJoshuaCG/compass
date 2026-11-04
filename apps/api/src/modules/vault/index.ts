@@ -92,4 +92,5 @@ export type {
 export { canGrant, levelSatisfies } from './domain/share-level.js';
 export { PgAccountRepository } from './infrastructure/pg-account-repository.js';
 export { PgVaultCredentialRepository } from './infrastructure/pg-credential-repository.js';
+export { PgOffboardingAccountStore } from './infrastructure/pg-offboarding-account-store.js';
 export { PgShareRepository } from './infrastructure/pg-share-repository.js';
