@@ -19,7 +19,7 @@ export const OFFBOARDING_NOTICE_AGGREGATE = 'user';
 export const OFFBOARDING_NOTICE_HANDLER_KEY = 'directory.offboarding-notice';
 
 /** Qué aviso recibe cada destinataria; el tipo forma parte de la clave para que una persona con dos papeles reciba ambos. */
-export type OffboardingNoticeRole = 'receiver' | 'alert' | 'report';
+export type OffboardingNoticeRole = 'receiver' | 'rotation' | 'alert' | 'report';
 
 /**
  * Clave del acuse de UNA destinataria en UN papel. Largo: prefijo (28) + ':' + papel (8 como máximo) + ':' +
@@ -43,6 +43,10 @@ export interface OffboardingNoticePayload {
   readonly assignedAccountCount: number;
   readonly unassignedAccountCount: number;
   readonly rotationTaskCount: number;
+  /** Quien recibe las tareas de rotación; `null` si no hubo tareas. Puede no ser quien recibió las cuentas. */
+  readonly rotationAssigneeId: string | null;
+  /** Solo se avisa a quien recibe la rotación cuando no es de la rama de quien dio la baja. */
+  readonly notifyRotationAssignee: boolean;
   readonly offboardedAt: Date;
 }
 
@@ -80,6 +84,8 @@ export function serializeOffboardingNotice(
     assignedAccountCount: notice.assignedAccountCount,
     unassignedAccountCount: notice.unassignedAccountCount,
     rotationTaskCount: notice.rotationTaskCount,
+    rotationAssigneeId: notice.rotationAssigneeId,
+    notifyRotationAssignee: notice.notifyRotationAssignee,
     offboardedAt: notice.offboardedAt.toISOString(),
   };
 }
@@ -104,6 +110,8 @@ export function parseOffboardingNoticePayload(payload: unknown): OffboardingNoti
     assignedAccountCount,
     unassignedAccountCount,
     rotationTaskCount,
+    rotationAssigneeId,
+    notifyRotationAssignee,
     offboardedAt,
   } = payload;
   if (!isNonEmptyString(leaverId) || !isNonEmptyString(actorId)) {
@@ -112,6 +120,10 @@ export function parseOffboardingNoticePayload(payload: unknown): OffboardingNoti
   if (receiverId !== null && !isNonEmptyString(receiverId))
     throw new OffboardingNoticePayloadError();
   if (typeof notifyReceiver !== 'boolean') throw new OffboardingNoticePayloadError();
+  if (rotationAssigneeId !== null && !isNonEmptyString(rotationAssigneeId)) {
+    throw new OffboardingNoticePayloadError();
+  }
+  if (typeof notifyRotationAssignee !== 'boolean') throw new OffboardingNoticePayloadError();
   if (
     !isCount(assignedAccountCount) ||
     !isCount(unassignedAccountCount) ||
@@ -130,6 +142,8 @@ export function parseOffboardingNoticePayload(payload: unknown): OffboardingNoti
     assignedAccountCount,
     unassignedAccountCount,
     rotationTaskCount,
+    rotationAssigneeId,
+    notifyRotationAssignee,
     offboardedAt: offboardedAtDate,
   };
 }

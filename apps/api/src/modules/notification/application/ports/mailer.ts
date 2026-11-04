@@ -112,10 +112,10 @@ export interface InfrastructureAlertMessage {
 export interface OffboardingNoticeMessage {
   readonly to: string;
   readonly locale: 'es-MX' | 'en-US';
-  readonly kind: 'accounts_assigned' | 'accounts_unassigned' | 'report';
+  readonly kind: 'accounts_assigned' | 'rotation_assigned' | 'accounts_unassigned' | 'report';
   /** Nombre visible de quien se fue; `null` si ya no se puede resolver (el aviso sale igual, sin nombre). */
   readonly leaverDisplayName: string | null;
-  /** Cuentas que se le asignaron (`accounts_assigned`) o que quedaron sin responsable (`accounts_unassigned`). */
+  /** Cuentas asignadas (`accounts_assigned`), tareas de rotación (`rotation_assigned`) o cuentas sin responsable (`accounts_unassigned`). */
   readonly accountCount: number;
   /** Solo en el informe: cuentas reasignadas, sin responsable y tareas de rotación creadas. */
   readonly report: {

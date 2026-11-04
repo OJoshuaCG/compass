@@ -66,3 +66,27 @@ describe('renderOffboardingEmail', () => {
     expect(unknown.text).toContain('una persona de la organización');
   });
 });
+
+describe('renderOffboardingEmail: rotation tasks', () => {
+  const ROTATION_BASE: OffboardingNoticeMessage = {
+    ...BASE,
+    kind: 'rotation_assigned',
+    accountCount: 3,
+  };
+
+  it('tells whoever receives the rotation tasks how many and the deadline, in both languages', () => {
+    const spanish = renderOffboardingEmail(ROTATION_BASE);
+    const english = renderOffboardingEmail({ ...ROTATION_BASE, locale: 'en-US' });
+
+    expect(spanish.text).toContain('3 tareas de rotación quedaron a tu cargo');
+    expect(spanish.text).toContain('72 horas');
+    expect(english.text).toContain('3 rotation tasks are now yours');
+    expect(english.text).toContain('72 hours');
+  });
+
+  it('uses the singular for one task', () => {
+    expect(renderOffboardingEmail({ ...ROTATION_BASE, accountCount: 1 }).text).toContain(
+      '1 tarea de rotación quedó',
+    );
+  });
+});

@@ -19,6 +19,12 @@ const COPY = {
       action:
         'Ya tienes permiso para gestionarlas. Revisa en la plataforma las tareas de rotación de sus credenciales, que vencen en 72 horas.',
     },
+    rotation_assigned: {
+      subject: 'Recibiste tareas de rotación por una baja',
+      what: (person: string, count: number) =>
+        `Por la baja de ${person}, ${String(count)} ${count === 1 ? 'tarea de rotación quedó' : 'tareas de rotación quedaron'} a tu cargo.`,
+      action: 'Revisa en la plataforma las credenciales por rotar: vencen en 72 horas.',
+    },
     accounts_unassigned: {
       subject: 'Cuentas sin responsable por una baja',
       what: (person: string, count: number) =>
@@ -43,6 +49,12 @@ const COPY = {
         `Because ${person} was offboarded, ${String(count)} ${count === 1 ? 'account is' : 'accounts are'} now yours to manage.`,
       action:
         'You already have the permissions to manage them. Check the platform for the credential rotation tasks, which are due in 72 hours.',
+    },
+    rotation_assigned: {
+      subject: 'You received rotation tasks because of an offboarding',
+      what: (person: string, count: number) =>
+        `Because ${person} was offboarded, ${String(count)} ${count === 1 ? 'rotation task is' : 'rotation tasks are'} now yours.`,
+      action: 'Check the platform for the credentials to rotate: they are due in 72 hours.',
     },
     accounts_unassigned: {
       subject: 'Accounts without an owner after an offboarding',

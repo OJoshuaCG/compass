@@ -22,7 +22,26 @@ export class PgOffboardingAccountStore implements OffboardingAccountStore {
   constructor(private readonly transactions: TransactionProvider) {}
 
   async lockAccountsOnlyManagedBy(leaverId: UserId): Promise<readonly string[]> {
-    const result = await this.transactions.current().query<{ id: string }>(
+    const queryable = this.transactions.current();
+    // Con `for update` en la misma consulta, un cambio de gestores confirmado mientras se espera el bloqueo
+    // no se reflejaría en las subconsultas. Por eso se bloquean primero las cuentas que gestiona la persona
+    // (por id) y la decisión de quién queda huérfana se lee después, ya con el bloqueo tomado.
+    await queryable.query(
+      `select a.id
+         from accounts a
+        where a.status = 'active'
+          and exists (
+                select 1
+                  from effective_access leaver_access
+                 where leaver_access.resource_type = 'account'
+                   and leaver_access.resource_id = a.id
+                   and leaver_access.user_id = $1
+                   and leaver_access.level = $2)
+        order by a.id
+          for update of a`,
+      [leaverId, SHARE_LEVEL_MANAGE],
+    );
+    const result = await queryable.query<{ id: string }>(
       `select a.id
          from accounts a
         where a.status = 'active'
@@ -43,8 +62,7 @@ export class PgOffboardingAccountStore implements OffboardingAccountStore {
                    and other_access.resource_id = a.id
                    and other_access.level = $2
                    and other_access.user_id <> $1)
-        order by a.id
-          for update of a`,
+        order by a.id`,
       [leaverId, SHARE_LEVEL_MANAGE],
     );
     return result.rows.map((row) => row.id);

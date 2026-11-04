@@ -28,8 +28,9 @@ export interface OffboardingRotationStore {
     readonly credentialIds: readonly string[];
   }): Promise<readonly string[]>;
   /**
-   * Crea una tarea `user_deactivated` por credencial, salvo que ya haya una pendiente o en curso con ese
-   * disparador. Devuelve cuántas creó.
+   * Deja una tarea `user_deactivated` vigente por credencial: la crea, o endurece la pendiente o en curso que
+   * ya haya (plazo más corto, prioridad más alta y, si su responsable ya no está activo, el nuevo).
+   * Devuelve cuántas credenciales quedaron cubiertas, creadas o endurecidas.
    */
   createTasks(tasks: readonly NewOffboardingRotationTask[]): Promise<number>;
 }

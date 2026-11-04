@@ -53,14 +53,40 @@ export class PgOffboardingRotationStore implements OffboardingRotationStore {
 
   async createTasks(tasks: readonly NewOffboardingRotationTask[]): Promise<number> {
     const queryable = this.transactions.current();
-    let created = 0;
+    let covered = 0;
     for (const task of tasks) {
-      const open = await queryable.query(
-        `select 1 from rotation_tasks
+      // Una tarea abierta de una baja anterior NO se descarta: se endurece. El plazo nunca se alarga, la
+      // prioridad nunca baja, y la persona asignada solo cambia si la actual ya no está activa (o es quien
+      // se va ahora); así la credencial no queda en manos de alguien que ya no puede rotarla.
+      const refreshed = await queryable.query(
+        `update rotation_tasks
+            set assigned_to = case
+                  when exists (
+                         select 1 from users current_assignee
+                          where current_assignee.id = rotation_tasks.assigned_to
+                            and current_assignee.status = 'active'
+                            and current_assignee.id <> $3)
+                  then rotation_tasks.assigned_to
+                  else $4 end,
+                due_at = least(rotation_tasks.due_at, $6),
+                priority = case
+                  when rotation_tasks.priority = 'high' or $5 = 'high' then 'high'
+                  else rotation_tasks.priority end,
+                updated_at = now()
           where credential_id = $1 and trigger = $2 and status in ('pending', 'in_progress')`,
-        [task.credentialId, ROTATION_TRIGGER_USER_DEACTIVATED],
+        [
+          task.credentialId,
+          ROTATION_TRIGGER_USER_DEACTIVATED,
+          task.triggeredBy,
+          task.assignedTo,
+          task.priority,
+          task.dueAt,
+        ],
       );
-      if (open.rows.length > 0) continue;
+      if ((refreshed.rowCount ?? 0) > 0) {
+        covered += 1;
+        continue;
+      }
       await queryable.query(
         `insert into rotation_tasks
            (organization_id, credential_id, trigger, triggered_by_user, assigned_to, priority, due_at)
@@ -74,8 +100,8 @@ export class PgOffboardingRotationStore implements OffboardingRotationStore {
           task.dueAt,
         ],
       );
-      created += 1;
+      covered += 1;
     }
-    return created;
+    return covered;
   }
 }

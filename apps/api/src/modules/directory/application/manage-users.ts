@@ -453,6 +453,8 @@ export class ManageUsers {
       assignedAccountCount: reassigned.length,
       unassignedAccountCount: unassignedAccountIds.length,
       rotationTaskCount: input.offboarded.rotationTasksCreated,
+      rotationAssigneeId: input.offboarded.rotationAssigneeId,
+      notifyRotationAssignee: input.offboarded.rotationAssigneeNeedsNotice,
       offboardedAt: input.at,
     });
   }

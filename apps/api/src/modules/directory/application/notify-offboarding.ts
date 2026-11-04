@@ -89,6 +89,7 @@ export class NotifyOffboarding {
     const leaverDisplayName = leaver?.displayName ?? null;
     const base = { leaverDisplayName, occurredAt: notice.offboardedAt };
 
+    let receiverNoticeSent = false;
     if (notice.notifyReceiver && notice.receiverId !== null && notice.assignedAccountCount > 0) {
       const receiver = await this.activeRecipient(notice.receiverId);
       if (receiver !== null) {
@@ -96,6 +97,29 @@ export class NotifyOffboarding {
           ...base,
           kind: 'accounts_assigned',
           accountCount: notice.assignedAccountCount,
+          report: null,
+        });
+        receiverNoticeSent = true;
+      }
+    }
+
+    // Quien recibe la rotación puede no haber recibido cuentas (el leaver no era único gestor de ninguna).
+    // Se omite si ya recibió el aviso de cuentas (que menciona la rotación) o si va a recibir la alerta de
+    // cuentas sin responsable (la Raíz es a la vez receptora de la rotación y destinataria de la alerta).
+    const rotationAssigneeId = notice.rotationAssigneeId;
+    const rotationNeedsOwnNotice =
+      notice.notifyRotationAssignee &&
+      rotationAssigneeId !== null &&
+      notice.rotationTaskCount > 0 &&
+      notice.unassignedAccountCount === 0 &&
+      !(receiverNoticeSent && rotationAssigneeId === notice.receiverId);
+    if (rotationNeedsOwnNotice) {
+      const assignee = await this.activeRecipient(rotationAssigneeId);
+      if (assignee !== null) {
+        await this.deliver(event.eventId, 'rotation', assignee, {
+          ...base,
+          kind: 'rotation_assigned',
+          accountCount: notice.rotationTaskCount,
           report: null,
         });
       }

@@ -251,7 +251,7 @@ describe('OffboardingRotationStore against PostgreSQL', () => {
     expect(result).toEqual([revealed]);
   });
 
-  it('creates one user_deactivated task per credential and does not duplicate an open one', async () => {
+  it('creates one user_deactivated task per credential and never duplicates an open one', async () => {
     const account = await insertAccount(orgA, 'tasks');
     const first = await insertCredential(orgA, account);
     const second = await insertCredential(orgA, account);
@@ -275,7 +275,8 @@ describe('OffboardingRotationStore against PostgreSQL', () => {
     );
 
     expect(firstRun).toBe(2);
-    expect(secondRun).toBe(0);
+    // La segunda vez no duplica: refresca la tarea abierta y la cuenta como cubierta.
+    expect(secondRun).toBe(1);
     const stored = await db.admin.query<{
       credential_id: string;
       trigger: string;
@@ -292,6 +293,77 @@ describe('OffboardingRotationStore against PostgreSQL', () => {
     expect(stored.rows.every((row) => row.assigned_to === orgA.rootId)).toBe(true);
     expect(stored.rows.every((row) => row.triggered_by_user === orgA.leaverId)).toBe(true);
     expect(stored.rows.map((row) => row.priority)).toEqual(['high', 'normal']);
+  });
+
+  describe('an open task left by an earlier offboarding', () => {
+    const EARLIER_DUE_AT = new Date('2030-01-05T00:00:00.000Z');
+    const LATER_DUE_AT = new Date('2030-01-09T00:00:00.000Z');
+
+    async function openTaskFor(credentialId: string, assignedTo: string, priority: string) {
+      await db.admin.query(
+        `insert into rotation_tasks
+           (organization_id, credential_id, trigger, triggered_by_user, assigned_to, priority, due_at)
+         values ($1, $2, 'user_deactivated', $3, $4, $5, $6)`,
+        [orgA.organizationId, credentialId, orgA.otherId, assignedTo, priority, LATER_DUE_AT],
+      );
+    }
+
+    const storedTask = async (credentialId: string) =>
+      (
+        await db.admin.query<{ assigned_to: string; priority: string; due_at: Date }>(
+          `select assigned_to, priority, due_at from rotation_tasks where credential_id = $1`,
+          [credentialId],
+        )
+      ).rows;
+
+    const rerun = (credentialId: string, assignedTo: string, priority: 'high' | 'normal') =>
+      inOrg(orgA, () =>
+        new PgOffboardingRotationStore(uow).createTasks([
+          {
+            credentialId,
+            triggeredBy: orgA.leaverId,
+            assignedTo,
+            priority,
+            dueAt: EARLIER_DUE_AT,
+          },
+        ]),
+      );
+
+    it('is handed to the new assignee when its assignee is the person leaving now, with the sooner deadline and the higher priority', async () => {
+      const account = await insertAccount(orgA, 'chain-leaver');
+      const credentialId = await insertCredential(orgA, account);
+      await openTaskFor(credentialId, orgA.leaverId, 'normal');
+
+      expect(await rerun(credentialId, orgA.rootId, 'high')).toBe(1);
+
+      expect(await storedTask(credentialId)).toEqual([
+        { assigned_to: orgA.rootId, priority: 'high', due_at: EARLIER_DUE_AT },
+      ]);
+    });
+
+    it('keeps an active assignee, never lowers the priority and never lengthens the deadline', async () => {
+      const account = await insertAccount(orgA, 'chain-active');
+      const credentialId = await insertCredential(orgA, account);
+      // Los usuarios del fixture nacen `invited`: aquí la persona debe estar activa para conservar la tarea.
+      await db.admin.query(`update users set status = 'active' where id = $1`, [orgA.otherId]);
+      await openTaskFor(credentialId, orgA.otherId, 'high');
+
+      await inOrg(orgA, () =>
+        new PgOffboardingRotationStore(uow).createTasks([
+          {
+            credentialId,
+            triggeredBy: orgA.leaverId,
+            assignedTo: orgA.rootId,
+            priority: 'normal',
+            dueAt: new Date('2030-02-01T00:00:00.000Z'),
+          },
+        ]),
+      );
+
+      expect(await storedTask(credentialId)).toEqual([
+        { assigned_to: orgA.otherId, priority: 'high', due_at: LATER_DUE_AT },
+      ]);
+    });
   });
 
   it('cannot create a task for a credential of another organization', async () => {

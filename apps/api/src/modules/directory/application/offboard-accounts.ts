@@ -49,6 +49,8 @@ export interface OffboardAccountsReport {
   readonly rotationTasksCreated: number;
   /** `null` cuando no había credenciales que rotar. */
   readonly rotationAssigneeId: UserId | null;
+  /** `true` cuando quien recibe la rotación no es de la rama de quien dio la baja (otro Administrador o la Raíz). */
+  readonly rotationAssigneeNeedsNotice: boolean;
 }
 
 export class OffboardAccounts {
@@ -84,6 +86,8 @@ export class OffboardAccounts {
       removedGroupMembershipCount,
       rotationTasksCreated: rotation.created,
       rotationAssigneeId: rotation.assigneeId,
+      rotationAssigneeNeedsNotice:
+        receiver.selection.outcome === 'assigned' ? receiver.selection.notify : true,
     };
   }
 

@@ -27,6 +27,8 @@ const PAYLOAD = {
   assignedAccountCount: 2,
   unassignedAccountCount: 0,
   rotationTaskCount: 5,
+  rotationAssigneeId: RECEIVER_ID,
+  notifyRotationAssignee: true,
   offboardedAt: OFFBOARDED_AT,
 };
 
@@ -199,5 +201,69 @@ describe('NotifyOffboarding', () => {
 
     await expect(attempt).rejects.toBeInstanceOf(OffboardingNoticePayloadError);
     await expect(attempt).rejects.toMatchObject({ retryable: false });
+  });
+});
+
+describe('NotifyOffboarding: whoever receives the rotation tasks', () => {
+  const ROTATION_ONLY_PAYLOAD = {
+    ...PAYLOAD,
+    receiverId: null,
+    notifyReceiver: false,
+    assignedAccountCount: 0,
+    rotationAssigneeId: ADMIN_ID,
+  };
+
+  it('is told about them when they received no accounts', async () => {
+    const { handler, mailer } = setup();
+
+    await handler.handle({ eventId: EVENT_ID, payload: ROTATION_ONLY_PAYLOAD });
+
+    expect(recipients(mailer, 'rotation_assigned')).toEqual([`${ADMIN_ID}@x.test`]);
+    expect(
+      mailer.offboardingNotices.find((notice) => notice.kind === 'rotation_assigned')?.accountCount,
+    ).toBe(5);
+  });
+
+  it('gets no second email when they already got the accounts notice', async () => {
+    const { handler, mailer } = setup();
+
+    await handler.handle({ eventId: EVENT_ID, payload: PAYLOAD });
+
+    expect(recipients(mailer, 'accounts_assigned')).toEqual([`${RECEIVER_ID}@x.test`]);
+    expect(recipients(mailer, 'rotation_assigned')).toEqual([]);
+  });
+
+  it('is not told when they belong to the actor branch (no notice needed)', async () => {
+    const { handler, mailer } = setup();
+
+    await handler.handle({
+      eventId: EVENT_ID,
+      payload: { ...ROTATION_ONLY_PAYLOAD, notifyRotationAssignee: false },
+    });
+
+    expect(recipients(mailer, 'rotation_assigned')).toEqual([]);
+  });
+
+  it('is not told twice when the unassigned alert already reaches them', async () => {
+    const { handler, mailer } = setup();
+
+    await handler.handle({
+      eventId: EVENT_ID,
+      payload: { ...ROTATION_ONLY_PAYLOAD, rotationAssigneeId: ROOT_ID, unassignedAccountCount: 2 },
+    });
+
+    expect(recipients(mailer, 'rotation_assigned')).toEqual([]);
+    expect(recipients(mailer, 'accounts_unassigned')).toContain(`${ROOT_ID}@x.test`);
+  });
+
+  it('is not told when no rotation task was needed', async () => {
+    const { handler, mailer } = setup();
+
+    await handler.handle({
+      eventId: EVENT_ID,
+      payload: { ...ROTATION_ONLY_PAYLOAD, rotationTaskCount: 0, rotationAssigneeId: null },
+    });
+
+    expect(recipients(mailer, 'rotation_assigned')).toEqual([]);
   });
 });

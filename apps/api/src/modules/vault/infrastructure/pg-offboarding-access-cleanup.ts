@@ -18,17 +18,24 @@ export class PgOffboardingAccessCleanup implements OffboardingAccessCleanup {
   constructor(private readonly transactions: TransactionProvider) {}
 
   async listAccountsWithViewOrMoreAccess(userId: UserId): Promise<readonly string[]> {
-    const result = await this.transactions.current().query<{ id: string }>(
-      `select a.id
+    const queryable = this.transactions.current();
+    const exposureQuery = `select a.id
          from effective_access access
          join accounts a on a.id = access.resource_id
         where access.resource_type = 'account'
           and access.user_id = $1
           and share_level_rank(access.level) >= $2
           and a.archived_at is null
-        order by a.id`,
-      [userId, MINIMUM_VIEW_LEVEL_RANK],
-    );
+        order by a.id`;
+    // Compartir y crear credenciales bloquean la cuenta. Se bloquean primero (por id, el mismo orden que el
+    // resto) y se relee después: con `for update` la lectura podría ser anterior a un cambio que acaba de
+    // confirmarse. Queda una ventana mínima: una compartición nueva sobre una cuenta que no estaba en la
+    // primera lectura.
+    await queryable.query(`${exposureQuery} for update of a`, [userId, MINIMUM_VIEW_LEVEL_RANK]);
+    const result = await queryable.query<{ id: string }>(exposureQuery, [
+      userId,
+      MINIMUM_VIEW_LEVEL_RANK,
+    ]);
     return result.rows.map((row) => row.id);
   }
 
