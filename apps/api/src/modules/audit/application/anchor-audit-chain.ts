@@ -8,11 +8,15 @@
  * - El trabajo no está en la transacción de negocio: si falla, no bloquea ninguna escritura (ADR 0042).
  * - No escribe auditoría: es un trabajo de sistema sin actor, y un evento propio movería la cabeza que acaba
  *   de anclar.
+ * - Si el ancla de una organización falla, se avisa a la Raíz en una transacción APARTE de esa organización:
+ *   la del ancla ya se revirtió y se llevaría el aviso. Si tampoco se puede avisar, se informa en el resumen y
+ *   se sigue con las demás; el código de salida 1 y el registro siguen siendo la última red.
  */
 import type { Clock, IdGenerator, OrganizationId } from '../../../shared/kernel/index.js';
 import type { TenantScope } from '../../organization/index.js';
 import { toAuditAnchorManifest } from '../domain/audit-anchor.js';
 import type {
+  AnchorFailureAlerter,
   AnchorOrganizationLister,
   AuditAnchorLedger,
   AuditAnchorPublisher,
@@ -37,6 +41,8 @@ export interface AnchorFailure {
   readonly organizationId: OrganizationId;
   /** Nombre del error y, si lo hay, su código; nunca el mensaje, que puede traer datos. */
   readonly reason: string;
+  /** `true` si quedó encolado el aviso a la Raíz; `false` si tampoco se pudo avisar. */
+  readonly alerted: boolean;
 }
 
 export interface AnchorSummary {
@@ -54,12 +60,14 @@ export class AnchorAuditChain {
       readonly scope: TenantScope;
       readonly ids: IdGenerator;
       readonly clock: Clock;
+      readonly alerter: AnchorFailureAlerter;
     },
   ) {}
 
   async execute(): Promise<AnchorSummary> {
     const organizationIds = await this.deps.organizations.listIds();
-    const retainUntil = auditAnchorRetainUntil(this.deps.clock.now());
+    const startedAt = this.deps.clock.now();
+    const retainUntil = auditAnchorRetainUntil(startedAt);
     const failedOrganizations: AnchorFailure[] = [];
     let anchored = 0;
 
@@ -75,11 +83,29 @@ export class AnchorAuditChain {
         anchored += 1;
       } catch (error) {
         // Una organización que falla no debe dejar sin ancla a las demás.
-        failedOrganizations.push({ organizationId, reason: describeAnchorFailure(error) });
+        const alerted = await this.alertRoot(organizationId, startedAt);
+        failedOrganizations.push({
+          organizationId,
+          reason: describeAnchorFailure(error),
+          alerted,
+        });
       }
     }
 
     return { organizations: organizationIds.length, anchored, failedOrganizations };
+  }
+
+  private async alertRoot(organizationId: OrganizationId, occurredAt: Date): Promise<boolean> {
+    try {
+      await this.deps.scope.runAs(
+        { organizationId, actorId: null, requestId: this.deps.ids.next() },
+        () => this.deps.alerter.alertAnchorFailed(occurredAt),
+      );
+      return true;
+    } catch {
+      // El motivo no se propaga: el resumen ya informa que esta organización quedó sin aviso.
+      return false;
+    }
   }
 }
 

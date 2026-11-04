@@ -23,6 +23,7 @@ export {
 } from './application/anchor-audit-chain.js';
 export type { AnchorFailure, AnchorSummary } from './application/anchor-audit-chain.js';
 export type {
+  AnchorFailureAlerter,
   AnchorOrganizationLister,
   AuditAnchorLedger,
   AuditAnchorPublisher,

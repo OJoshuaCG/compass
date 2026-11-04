@@ -54,13 +54,18 @@ La hora `03:23` evita la hora en punto y el pico de uso. Un temporizador de syst
 
 ## Salida y alertas
 
-Una línea de conteos: organizaciones recorridas, ancladas y con fallo. Por cada fallo, una línea por stderr con el identificador de la organización y el nombre del error, por ejemplo `AuditAnchorPublishError (AccessDenied)`. No imprime hashes, contenido ni credenciales.
+Una línea de conteos: organizaciones recorridas, ancladas y con fallo. Por cada fallo, una línea por stderr con el identificador de la organización, el nombre del error (por ejemplo `AuditAnchorPublishError (AccessDenied)`) y si la alerta quedó encolada o no. No imprime hashes, contenido ni credenciales.
 
 - Código de salida `0`: todas las organizaciones quedaron ancladas.
 - Código de salida `1`: alguna quedó sin ancla hoy. Revisa el nombre del error: `AccessDenied` apunta a la política del paso 2, `InvalidRequest` a la configuración de Object Lock del bucket, y un `TimeoutError` a la red.
 - Más de 26 horas sin una línea nueva en el registro: la programación dejó de correr y la protección se degrada en silencio. Alerta por ausencia.
 
-La Raíz ya elige en la API (`GET` y `PUT /integrations/alert-settings`) si las alertas de infraestructura le llegan por correo, por Telegram o por ambos, pero este comando todavía no emite esa alerta (`integration.infra_alert`): falta conectarlo y la pantalla del panel. Mientras tanto, la alerta depende de la vigilancia del registro.
+Si una organización queda sin ancla, el comando encola para ella una alerta de infraestructura (`integration.infra_alert`, código `job_failed`, en una transacción aparte de la del ancla). La API la entrega a la Raíz por correo, por Telegram o por ambos, según lo que eligió (`GET` y `PUT /integrations/alert-settings`; la pantalla del panel todavía no existe). La alerta solo dice que una tarea programada falló y cuándo; el motivo está en el registro. No se agrupa: cada ejecución con fallo encola otra, así que una falla que dura varios días avisa una vez al día, y volver a correr el comando a mano el mismo día repite el aviso.
+
+La alerta no cubre dos casos, que siguen dependiendo de la vigilancia del registro:
+
+- que el comando no llegue a correr (cron detenido, base caída): no hay quien encole la alerta;
+- que tampoco se pueda encolar la alerta: la línea de stderr dice «SIN alerta».
 
 ## Verificación
 

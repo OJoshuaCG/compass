@@ -21,3 +21,12 @@ export interface AuditAnchorLedger {
 export interface AuditAnchorPublisher {
   publish(manifest: AuditAnchorManifest, retainUntil: Date): Promise<void>;
 }
+
+/**
+ * Aviso a la Raíz de que el ancla de una organización falló (decisión del dueño del 2026-11-04). Corre en una
+ * transacción propia de esa organización, con `app.org_id` fijado. El aviso solo dice que una tarea programada
+ * falló y cuándo: ni el motivo, ni hashes, ni datos del bucket.
+ */
+export interface AnchorFailureAlerter {
+  alertAnchorFailed(occurredAt: Date): Promise<void>;
+}

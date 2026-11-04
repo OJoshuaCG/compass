@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { AnchorAuditChain, PgAuditAnchorLedger } from '../src/modules/audit/index.js';
 import type { AuditAnchorManifest, AuditAnchorPublisher } from '../src/modules/audit/index.js';
+import { PgInfrastructureAlertQueue } from '../src/modules/integrations/index.js';
 import { PgOrganizationLister } from '../src/modules/maintenance/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../src/modules/organization/index.js';
 import { AsyncLocalRequestContext } from '../src/shared/infrastructure/async-local-request-context.js';
@@ -37,7 +38,20 @@ function anchorChainWith(publisher: AuditAnchorPublisher): AnchorAuditChain {
     scope,
     ids: new UuidV7Generator(),
     clock: { now: () => NOW },
+    alerter: {
+      alertAnchorFailed: (occurredAt) =>
+        new PgInfrastructureAlertQueue(uow).enqueue({ code: 'job_failed', occurredAt }),
+    },
   });
+}
+
+/** Alertas de infraestructura pendientes en el outbox de una organización, leídas como administrador. */
+async function infraAlerts(organizationId: string): Promise<unknown[]> {
+  const result = await db.admin.query<{ payload: unknown }>(
+    "select payload from outbox_events where organization_id = $1 and type = 'integration.infra_alert'",
+    [organizationId],
+  );
+  return result.rows.map((row) => row.payload);
 }
 
 function collectingPublisher(published: AuditAnchorManifest[]): AuditAnchorPublisher {
@@ -130,9 +144,10 @@ describe('AnchorAuditChain against PostgreSQL', () => {
     expect(next.anchoredSeq).toBe((await chainHead(orgA)).seq);
   });
 
-  it('keeps no local anchor when publishing fails, and still anchors the other organizations', async () => {
+  it('keeps no local anchor when publishing fails, alerts the Root of that organization only, and still anchors the others', async () => {
     const anchorsOfABefore = await anchorCount(orgA);
     const anchorsOfBBefore = await anchorCount(orgB);
+    const alertsOfBBefore = await infraAlerts(orgB);
     const published: AuditAnchorManifest[] = [];
     const failingForA: AuditAnchorPublisher = {
       publish: (manifest) => {
@@ -149,9 +164,14 @@ describe('AnchorAuditChain against PostgreSQL', () => {
     const summary = await anchorChainWith(failingForA).execute();
 
     expect(summary.failedOrganizations).toEqual([
-      { organizationId: orgA, reason: 'ServiceUnavailable' },
+      { organizationId: orgA, reason: 'ServiceUnavailable', alerted: true },
     ]);
     expect(await anchorCount(orgA)).toBe(anchorsOfABefore);
     expect(await anchorCount(orgB)).toBe(anchorsOfBBefore + 1);
+    // La alerta sobrevive al rollback del ancla y solo lleva el código y la hora.
+    expect(await infraAlerts(orgA)).toEqual([
+      { code: 'job_failed', occurredAt: NOW.toISOString() },
+    ]);
+    expect(await infraAlerts(orgB)).toEqual(alertsOfBBefore);
   });
 });

@@ -5,6 +5,8 @@
  * `docs/runbooks/anchor-audit.md`).
  * Usa el rol de la aplicación (`iam_app`): el aislamiento por filas sigue vigente. Imprime solo conteos;
  * sale con código 1 si alguna organización quedó sin ancla. Nunca imprime la credencial del bucket.
+ * Si una organización queda sin ancla, encola una alerta de infraestructura (`job_failed`) que la API entrega a
+ * la Raíz por correo y/o Telegram, según su panel de alertas.
  */
 import { Pool } from 'pg';
 import { z } from 'zod';
@@ -14,6 +16,7 @@ import {
   PgAuditAnchorLedger,
   S3AuditAnchorPublisher,
 } from './modules/audit/index.js';
+import { PgInfrastructureAlertQueue } from './modules/integrations/index.js';
 import { PgOrganizationLister } from './modules/maintenance/index.js';
 import { PgTenantScope, PgUnitOfWork } from './modules/organization/index.js';
 import { AsyncLocalRequestContext } from './shared/infrastructure/async-local-request-context.js';
@@ -41,6 +44,7 @@ const independentPool = new Pool({ connectionString: environment.DATABASE_URL, m
 try {
   const requestContext = new AsyncLocalRequestContext();
   const uow = new PgUnitOfWork(pool, requestContext, independentPool);
+  const alertQueue = new PgInfrastructureAlertQueue(uow);
   const summary = await new AnchorAuditChain({
     organizations: new PgOrganizationLister(pool),
     ledger: new PgAuditAnchorLedger(uow),
@@ -54,6 +58,9 @@ try {
     scope: new PgTenantScope(requestContext, uow),
     ids: new UuidV7Generator(),
     clock: new SystemClock(),
+    alerter: {
+      alertAnchorFailed: (occurredAt) => alertQueue.enqueue({ code: 'job_failed', occurredAt }),
+    },
   }).execute();
 
   process.stdout.write(
@@ -61,7 +68,7 @@ try {
   );
   for (const failure of summary.failedOrganizations) {
     process.stderr.write(
-      `Falló el ancla de la organización ${failure.organizationId}: ${failure.reason}\n`,
+      `Falló el ancla de la organización ${failure.organizationId}: ${failure.reason}; ${failure.alerted ? 'alerta encolada' : 'SIN alerta'}\n`,
     );
   }
   if (summary.failedOrganizations.length > 0) process.exitCode = 1;

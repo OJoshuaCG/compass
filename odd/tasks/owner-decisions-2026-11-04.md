@@ -29,8 +29,8 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
 | T3 | S3 | inline, ruta protegida | pendiente | |
 | T4 | S4 | inline, ruta protegida y migración | pendiente | |
 | T5 | S2 | inline, ruta protegida y migración | pendiente: depende de T6 para retirar particiones | |
-| T6 | S5 (ancla) | inline, ruta protegida | hecha en código (L7); falta que Ops cree y ensaye el bucket real | 37 pruebas dirigidas en verde; mutación (quitar la sobrescritura de `anchored_seq`) detectada por 3 pruebas; commit siguiente a este registro |
-| T7 | S5 (panel de alertas) | inline, migración con aislamiento | API hecha (L8); falta la pantalla del panel y el productor de `integration.infra_alert` | 73 pruebas dirigidas en verde, más 2 tras la corrección de los jueces; mutación de L8 |
+| T6 | S5 (ancla) | inline, ruta protegida | hecha en código (L7) y alerta a la Raíz si falla (L9); falta que Ops cree y ensaye el bucket real | 37 pruebas dirigidas en verde; mutación (quitar la sobrescritura de `anchored_seq`) detectada por 3 pruebas; commit siguiente a este registro |
+| T7 | S5 (panel de alertas) | inline, migración con aislamiento | API hecha (L8) y productor desde `anchor-audit` (L9); falta la pantalla del panel | 73 pruebas dirigidas en verde, más 2 tras la corrección de los jueces; mutación de L8 |
 
 ## Log
 
@@ -81,4 +81,14 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
   - Evidencia: formato, tipos y lint de la API en verde; pruebas dirigidas por `test-runner`: 73 verdes en la primera corrida. Mutación: quitar el `check` de al menos un canal hace fallar las 2 pruebas que lo fijan (y una tercera en cascada); la migración se restauró y `cmp` confirma que es idéntica.
   - Seguimiento: `integration.infra_alert` todavía no tiene productor (ni `anchor-audit` ni otro trabajo lo emite), y falta la pantalla del panel en la web.
   - La lint de `db` falla en `db/tests/first-organization-setup.test.ts:128-129`, archivo que este cambio no toca (idéntico a HEAD).
-
+- L9 (2026-11-04): enlace T6→T7: el comando `anchor-audit` alerta a la Raíz cuando una organización queda sin ancla.
+  - Qué hay:
+    - puerto `AnchorFailureAlerter` en auditoría, conectado en `main.anchor-audit.ts`; auditoría no importa integraciones;
+    - cola `PgInfrastructureAlertQueue`, que inserta `integration.infra_alert` (código `job_failed`) en el outbox con la organización de la transacción;
+    - la alerta va en una transacción aparte, después del rollback del ancla. Si no se puede encolar, el trabajo sigue con las demás organizaciones y stderr dice «SIN alerta».
+  - Jueces ciegos A y B: ningún defecto bloqueante.
+    - Ambos señalan que no hay agrupación: una alerta por organización y ejecución. Ambos la juzgan acotada; se documenta en el runbook en vez de cambiar el comportamiento.
+    - Solo A, para revisión humana: fijar con una prueba que la alerta no escribe auditoría.
+    - Solo B, para revisión humana: ninguna prueba ejecuta el adaptador de `main.anchor-audit.ts` (la prueba de integración copia la lambda); la rama `alerted: false` solo se prueba con dobles.
+  - Evidencia: tipos y lint en verde; pruebas dirigidas por `test-runner`: 25 verdes en 3 archivos. Mutación: quitar la llamada a la alerta hace fallar 2 pruebas (unitaria e integración); el archivo se restauró y `cmp` confirma que es idéntico.
+  - Seguimiento: la pantalla del panel en la web; ningún otro trabajo programado emite todavía `integration.infra_alert`.

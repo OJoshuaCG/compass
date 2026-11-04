@@ -29,6 +29,8 @@ export {
 export { NotifyInfrastructureAlert } from './application/notify-infrastructure-alert.js';
 export { ManageAlertSettings } from './application/manage-alert-settings.js';
 export { PgAlertSettingsStore } from './infrastructure/pg-alert-settings-store.js';
+export { PgInfrastructureAlertQueue } from './infrastructure/pg-infrastructure-alert-queue.js';
+export type { InfrastructureAlertQueue } from './application/ports/infrastructure-alert-queue.js';
 export type {
   ActiveTelegramChannel,
   TelegramChannelKind,

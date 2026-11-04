@@ -9,7 +9,11 @@ import {
   AnchorAuditChain,
   auditAnchorRetainUntil,
 } from './anchor-audit-chain.js';
-import type { AuditAnchorLedger, AuditAnchorPublisher } from './ports/audit-anchor-ports.js';
+import type {
+  AnchorFailureAlerter,
+  AuditAnchorLedger,
+  AuditAnchorPublisher,
+} from './ports/audit-anchor-ports.js';
 
 const ORG_OK = asOrganizationId('0198aaaa-0000-7000-8000-000000000001');
 const ORG_BROKEN = asOrganizationId('0198aaaa-0000-7000-8000-000000000002');
@@ -48,6 +52,11 @@ function recordingScope(log: string[]): TenantScope {
   };
 }
 
+/** Alerta que no debe llamarse: las pruebas sin fallos la usan para detectar un aviso indebido. */
+const unexpectedAlerter: AnchorFailureAlerter = {
+  alertAnchorFailed: () => Promise.reject(new Error('no alert expected')),
+};
+
 describe('AnchorAuditChain', () => {
   it('records and publishes one manifest per organization, retained for two calendar years', async () => {
     const log: string[] = [];
@@ -72,6 +81,7 @@ describe('AnchorAuditChain', () => {
       scope: recordingScope(log),
       ids: { next: () => 'req-1' },
       clock: { now: () => NOW },
+      alerter: unexpectedAlerter,
     });
 
     const summary = await anchorChain.execute();
@@ -100,8 +110,9 @@ describe('AnchorAuditChain', () => {
     });
   });
 
-  it('rolls back the local record when publishing fails and keeps anchoring the other organizations', async () => {
+  it('rolls back the local record when publishing fails, alerts the Root and keeps anchoring the others', async () => {
     const log: string[] = [];
+    const alertedAt: Date[] = [];
     const publishFailure = Object.assign(new Error('bucket said no to secret-looking detail'), {
       name: 'AuditAnchorPublishError',
       code: 'AccessDenied',
@@ -118,6 +129,13 @@ describe('AnchorAuditChain', () => {
       scope: recordingScope(log),
       ids: { next: () => 'req-1' },
       clock: { now: () => NOW },
+      alerter: {
+        alertAnchorFailed: (occurredAt) => {
+          log.push('alert');
+          alertedAt.push(occurredAt);
+          return Promise.resolve();
+        },
+      },
     });
 
     const summary = await anchorChain.execute();
@@ -126,15 +144,53 @@ describe('AnchorAuditChain', () => {
       organizations: 2,
       anchored: 1,
       failedOrganizations: [
-        { organizationId: ORG_BROKEN, reason: 'AuditAnchorPublishError (AccessDenied)' },
+        {
+          organizationId: ORG_BROKEN,
+          reason: 'AuditAnchorPublishError (AccessDenied)',
+          alerted: true,
+        },
       ],
     });
+    // La alerta va en una transacción propia de la organización: la del ancla ya se revirtió y se la llevaría.
     expect(log).toEqual([
       `begin ${ORG_BROKEN}`,
       `rollback ${ORG_BROKEN}`,
+      `begin ${ORG_BROKEN}`,
+      'alert',
+      `commit ${ORG_BROKEN}`,
       `begin ${ORG_OK}`,
       `commit ${ORG_OK}`,
     ]);
+    expect(alertedAt).toEqual([NOW]);
+  });
+
+  it('reports an alert that could not be raised and still anchors the other organizations', async () => {
+    const log: string[] = [];
+    const anchorChain = new AnchorAuditChain({
+      organizations: { listIds: () => Promise.resolve([ORG_BROKEN, ORG_OK]) },
+      ledger: {
+        record: (organizationId) =>
+          organizationId === ORG_BROKEN
+            ? Promise.reject(Object.assign(new Error('db'), { name: 'DatabaseError' }))
+            : Promise.resolve(anchorFor(organizationId)),
+      },
+      publisher: { publish: () => Promise.resolve() },
+      scope: recordingScope(log),
+      ids: { next: () => 'req-1' },
+      clock: { now: () => NOW },
+      alerter: { alertAnchorFailed: () => Promise.reject(new Error('outbox unavailable')) },
+    });
+
+    const summary = await anchorChain.execute();
+
+    expect(summary).toEqual({
+      organizations: 2,
+      anchored: 1,
+      failedOrganizations: [
+        { organizationId: ORG_BROKEN, reason: 'DatabaseError', alerted: false },
+      ],
+    });
+    expect(log.slice(-2)).toEqual([`begin ${ORG_OK}`, `commit ${ORG_OK}`]);
   });
 
   it('retains for two calendar years even across a leap day, never less', () => {
