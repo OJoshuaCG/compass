@@ -8,7 +8,7 @@ const config = {
   success: { tone: 'success', Icon: CheckCircle2 },
   warning: { tone: 'warning', Icon: AlertTriangle },
   danger: { tone: 'danger', Icon: XCircle },
-  info: { tone: 'accent', Icon: Info },
+  info: { tone: 'info', Icon: Info },
   neutral: { tone: 'neutral', Icon: Circle },
 } as const;
 

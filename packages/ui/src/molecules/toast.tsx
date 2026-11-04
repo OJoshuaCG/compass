@@ -37,6 +37,7 @@ const toast = cva(
 );
 
 const icons = { success: CheckCircle2, danger: XCircle, info: Info };
+const iconTones = { success: 'text-success', danger: 'text-danger', info: 'text-info' } as const;
 
 type ToastCardProps = {
   item: ToastItem;
@@ -80,7 +81,7 @@ function ToastCard({ item, onDismiss, dismissLabel, onHoldChange }: ToastCardPro
         reportHold();
       }}
     >
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      <Icon aria-hidden="true" className={`mt-0.5 size-4 shrink-0 ${iconTones[item.tone]}`} />
       <p className="min-w-0 flex-1 break-words">{item.message}</p>
       <button
         type="button"

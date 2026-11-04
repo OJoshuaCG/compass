@@ -134,13 +134,15 @@ export function DataTable<T extends object>({
     <div className={cn('rounded-lg border border-border-strong bg-surface', className)}>
       {toolbar !== undefined ? <div className="border-b border-border p-3">{toolbar}</div> : null}
       {/* Scroll horizontal contenido en la tabla, no en la página; enfocable para teclado. */}
-      <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto">
+      <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto rounded-t-lg">
         <table
           aria-busy={busy}
           className={cn('w-full text-sm tabular-nums', refreshing && 'opacity-70')}
         >
           <caption className="sr-only">{caption}</caption>
-          <thead className="border-b border-border-strong text-start text-text-secondary">
+          {/* text-xs (12 px) en lugar de los 11 px del diseño: queda en la escala del proyecto y
+            text-muted cumple contraste sobre raised (§4.2). */}
+          <thead className="border-b border-border bg-raised text-start font-mono text-xs tracking-widest text-text-muted uppercase">
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
                 {group.headers.map((header) => {
@@ -160,7 +162,7 @@ export function DataTable<T extends object>({
                             : 'none'
                       }
                       className={cn(
-                        'px-4 py-2 font-medium',
+                        'px-5 py-3 font-medium',
                         column?.align === 'end' ? 'text-end' : 'text-start',
                       )}
                     >
@@ -180,7 +182,7 @@ export function DataTable<T extends object>({
                   );
                 })}
                 {rowActions ? (
-                  <th scope="col" className="px-4 py-2">
+                  <th scope="col" className="px-5 py-3">
                     <span className="sr-only">{labels.actionsColumn}</span>
                   </th>
                 ) : null}
@@ -192,7 +194,7 @@ export function DataTable<T extends object>({
               ? Array.from({ length: Math.min(limit, 10) }, (_, index) => (
                   <tr key={index} className="border-b border-border last:border-b-0">
                     {Array.from({ length: colSpan }, (_, cellIndex) => (
-                      <td key={cellIndex} className="px-4 py-3">
+                      <td key={cellIndex} className="px-5 py-3.5">
                         <Skeleton />
                       </td>
                     ))}
@@ -247,7 +249,7 @@ export function DataTable<T extends object>({
                       <td
                         key={cell.id}
                         className={cn(
-                          'px-4 py-3 text-text',
+                          'px-5 py-3.5 text-text',
                           columnById.get(cell.column.id)?.align === 'end' && 'text-end',
                         )}
                       >
@@ -255,7 +257,7 @@ export function DataTable<T extends object>({
                       </td>
                     ))}
                     {rowActions ? (
-                      <td className="px-4 py-3 text-end">{rowActions(row.original)}</td>
+                      <td className="px-5 py-3.5 text-end">{rowActions(row.original)}</td>
                     ) : null}
                   </tr>
                 ))

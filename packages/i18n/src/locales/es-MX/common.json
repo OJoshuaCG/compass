@@ -96,5 +96,8 @@
   "nav.inbound": "Códigos de acceso",
   "nav.inboundSources": "Fuentes de códigos",
   "nav.inboundViewSettings": "Vistas de códigos",
-  "nav.alerts": "Alertas de infraestructura"
+  "nav.alerts": "Alertas de infraestructura",
+  "nav.group.workspace": "Espacio de trabajo",
+  "nav.group.vault": "Bóveda",
+  "nav.group.access": "Acceso"
 }

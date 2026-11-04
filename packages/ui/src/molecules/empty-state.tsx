@@ -28,7 +28,10 @@ export function EmptyState({
   return (
     <div className={cn('flex flex-col items-center gap-2 px-4 py-10 text-center', className)}>
       {icon !== undefined ? (
-        <div aria-hidden="true" className="text-text-muted">
+        <div
+          aria-hidden="true"
+          className="flex size-12 items-center justify-center rounded-full bg-raised text-text-muted"
+        >
           {icon}
         </div>
       ) : null}
