@@ -12,6 +12,7 @@ import {
   DenialGrouper,
   ManagePersonRoles,
   ManageRoles,
+  OffboardingPermissionChecker,
   PgRoleRepository,
   RankRoleAdjuster,
 } from '../modules/access/index.js';
@@ -41,7 +42,10 @@ import {
   ManageUsers,
   NotifyOffboarding,
   NotifyRankChanged,
+  OffboardAccounts,
+  PgOffboardingNoticeQueue,
   PgRankChangeNoticeQueue,
+  ReassignOffboardedAccounts,
   PgUserDirectory,
   RANK_CHANGE_NOTICE_EVENT_TYPE,
   OFFBOARDING_NOTICE_EVENT_TYPE,
@@ -99,6 +103,9 @@ import {
   OtplibTotpGenerator,
   PENDING_TOTP_NOTICE_EVENT_TYPE,
   PgAccountRepository,
+  PgOffboardingAccessCleanup,
+  PgOffboardingAccountStore,
+  PgOffboardingRotationStore,
   PgPendingTotpNoticeStore,
   PgTotpRepository,
   PgShareRepository,
@@ -645,6 +652,18 @@ export function buildContainer(options: ContainerOptions) {
       },
       // El aviso se escribe en el outbox en la misma transacción del cambio (ADR 0035).
       rankChangeNotices: new PgRankChangeNoticeQueue(uow),
+      // La baja retira accesos, reasigna cuentas huérfanas y exige rotar credenciales en su transacción.
+      offboarding: new OffboardAccounts({
+        reassignment: new ReassignOffboardedAccounts({
+          directory,
+          accounts: new PgOffboardingAccountStore(uow),
+          permissions: new OffboardingPermissionChecker(roles),
+        }),
+        cleanup: new PgOffboardingAccessCleanup(uow),
+        rotation: new PgOffboardingRotationStore(uow),
+        clock,
+      }),
+      offboardingNotices: new PgOffboardingNoticeQueue(uow),
       audit,
       clock,
     }),
