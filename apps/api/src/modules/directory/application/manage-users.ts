@@ -181,7 +181,12 @@ export class ManageUsers {
       await directory.setStatus(target.id, 'deactivated');
       await this.deps.sessions.revokeAllOfUser(target.id, at);
       await invitations.revokePendingOfUser(target.id, at);
-      await this.enqueueOffboardingNotice({ leaverId: target.id, actorId: actor.id, offboarded, at });
+      await this.enqueueOffboardingNotice({
+        leaverId: target.id,
+        actorId: actor.id,
+        offboarded,
+        at,
+      });
       await this.recordOffboarding(target.id, reassigned, offboarded);
       return ok(undefined);
     });

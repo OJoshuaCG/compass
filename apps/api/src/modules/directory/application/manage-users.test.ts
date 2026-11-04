@@ -553,8 +553,13 @@ describe('authorization is never bypassed', () => {
 describe('deactivate: offboarding of vault accounts', () => {
   // SENSIBLE (revisión humana): la baja reasigna cuentas huérfanas, retira accesos y exige rotación.
   it('reassigns the orphaned accounts, audits each one and the deactivation, and queues the notice', async () => {
-    const { manageUsers, offboardingAccounts, offboardingCleanup, offboardingNotices, auditEvents } =
-      setup();
+    const {
+      manageUsers,
+      offboardingAccounts,
+      offboardingCleanup,
+      offboardingNotices,
+      auditEvents,
+    } = setup();
     offboardingAccounts.orphanedBy.set(OPERATOR_ID, ['acc-1', 'acc-2']);
     offboardingCleanup.exposedAccounts = ['acc-1', 'acc-2', 'acc-3'];
     offboardingCleanup.revokedShares = 4;
@@ -565,7 +570,9 @@ describe('deactivate: offboarding of vault accounts', () => {
     expect(result.ok).toBe(true);
     expect(offboardingAccounts.grants.map((grant) => grant.accountId)).toEqual(['acc-1', 'acc-2']);
     expect(offboardingCleanup.calls).toEqual(['list', 'revoke', 'groups']);
-    const perAccount = auditEvents.filter((event) => event.action === 'account.offboarding_reassigned');
+    const perAccount = auditEvents.filter(
+      (event) => event.action === 'account.offboarding_reassigned',
+    );
     expect(perAccount.map((event) => event.targetId)).toEqual(['acc-1', 'acc-2']);
     expect(perAccount.every((event) => event.targetType === 'account')).toBe(true);
     const summary = auditEvents.find((event) => event.action === 'user.deactivated');
