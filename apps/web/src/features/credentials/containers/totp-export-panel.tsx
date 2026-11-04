@@ -1,5 +1,14 @@
 import { ErrorCode, type Credential, type ExportedTotp } from '@iam/contracts';
-import { Alert, Button, CopyButton, FormField, Input, PasswordInput } from '@iam/ui';
+import {
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CopyButton,
+  FormField,
+  Input,
+  PasswordInput,
+} from '@iam/ui';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -132,30 +141,36 @@ function ShownSecret({ secret, noticeRef, onHide }: ShownSecretProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <FormField label={t('totp.export.key', { ns: 'credentials' })}>
-        {(controlProps) => (
-          <PasswordInput
-            {...controlProps}
-            readOnly
-            value={secret.secretKey}
-            autoComplete="off"
-            showLabel={showLabel}
-            hideLabel={hideLabel}
-          />
-        )}
-      </FormField>
-      <FormField label={t('totp.export.uri', { ns: 'credentials' })}>
-        {(controlProps) => (
-          <PasswordInput
-            {...controlProps}
-            readOnly
-            value={secret.otpauthUri}
-            autoComplete="off"
-            showLabel={showLabel}
-            hideLabel={hideLabel}
-          />
-        )}
-      </FormField>
+      <Card className="bg-raised">
+        <CardBody className="flex flex-col gap-4">
+          <FormField label={t('totp.export.key', { ns: 'credentials' })}>
+            {(controlProps) => (
+              <PasswordInput
+                {...controlProps}
+                readOnly
+                value={secret.secretKey}
+                autoComplete="off"
+                className="font-mono text-accent"
+                showLabel={showLabel}
+                hideLabel={hideLabel}
+              />
+            )}
+          </FormField>
+          <FormField label={t('totp.export.uri', { ns: 'credentials' })}>
+            {(controlProps) => (
+              <PasswordInput
+                {...controlProps}
+                readOnly
+                value={secret.otpauthUri}
+                autoComplete="off"
+                className="font-mono text-accent"
+                showLabel={showLabel}
+                hideLabel={hideLabel}
+              />
+            )}
+          </FormField>
+        </CardBody>
+      </Card>
       <p ref={noticeRef} tabIndex={-1} className="text-sm text-text-secondary">
         {t('totp.export.autoHide', {
           ns: 'credentials',
@@ -299,7 +314,7 @@ export function TotpExportPanel({ credential, onExported }: TotpExportPanelProps
           <p
             ref={phaseNoticeRef}
             tabIndex={-1}
-            className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+            className="rounded-md border border-border-strong bg-raised px-4 py-3 text-sm text-text"
           >
             {t('totp.export.hidden', { ns: 'credentials' })}
           </p>

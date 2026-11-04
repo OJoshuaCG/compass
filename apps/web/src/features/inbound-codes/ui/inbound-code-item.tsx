@@ -1,4 +1,4 @@
-import { CodeInput, CopyButton, FormField } from '@iam/ui';
+import { Card, CodeInput, CopyButton, FormField } from '@iam/ui';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -41,7 +41,7 @@ export function InboundCodeItem({ code, position, nowMs }: InboundCodeItemProps)
       <p
         ref={noticeRef}
         tabIndex={-1}
-        className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+        className="rounded-md border border-border-strong bg-raised px-4 py-3 text-sm text-text"
       >
         {t('codes.expired', { ns: 'inbound', position })}
       </p>
@@ -50,8 +50,8 @@ export function InboundCodeItem({ code, position, nowMs }: InboundCodeItemProps)
 
   const secondsLeft = secondsLeftOf(code, nowMs);
   return (
-    <div
-      className="flex flex-col gap-3"
+    <Card
+      className="flex flex-col gap-3 bg-raised p-4"
       onFocus={() => {
         rowHadFocusRef.current = true;
       }}
@@ -68,12 +68,17 @@ export function InboundCodeItem({ code, position, nowMs }: InboundCodeItemProps)
             length={codeValue.length}
             value={codeValue}
             onValueChange={() => undefined}
+            className="text-xl text-accent"
           />
         )}
       </FormField>
       {/* aria-live="off": la cuenta regresiva se actualiza cada segundo sin anunciarse. Solo lleva
           texto fijo y segundos, nunca el valor del código. */}
-      <p role="timer" aria-live="off" className="text-sm text-text-secondary tabular-nums">
+      <p
+        role="timer"
+        aria-live="off"
+        className="font-mono text-sm text-text-secondary tabular-nums"
+      >
         {t('codes.expiresIn', { ns: 'inbound', seconds: secondsLeft })}
       </p>
       <div className="flex justify-end">
@@ -85,6 +90,6 @@ export function InboundCodeItem({ code, position, nowMs }: InboundCodeItemProps)
           clearAfterMs={INBOUND_CLIPBOARD_CLEAR_MS}
         />
       </div>
-    </div>
+    </Card>
   );
 }

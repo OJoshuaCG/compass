@@ -36,19 +36,19 @@ export function TotpStatusSummary({ totp, timeZone }: TotpStatusSummaryProps) {
       {totp === null ? null : (
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
           <dt className="text-text-secondary">{t('totp.field.algorithm')}</dt>
-          <dd className="text-text">{totp.algorithm}</dd>
+          <dd className="font-mono text-text">{totp.algorithm}</dd>
           <dt className="text-text-secondary">{t('totp.field.digits')}</dt>
-          <dd className="text-text tabular-nums">{totp.digits}</dd>
+          <dd className="font-mono text-text tabular-nums">{totp.digits}</dd>
           <dt className="text-text-secondary">{t('totp.field.period')}</dt>
-          <dd className="text-text tabular-nums">
+          <dd className="font-mono text-text tabular-nums">
             {t('totp.seconds', { seconds: totp.periodSeconds })}
           </dd>
           <dt className="text-text-secondary">{t('totp.field.registeredAt')}</dt>
-          <dd className="text-text">
+          <dd className="font-mono text-text">
             {formatDateTime(totp.registeredAt, i18n.language, timeZone)}
           </dd>
           <dt className="text-text-secondary">{t('totp.field.verifiedAt')}</dt>
-          <dd className="text-text">
+          <dd className="font-mono text-text">
             {totp.verifiedAt === null
               ? t('totp.notVerified')
               : formatDateTime(totp.verifiedAt, i18n.language, timeZone)}

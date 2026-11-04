@@ -137,6 +137,7 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
                 length={digits}
                 value={phase.issued.code}
                 onValueChange={() => undefined}
+                className="text-xl text-accent"
               />
             )}
           </FormField>
@@ -146,7 +147,7 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
             tabIndex={-1}
             role="timer"
             aria-live="off"
-            className="text-sm text-text-secondary tabular-nums"
+            className="font-mono text-sm text-text-secondary tabular-nums"
           >
             {t('totp.code.expiresIn', { ns: 'credentials', seconds: phase.secondsLeft })}
           </p>
@@ -162,6 +163,7 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
                   length={digits}
                   value={phase.issued.nextCode ?? ''}
                   onValueChange={() => undefined}
+                  className="text-xl text-accent"
                 />
               )}
             </FormField>
@@ -193,7 +195,7 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
             <p
               ref={phaseNoticeRef}
               tabIndex={-1}
-              className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+              className="rounded-md border border-border-strong bg-raised px-4 py-3 text-sm text-text"
             >
               {t('totp.code.expired', { ns: 'credentials' })}
             </p>
@@ -202,7 +204,7 @@ export function TotpCodePanel({ credential, digits, periodSeconds }: TotpCodePan
             <p
               ref={phaseNoticeRef}
               tabIndex={-1}
-              className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+              className="rounded-md border border-border-strong bg-raised px-4 py-3 text-sm text-text"
             >
               {t('totp.code.status.hidden', { ns: 'credentials' })}
             </p>

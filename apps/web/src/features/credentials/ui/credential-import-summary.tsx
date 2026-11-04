@@ -1,3 +1,4 @@
+import { Card, CardBody } from '@iam/ui';
 import type { Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,22 +24,26 @@ export function CredentialImportSummary({
   const { i18n } = useTranslation();
   const numberFormat = new Intl.NumberFormat(i18n.language);
   return (
-    <section aria-label={title} className="flex flex-col gap-2">
-      <h2
-        ref={headingRef}
-        tabIndex={-1}
-        className="text-lg text-text focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
-      >
-        {title}
-      </h2>
-      <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-baseline gap-2">
-            <dt className="text-text-secondary">{item.label}</dt>
-            <dd className="font-medium text-text">{numberFormat.format(item.value)}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
+    <Card aria-label={title}>
+      <CardBody className="flex flex-col gap-2">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-lg text-text focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+        >
+          {title}
+        </h2>
+        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-baseline gap-2">
+              <dt className="text-text-secondary">{item.label}</dt>
+              <dd className="font-mono font-medium text-text tabular-nums">
+                {numberFormat.format(item.value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CardBody>
+    </Card>
   );
 }

@@ -46,6 +46,7 @@ export function InboundViewPage({ viewId }: InboundViewPageProps) {
         {t('back', { ns: 'inbound' })}
       </Link>
       <PageHeader
+        eyebrow={t('nav.group.vault', { ns: 'common' })}
         title={view === undefined ? t('view.title', { ns: 'inbound' }) : view.name}
         description={
           view === undefined

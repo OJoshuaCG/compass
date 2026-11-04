@@ -49,7 +49,7 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
       {
         id: 'version',
         header: t('history.col.version', { ns: 'credentials' }),
-        cell: (row) => row.version,
+        cell: (row) => <span className="font-mono tabular-nums">{row.version}</span>,
       },
       {
         id: 'state',
@@ -64,7 +64,11 @@ export function HistoryDialog({ credential, onClose }: HistoryDialogProps) {
       {
         id: 'createdAt',
         header: t('history.col.createdAt', { ns: 'credentials' }),
-        cell: (row) => formatDateTime(row.createdAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono tabular-nums">
+            {formatDateTime(row.createdAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
     ],
     [i18n.language, t, timeZone],

@@ -1,5 +1,14 @@
 import { ErrorCode, type Credential } from '@iam/contracts';
-import { Button, CopyButton, Dialog, FormField, PasswordInput, Spinner } from '@iam/ui';
+import {
+  Button,
+  Card,
+  CardBody,
+  CopyButton,
+  Dialog,
+  FormField,
+  PasswordInput,
+  Spinner,
+} from '@iam/ui';
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -25,6 +34,10 @@ type Phase =
   | { kind: 'shown'; credential: Credential; password: string; secondsLeft: number }
   | { kind: 'hidden'; credential: Credential };
 
+// Valor revelado: monoespaciado (se lee exacto) y con el acento, que en este sistema marca el valor
+// revelado. Sobre `raised`, opaco: nunca cristal translúcido detrás de un secreto.
+const REVEALED_VALUE_CLASS = 'font-mono text-accent';
+
 type ShownPasswordProps = {
   password: string;
   secondsLeft: number;
@@ -45,25 +58,34 @@ function ShownPassword({ password, secondsLeft, onHide }: ShownPasswordProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <FormField label={t('reveal.password', { ns: 'credentials' })}>
-        {(field) => (
-          <PasswordInput
-            {...field}
-            readOnly
-            value={password}
-            autoComplete="off"
-            showLabel={t('password.show', { ns: 'common' })}
-            hideLabel={t('password.hide', { ns: 'common' })}
-          />
-        )}
-      </FormField>
+      <Card className="bg-raised">
+        <CardBody>
+          <FormField label={t('reveal.password', { ns: 'credentials' })}>
+            {(field) => (
+              <PasswordInput
+                {...field}
+                readOnly
+                value={password}
+                autoComplete="off"
+                className={REVEALED_VALUE_CLASS}
+                showLabel={t('password.show', { ns: 'common' })}
+                hideLabel={t('password.hide', { ns: 'common' })}
+              />
+            )}
+          </FormField>
+        </CardBody>
+      </Card>
       <p ref={noticeRef} tabIndex={-1} className="text-sm text-text-secondary">
         {t('reveal.autoHide', { ns: 'credentials', seconds: REVEALED_PASSWORD_VISIBLE_SECONDS })}{' '}
         {t('reveal.clipboardNote', { ns: 'credentials', seconds: CLIPBOARD_CLEAR_SECONDS })}
       </p>
       {/* Cuenta regresiva visible y silenciosa: aria-live="off" evita que se anuncie cada segundo.
           Solo lleva texto fijo y segundos, nunca el valor del secreto. */}
-      <p role="timer" aria-live="off" className="text-sm text-text-secondary tabular-nums">
+      <p
+        role="timer"
+        aria-live="off"
+        className="font-mono text-sm text-text-secondary tabular-nums"
+      >
         {t('reveal.countdown', { ns: 'credentials', seconds: secondsLeft })}
       </p>
       <div className="flex flex-wrap justify-end gap-3">
@@ -157,7 +179,7 @@ function HiddenNotice({ onClose, onRevealAgain }: HiddenNoticeProps) {
       <p
         ref={noticeRef}
         tabIndex={-1}
-        className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
+        className="rounded-md border border-border-strong bg-raised px-4 py-3 text-sm text-text"
       >
         {t('reveal.hidden', { ns: 'credentials' })}
       </p>

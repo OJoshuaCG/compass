@@ -1,4 +1,4 @@
-import { Button, EmptyState, Spinner } from '@iam/ui';
+import { Button, Card, EmptyState, Spinner } from '@iam/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -93,7 +93,7 @@ export function InboundCodesPanel({ viewId }: InboundCodesPanelProps) {
   const unavailable = isViewUnavailable(action.error);
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-4">
+    <Card aria-labelledby={headingId} className="flex flex-col gap-4 p-5">
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-lg text-text">
         {t('codes.heading', { ns: 'inbound' })}
       </h2>
@@ -151,6 +151,6 @@ export function InboundCodesPanel({ viewId }: InboundCodesPanelProps) {
           </Button>
         </div>
       )}
-    </section>
+    </Card>
   );
 }
