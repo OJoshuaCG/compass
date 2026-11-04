@@ -29,8 +29,8 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
 | T3 | S3 | inline, ruta protegida | pendiente | |
 | T4 | S4 | inline, ruta protegida y migración | pendiente | |
 | T5 | S2 | inline, ruta protegida y migración | pendiente: depende de T6 para retirar particiones | |
-| T6 | S5 (ancla) | inline, ruta protegida | bloqueada: falta aprobar el cliente S3 (dependencia nueva) y verificar Object Lock en Wasabi (comando de red) | |
-| T7 | S5 (panel de alertas) | inline | bloqueada: falta decidir dónde viven los ajustes (`odd/tasks/system-settings.md`); Telegram guarda un secreto | |
+| T6 | S5 (ancla) | inline, ruta protegida | hecha en código (L7); falta que Ops cree y ensaye el bucket real | 37 pruebas dirigidas en verde; mutación (quitar la sobrescritura de `anchored_seq`) detectada por 3 pruebas; commit siguiente a este registro |
+| T7 | S5 (panel de alertas) | inline | desbloqueada (L6): tabla nueva de ajustes; Telegram guarda un secreto cifrado | |
 
 ## Log
 
@@ -45,3 +45,23 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
   - las tareas de rotación (`rotation_tasks`) exigen asignatario y deduplican en código.
 
   T3 es grande (varias sesiones): toca directorio, bóveda y acceso, notificación con plantilla en dos idiomas, informe de baja y jueces.
+- L6 (2026-11-04, textual): «Adelante con esa libreria, sin problema Y si, una tabla nueva, seria lo mejor para las alertas». Se aprueba `@aws-sdk/client-s3` (versión exacta, con al menos 7 días de publicada) para el ancla en Wasabi, y una tabla nueva de ajustes del sistema para las preferencias de alerta de la Raíz.
+- L7 (2026-11-04): T6 terminada en código.
+  - Qué hay:
+    - comando diario `anchor-audit` (`apps/api/src/main.anchor-audit.ts`);
+    - registro local `audit_anchors` (migración 0033), donde la base asigna número, cabeza y hashes, solo se puede agregar y tiene aislamiento por filas;
+    - publicación en Wasabi con `@aws-sdk/client-s3` 3.1155.0, Object Lock en modo de cumplimiento y retención de 2 años de calendario.
+  - Jueces ciegos A y B. Lo que confirmaron ambos se corrigió:
+    - el hash del manifiesto va en el nombre del objeto (sin él, una base restaurada sobrescribiría con una versión nueva);
+    - retención en años de calendario, no 730 días (quedaba un día corto con un 29 de febrero);
+    - `lock_timeout` de 5 s al insertar;
+    - pruebas nuevas de concurrencia, de fecha falsa sobrescrita y de aislamiento autosuficiente.
+  - La suma de verificación que agrega el SDK se conserva, porque Object Lock exige una; el ensayo del runbook confirma que Wasabi la acepta.
+  - Señalado por un solo juez, para revisión humana, sin corregir:
+    - A: con cero organizaciones termina en 0; un error no capturado se imprime tal cual; la llave foránea impide borrar de verdad una organización.
+    - B: el trigger debería validar `app.org_id` antes del bloqueo; usar un rol propio o SECURITY DEFINER para insertar; detectar una cabeza que retrocede; manejadores de error del pool; afirmar `AuditAnchorPublishError` en la prueba de integración.
+  - Evidencia:
+    - formato, tipos y lint en verde (api y db);
+    - pruebas dirigidas por `test-runner`: 37 verdes. La primera corrida falló porque la prueba de concurrencia nueva usaba la organización «vacía»; se le dio la suya y quedó en verde;
+    - mutación: quitar `new.anchored_seq := …` del trigger hace fallar 3 pruebas; la migración se restauró y `cmp` confirma que es idéntica.
+  - Siguiente paso: T7. Mapa del explorador: `integration.infra_alert` no tiene productor; `NotifyInfrastructureAlert` solo usa Telegram; `organizations.settings` no se usa; existe el permiso `alerts.infra.manage`.
