@@ -100,7 +100,7 @@ Ana desactiva a Luis, que dejó la empresa. En los últimos 180 días, Luis reve
 
 ### 2.4 Qué pasa con las cuentas cuando su responsable se va
 
-> **Estado: decidido el 2026-11-04, aún no construido.** El dueño aprobó esta regla; el sistema todavía no la aplica. Hoy la baja no reasigna cuentas, y la construcción se hará solo con encargo expreso porque toca identidad, acceso y bóveda (ver la pregunta 2 de la sección 9).
+> **Estado: decidido el 2026-11-04 y construido.** La baja ya reasigna las cuentas que se quedan sin responsable, retira los accesos de la persona, crea las tareas de rotación y avisa por correo (ver la pregunta 2 de la sección 9). Quedan pendientes de revisión humana las pruebas de autorización y aislamiento de esta parte.
 
 **En una frase.** Si la persona que se va era la única responsable de una cuenta, la cuenta pasa a su superior; si ese superior no puede recibirla, sube al siguiente; si nadie de la rama puede, pasa al Administrador más cercano hacia arriba y se le avisa; y si tampoco hay ninguno, queda **sin responsable y se alerta** a Administradores y Raíz. Además, quien recibe la cuenta obtiene un informe de lo que la persona conocía y se rotan sus credenciales.
 
@@ -219,7 +219,7 @@ Los correos de recuperación, los nombres y los registros de actividad de las pe
 | N.º | Pregunta | Por qué importa |
 | --- | --- | --- |
 | 1 | Cuántos días de plazo tiene una tarea de rotación y cómo se asigna la prioridad según el tipo de exposición | El plan dice "con prioridad según el tipo de exposición" sin definir las categorías |
-| 2 | Quién se hace cargo de una cuenta si la persona dada de baja era su único gestor | **Resuelta el 2026-11-04 (decisión del dueño, aún sin construir):** ver la sección 2.4. Antes, la baja asignaba tareas "al gestor de la cuenta", que podría no existir |
+| 2 | Quién se hace cargo de una cuenta si la persona dada de baja era su único gestor | **Resuelta el 2026-11-04 (decisión del dueño, ya construida):** ver la sección 2.4. Antes, la baja asignaba tareas "al gestor de la cuenta", que podría no existir |
 | 3 | Cómo se mantienen al día señales como la antigüedad de una contraseña, si la salud se calcula al escribir | El plan indica que se calcula al guardar; una contraseña envejece sin que nadie la guarde de nuevo |
 | 4 | Cómo se garantiza que no se pierdan las negaciones cuando la acción se revierte | **Resuelta en la fase 1a:** cada negación se registra de forma independiente y queda en la auditoría aunque la acción se revierta (ver [`docs/adr/`](../adr/README.md), ADR 0022). Queda abierto cuántas negaciones repetidas conviene agrupar |
 | 5 | Plazo de retención definitivo de la auditoría y de las versiones de secretos | Debe validarse con el área legal antes de producción |
