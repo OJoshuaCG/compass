@@ -3,6 +3,7 @@ export { Authorizer } from './application/authorizer.js';
 export { DenialGrouper } from './application/denial-grouper.js';
 export type { AuthorizationRequest, AuthorizerDeps } from './application/authorizer.js';
 export type { RoleRecord, RoleRepository } from './application/ports/role-repository.js';
+export { OffboardingPermissionChecker } from './application/offboarding-permission-checker.js';
 export { RankRoleAdjuster } from './application/rank-role-adjuster.js';
 export { ManageRoles } from './application/manage-roles.js';
 export { ManagePersonRoles } from './application/manage-person-roles.js';

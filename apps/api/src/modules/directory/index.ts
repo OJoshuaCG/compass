@@ -37,6 +37,7 @@ export {
 export { PgRankChangeNoticeQueue } from './infrastructure/pg-rank-change-notice-queue.js';
 export { ListDirectory } from './application/list-directory.js';
 export type { ListDirectoryQuery } from './application/list-directory.js';
+export type { CandidatePermissionChecker } from './application/ports/candidate-permission-checker.js';
 export type {
   ManagementGrantOutcome,
   OffboardingAccountStore,
