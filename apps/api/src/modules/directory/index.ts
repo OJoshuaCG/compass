@@ -44,6 +44,13 @@ export { PgRankChangeNoticeQueue } from './infrastructure/pg-rank-change-notice-
 export { ListDirectory } from './application/list-directory.js';
 export type { ListDirectoryQuery } from './application/list-directory.js';
 export type { CandidatePermissionChecker } from './application/ports/candidate-permission-checker.js';
+export type { OffboardingAccessCleanup } from './application/ports/offboarding-access-cleanup.js';
+export type {
+  LiveCredentialRef,
+  NewOffboardingRotationTask,
+  OffboardingRotationPriority,
+  OffboardingRotationStore,
+} from './application/ports/offboarding-rotation-store.js';
 export type {
   ManagementGrantOutcome,
   OffboardingAccountStore,
