@@ -43,18 +43,27 @@ export function InboundHistoryTable({
       {
         id: 'receivedAt',
         header: t('history.col.receivedAt'),
-        cell: (row) => formatDateTime(row.receivedAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono text-text-secondary">
+            {formatDateTime(row.receivedAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
       {
         id: 'kind',
         header: t('history.col.kind'),
-        cell: (row) => <Badge>{t(`templateKind.${row.templateKind}`)}</Badge>,
+        cell: (row) => <Badge dot>{t(`templateKind.${row.templateKind}`)}</Badge>,
       },
       {
         id: 'signingDomain',
         header: t('history.col.signingDomain'),
         // Un mensaje sin firma DKIM verificable no trae dominio: se dice con texto, no con una celda vacía.
-        cell: (row) => row.signingDomain ?? t('history.domain.unknown'),
+        cell: (row) =>
+          row.signingDomain === null ? (
+            t('history.domain.unknown')
+          ) : (
+            <span className="font-mono text-text-secondary">{row.signingDomain}</span>
+          ),
       },
     ],
     [i18n.language, t, timeZone],

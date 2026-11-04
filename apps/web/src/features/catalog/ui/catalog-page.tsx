@@ -1,6 +1,9 @@
 import {
   Badge,
   Button,
+  Card,
+  CardBody,
+  CardHeader,
   ConfirmDialog,
   EmptyState,
   FormField,
@@ -34,12 +37,34 @@ export type CatalogPageProps = {
   onSearchChange: (patch: Partial<TableSearch>) => void;
 };
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * Bloque del catálogo. Con `framed` va en una tarjeta; la tabla estándar ya trae su propio marco,
+ * así que se muestra sin tarjeta para no anidar dos bordes.
+ */
+function Section({
+  title,
+  children,
+  framed = true,
+}: {
+  title: string;
+  children: ReactNode;
+  framed?: boolean;
+}) {
+  if (!framed) {
+    return (
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg text-text">{title}</h2>
+        {children}
+      </section>
+    );
+  }
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-lg text-text">{title}</h2>
-      {children}
-    </section>
+    <Card>
+      <CardHeader>
+        <h2 className="text-lg text-text">{title}</h2>
+      </CardHeader>
+      <CardBody>{children}</CardBody>
+    </Card>
   );
 }
 
@@ -63,7 +88,12 @@ export function CatalogPage({ search, onSearchChange }: CatalogPageProps) {
 
   const columns = useMemo<Column<DemoUser>[]>(
     () => [
-      { id: 'name', header: t('catalog.table.col.name'), cell: (row) => row.name, sortKey: 'name' },
+      {
+        id: 'name',
+        header: t('catalog.table.col.name'),
+        cell: (row) => <span className="font-medium text-text">{row.name}</span>,
+        sortKey: 'name',
+      },
       {
         id: 'platform',
         header: t('catalog.table.col.platform'),
@@ -89,7 +119,11 @@ export function CatalogPage({ search, onSearchChange }: CatalogPageProps) {
 
   return (
     <>
-      <PageHeader title={t('catalog.title')} description={t('catalog.description')} />
+      <PageHeader
+        eyebrow={t('nav.group.access')}
+        title={t('catalog.title')}
+        description={t('catalog.description')}
+      />
 
       <Section title={t('catalog.section.buttons')}>
         <div className="flex flex-wrap items-center gap-3">
@@ -109,8 +143,10 @@ export function CatalogPage({ search, onSearchChange }: CatalogPageProps) {
 
       <Section title={t('catalog.section.badges')}>
         <div className="flex flex-wrap items-center gap-3">
-          <Badge>{t('catalog.badge.neutral')}</Badge>
-          <Badge tone="accent">{t('catalog.badge.accent')}</Badge>
+          <Badge dot>{t('catalog.badge.neutral')}</Badge>
+          <Badge tone="accent" dot>
+            {t('catalog.badge.accent')}
+          </Badge>
           {(Object.keys(STATUS_TONE) as DemoUser['status'][]).map((status) => (
             <StatusBadge key={status} status={STATUS_TONE[status]} label={t(`status.${status}`)} />
           ))}
@@ -152,7 +188,7 @@ export function CatalogPage({ search, onSearchChange }: CatalogPageProps) {
         </div>
       </Section>
 
-      <Section title={t('catalog.section.table')}>
+      <Section title={t('catalog.section.table')} framed={false}>
         <DataTable<DemoUser>
           caption={t('catalog.table.caption')}
           columns={columns}

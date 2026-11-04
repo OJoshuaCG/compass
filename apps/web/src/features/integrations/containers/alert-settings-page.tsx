@@ -1,5 +1,5 @@
 import { ErrorCode, type InfrastructureAlertChannels } from '@iam/contracts';
-import { Alert, PageHeader, Spinner } from '@iam/ui';
+import { Alert, Card, CardBody, PageHeader, Spinner } from '@iam/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -57,7 +57,7 @@ export function AlertSettingsPage() {
   if (query.isError) {
     return (
       <>
-        <PageHeader title={t('alerts.title')} />
+        <PageHeader eyebrow={t('nav.group.access', { ns: 'common' })} title={t('alerts.title')} />
         <ErrorAlert
           error={query.error}
           onRetry={() => {
@@ -97,7 +97,11 @@ export function AlertSettingsPage() {
 
   return (
     <>
-      <PageHeader title={t('alerts.title')} description={t('alerts.description')} />
+      <PageHeader
+        eyebrow={t('nav.group.access', { ns: 'common' })}
+        title={t('alerts.title')}
+        description={t('alerts.description')}
+      />
       <div className="mt-6 flex max-w-2xl flex-col gap-4">
         {settings.version === 0 ? <Alert tone="info">{t('alerts.defaults')}</Alert> : null}
         <div ref={feedbackRef} tabIndex={-1} className="flex flex-col gap-2 outline-none">
@@ -107,28 +111,32 @@ export function AlertSettingsPage() {
           ) : null}
         </div>
         <p className="text-sm text-text-secondary">{t('alerts.rule')}</p>
-        <AlertSettingsForm
-          channels={channels}
-          labels={{
-            legend: t('alerts.channels.legend'),
-            emailLabel: t('alerts.channels.email.label'),
-            emailDescription: t('alerts.channels.email.description'),
-            telegramLabel: t('alerts.channels.telegram.label'),
-            telegramDescription: t('alerts.channels.telegram.description'),
-            save: t('alerts.save'),
-          }}
-          blockedReason={blockedReason}
-          saving={action.pending}
-          cooldownSeconds={cooldown.secondsLeft}
-          onChange={(next) => {
-            setDraft(next);
-            // Al cambiar los canales, el rechazo anterior ya no aplica; otros errores siguen a la vista.
-            if (serverRejectedChannels) action.reset();
-          }}
-          onSubmit={() => {
-            void submit();
-          }}
-        />
+        <Card>
+          <CardBody>
+            <AlertSettingsForm
+              channels={channels}
+              labels={{
+                legend: t('alerts.channels.legend'),
+                emailLabel: t('alerts.channels.email.label'),
+                emailDescription: t('alerts.channels.email.description'),
+                telegramLabel: t('alerts.channels.telegram.label'),
+                telegramDescription: t('alerts.channels.telegram.description'),
+                save: t('alerts.save'),
+              }}
+              blockedReason={blockedReason}
+              saving={action.pending}
+              cooldownSeconds={cooldown.secondsLeft}
+              onChange={(next) => {
+                setDraft(next);
+                // Al cambiar los canales, el rechazo anterior ya no aplica; otros errores siguen a la vista.
+                if (serverRejectedChannels) action.reset();
+              }}
+              onSubmit={() => {
+                void submit();
+              }}
+            />
+          </CardBody>
+        </Card>
         {settings.updatedAt !== null ? (
           <p className="text-sm text-text-muted">
             {t('alerts.updatedAt', {

@@ -39,7 +39,7 @@ export function InboundTemplatePicker({
           ? t('viewSettings.form.templatesNone')
           : t('viewSettings.form.templatesHelp')}
       </p>
-      <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+      <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-strong bg-raised p-2">
         {templates.map((template) => (
           <li key={template.id}>
             <label className="flex min-h-6 items-center gap-2 text-sm text-text">

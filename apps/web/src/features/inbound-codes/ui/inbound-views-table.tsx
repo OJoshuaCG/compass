@@ -53,7 +53,7 @@ export function InboundViewsTable({
       {
         id: 'level',
         header: t('col.level'),
-        cell: (row) => <Badge>{t(`level.${row.level}`)}</Badge>,
+        cell: (row) => <Badge dot>{t(`level.${row.level}`)}</Badge>,
       },
     ],
     [t],

@@ -53,25 +53,37 @@ export function SharesTable<Row extends ShareRow>({
 
   const columns = useMemo<Column<Row>[]>(
     () => [
-      { id: 'grantee', header: t('col.grantee'), cell: (row) => row.granteeName },
+      {
+        id: 'grantee',
+        header: t('col.grantee'),
+        cell: (row) => <span className="font-medium text-text">{row.granteeName}</span>,
+      },
       {
         id: 'type',
         header: t('col.type'),
-        cell: (row) => <Badge>{t(`granteeType.${row.granteeType}`)}</Badge>,
+        cell: (row) => <Badge dot>{t(`granteeType.${row.granteeType}`)}</Badge>,
       },
       { id: 'level', header: t('col.level'), cell: (row) => t(`level.${row.level}`) },
       {
         id: 'expiresAt',
         header: t('col.expiresAt'),
         cell: (row) =>
-          row.expiresAt === null
-            ? t('expires.never')
-            : formatDateTime(row.expiresAt, i18n.language, timeZone),
+          row.expiresAt === null ? (
+            t('expires.never')
+          ) : (
+            <span className="font-mono text-text-secondary">
+              {formatDateTime(row.expiresAt, i18n.language, timeZone)}
+            </span>
+          ),
       },
       {
         id: 'createdAt',
         header: t('col.createdAt'),
-        cell: (row) => formatDateTime(row.createdAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono text-text-secondary">
+            {formatDateTime(row.createdAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
     ],
     [i18n.language, t, timeZone],

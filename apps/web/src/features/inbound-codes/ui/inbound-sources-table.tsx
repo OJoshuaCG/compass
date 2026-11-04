@@ -60,8 +60,16 @@ export function InboundSourcesTable({
 
   const columns = useMemo<Column<InboundSourceSummary>[]>(
     () => [
-      { id: 'name', header: t('sources.col.name'), cell: (row) => row.displayName },
-      { id: 'address', header: t('sources.col.address'), cell: (row) => row.address },
+      {
+        id: 'name',
+        header: t('sources.col.name'),
+        cell: (row) => <span className="font-medium text-text">{row.displayName}</span>,
+      },
+      {
+        id: 'address',
+        header: t('sources.col.address'),
+        cell: (row) => <span className="font-mono text-text-secondary">{row.address}</span>,
+      },
       {
         id: 'status',
         header: t('sources.col.status'),
@@ -72,12 +80,16 @@ export function InboundSourcesTable({
       {
         id: 'level',
         header: t('sources.col.level'),
-        cell: (row) => <Badge>{t(`level.${row.level}`)}</Badge>,
+        cell: (row) => <Badge dot>{t(`level.${row.level}`)}</Badge>,
       },
       {
         id: 'createdAt',
         header: t('sources.col.createdAt'),
-        cell: (row) => formatDateTime(row.createdAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono text-text-secondary">
+            {formatDateTime(row.createdAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
     ],
     [i18n.language, t, timeZone],

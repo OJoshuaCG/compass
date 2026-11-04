@@ -122,6 +122,7 @@ export function InboundViewSharesPage({ viewId }: InboundViewSharesPageProps) {
     <>
       {backLink}
       <PageHeader
+        eyebrow={t('nav.group.vault', { ns: 'common' })}
         title={t('viewSettings.shares.title', { ns: 'inbound', name: view.name })}
         description={t('viewSettings.shares.description', { ns: 'inbound' })}
         actions={

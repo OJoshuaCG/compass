@@ -79,7 +79,7 @@ export function AccountsTable({
     const nameColumn: Column<AccountListItem> = {
       id: 'name',
       header: t('col.name'),
-      cell: (row) => row.displayName,
+      cell: (row) => <span className="font-medium text-text">{row.displayName}</span>,
     };
     const platformColumn: Column<AccountListItem> = {
       id: 'platform',
@@ -90,7 +90,7 @@ export function AccountsTable({
       id: 'level',
       header: t('col.level'),
       cell: (row) =>
-        row.myLevel === null ? t('level.none') : <Badge>{t(`level.${row.myLevel}`)}</Badge>,
+        row.myLevel === null ? t('level.none') : <Badge dot>{t(`level.${row.myLevel}`)}</Badge>,
     };
     const lastChangedColumn: Column<AccountListItem> = {
       id: 'lastChanged',
