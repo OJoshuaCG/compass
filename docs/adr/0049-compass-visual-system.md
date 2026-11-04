@@ -1,4 +1,4 @@
-# ADR 0044: Sistema visual de Compass: acento latón, dos temas y cristal solo en capas flotantes
+# ADR 0049: Sistema visual de Compass: acento latón, dos temas y cristal solo en capas flotantes
 
 - **Estado**: Aceptada por la persona dueña del proyecto el 2026-11-04 («aceptar las propuestas que se brindan para trabajar con todo el redisenio de todas las vistas de este proyecto»).
 - **Fecha**: 2026-11-04

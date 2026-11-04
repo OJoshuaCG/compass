@@ -45,7 +45,7 @@ export function AppShell({ sidebar, header, skipLinkLabel, children, className }
         {header}
       </header>
       <div className="flex flex-1 flex-col md:flex-row">
-        {/* w-62 = 248 px, el ancho del menú del diseño (ADR 0044): cabe la etiqueta más larga
+        {/* w-62 = 248 px, el ancho del menú del diseño (ADR 0049): cabe la etiqueta más larga
             («Alertas de infraestructura») sin cortarla. En pantallas estrechas ocupa todo el ancho. */}
         <aside className="border-b border-border bg-sidebar px-3 pt-4 pb-6 md:w-62 md:shrink-0 md:border-e md:border-b-0">
           {sidebar}

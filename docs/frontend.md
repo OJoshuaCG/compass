@@ -90,7 +90,7 @@ Se verifica con `eslint-plugin-boundaries` y dependency-cruiser en CI, igual que
 
 ### 4.1 Identidad visual y tokens
 
-Origen: el lienzo de diseño «Compass — Propuesta de diseño» (ADR [0044](adr/0044-compass-visual-system.md)). Este apartado es la fuente de verdad: si el lienzo y este documento difieren, manda este documento.
+Origen: el lienzo de diseño «Compass — Propuesta de diseño» (ADR [0049](adr/0049-compass-visual-system.md)). Este apartado es la fuente de verdad: si el lienzo y este documento difieren, manda este documento.
 
 La idea en una frase: instrumentos silenciosos y una sola aguja de latón. La interfaz es calmada y precisa, con superficies frías y neutras, un único acento que sirve para orientarse y cristal solo donde algo flota sobre el trabajo.
 
@@ -170,6 +170,9 @@ Cada color de estado y de acento tiene una variante suave (`accent-soft`, `succe
 7. **El selector de tema** está en la barra superior. Sin preferencia guardada se sigue la del sistema operativo. Cambiar de tema nunca recarga la página.
 8. **Valores arbitrarios de Tailwind** (anchos o tamaños sueltos) prohibidos salvo justificación en un comentario.
 9. Para añadir un color nuevo: se agrega el token **en los dos temas**, se mide el contraste y se documenta aquí.
+10. **El cristal tiene respaldo opaco.** Sin `backdrop-filter` en el navegador, o con la preferencia de transparencia reducida, las capas de cristal usan el fondo opaco `overlay`. Todo componente nuevo con cristal reutiliza las clases `glass` y `glass-bar`, no su propio desenfoque.
+
+**Brechas conocidas del rediseño** (revisión T7, sin corregir): la barra superior aún no muestra el chip de rango que pide el marco; el acento y la advertencia comparten valor, y el chip de la Raíz usa acento fuera de los usos de la regla 1; el estado activo del menú depende de una sombra que desaparece con colores forzados; faltan medir en la prueba de tokens `text-muted` sobre `overlay` y el menú lateral, los fondos `*-soft` y `border-input`; las marcas de tiempo de `invitations-table`, `history-dialog` y `passkeys-table` no usan fuente monoespaciada.
 
 **Marco de la aplicación**
 
@@ -246,7 +249,7 @@ Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene ci
 | Moléculas | Campo de formulario (etiqueta, control, ayuda y error), búsqueda, campo de contraseña, botón de copiar, diálogo de confirmación, estado vacío, aviso emergente, paginación, encabezado ordenable, insignia de estado, visor de códigos (monoespaciado, con copiado) |
 | Organismos | Tabla de datos estándar (`DataTable`), encabezado de página, estructura de la aplicación (barra lateral y cabecera), revelador de secretos (se oculta a los 30 s), diálogo de reautenticación, contenedor de errores, línea de tiempo (auditoría) |
 
-> **Estado tras la fase 1a.** Implementados en `packages/ui`: botón, botón de ícono, campo de texto, selector nativo (usado en el límite de filas y el idioma), casilla, insignia, indicador de carga, esqueleto, campo de formulario, búsqueda, paginación, encabezado ordenable, estado vacío, insignia de estado, diálogo, diálogo de confirmación, campo de contraseña con indicador de fortaleza, campo de código, botón de copiar, aviso, aviso emergente, grupo de opciones, pestañas, menú de acciones de fila, tabla de datos, encabezado de página, estructura de la aplicación y diálogo de reautenticación. Con el rediseño (ADR 0044) se añadieron la marca (`BrandMark`), el avatar (`Avatar`), la tarjeta (`Card`), el grupo y el elemento de navegación (`NavGroup`, `NavItem`, que leen el estado activo de `aria-current="page"`), la propiedad `dot` y el tono `info` de la insignia, y la propiedad `eyebrow` del encabezado de página. El árbol jerárquico de `/users` (pestaña «Jerarquía») se arma en el cliente con `GET /users/managed` completo y `buildHierarchy`; es de solo lectura y no tiene endpoint propio. Pendientes del catálogo mínimo: área de texto, selector con Radix, interruptor, tecla, información emergente, visor de códigos, revelador de secretos, contenedor de errores y línea de tiempo. Los íconos se importan desde un único archivo de `@iam/ui` que centraliza `lucide-react`.
+> **Estado tras la fase 1a.** Implementados en `packages/ui`: botón, botón de ícono, campo de texto, selector nativo (usado en el límite de filas y el idioma), casilla, insignia, indicador de carga, esqueleto, campo de formulario, búsqueda, paginación, encabezado ordenable, estado vacío, insignia de estado, diálogo, diálogo de confirmación, campo de contraseña con indicador de fortaleza, campo de código, botón de copiar, aviso, aviso emergente, grupo de opciones, pestañas, menú de acciones de fila, tabla de datos, encabezado de página, estructura de la aplicación y diálogo de reautenticación. Con el rediseño (ADR 0049) se añadieron la marca (`BrandMark`), el avatar (`Avatar`), la tarjeta (`Card`), el grupo y el elemento de navegación (`NavGroup`, `NavItem`, que leen el estado activo de `aria-current="page"`), la propiedad `dot` y el tono `info` de la insignia, y la propiedad `eyebrow` del encabezado de página. El árbol jerárquico de `/users` (pestaña «Jerarquía») se arma en el cliente con `GET /users/managed` completo y `buildHierarchy`; es de solo lectura y no tiene endpoint propio. Pendientes del catálogo mínimo: área de texto, selector con Radix, interruptor, tecla, información emergente, visor de códigos, revelador de secretos, contenedor de errores y línea de tiempo. Los íconos se importan desde un único archivo de `@iam/ui` que centraliza `lucide-react`.
 
 Los botones tienen estados normal, hover, foco visible, activo, deshabilitado y en carga. En carga el botón queda deshabilitado, conserva su ancho y anuncia el estado a los lectores de pantalla.
 
@@ -450,7 +453,7 @@ Se puede apoyar el desarrollo del frontend en los agentes de Claude Code disponi
 | `frontend-developer` | Construir componentes de `shared/ui`, pantallas de un feature, formularios, tablas con la tabla estándar, pruebas de componente | Escribe código; necesita alcance de archivos explícito |
 | `typescript-pro` | Tipos de marca, tipos genéricos de la tabla y de la consulta de tablas, cliente HTTP tipado, tipos derivados de `contracts` | Solo tipos y utilidades; no decide arquitectura |
 | `ui-ux-designer` | Auditar accesibilidad, contraste, consistencia con los tokens y usabilidad de una pantalla o componente | Solo lectura; entrega hallazgos, no edita |
-| Skill `ui-ux-pro-max` | Consultar criterios de interfaz, accesibilidad y tipografía al diseñar o revisar. El sistema del proyecto (§4.1, ADR 0044) manda sobre cualquier recomendación genérica | Orienta; no sustituye los tokens ni la guía |
+| Skill `ui-ux-pro-max` | Consultar criterios de interfaz, accesibilidad y tipografía al diseñar o revisar. El sistema del proyecto (§4.1, ADR 0049) manda sobre cualquier recomendación genérica | Orienta; no sustituye los tokens ni la guía |
 
 ### Cómo delegar
 
@@ -482,7 +485,7 @@ Las reglas que un agente debe respetar al trabajar en `apps/web` son estas. Si s
 1. Sigue esta guía. Si algo no está cubierto, propónlo y detente.
 2. Usa siempre componentes de `shared/ui`. Toda tabla es la tabla estándar.
 3. Usa solo los tokens de diseño. Prohibido color, tamaño o sombra literal.
-   - Respeta las «Reglas que se respetan siempre» de §4.1 (ADR 0044): un solo acento latón, cristal solo en capas flotantes, estado nunca solo con color, datos exactos en fuente monoespaciada, y todo se ve bien y cumple contraste en los dos temas.
+   - Respeta las «Reglas que se respetan siempre» de §4.1 (ADR 0049): un solo acento latón, cristal solo en capas flotantes, estado nunca solo con color, datos exactos en fuente monoespaciada, y todo se ve bien y cumple contraste en los dos temas.
    - Antes de crear o cambiar una pantalla, comprueba que el marco (barra superior, menú lateral, encabezado de página) sea el de §4.1 y que reutilice los componentes de `packages/ui`.
 4. Ningún texto literal: claves i18n en `es-MX` y `en-US`.
 5. Respeta la regla de dependencia: `shared` no importa `features`; entre features, solo por la fachada.
@@ -509,6 +512,7 @@ La web implementa las pantallas de la fase 1a (identidad) en `apps/web/src/featu
 | Diálogo de reautenticación (abre ante el error de reautenticación requerida y reintenta la acción una vez) | `shared/auth` y `shared/api` | Funciona con el código de la aplicación o, si la persona tiene passkeys, con una passkey (`shared/auth/passkey-reauth.ts`; el diálogo la ofrece solo si la persona tiene alguna); no admite código de recuperación. La suite de Chrome cubre el flujo completo (cambiar rango, diálogo "Confirm your identity", código incorrecto rechazado y código correcto que completa la acción) |
 | Cambio de contraseña (ruta `/password/change`; es obligatorio para la Raíz tras su primer ingreso con la contraseña inicial: mientras no se cambia, el ingreso lleva a esta pantalla y el registro del segundo factor se rechaza con `AUTH.PASSWORD_CHANGE_REQUIRED`) | `features/auth` | Funciona |
 | Gestión de equipo (pestaña en la página de Usuarios, junto al directorio) con acciones por fila: suspender, reactivar, cambiar rango (con reautenticación), transferir responsable y desactivar (con diálogo de confirmación) | `features/directory` | Funciona. Lista el subárbol de quien consulta (la Raíz ve a todos) con su estado y su responsable |
+| Árbol jerárquico (pestaña «Jerarquía» en la página de Usuarios, mismos permisos de gestión que la pestaña de equipo): subárbol de quien consulta como listas anidadas, armado en el cliente con `GET /users/managed` (`buildHierarchy`); solo lectura, con un grupo aparte para quien no tiene responsable visible | `features/directory` | Funciona |
 | Cierre de sesión | `shared/auth` | Funciona |
 | Botón "Use a passkey" en el paso de verificación del ingreso (aparece junto al código solo si la respuesta del ingreso indica que la persona tiene passkeys; comprueba el soporte del navegador) | `features/auth` | Funciona. Cubierto por una ceremonia real en Chrome con el autenticador virtual |
 | Pantalla "Seguridad" (ruta `/security`, ruta diferida): lista las passkeys, permite agregar (con nombre) y quitar (ambas con reautenticación reciente); si el navegador no soporta WebAuthn, la pantalla lo explica | `features/security` | Funciona. Las respuestas nunca incluyen claves; máximo 10 por persona |

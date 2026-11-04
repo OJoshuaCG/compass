@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Tokens globales de los dos temas de Compass (docs/frontend.md §4.1, ADR 0044).
+ * Tokens globales de los dos temas de Compass (docs/frontend.md §4.1, ADR 0049).
  * Único punto de verdad de colores, formas y movimiento: los componentes solo usan
  * utilidades semánticas. Al añadir un color se agrega en LOS DOS temas, se mide su
  * contraste y se actualiza §4.2.
