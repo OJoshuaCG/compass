@@ -1,46 +1,119 @@
 @import 'tailwindcss';
 
 /*
- * Tokens globales del tema oscuro "carbón" (docs/frontend.md §4.1).
+ * Tokens globales de los dos temas de Compass (docs/frontend.md §4.1, ADR 0044).
  * Único punto de verdad de colores, formas y movimiento: los componentes solo usan
- * utilidades semánticas. Al añadir un color se mide su contraste y se actualiza §4.2.
+ * utilidades semánticas. Al añadir un color se agrega en LOS DOS temas, se mide su
+ * contraste y se actualiza §4.2.
+ *
+ * El tema oscuro es el valor por defecto de :root; el claro se activa con
+ * data-theme="light" en el elemento raíz (lo fija el arranque de la aplicación).
  */
-:root {
+:root,
+:root[data-theme='dark'] {
   color-scheme: dark;
 
   /* Superficies (de más profundo a más elevado) */
-  --color-canvas: #0f1114;
-  --color-surface: #16191d;
-  --color-raised: #1c2025;
-  --color-overlay: #23282f;
+  --color-canvas: #0b0f13;
+  --color-sidebar: #0e1318;
+  --color-surface: #131920;
+  --color-raised: #19212a;
+  --color-overlay: #212b36;
 
   /* Texto */
-  --color-text: #e8eaed;
-  --color-text-secondary: #a8afba;
-  --color-text-muted: #8b93a0;
-  --color-text-disabled: #69717d;
+  --color-text: #e9eef3;
+  --color-text-secondary: #a6b2bf;
+  --color-text-muted: #8592a0;
+  --color-text-disabled: #6a7683;
 
   /* Bordes */
-  --color-border: #2a2f37; /* separadores decorativos */
-  --color-border-strong: #454d59; /* tarjetas, tablas */
-  --color-border-input: #656e7a; /* controles interactivos (>=3:1) */
+  --color-border: #1c242d; /* separadores decorativos */
+  --color-border-strong: #34404d; /* tarjetas, tablas */
+  --color-border-input: #6b7785; /* controles interactivos (>=3:1) */
 
-  /* Marca y estados */
-  --color-accent: #6aa6ff;
-  --color-accent-solid: #2f6fe0;
-  --color-accent-solid-hover: #2563c9;
-  --color-on-accent: #ffffff;
-  --color-success: #4cc49a;
-  --color-warning: #e8b04a;
-  --color-danger: #ff7a85;
+  /* Acento (la aguja de latón) y estados */
+  --color-accent: #ecc272;
+  --color-accent-solid: #e6b45b;
+  --color-accent-solid-hover: #f0c06a;
+  --color-on-accent: #1b1407;
+  --color-success: #5fd8a4;
+  --color-warning: #ecc272;
+  --color-danger: #ff948f;
   --color-danger-solid: #c93843;
-  --color-focus: #6aa6ff;
+  --color-on-danger: #ffffff;
+  --color-info: #7fbcff;
+  --color-focus: #ecc272;
 
-  /* Forma y movimiento */
+  /* Variantes suaves: fondo de chips y avisos; su texto usa el token pleno */
+  --color-accent-soft: rgb(230 180 91 / 0.13);
+  --color-success-soft: rgb(95 216 164 / 0.12);
+  --color-warning-soft: rgb(230 180 91 / 0.13);
+  --color-danger-soft: rgb(255 148 143 / 0.13);
+  --color-info-soft: rgb(127 188 255 / 0.13);
+
+  /* Capas flotantes (cristal) */
+  --color-glass: rgb(19 25 32 / 0.64);
+  --color-glass-border: rgb(255 255 255 / 0.13);
+  --color-scrim: rgb(4 7 10 / 0.52);
+
+  /* Ambiente de fondo, apenas perceptible */
+  --ambient-a: rgb(230 180 91 / 0.075);
+  --ambient-b: rgb(92 150 214 / 0.09);
+
+  --shadow-overlay: 0 28px 70px -24px rgb(0 0 0 / 0.75), inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-canvas: #f2f4f6;
+  --color-sidebar: #eaeef1;
+  --color-surface: #ffffff;
+  --color-raised: #f6f8fa;
+  --color-overlay: #ebeff2;
+
+  --color-text: #0d1620;
+  --color-text-secondary: #435061;
+  --color-text-muted: #5a6878;
+  --color-text-disabled: #7a8592;
+
+  --color-border: #dde2e7;
+  --color-border-strong: #c3cbd3;
+  --color-border-input: #7d8896;
+
+  --color-accent: #7a5000;
+  --color-accent-solid: #dca235;
+  --color-accent-solid-hover: #cf942a;
+  --color-on-accent: #1b1407;
+  --color-success: #0d7048;
+  --color-warning: #7a5000;
+  --color-danger: #b02b27;
+  --color-danger-solid: #b02b27;
+  --color-on-danger: #ffffff;
+  --color-info: #1a58ad;
+  --color-focus: #7a5000;
+
+  --color-accent-soft: rgb(220 162 53 / 0.17);
+  --color-success-soft: rgb(13 112 72 / 0.1);
+  --color-warning-soft: rgb(220 162 53 / 0.18);
+  --color-danger-soft: rgb(176 43 39 / 0.09);
+  --color-info-soft: rgb(26 88 173 / 0.09);
+
+  --color-glass: rgb(255 255 255 / 0.66);
+  --color-glass-border: rgb(255 255 255 / 0.85);
+  --color-scrim: rgb(226 232 238 / 0.55);
+
+  --ambient-a: rgb(220 162 53 / 0.14);
+  --ambient-b: rgb(92 150 214 / 0.12);
+
+  --shadow-overlay: 0 28px 60px -26px rgb(20 34 50 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+/* Forma y movimiento: iguales en los dos temas. */
+:root {
   --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.45);
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
   --duration-fast: 120ms;
   --duration-base: 200ms;
 }
@@ -52,6 +125,7 @@
 
 @theme inline {
   --color-canvas: var(--color-canvas);
+  --color-sidebar: var(--color-sidebar);
   --color-surface: var(--color-surface);
   --color-raised: var(--color-raised);
   --color-overlay: var(--color-overlay);
@@ -70,7 +144,17 @@
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
   --color-danger-solid: var(--color-danger-solid);
+  --color-on-danger: var(--color-on-danger);
+  --color-info: var(--color-info);
   --color-focus: var(--color-focus);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-success-soft: var(--color-success-soft);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-info-soft: var(--color-info-soft);
+  --color-glass: var(--color-glass);
+  --color-glass-border: var(--color-glass-border);
+  --color-scrim: var(--color-scrim);
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-heading: 'Space Grotesk Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
@@ -80,9 +164,44 @@
   --shadow-overlay: var(--shadow-overlay);
 }
 
+/*
+ * Cristal: solo para capas flotantes (barra superior, ventanas modales y menús).
+ * Nunca en tarjetas ni tablas: el contenido debe seguir opaco y legible.
+ */
+@utility glass {
+  background-color: var(--color-glass);
+  border: 1px solid var(--color-glass-border);
+  box-shadow: var(--shadow-overlay);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+
+/* Barra superior: cristal sin sombra ni borde lateral, pegada al borde de arriba. */
+@utility glass-bar {
+  background-color: var(--color-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+/* Fondo detrás de una ventana modal. */
+@utility scrim {
+  background-color: var(--color-scrim);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+}
+
 @layer base {
   html {
     @apply bg-canvas font-sans text-text;
+  }
+
+  /* Ambiente: dos degradados muy tenues que solo dan profundidad detrás del cristal. */
+  body {
+    background-image:
+      radial-gradient(820px 460px at 88% -8%, var(--ambient-a), transparent 62%),
+      radial-gradient(700px 520px at -4% 104%, var(--ambient-b), transparent 62%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
   }
 
   /* Los encabezados usan Space Grotesk; los componentes no repiten la clase. */
@@ -92,6 +211,13 @@
   h4 {
     @apply font-heading;
     line-height: 1.25;
+  }
+
+  /* El cero con barra distingue 0 de O en códigos y claves. */
+  .font-mono,
+  code,
+  kbd {
+    font-feature-settings: 'zero' 1;
   }
 
   /* Foco visible por defecto en todo control interactivo (WCAG 2.4.7 / 2.4.11). */
