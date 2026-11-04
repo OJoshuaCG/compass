@@ -70,6 +70,8 @@ Cuando alguien deja la organización, no basta con cerrarle el acceso: conoce co
 
 ### 2.1 Qué ocurre al desactivar a una persona
 
+> **Estado hoy:** el sistema cierra las sesiones, reasigna a los subordinados y registra el evento (pasos 1, 2 y 6, este sin el resumen de cuentas). Los pasos 3, 4 y 5 son lo que se construye en T3 (`odd/tasks/owner-decisions-2026-11-04.md`); el paso 5 sigue la regla de la sección 2.4, que reemplaza «los últimos 180 días» y «asignada al gestor de la cuenta».
+
 | Paso | Qué hace el sistema |
 | --- | --- |
 | 1 | Cierra todas sus sesiones |

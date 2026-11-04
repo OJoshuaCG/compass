@@ -26,7 +26,7 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
 | --- | --- | --- | --- | --- |
 | T1 | S2, S3, S6, S7 | delegada (redactor de docs, regla del proyecto) | hecha | `e269996` y el commit de docs siguiente: governance §2.4, actors-and-hierarchy fila 8, transfer-root, respaldos (RPO 1 h), roadmap 1a cerrada, handoff |
 | T2 | S1 | inline (código y pruebas) | hecha | línea base verde (21 pruebas); después 27 verdes; la rotura intencional (quitar el filtro por campo) la detectan 3 pruebas del bloque C9 |
-| T3 | S3 | inline, ruta protegida | pendiente | |
+| T3 | S3 | inline, ruta protegida; 7 commits (L11) | en curso: mapa hecho (L11); commit 1 (docs) siguiente | |
 | T4 | S4 | inline, ruta protegida y migración | pendiente | |
 | T5 | S2 | inline, ruta protegida y migración | pendiente: depende de T6 para retirar particiones | |
 | T6 | S5 (ancla) | inline, ruta protegida | hecha en código (L7) y alerta a la Raíz si falla (L9); falta que Ops cree y ensaye el bucket real | 37 pruebas dirigidas en verde; mutación (quitar la sobrescritura de `anchored_seq`) detectada por 3 pruebas; commit siguiente a este registro |
@@ -102,3 +102,13 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
   - Evidencia: tipos y lint en verde (`@iam/web`, `@iam/i18n`). Pruebas dirigidas por `test-runner`: 36 de 36 en 3 archivos. La revisión de seguridad no aplica (no toca autenticación, pagos ni SQL).
   - No verificado: el e2e no se corrió porque `docs/frontend.md` §11 no lo exige para esta pantalla; no hubo revisión visual en el navegador.
   - Pendiente fuera de T7: ningún otro trabajo programado emite todavía `integration.infra_alert`.
+- L11 (2026-11-04): T3, mapa de código hecho por un explorador de solo lectura. Hallazgos, con ruta:
+  - La baja actual (`apps/api/src/modules/directory/application/manage-users.ts:158-173`) solo reasigna subordinados, cambia el estado, cierra sesiones, revoca invitaciones y audita `reassignedReports`. No toca grupos, comparticiones ni rotación, aunque `docs/business/governance.md` §2.1 lo describe así. `user_deactivated` ya está permitido en el CHECK de `rotation_tasks` (`db/migrations/0006_governance_audit.sql`) y en la lista blanca de `audit-actions.ts:32`, pero nada lo usa.
+  - Cuentas: `accounts` y `shares` (`0005_vault.sql`); «gestor» = nivel `MANAGE`; el índice único `shares_one_live_per_grantee` solo mira `revoked_at`, así que una compartición vencida sin revocar también bloquea el alta. La vista `effective_access` no filtra el estado del usuario. Para calcular «único gestor activo» hay que unir con `users.status = 'active'`, excluir a quien sale y bloquear sobre `accounts ... for update` por id (una vista no admite `for update`).
+  - Jerarquía: `users.managed_by` con CTE recursivas; falta el helper «cadena de superiores» en `UserDirectory`.
+  - Permisos de un tercero: `roles.rolePermissionsOf(userId)` + `effectivePermissions(roleSets, rank)` (`access/domain/effective-permissions.ts`); exigir `share.manage` (techo 3), `credential.update` (techo 3) y `rotation.manage` (techo 2).
+  - Rotación: la deduplicación vive solo en la aplicación (`pg-share-repository.ts:226-236`); hoy usa 7 días y la persona que actúa como asignataria; la baja necesita 72 h y asignatario con `rotation.manage` (respaldo: la Raíz).
+  - Capas: el puerto va en `directory/application/ports`, los adaptadores en `vault/infrastructure` y `access/infrastructure` (exportados por su `index.ts`) y el cableado en `apps/api/src/app/container.ts`. El patrón de evento a copiar es `user.rank_changed` (dominio, cola, handler, plantilla y `Mailer` con sus 3 implementaciones).
+  - La alerta `integration.infra_alert` va solo a la Raíz; «Administrador y Raíz» pide un evento propio.
+  - Reparto: (1) docs: adenda al ADR 0009 y regla de negocio; (2) lista blanca de auditoría y, si hace falta, migración de deduplicación; (3) cadena de superiores en `UserDirectory`; (4) puerto y adaptador de bóveda (cuentas huérfanas, concesión, rotación); (5) adaptador de acceso (candidato calificado); (6) eventos y correos (asignación, sin responsable, informe); (7) integración en `deactivate` y `container.ts`, bloqueos, medición y pruebas.
+  - Sin verificar: si `listByAccount` filtra credenciales archivadas; si ya existe contrato del informe de baja en `packages/contracts`.
