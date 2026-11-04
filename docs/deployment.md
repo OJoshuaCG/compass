@@ -164,7 +164,7 @@ Esta ruta se armó a partir del código y de `pnpm stack`; todavía **no se ha e
 | Claves (KEK) | AWS KMS (`KMS_ADAPTER=aws`, [ADR 0020](adr/0020-reference-cloud-aws.md)) | Adaptador listo; **no probado contra AWS real**. La API comprueba el acceso a la clave al arrancar y no arranca si falla (ver la sonda de arranque en [`backend.md`](backend.md) §6) |
 | Correo | SMTP del dominio de la organización | Ver [configurar correo](runbooks/configure-mail.md) |
 | Sondeo de correo entrante (`inbound-poll`) | Proceso periódico aparte, programado desde el anfitrión; el contenedor solo arranca la API (`docker/start.sh` ejecuta `main.http.js`) | Opcional, solo si se usan los códigos entrantes. Entorno y rol propios; ver [programar el sondeo](runbooks/inbound-poll.md). **Sin ensayar contra un servidor IMAP real** |
-| Respaldos de la base | Servidor dedicado | **Por definir** (decisión pendiente) |
+| Respaldos de la base | Servidor dedicado | `pg_dump` cada hora a Wasabi (RPO de 1 h, RTO de 4 h; decidido el 2026-11-04). El trabajo programado y la retención: **por definir** |
 
 Restricción vigente: **una sola réplica** de la API ([ADR 0039](adr/0039-single-instance-until-redis.md), [runbook](runbooks/single-instance-operation.md)).
 
@@ -334,5 +334,5 @@ Redespliega el commit anterior. Las migraciones no se revierten: se corrigen con
   La prueba usó `NODE_ENV=development` con KMS local y correo por registro, porque producción exige AWS KMS y SMTP reales. Podman ignora el `HEALTHCHECK` con el formato OCI; Docker (el de Dokploy) lo respeta. **Falta verificar en Dokploy** que marque el despliegue como fallido cuando el contenedor sale con error.
 - **Dokploy**: los datos de esta guía salen de su documentación pública, no de un ensayo. No encontré un paso previo al despliegue, el valor por defecto del puerto del contenedor ni confirmación de `stop-first`.
 - **AWS KMS real**, **TLS a PostgreSQL** (`sslmode` en la cadena de conexión) y la IP que ve la API tras Traefik.
-- **Respaldos**: la estrategia y su ensayo siguen pendientes (ver [restaurar un respaldo](runbooks/restore-backup.md)). No cargues credenciales reales hasta cerrar la fase 1 y la prueba de penetración externa.
+- **Respaldos**: la estrategia está decidida (`pg_dump` cada hora a Wasabi, RPO de 1 h y RTO de 4 h; 2026-11-04) y su ensayo sigue pendiente (ver [restaurar un respaldo](runbooks/restore-backup.md)). No cargues credenciales reales hasta cerrar la fase 1 y la prueba de penetración externa.
 - `main.migrate` y `db/dist/cli.js` se leyeron en el código pero no se ejecutaron para esta guía.

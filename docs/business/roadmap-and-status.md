@@ -30,7 +30,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | Fase | Qué entrega al negocio | Estado |
 | --- | --- | --- |
 | 0 · Fundaciones | Una base técnica segura, sin pantallas de negocio todavía | **Hecho** (con una observación, ver sección 3) |
-| 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Implementada en lo esencial, con pendientes** (el segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia; faltan los límites de intentos compartidos y otros pendientes; ver sección 4.1) |
+| 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Cerrada en lo funcional** (decisión del dueño, 2026-11-04). El segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia. La revisión humana de las pruebas sensibles, el almacén compartido de contadores de intentos y la verificación automática (CI) pasan a ser condiciones de la puerta de producción; ver secciones 4.1 y 5 |
 | 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **En curso.** Ya funcionan cuentas, credenciales y revelado, compartición, segundo factor por clave manual y por imagen, y la importación por CSV y desde Google Authenticator; de la búsqueda avanzada ya funcionan la búsqueda de texto y los filtros; faltan el índice ciego por persona y las vistas guardadas. La entrega por celular del registro del segundo factor pasó a la versión 1.1 (ver sección 4.2) |
 | 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente |
 | Puerta de producción | Prueba de intrusión, simulacro de restauración y procedimientos ensayados | Pendiente |
@@ -64,7 +64,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 
 La fase 1 se divide en tres entregas. Llega a producción interna solo después de la puerta de producción.
 
-### 4.1 Fase 1a: Identidad (implementada en lo esencial, con pendientes)
+### 4.1 Fase 1a: Identidad (cerrada en lo funcional, con condiciones para producción)
 
 | Qué entrega | Documento donde se explica |
 | --- | --- |
@@ -103,6 +103,8 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 
 #### Lo que sigue pendiente en la fase 1a
 
+El dueño declaró la fase cerrada en lo funcional el 2026-11-04. Lo de esta tabla ya no la mantiene abierta: lo que afecta a la seguridad se cumple antes de la puerta de producción (sección 5).
+
 | Pendiente | Efecto en el negocio |
 | --- | --- |
 | Exigir passkeys a la Raíz y a los Administradores | Hoy son opcionales para todos. Exigirlas queda como una futura configuración de la organización: todavía no hay pantalla de configuración y un registro forzado, sin alternativa, podría dejar a las personas fuera |
@@ -126,7 +128,7 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub; despriorizada por el dueño |
 
-**Conclusión.** La fase 1a funciona en lo esencial, pero no se da por cerrada: la entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados, y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y el procedimiento de caída total de los códigos de emergencia (la recuperación de una Raíz que pierde contraseña y factores ya existe), que deben resolverse antes de la puerta de producción. La fase 1b está en curso (ver sección 4.2).
+**Conclusión.** El dueño declaró la fase 1a **cerrada en lo funcional** el 2026-11-04. La entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados. Tres condiciones pasan a la puerta de producción (sección 5): la revisión humana de las pruebas de autorización, criptografía y aislamiento, el almacén compartido de contadores de intentos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y la verificación automática (CI) en GitHub. Sigue pendiente el procedimiento de caída total de los códigos de emergencia (la recuperación de una Raíz que pierde contraseña y factores ya existe). La fase 1b está en curso (ver sección 4.2).
 
 ### 4.2 Fase 1b: Bóveda y 2FA (en curso)
 
@@ -163,6 +165,9 @@ Antes de cargar credenciales reales, y después de completar 1a, 1b y 1c, se deb
 | --- | --- |
 | Prueba de intrusión externa independiente | Sin hallazgos altos ni críticos abiertos. Cubre autorización, aislamiento, cifrado, sesiones y flujos de segundo factor |
 | Simulacro de restauración exitoso | Restauración completa en un entorno aislado, incluido abrir los secretos con las claves de cifrado |
+| Revisión humana de las pruebas sensibles | Una persona escribe o revisa las pruebas de autorización, criptografía y aislamiento de la fase 1a (condición agregada al cerrar la fase en lo funcional, 2026-11-04) |
+| Almacén compartido de contadores de intentos | Los límites de intentos funcionan entre instancias y no se pierden al reiniciar (condición agregada al cerrar la fase 1a en lo funcional, 2026-11-04) |
+| Verificación automática (CI) en verde | Las pruebas se ejecutan en GitHub y pasan (condición agregada al cerrar la fase 1a en lo funcional, 2026-11-04) |
 | Procedimientos de incidentes ensayados | Los procedimientos de incidentes y recuperación de [`../runbooks/`](../runbooks/README.md), incluido el de caída total. Los catorce están redactados como borrador y ninguno se ha ensayado |
 
 **Regla:** no se cargan credenciales reales hasta cerrar los hallazgos altos y críticos. La prueba de intrusión se repite antes de cada fase de inicio de sesión único.
@@ -240,5 +245,5 @@ Además de las decisiones anteriores, estos puntos no están definidos por el pl
 | 2 | Quién es el equipo de guardia para incidentes | Los procedimientos sugieren responsables, pero el plan no fija un equipo de guardia |
 | 3 | Cuándo se resuelven las dos decisiones técnicas que siguen en estado de propuesta: los bloqueos de auditoría en transacciones largas y la retención de auditoría | La auditoría de las negaciones ya quedó resuelta y aceptada en la fase 1a. Las dos restantes afectan a la auditoría de acciones largas y a cuánto tiempo se conserva. Ver [`docs/adr/`](../adr/README.md) |
 | 4 | Qué documento fija el procedimiento de caída total | Ya hay un borrador en [`../runbooks/total-outage.md`](../runbooks/total-outage.md), sin ensayar. Falta definir la administración directa de la base de datos cuando no quedan códigos de emergencia y la política de los sobres sellados |
-| 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin el procedimiento de caída total de los códigos de emergencia | Las passkeys, los códigos de emergencia y la recuperación de la Raíz ya existen; esos dos pendientes siguen abiertos |
+| 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin el procedimiento de caída total de los códigos de emergencia | **Resuelta el 2026-11-04 (dueño):** se cierra en lo funcional; la revisión humana de las pruebas sensibles, el almacén compartido y la verificación automática pasan a la puerta de producción (sección 5) |
 | 6 | Cuál es el dominio de envío del correo y quién configura sus registros de autenticación del remitente | Se decidió que el correo sale del dominio propio de la organización; el dominio concreto y su configuración de DNS dependen del equipo |

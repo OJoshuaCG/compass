@@ -24,7 +24,7 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
 
 | ID | Specs | Ruta | Estado | Evidencia |
 | --- | --- | --- | --- | --- |
-| T1 | S2, S3, S6, S7 | inline (docs) | en curso: hechos ADR 0024 (S2), variante de bajas (S3) en `offboarding.md`, `handoff.md` y TODO F1 y P1 | |
+| T1 | S2, S3, S6, S7 | delegada (redactor de docs, regla del proyecto) | hecha | `e269996` y el commit de docs siguiente: governance §2.4, actors-and-hierarchy fila 8, transfer-root, respaldos (RPO 1 h), roadmap 1a cerrada, handoff |
 | T2 | S1 | inline (código y pruebas) | hecha | línea base verde (21 pruebas); después 27 verdes; la rotura intencional (quitar el filtro por campo) la detectan 3 pruebas del bloque C9 |
 | T3 | S3 | inline, ruta protegida | pendiente | |
 | T4 | S4 | inline, ruta protegida y migración | pendiente | |
@@ -38,3 +38,10 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
 - L2 (2026-11-04): el encargo del dueño cubre las rutas protegidas que tocan estas respuestas: bajas (identidad, acceso y bóveda), transferencia de la Raíz (identidad) y auditoría. Las pruebas de autorización, aislamiento y criptografía se marcan `SENSIBLE` para revisión humana.
 - L3 (2026-11-04): en T2, la aserción de `apps/api/test/purge-expired.integration.test.ts:293` («la purga no toca contraseñas») fijaba el comportamiento anterior y S1 lo cambia por decisión del dueño. Pasa a nivel del almacén de TOTP (la purga de TOTP sigue sin tocar contraseñas) y se agrega un bloque propio para la regla de contraseñas.
 - L4 (2026-11-04): T2 terminada. Un solo SQL compartido (`purge-replaced-secret-versions.ts`) que recibe el campo; almacenes para `totp_uri` y `password`. Formato, tipos y lint en verde; pruebas dirigidas por `test-runner`: 27 verdes. Las pruebas del bloque C9 quedan marcadas `SENSIBLE` para revisión humana.
+- L5 (2026-11-04): T1 terminada. Mapa de T3, hecho por un explorador de solo lectura:
+  - la baja actual (`ManageUsers.deactivate`, `apps/api/src/modules/directory/application/manage-users.ts:158`) no toca comparticiones ni crea tareas de rotación;
+  - tampoco saca a la persona de sus grupos, aunque el comentario de `db/migrations/0004_directory_access.sql:27` lo afirma;
+  - no existe ayuda para subir por la cadena ni para calcular los permisos de un usuario arbitrario;
+  - las tareas de rotación (`rotation_tasks`) exigen asignatario y deduplican en código.
+
+  T3 es grande (varias sesiones): toca directorio, bóveda y acceso, notificación con plantilla en dos idiomas, informe de baja y jueces.
