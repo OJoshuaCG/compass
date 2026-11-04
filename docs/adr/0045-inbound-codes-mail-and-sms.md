@@ -328,6 +328,16 @@ El seguimiento detallado, con jueces y mutaciones por rebanada, está en [`odd/t
 
 Sigue pendiente: la ratificación de este ADR, la retención legal, el subdominio de alias, la revisión humana de las pruebas marcadas como sensibles y el e2e HTTP del módulo.
 
+## Enmienda 2026-11-04: decisiones del dueño sobre los pendientes
+
+El dueño respondió los pendientes de la sección «Decisiones abiertas»; esa lista es anterior al camino B y queda sustituida por esto:
+
+- **Subdominio de alias y DNS (C10): no aplica con el camino B.** El buzón se da de alta por IMAP contra el servidor de correo propio; no hay subdominio ni registros SPF, DKIM o DMARC que configurar de nuestro lado. Solo volvería si se reabre el camino A.
+- **Autenticidad del correo**: se mantiene la fase 1 de la enmienda (2): se confía en `Authentication-Results` del servidor propio y **no** se verifica DKIM en el worker. Lo que el remitente firma lo comprueba el servidor al recibir; el sistema solo lee el veredicto. Pendiente de **comprobación**, no de decisión: confirmar con un buzón real que el servidor antepone esa cabecera con el `authserv-id` configurado.
+- **SMS**: genérico, sin proveedor por defecto y configurable por organización. El costo no es criterio y se admite cualquier tipo de número, VoIP incluido (que algunas plataformas no envíen códigos a números VoIP es una limitación de ellas, no una regla nuestra). Hasta que haya una necesidad real, solo existe el adaptador simulado de pruebas; el primer conector real se elige cuando se necesite.
+- **Cifras ratificadas**: vigencia de 10 minutos, tolerancia de 5 minutos, historial de 30 días, cuarentena de 7 días y tope de tamaño de 256 KB. Si correos reales caen en cuarentena por `MESSAGE_TOO_LARGE`, se sube el tope. El mínimo de 2048 bits queda escrito pero sin efecto con el camino B, porque el servidor propio no informa el tamaño de la clave (`keyBitsPolicy: 'not_available'`).
+- **Sigue pendiente**: la revisión de privacidad con el área legal (TODO A10). Por eso el estado no cambia a «Aceptada».
+
 ## No verificado
 
 - Que el cambio de `acceptedRecipients` y de `keyBitsPolicy` en el IC-1 no rompa las pruebas y mutaciones ya cerradas: se leyó `dkim-gate.ts`, pero no se ejecutó nada.

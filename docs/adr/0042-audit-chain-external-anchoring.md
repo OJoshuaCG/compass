@@ -80,6 +80,14 @@ Reglas que se derivan si se acepta:
 3. ¿Quién recibe la alerta de manifiesto ausente o discrepante y qué hace? Depende de la observabilidad que aún no existe.
 4. ¿Se justifica la opción C (firma con KMS)? Depende de quién se considere el atacante: con acceso al anfitrión, la firma tampoco lo detiene.
 
+## Decisión del dueño (2026-11-04)
+
+- **Opción B.** Destino: un bucket **aparte en Wasabi** (el proveedor que ya guarda los respaldos, TODO L2), con Object Lock en modo de cumplimiento y una credencial que solo puede escribir objetos nuevos, distinta de la de los respaldos, de la base y del KMS. Antes de implementar hay que verificar que Wasabi ofrece el modo de cumplimiento con la retención de 2 años.
+- **Frecuencia: una vez al día** (no cada hora). Consecuencia aceptada: una manipulación puede tardar hasta un día en notarse.
+- **Alertas configurables por la Raíz**: un panel donde la Raíz elige cómo recibir estas alertas, por correo, por Telegram o por ambos. Telegram es una integración nueva (comando de red y un token de bot que es un secreto, a cifrar con el módulo de criptografía): se trata como tarea aparte.
+- La opción C (firma del manifiesto con el KMS) no se pidió; queda como mejora posterior.
+- El estado sigue en «Propuesta» hasta verificar el soporte de Wasabi.
+
 ## No verificado
 
 - Soporte de Object Lock en el destino alternativo al de AWS.

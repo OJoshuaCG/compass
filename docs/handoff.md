@@ -118,6 +118,20 @@ Fases 2, 3, 5, 6 y 7 según `plan.md` (proveedor de inicio de sesión único, SA
 
 **Códigos entrantes (fase 4, [ADR 0045](adr/0045-inbound-codes-mail-and-sms.md); bloquean IC-8):** ratificar el ADR 0045 (sigue en Propuesta); subdominio de los alias y sus registros SPF, DKIM y DMARC (TODO C10); proveedor real de SMS; retención legal de lo recibido (TODO C9 y A10). La vía de recepción ya está decidida: sondeo IMAP del servidor de correo propio.
 
+**Decisiones del dueño (2026-11-04):** sustituyen lo que digan como abierto los párrafos anteriores de esta sección.
+
+| Tema | Decisión |
+| --- | --- |
+| Códigos entrantes (ADR 0045) | Con IMAP no hay subdominio ni DNS que configurar (C10 no aplica). Se confía en el veredicto del servidor de correo propio; no se verifica DKIM en el worker. SMS genérico, sin proveedor real hasta que haga falta, cualquier tipo de número. Cifras ratificadas, con tope de 256 KB que se sube si hace falta. Solo falta la revisión legal (A10) |
+| Ancla de auditoría (ADR 0042) | Bucket aparte en Wasabi con bloqueo de borrado, publicación diaria y alertas que la Raíz configura en un panel (correo y/o Telegram; Telegram es una tarea aparte) |
+| Retención de auditoría (ADR 0024) | Archivo de 2 años aceptado; se guarda en Wasabi. Falta confirmar el particionado mensual |
+| Bajas (P1) | Se quitan el perfil vivo y el paso a un par del mismo nivel. Rotación en 72 h, con prioridad alta para lo que la persona reveló. Si nadie califica, la cuenta queda sin responsable y se avisa a Administradores y Raíz (está en evaluación asignarla al Administrador más cercano). Hay informe de baja de solo lectura. El suspendido conserva sus comparticiones. La baja se hace de una vez y se mide. Detalle en `odd/tasks/offboarding.md` |
+| Transferencia de la Raíz (J3) | Pueden cancelar la Raíz, cualquier Administrador y el destino. Los Administradores pasan a la nueva Raíz. El destino acepta de forma explícita, reautenticándose. Al completarse se anulan los códigos de emergencia y se emiten nuevos con los dos custodios (requiere ADR y comando). La Raíz anterior pierde sus sesiones, sus factores (los vuelve a registrar) y los permisos que excedan el rango de Administrador. Si el destino deja de ser Administrador activo durante las 72 h, la transferencia se cancela sola y avisa. Va en la fase 1c |
+| Versiones de contraseña (C9) | 30 días, configurables |
+| Respaldos (C2, L2) | `pg_dump` cada hora a Wasabi: RPO de 1 h y RTO de 4 h |
+| Prueba de penetración (C7) | Su alcance incluye los códigos entrantes; se retoma el 2026-11-09 |
+| Fase 1a (J6) | Cerrada en lo funcional. La revisión humana de las pruebas `SENSIBLE`, Redis y el CI pasan a ser condiciones de la puerta de producción |
+
 **Decisiones del dueño (2026-10-27):**
 
 | Tema | Decisión | Razón o efecto |
@@ -186,7 +200,7 @@ Fases 2, 3, 5, 6 y 7 según `plan.md` (proveedor de inicio de sesión único, SA
 - Las filas vencidas de `idempotency_keys` y `webauthn_challenges` se purgan con el comando `purge-expired` ([ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)), que Ops debe programar ([runbook](runbooks/purge-expired.md)); el reintento idempotente no vuelve a comprobar permisos durante las 24 horas. La idempotencia nunca se aplica a endpoints cuya respuesta lleve secretos.
 - Las opciones de ingreso con passkey devuelven los identificadores de las credenciales de quien ya verificó la contraseña.
 - Recuperación de la Raíz: con los códigos de emergencia se recupera quien conserva la contraseña. Quien pierde contraseña y factores se recupera con el comando `recover-root` (control dual de dos custodios, ADR 0037, aceptada con confirmación pendiente del dueño; runbook [recover-root](runbooks/recover-root.md)), que emite además códigos nuevos. Siguen sin cobertura: reemitir códigos sin recuperar a la Raíz y haber agotado los códigos de un custodio (caída total).
-- Las passkeys no se exigen a nadie, y la reautenticación solo acepta el código TOTP (ni passkey ni código de recuperación).
+- Las passkeys no se exigen a nadie. La reautenticación acepta el código TOTP o una passkey, nunca el código de recuperación ([ADR 0033](adr/0033-reauthentication-totp-and-passkey.md); rutas `POST /auth/reauth/passkey/options` y `/verify`).
 - Correo: el de invitación y el aviso de uso de un código de emergencia salen por SMTP del dominio propio ([runbook](runbooks/configure-mail.md)); salen también los avisos a la persona por uso de un código de recuperación y por alta o baja de una llave de acceso (G5); sale también el de baja de la aplicación autenticadora (hoy solo la origina el restablecimiento con código de emergencia), por el outbox. Siguen sin existir los de dispositivo nuevo y regeneración de códigos: no hay todavía el flujo que los origina (ver `odd/tasks/security-notices.md`). El dominio necesita SPF, DKIM y DMARC en el DNS.
 - Producción: el adaptador de AWS KMS existe (`KMS_ADAPTER=aws`, L1, [ADR 0020](adr/0020-reference-cloud-aws.md)) pero nunca se probó contra AWS real ni hay comprobación de permisos al arrancar; el adaptador local sigue negándose a arrancar con `NODE_ENV=production`. No existe el punto de entrada del worker; el sondeo de códigos entrantes sí tiene el suyo (`main.inbound-poll.ts`), sin ensayar contra un servidor IMAP real. El despliegue acordado (Dokploy, PostgreSQL dedicado) está en [`deployment.md`](deployment.md), con el `Dockerfile` sin construir y sin ensayar; la estrategia de respaldos sigue sin definir.
 - Configuración: `.env.example` y `.env.setup.example` son plantillas solo para correr la API local contra una base de pruebas externa ([`deployment.md`](deployment.md) §1.1); la fuente de verdad de las variables de entorno es `apps/api/src/app/config.ts` (resumida en `docs/backend.md` §6.3.1 y §6.3.2). Se validan al arrancar y el servicio no inicia con una configuración inválida.

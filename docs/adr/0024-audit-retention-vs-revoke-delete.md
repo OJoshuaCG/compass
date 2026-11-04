@@ -26,6 +26,12 @@ Esta es una recomendación para decidir, no una decisión.
 - **Archivo exportado e inmutable: al menos 2 años**, pendiente de validar con el área legal antes de producción.
 - **Sigue abierto**: la elección de la opción de expiración (la recomendada es el particionado, opción 1), la granularidad de partición, el formato del hash de cierre y dónde vive el archivo inmutable. Por eso el estado se mantiene en "Propuesta".
 
+## Decisión del dueño (2026-11-04)
+
+- **El archivo de al menos 2 años queda aceptado** por el dueño.
+- **El archivo inmutable vive en Wasabi**, en el mismo destino que el ancla del [ADR 0042](0042-audit-chain-external-anchoring.md).
+- **Sigue abierto**: confirmar el particionado mensual y la opción 1. El dueño pidió una recomendación el mismo día.
+
 ## Consecuencias (si se acepta la recomendación)
 
 - **Positivas**: expiración eficiente sin `DELETE` desde la aplicación; la cadena y el archivo siguen siendo verificables.
