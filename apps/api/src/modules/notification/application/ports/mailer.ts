@@ -126,6 +126,26 @@ export interface OffboardingNoticeMessage {
   readonly occurredAt: Date;
 }
 
+/**
+ * Aviso de la transferencia de la Raíz. Solo nombres visibles de las dos personas, el tipo de aviso y fechas:
+ * nunca enlaces, códigos ni correos de terceros. `recipientRole` dice desde qué lado se redacta el texto.
+ */
+export interface RootTransferNoticeMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  readonly kind: 'requested' | 'accepted' | 'cancelled' | 'expired' | 'completed';
+  readonly recipientRole: 'previous_root' | 'new_root' | 'administrator';
+  /** Nombre visible de la Raíz que entrega el puesto; `null` si ya no se puede resolver. */
+  readonly fromDisplayName: string | null;
+  /** Nombre visible de quien lo recibe; `null` si ya no se puede resolver. */
+  readonly toDisplayName: string | null;
+  /** Solo en `cancelled`: la cancelación fue automática (la destinataria dejó de ser elegible). */
+  readonly automatic: boolean;
+  readonly occurredAt: Date;
+  /** Cuándo terminará la espera de 72 horas (solo en `accepted`). */
+  readonly executesAt: Date | null;
+}
+
 /** Correo saliente detrás de un puerto (SES en producción; el proveedor es intercambiable). */
 export interface Mailer {
   sendInvitation(message: InvitationMessage): Promise<void>;
@@ -143,6 +163,8 @@ export interface Mailer {
   sendRankChangeNotice(message: RankChangeNoticeMessage): Promise<void>;
   /** Avisa de una baja a quien recibe cuentas, a Administradores y Raíz, o a quien la dio (solo conteos). */
   sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void>;
+  /** Avisa de una transferencia de la Raíz a quien entrega, a quien recibe y a los Administradores. */
+  sendRootTransferNotice(message: RootTransferNoticeMessage): Promise<void>;
   /** Avisa a la Raíz de una falla de la plataforma (solo un código fijo y la hora). */
   sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void>;
 }

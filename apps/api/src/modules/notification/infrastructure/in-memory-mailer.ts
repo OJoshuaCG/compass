@@ -4,6 +4,7 @@ import type {
   InvitationMessage,
   Mailer,
   OffboardingNoticeMessage,
+  RootTransferNoticeMessage,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
   ResetRevealAlertMessage,
@@ -92,6 +93,17 @@ export class InMemoryMailer implements Mailer {
   }
 
   readonly offboardingNotices: OffboardingNoticeMessage[] = [];
+
+  readonly rootTransferNotices: RootTransferNoticeMessage[] = [];
+
+  sendRootTransferNotice(message: RootTransferNoticeMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.rootTransferNotices.push(message);
+    return Promise.resolve();
+  }
 
   sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void> {
     if (this.failNext) {

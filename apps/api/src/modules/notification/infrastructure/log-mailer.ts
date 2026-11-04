@@ -6,6 +6,7 @@ import type {
   InvitationMessage,
   Mailer,
   OffboardingNoticeMessage,
+  RootTransferNoticeMessage,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
   ResetRevealAlertMessage,
@@ -93,6 +94,15 @@ export class LogMailer implements Mailer {
     this.logger.info(
       { kind: message.kind, accountCount: message.accountCount, occurredAt: message.occurredAt },
       'offboarding notice (dev)',
+    );
+    return Promise.resolve();
+  }
+
+  sendRootTransferNotice(message: RootTransferNoticeMessage): Promise<void> {
+    // Sin destinatario ni nombres: son datos personales y aquí solo importan el tipo, el papel y el momento.
+    this.logger.info(
+      { kind: message.kind, recipientRole: message.recipientRole, occurredAt: message.occurredAt },
+      'root transfer notice (dev)',
     );
     return Promise.resolve();
   }

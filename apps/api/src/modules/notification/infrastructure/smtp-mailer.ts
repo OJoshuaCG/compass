@@ -5,6 +5,7 @@ import {
   renderInvitationEmail,
 } from '../application/render-invitation-email.js';
 import { renderOffboardingEmail } from '../application/render-offboarding-email.js';
+import { renderRootTransferEmail } from '../application/render-root-transfer-email.js';
 import { renderPendingTotpEmail } from '../application/render-pending-totp-email.js';
 import { renderRankChangeEmail } from '../application/render-rank-change-email.js';
 import { renderRevealLimitEmail } from '../application/render-reveal-limit-email.js';
@@ -17,6 +18,7 @@ import type {
   InvitationMessage,
   Mailer,
   OffboardingNoticeMessage,
+  RootTransferNoticeMessage,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
   ResetRevealAlertMessage,
@@ -161,6 +163,15 @@ export class SmtpMailer implements Mailer {
 
   async sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void> {
     const email = renderOffboardingEmail(message);
+    try {
+      await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
+    } catch {
+      throw new Error('Mail delivery failed');
+    }
+  }
+
+  async sendRootTransferNotice(message: RootTransferNoticeMessage): Promise<void> {
+    const email = renderRootTransferEmail(message);
     try {
       await this.transport.sendMail({ from: this.options.from, to: message.to, ...email });
     } catch {
