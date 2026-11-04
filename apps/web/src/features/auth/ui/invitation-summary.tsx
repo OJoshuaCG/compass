@@ -18,7 +18,7 @@ export function InvitationSummary({ email, rank, expiresAt }: InvitationSummaryP
   return (
     <dl
       aria-label={t('invitation.summary', { ns: 'auth' })}
-      className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-md border border-border-strong bg-raised p-4 text-sm"
+      className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-md border border-border bg-raised p-4 text-sm"
     >
       <dt className="text-text-secondary">{t('invitation.email', { ns: 'auth' })}</dt>
       <dd className="break-all text-text">{email}</dd>
