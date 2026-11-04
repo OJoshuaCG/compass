@@ -45,12 +45,6 @@ export async function fetchAllManaged(signal: AbortSignal) {
 }
 
 /**
- * Posibles responsables de una persona invitada: el subárbol de quien invita, que es exactamente
- * el alcance que el servidor exige y no pide permisos de gestión.
- */
-export const fetchInvitableManagers = fetchAllManaged;
-
-/**
  * Acciones sobre una persona gestionada: todas responden 204, salvo cambiar el rango (200 con cuerpo). El cliente HTTP reintenta una vez
  * tras reautenticar (cambiar el rango la exige) con la misma clave de idempotencia.
  */
