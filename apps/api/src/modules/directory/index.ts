@@ -22,6 +22,12 @@ export type {
   SharedAccountsSummaryPage,
   SharedByLister,
 } from './application/ports/shared-by-lister.js';
+export { ReassignOffboardedAccounts } from './application/reassign-offboarded-accounts.js';
+export type {
+  AccountReassignment,
+  OffboardedAccountsReport,
+  ReassignOffboardedAccountsDeps,
+} from './application/reassign-offboarded-accounts.js';
 export { NotifyRankChanged } from './application/notify-rank-changed.js';
 export type {
   NotifyRankChangedDeps,
