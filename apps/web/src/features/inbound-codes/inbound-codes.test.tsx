@@ -106,6 +106,22 @@ describe('navigation', () => {
     expect(link).toHaveAttribute('href', '/inbound');
   });
 
+  it('marks only the sources link as current on /inbound/sources, not the access codes link', async () => {
+    stubApi({
+      'GET /me': jsonResponse(
+        meFixture({ permissions: ['inbound.read_codes', 'inbound.configure'], rank: 1 }),
+      ),
+      'GET /inbound/sources': jsonResponse({ data: [] }),
+    });
+    renderApp('/inbound/sources');
+
+    const sourcesLink = await screen.findByRole('link', { name: es.common['nav.inboundSources'] });
+    expect(sourcesLink).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: es.common['nav.inbound'] })).not.toHaveAttribute(
+      'aria-current',
+    );
+  });
+
   it('hides the link without the permission', async () => {
     stubApi({ 'GET /me': jsonResponse(meFixture({ permissions: [], rank: 1 })) });
     renderApp('/');
@@ -127,7 +143,10 @@ describe('views list', () => {
     renderApp('/inbound');
     const table = await screen.findByRole('table', { name: t.caption });
 
-    const githubRow = within(table).getByRole('row', { name: new RegExp('Códigos de GitHub') });
+    // Se espera la fila: la tabla aparece primero con el esqueleto de carga.
+    const githubRow = await within(table).findByRole('row', {
+      name: new RegExp('Códigos de GitHub'),
+    });
     expect(within(githubRow).getByText('Buzón de accesos')).toBeVisible();
     expect(within(githubRow).getByText(t['channel.mail'])).toBeVisible();
     expect(within(githubRow).getByText(t['level.USE'])).toBeVisible();
