@@ -23,6 +23,7 @@ import { Link, Outlet } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { RankBadge } from '../features/directory';
 import { useLogout, useMe, usePermission } from '../shared/auth';
 import { LanguageSwitcher } from '../shared/i18n';
 import { ThemeSwitcher } from '../shared/theme';
@@ -84,6 +85,7 @@ export function AppLayout() {
                 <span className="hidden text-sm text-text-secondary sm:inline">
                   {me.user.displayName}
                 </span>
+                <RankBadge rank={me.user.rank} label={t(`rank.${String(me.user.rank)}`)} />
               </span>
             ) : null}
             <Button

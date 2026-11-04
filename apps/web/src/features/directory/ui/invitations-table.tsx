@@ -64,12 +64,20 @@ export function InvitationsTable({
       {
         id: 'sent',
         header: t('invitations.col.sent', { ns: 'directory' }),
-        cell: (row) => formatDateTime(row.createdAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono text-text-secondary">
+            {formatDateTime(row.createdAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
       {
         id: 'expires',
         header: t('invitations.col.expires', { ns: 'directory' }),
-        cell: (row) => formatDateTime(row.expiresAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono text-text-secondary">
+            {formatDateTime(row.expiresAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
       {
         id: 'status',
