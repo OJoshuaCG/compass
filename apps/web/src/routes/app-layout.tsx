@@ -1,22 +1,25 @@
 import {
   AppShell,
-  Avatar,
   Bell,
   BrandMark,
-  Button,
   House,
+  IconButton,
   Inbox,
   KeyRound,
   Layers,
   LayoutGrid,
   LogOut,
   Monitor,
+  PanelLeftClose,
+  PanelLeftOpen,
   NavGroup,
   navItemClass,
   navItemIconClass,
   ShieldCheck,
+  SIDEBAR_ID,
   SlidersHorizontal,
   UserCog,
+  UserMenu,
   Users,
 } from '@iam/ui';
 import { Link, Outlet } from '@tanstack/react-router';
@@ -26,6 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { RankBadge } from '../features/directory';
 import { useLogout, useMe, usePermission } from '../shared/auth';
 import { LanguageSwitcher } from '../shared/i18n';
+import { useSidebarVisibility } from '../shared/layout';
 import { ThemeSwitcher } from '../shared/theme';
 
 // El estado activo se dibuja desde `aria-current` (ver `navItemClass`), que el enrutador fija.
@@ -64,41 +68,60 @@ export function AppLayout() {
   // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
   const canManageInfraAlerts = usePermission('alerts.infra.manage');
   const { logout, pending } = useLogout();
+  const sidebarState = useSidebarVisibility(me?.user.id);
+  const sidebarVisible: boolean = sidebarState.visible;
   const showCatalog: boolean = import.meta.env.DEV;
   // El grupo Acceso se oculta entero cuando ninguno de sus enlaces aplica a la persona.
   const showAccessGroup: boolean = canManageRoles || canManageInfraAlerts || showCatalog;
   return (
     <AppShell
       skipLinkLabel={t('nav.skipToContent')}
+      sidebarHidden={!sidebarVisible}
       header={
         <>
-          <span className="inline-flex items-center gap-2.5 font-heading text-lg font-semibold text-text">
-            <BrandMark />
-            {t('app.name')}
-          </span>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex items-center gap-2">
+            <IconButton
+              variant="ghost"
+              size="md"
+              label={sidebarVisible ? t('nav.hideMenu') : t('nav.showMenu')}
+              icon={
+                sidebarVisible ? (
+                  <PanelLeftClose className="size-5" />
+                ) : (
+                  <PanelLeftOpen className="size-5" />
+                )
+              }
+              aria-expanded={sidebarVisible}
+              aria-controls={SIDEBAR_ID}
+              onClick={sidebarState.toggle}
+            />
+            <span className="inline-flex items-center gap-2.5 font-heading text-lg font-semibold text-text">
+              <BrandMark />
+              {t('app.name')}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
             <LanguageSwitcher />
             <ThemeSwitcher />
             {me !== undefined ? (
-              <span className="inline-flex items-center gap-2.5">
-                <Avatar name={me.user.displayName} size="sm" />
-                <span className="hidden text-sm text-text-secondary sm:inline">
-                  {me.user.displayName}
-                </span>
-                <RankBadge rank={me.user.rank} label={t(`rank.${String(me.user.rank)}`)} />
-              </span>
+              <UserMenu
+                name={me.user.displayName}
+                details={
+                  <RankBadge rank={me.user.rank} label={t(`rank.${String(me.user.rank)}`)} />
+                }
+                actions={[
+                  {
+                    id: 'logout',
+                    label: t('actions.logout'),
+                    icon: <LogOut className="size-4" />,
+                    pending,
+                    onSelect: () => {
+                      void logout();
+                    },
+                  },
+                ]}
+              />
             ) : null}
-            <Button
-              variant="secondary"
-              size="md"
-              loading={pending}
-              onClick={() => {
-                void logout();
-              }}
-            >
-              <LogOut aria-hidden="true" className="size-4" />
-              {t('actions.logout')}
-            </Button>
           </div>
         </>
       }
@@ -125,7 +148,13 @@ export function AppLayout() {
               label={t('nav.accounts')}
             />
             {canReadInboundCodes ? (
-              <NavLink to="/inbound" icon={<Inbox className="size-5" />} label={t('nav.inbound')} />
+              // Exacto: «Fuentes» y «Vistas» cuelgan de /inbound y no deben marcar también «Códigos».
+              <NavLink
+                to="/inbound"
+                exact
+                icon={<Inbox className="size-5" />}
+                label={t('nav.inbound')}
+              />
             ) : null}
             {canConfigureInbound ? (
               <>

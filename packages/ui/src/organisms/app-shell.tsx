@@ -11,7 +11,18 @@ export type AppShellProps = {
   skipLinkLabel: string;
   children: ReactNode;
   className?: string;
+  /**
+   * Oculta el menú lateral y deja el contenido con todo el ancho. Por defecto es visible, así que
+   * quien no lo pasa conserva el comportamiento anterior.
+   */
+  sidebarHidden?: boolean;
 };
+
+/**
+ * Identificador del menú lateral: el botón que lo oculta lo referencia con `aria-controls`.
+ * Sigue en el DOM aun oculto (atributo `hidden`), por lo que la referencia nunca queda rota.
+ */
+export const SIDEBAR_ID = 'app-sidebar';
 
 /** Identificador del `<main>`: destino del enlace de salto. */
 export const MAIN_CONTENT_ID = 'main-content';
@@ -37,7 +48,14 @@ export function SkipLink({ label }: { label: string }) {
  * menú lateral y contenido principal con ancho máximo. Los landmarks (`banner`,
  * `complementary`, `main`) los aportan las etiquetas.
  */
-export function AppShell({ sidebar, header, skipLinkLabel, children, className }: AppShellProps) {
+export function AppShell({
+  sidebar,
+  header,
+  skipLinkLabel,
+  children,
+  className,
+  sidebarHidden = false,
+}: AppShellProps) {
   return (
     <div className={cn('flex min-h-screen flex-col text-text', className)}>
       <SkipLink label={skipLinkLabel} />
@@ -47,7 +65,12 @@ export function AppShell({ sidebar, header, skipLinkLabel, children, className }
       <div className="flex flex-1 flex-col md:flex-row">
         {/* w-62 = 248 px, el ancho del menú del diseño (ADR 0049): cabe la etiqueta más larga
             («Alertas de infraestructura») sin cortarla. En pantallas estrechas ocupa todo el ancho. */}
-        <aside className="border-b border-border bg-sidebar px-3 pt-4 pb-6 md:w-62 md:shrink-0 md:border-e md:border-b-0">
+        <aside
+          id={SIDEBAR_ID}
+          // `hidden` lo saca del árbol de accesibilidad y del orden de tabulación, no solo de la vista.
+          hidden={sidebarHidden}
+          className="border-b border-border bg-sidebar px-3 pt-4 pb-6 md:w-62 md:shrink-0 md:border-e md:border-b-0"
+        >
           {sidebar}
         </aside>
         <main

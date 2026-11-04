@@ -11,6 +11,7 @@ import {
   ROOT_PASSWORD,
   sessionCookie,
   signInWithPassword,
+  signOut,
   storageDump,
   watchSecurityViolations,
 } from './support/identity-helpers.js';
@@ -86,9 +87,9 @@ test.describe
 
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(page.getByRole('banner').locator('button[aria-haspopup="menu"]')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
     expect(await sessionCookie(context)).toBeUndefined();
 
@@ -142,7 +143,7 @@ test.describe
     await guest.getByRole('textbox', { name: 'Password', exact: true }).fill(PASSWORD);
     await guest.getByRole('button', { name: 'Create account' }).click();
     const guestEnrollment = await completeEnrollment(guest);
-    await expect(guest.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(guest.getByRole('banner').locator('button[aria-haspopup="menu"]')).toBeVisible();
     // La persona nueva aparece en el directorio de la Raíz.
     expect(await storageDump(guest)).not.toContain(guestEnrollment.secret);
 
@@ -247,7 +248,7 @@ test.describe
     await expect(table.getByText('Chrome virtual key')).toBeVisible();
 
     // Nuevo inicio de sesión: contraseña y, en lugar del código, la llave de acceso.
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByRole('button', { name: 'Use a passkey' }).click();
@@ -262,9 +263,9 @@ test.describe
   test('the language can be switched and the choice survives a reload', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
-    await page.getByLabel('Language').selectOption({ label: 'Español (México)' });
+    await page.getByRole('button', { name: 'Switch to Español (México)' }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeHidden();
     await page.reload();
-    await expect(page.getByLabel('Idioma')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Cambiar a / })).toBeVisible();
   });
 });

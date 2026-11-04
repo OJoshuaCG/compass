@@ -99,5 +99,21 @@
   "nav.alerts": "Alertas de infraestructura",
   "nav.group.workspace": "Espacio de trabajo",
   "nav.group.vault": "Bóveda",
-  "nav.group.access": "Acceso"
+  "nav.group.access": "Acceso",
+  "language.switchTo": "Cambiar a {{language}}",
+  "nav.hideMenu": "Ocultar menú",
+  "nav.showMenu": "Mostrar menú",
+  "home.summary.title": "Resumen",
+  "home.stat.unavailable": "Total no disponible",
+  "home.stat.unavailableHint": "Hay más registros de los que caben en una consulta. Abre el listado para verlos.",
+  "home.team.title": "Personas a tu cargo",
+  "home.team.empty": "Aún no tienes personas a tu cargo.",
+  "home.inventory.title": "Cuentas en el inventario",
+  "home.inventory.empty": "Todavía no hay cuentas en el inventario.",
+  "home.sessions.title": "Tus sesiones abiertas",
+  "home.sessions.empty": "No hay sesiones abiertas.",
+  "home.shortcuts.title": "Accesos directos",
+  "home.shortcuts.users": "Consulta y gestiona a las personas de tu organización.",
+  "home.shortcuts.accounts": "Consulta las cuentas de la bóveda a las que tienes acceso.",
+  "home.shortcuts.security": "Revisa tus métodos de acceso y la seguridad de tu cuenta."
 }

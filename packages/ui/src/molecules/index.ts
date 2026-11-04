@@ -21,6 +21,7 @@ export { StrengthMeter, type StrengthLevel, type StrengthMeterProps } from './st
 export { ToastViewport, type ToastItem, type ToastViewportProps } from './toast';
 export { RadioGroup, type RadioGroupProps, type RadioOption } from './radio-group';
 export { RowActionsMenu, type RowActionItem, type RowActionsMenuProps } from './row-actions-menu';
+export { UserMenu, type UserMenuAction, type UserMenuProps } from './user-menu';
 export { Tabs, type TabItem, type TabsProps } from './tabs';
 export {
   NavGroup,

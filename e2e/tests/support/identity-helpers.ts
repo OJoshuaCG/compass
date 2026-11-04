@@ -108,6 +108,17 @@ export async function completeEnrollment(
   return { secret, recoveryCodes };
 }
 
+/** Abre el menú de la persona (el botón con menú de la barra superior) y devuelve su acción de salir. */
+export async function openUserMenu(page: Page): Promise<void> {
+  await page.getByRole('banner').locator('button[aria-haspopup="menu"]').click();
+}
+
+/** Cierra la sesión desde el menú de la persona, que reúne su nombre, su rango y esta acción. */
+export async function signOut(page: Page): Promise<void> {
+  await openUserMenu(page);
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+}
+
 export async function storageDump(page: Page): Promise<string> {
   return page.evaluate(() => {
     const read = (storage: Storage): Record<string, string | null> =>

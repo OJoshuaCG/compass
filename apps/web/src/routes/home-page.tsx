@@ -1,6 +1,8 @@
 import { PageHeader } from '@iam/ui';
 import { useTranslation } from 'react-i18next';
 
+import { HomeSummary } from '../features/home';
+
 /**
  * Aguja decorativa de la marca (compás con la aguja de latón). Es adorno puro: va oculta para
  * lectores de pantalla y solo usa tokens de color vía `currentColor`.
@@ -39,11 +41,14 @@ function CompassArt() {
 export function HomePage() {
   const { t } = useTranslation('common');
   return (
-    <PageHeader
-      eyebrow={t('nav.group.workspace')}
-      title={t('home.title')}
-      description={t('home.description')}
-      actions={<CompassArt />}
-    />
+    <>
+      <PageHeader
+        eyebrow={t('nav.group.workspace')}
+        title={t('home.title')}
+        description={t('home.description')}
+        actions={<CompassArt />}
+      />
+      <HomeSummary />
+    </>
   );
 }

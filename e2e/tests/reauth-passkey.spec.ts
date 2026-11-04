@@ -6,6 +6,7 @@ import {
   freshCode,
   signInAsRoot,
   signInWithPassword,
+  signOut,
   watchSecurityViolations,
 } from './support/identity-helpers.js';
 
@@ -45,7 +46,7 @@ test('a sensitive action can be re-authenticated with a passkey instead of a cod
   await expect(page.getByText('The passkey Reauth first key was added.')).toBeVisible();
 
   // Sesión nueva: iniciar sesión no cuenta como reautenticación reciente, y la persona ya tiene llave.
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login/);
   await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
   await page.getByRole('button', { name: 'Use a passkey' }).click();
