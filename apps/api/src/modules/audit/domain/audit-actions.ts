@@ -29,7 +29,24 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   // Sincronización de plantillas de sistema (B5a): `removed` y `added` son nombres de permisos separados por
   // coma (la auditoría solo admite valores primitivos); nunca contenido de credenciales.
   'role.system_synced': ['roleName', 'removed', 'added'],
-  'user.deactivated': ['rotationTasks', 'reassignedReports'],
+  // Baja (governance §2.4). Solo conteos: `reassignedReports` son subordinados, `exposedAccounts` las cuentas
+  // con acceso de VER o más que tenía la persona, `reassignedAccounts` y `unassignedAccounts` las que se
+  // quedaron sin responsable y a quién se dieron (o a nadie), `revokedShares` y `removedGroups` lo que se le
+  // retiró y `rotationTasks` las tareas de rotación creadas. Nunca nombres de cuentas ni de credenciales.
+  'user.deactivated': [
+    'rotationTasks',
+    'reassignedReports',
+    'exposedAccounts',
+    'reassignedAccounts',
+    'unassignedAccounts',
+    'revokedShares',
+    'removedGroups',
+  ],
+  // Una por cuenta que se quedó sin responsable en una baja. `receiverId` es el id opaco de quien la recibe;
+  // `reason` es `branch` o `nearest_administrator`; `notified` indica si se le avisó por estar fuera de la rama
+  // de quien dio la baja; `grant` es `granted` o `upgraded`. La cuenta sin responsable no lleva metadatos.
+  'account.offboarding_reassigned': ['leaverId', 'receiverId', 'reason', 'notified', 'grant'],
+  'account.offboarding_unassigned': ['leaverId'],
   'user.suspended': [],
   'user.reactivated': [],
   // Cambio de rango: `reason` es el motivo escrito (hasta 500, ver abajo). `removedRoles` es una lista de ids
