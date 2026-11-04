@@ -7,6 +7,8 @@ import type { TablePaging } from '../../../shared/api';
 import { useDataTableLabels } from '../../../shared/i18n';
 import { formatDateTime } from '../../../shared/lib';
 
+import { RankBadge } from './rank-badge';
+
 export type InvitationsTableProps = {
   invitations: PendingInvitation[];
   status: 'loading' | 'success' | 'error';
@@ -50,12 +52,14 @@ export function InvitationsTable({
       {
         id: 'email',
         header: t('users.col.email', { ns: 'directory' }),
-        cell: (row) => row.email,
+        cell: (row) => <span className="font-mono text-text-secondary">{row.email}</span>,
       },
       {
         id: 'rank',
         header: t('users.col.rank', { ns: 'directory' }),
-        cell: (row) => t(`rank.${String(row.rank)}`, { ns: 'common' }),
+        cell: (row) => (
+          <RankBadge rank={row.rank} label={t(`rank.${String(row.rank)}`, { ns: 'common' })} />
+        ),
       },
       {
         id: 'sent',

@@ -54,7 +54,12 @@ export function SecurityPage() {
 
   return (
     <>
-      <PageHeader title={t('title')} description={t('description')} actions={addButton} />
+      <PageHeader
+        eyebrow={t('nav.group.workspace', { ns: 'common' })}
+        title={t('title')}
+        description={t('description')}
+        actions={addButton}
+      />
       {supported === false ? <Alert tone="info">{t('unsupported.message')}</Alert> : null}
       <PasskeysTable
         passkeys={table.rows}

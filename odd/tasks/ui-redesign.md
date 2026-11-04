@@ -21,7 +21,7 @@ Fuente del diseño: https://claude.ai/artifact/Tth2eUdgKBYiZjMmcZmwdn (lienzo de
 | T1 Documentar reglas (`docs/frontend.md` §4, ADR 0044, guía para agentes) | S1, S3, S4 | inline | hecho: prettier en verde, contrastes calculados con la fórmula WCAG | ver `git log` |
 | T2 Tokens de dos temas, selector de tema y prueba de contraste | S2, S3, S7 | inline | hecho: 116 pruebas verdes (tokens en dos temas, tema, paridad i18n, a11y de ui), tipos y lint limpios en web y ui; falta cablear el selector en la barra superior (T3) | ver `git log` |
 | T3 Componentes base y marco (`packages/ui`: botón, chip, campo, tarjeta, tabla, cristal, AppShell, PageHeader) | S2, S5, S7 | delegado (frontend-developer), uno a la vez | hecho: 18 archivos y 228 pruebas verdes (ui, web, paridad i18n); sin ejecutar aún lint, tipos y e2e en esta unidad | ver `git log` |
-| T4 Vistas: inicio, usuarios, sesiones, seguridad, roles | S5 | delegado (frontend-developer), uno a la vez | pendiente | |
+| T4 Vistas: inicio, usuarios, sesiones, seguridad, roles | S5 | delegado (frontend-developer), uno a la vez | hecho: 15 archivos y 202 pruebas verdes, tipos y lint limpios; el árbol jerárquico queda fuera (L6); el Home no tiene prueba | ver `git log` |
 | T5 Vistas de bóveda: cuentas, credenciales, códigos entrantes, compartidos, catálogo | S5, S6 | delegado (frontend-developer), uno a la vez | pendiente | |
 | T6 Vistas públicas y de autenticación, alertas, vacío y 404 | S5 | delegado (frontend-developer), uno a la vez | pendiente | |
 | T7 Revisión de accesibilidad y consistencia, revisión ciega de la bóveda, e2e | S5, S6, S7 | `ui-ux-designer` (solo lectura) + `jd-judge-a`/`jd-judge-b` | pendiente | |
@@ -36,3 +36,4 @@ Route declaration: un solo escritor a la vez (regla del usuario). T1 y T2 son in
 - L4 (análisis): choques detectados. (a) `docs/frontend.md` §4.1 fija un solo tema oscuro: se reemplaza por dos temas con selector. (b) El mockup carga fuentes de Google: se ignora, las fuentes ya están locales. (c) El mockup trae textos en inglés literal: se pasan a catálogo es-MX y en-US. (d) La prueba `tokens.test.ts` lee solo el bloque `:root`: se amplía a los dos temas.
 - L5 (supuesto): las pantallas `Users` y `Account` del artifact se descargaron pero se leen al empezar T4 y T5; no se asumió nada sobre su contenido.
 - Próximo paso: T1.
+- L6 (decisión conservadora): el diseño de `Users` trae un árbol jerárquico, pero el frontend no tiene endpoint ni hook de jerarquía. Es funcionalidad nueva, no visual, y exigiría datos y lógica fuera del alcance (S5, S6). Queda fuera del rediseño; se propone como trabajo aparte. Del mismo modo, las tarjetas de datos del Home del diseño no se inventan sin hooks que las alimenten.

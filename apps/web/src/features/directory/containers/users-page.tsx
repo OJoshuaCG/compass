@@ -78,6 +78,7 @@ export function UsersPage({ search, onSearchChange }: UsersPageProps) {
   return (
     <>
       <PageHeader
+        eyebrow={t('users.eyebrow', { ns: 'directory' })}
         title={t('users.title', { ns: 'directory' })}
         description={t('users.description', { ns: 'directory' })}
         actions={

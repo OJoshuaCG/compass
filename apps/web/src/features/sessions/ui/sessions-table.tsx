@@ -1,5 +1,5 @@
 import type { SessionSummary } from '@iam/contracts';
-import { Badge, Button, DataTable, EmptyState, type Column } from '@iam/ui';
+import { Badge, Button, DataTable, EmptyState, Monitor, type Column } from '@iam/ui';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -47,7 +47,10 @@ export function SessionsTable({
         header: t('col.device'),
         cell: (row) => (
           <span className="flex flex-wrap items-center gap-2">
-            {describeDevice(row.userAgent) ?? t('device.unknown')}
+            <Monitor aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
+            <span className="font-medium text-text">
+              {describeDevice(row.userAgent) ?? t('device.unknown')}
+            </span>
             {row.current ? <Badge tone="accent">{t('badge.current')}</Badge> : null}
           </span>
         ),
@@ -62,12 +65,20 @@ export function SessionsTable({
       {
         id: 'lastSeen',
         header: t('col.lastSeen'),
-        cell: (row) => formatDateTime(row.lastSeenAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono text-text-secondary">
+            {formatDateTime(row.lastSeenAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
       {
         id: 'expires',
         header: t('col.expires'),
-        cell: (row) => formatDateTime(row.expiresAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono text-text-secondary">
+            {formatDateTime(row.expiresAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
     ],
     [t, i18n.language, timeZone],

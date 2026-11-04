@@ -38,7 +38,11 @@ export function SessionsPage() {
 
   return (
     <>
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        eyebrow={t('nav.group.workspace', { ns: 'common' })}
+        title={t('title')}
+        description={t('description')}
+      />
       <SessionsTable
         sessions={table.rows}
         status={table.status}

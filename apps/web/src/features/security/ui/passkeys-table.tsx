@@ -1,5 +1,5 @@
 import type { Passkey } from '@iam/contracts';
-import { Button, DataTable, EmptyState, type Column } from '@iam/ui';
+import { Button, DataTable, EmptyState, KeyRound, type Column } from '@iam/ui';
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -44,11 +44,24 @@ export function PasskeysTable({
 
   const columns = useMemo<Column<Passkey>[]>(
     () => [
-      { id: 'name', header: t('col.name'), cell: (row) => row.name },
+      {
+        id: 'name',
+        header: t('col.name'),
+        cell: (row) => (
+          <span className="flex items-center gap-2">
+            <KeyRound aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
+            <span className="font-medium text-text">{row.name}</span>
+          </span>
+        ),
+      },
       {
         id: 'created',
         header: t('col.created'),
-        cell: (row) => formatDateTime(row.createdAt, i18n.language, timeZone),
+        cell: (row) => (
+          <span className="font-mono text-text-secondary">
+            {formatDateTime(row.createdAt, i18n.language, timeZone)}
+          </span>
+        ),
       },
       {
         id: 'lastUsed',
