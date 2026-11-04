@@ -166,3 +166,9 @@ Objetivo: llevar a cabo las tareas que se desprenden de las respuestas del dueñ
   - Las lecturas de exposición y de cuentas huérfanas bloquean primero las filas de cuenta (`for update`) y releen; queda una ventana residual documentada (un acceso nuevo sobre una cuenta que no estaba en la primera lectura).
   - Rotura intencional (ruta protegida): dos mutaciones fallaron por tipo SQL y no cuentan; la tercera (invertir `<>` por `=` en el asignado activo) la detecta una aserción real. Archivo restaurado y verificado con `cmp`.
   - Para revisión humana: tareas de cuentas con otros gestores van al receptor único, que puede no tener acceso; aviso descartado si la persona ya no está activa al procesar el outbox; nada ejecuta el adaptador real `main.anchor-audit.ts`; `expectedVersion` enorme da 500 en vez de 409; una excepción de Telegram bloquea el intento de correo; sin prueba de integración del ciclo en `listSuperiorChain`; las pruebas SENSIBLES requieren revisión humana.
+- L22 (2026-11-04): T4, el dueño respondió «Adopto todas tus recomendaciones. Si a todo.» a las cinco preguntas:
+  - Las 72 h cuentan desde la aceptación; la propuesta caduca a los 7 días si nadie acepta.
+  - La Raíz anterior queda como Administradora activa, conserva sus roles de rango 1 y pierde solo los permisos que excedan ese rango; pierde sesiones y factores y los registra de nuevo.
+  - Al completarse se anulan los códigos de emergencia vigentes y los nuevos los emite el comando de Operaciones con los dos custodios (ADR nuevo); mientras no se reemitan, se avisa que no hay recuperación de emergencia.
+  - Un proceso periódico del servidor completa a las 72 h y cancela si la destinataria dejó de ser Administradora activa.
+  - Una sola transferencia pendiente por organización; toda cancelación avisa a la Raíz, a la destinataria y a los Administradores.
