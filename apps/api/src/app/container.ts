@@ -39,10 +39,13 @@ import {
   ListDirectory,
   ListManaged,
   ManageUsers,
+  NotifyOffboarding,
   NotifyRankChanged,
   PgRankChangeNoticeQueue,
   PgUserDirectory,
   RANK_CHANGE_NOTICE_EVENT_TYPE,
+  OFFBOARDING_NOTICE_EVENT_TYPE,
+  offboardingNoticeDeliveriesOver,
   rankChangeNoticeHandlerKey,
 } from '../modules/directory/index.js';
 import {
@@ -277,6 +280,16 @@ export function buildContainer(options: ContainerOptions) {
   });
   outboxHandlers.register(RANK_CHANGE_NOTICE_EVENT_TYPE, (event) =>
     notifyRankChanged.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Avisos de una baja: a quien recibe cuentas fuera de su rama, a Administradores y Raíz si alguna cuenta
+  // quedó sin responsable, y el informe a quien dio la baja (solo conteos).
+  const notifyOffboarding = new NotifyOffboarding({
+    directory,
+    mailer,
+    deliveries: offboardingNoticeDeliveriesOver(outboxDeliveryReceipts),
+  });
+  outboxHandlers.register(OFFBOARDING_NOTICE_EVENT_TYPE, (event) =>
+    notifyOffboarding.handle({ eventId: event.id, payload: event.payload }),
   );
   // Aviso a la Raíz cada vez que alguien revela restablecimientos de una vista (ADR 0045, IC-5c).
   const notifyResetRevealed = new NotifyResetRevealed({

@@ -3,6 +3,7 @@ import type {
   InfrastructureAlertMessage,
   InvitationMessage,
   Mailer,
+  OffboardingNoticeMessage,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
   ResetRevealAlertMessage,
@@ -87,6 +88,17 @@ export class InMemoryMailer implements Mailer {
       return Promise.reject(new Error('mail provider unavailable'));
     }
     this.pendingTotpNotices.push(message);
+    return Promise.resolve();
+  }
+
+  readonly offboardingNotices: OffboardingNoticeMessage[] = [];
+
+  sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.offboardingNotices.push(message);
     return Promise.resolve();
   }
 

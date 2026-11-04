@@ -154,6 +154,35 @@ describe('SmtpMailer', () => {
     expect((failure as Error).cause).toBeUndefined();
   });
 
+  it('sends the offboarding notice and hides the provider error and the recipient on failure', async () => {
+    const notice = {
+      to: 'luis@example.com',
+      locale: 'es-MX' as const,
+      kind: 'report' as const,
+      leaverDisplayName: 'Persona Baja',
+      accountCount: 0,
+      report: { assignedAccountCount: 1, unassignedAccountCount: 0, rotationTaskCount: 2 },
+      occurredAt: new Date('2026-11-04T15:30:00Z'),
+    };
+    const sendMail = vi.fn<MailTransport['sendMail']>().mockResolvedValue(undefined);
+    await new SmtpMailer(options, 'production', { sendMail }).sendOffboardingNotice(notice);
+
+    expect(sendMail.mock.calls[0]?.[0]).toMatchObject({
+      from: 'Compass <no-reply@example.com>',
+      to: 'luis@example.com',
+      subject: 'Resumen de la baja',
+    });
+
+    const failingSend = vi
+      .fn<MailTransport['sendMail']>()
+      .mockRejectedValue(new Error('550 rejected luis@example.com'));
+    const failure = await new SmtpMailer(options, 'production', { sendMail: failingSend })
+      .sendOffboardingNotice(notice)
+      .catch((error: unknown) => error);
+    expect(String(failure)).toBe('Error: Mail delivery failed');
+    expect((failure as Error).cause).toBeUndefined();
+  });
+
   it('refuses to run without TLS in production, and allows it only for local tests', () => {
     const plain = { ...options, security: 'none' as const };
     expect(() => new SmtpMailer(plain, 'production')).toThrow(/TLS/);

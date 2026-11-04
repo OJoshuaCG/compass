@@ -103,6 +103,29 @@ export interface InfrastructureAlertMessage {
   readonly occurredAt: Date;
 }
 
+/**
+ * Aviso de una baja (governance §2.4). `accounts_assigned`: a quien recibió cuentas fuera de su rama;
+ * `accounts_unassigned`: a Administradores y Raíz cuando alguna cuenta quedó sin responsable; `report`: a quien
+ * dio la baja. Solo nombre de quien se fue, conteos y hora: NUNCA nombres de cuentas ni de credenciales ni
+ * enlaces; el detalle está en la auditoría, protegida por permisos.
+ */
+export interface OffboardingNoticeMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  readonly kind: 'accounts_assigned' | 'accounts_unassigned' | 'report';
+  /** Nombre visible de quien se fue; `null` si ya no se puede resolver (el aviso sale igual, sin nombre). */
+  readonly leaverDisplayName: string | null;
+  /** Cuentas que se le asignaron (`accounts_assigned`) o que quedaron sin responsable (`accounts_unassigned`). */
+  readonly accountCount: number;
+  /** Solo en el informe: cuentas reasignadas, sin responsable y tareas de rotación creadas. */
+  readonly report: {
+    readonly assignedAccountCount: number;
+    readonly unassignedAccountCount: number;
+    readonly rotationTaskCount: number;
+  } | null;
+  readonly occurredAt: Date;
+}
+
 /** Correo saliente detrás de un puerto (SES en producción; el proveedor es intercambiable). */
 export interface Mailer {
   sendInvitation(message: InvitationMessage): Promise<void>;
@@ -118,6 +141,8 @@ export interface Mailer {
   sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void>;
   /** Avisa a la persona de que su rango cambió, con el nombre de quien lo hizo (sin motivo, roles ni enlaces). */
   sendRankChangeNotice(message: RankChangeNoticeMessage): Promise<void>;
+  /** Avisa de una baja a quien recibe cuentas, a Administradores y Raíz, o a quien la dio (solo conteos). */
+  sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void>;
   /** Avisa a la Raíz de una falla de la plataforma (solo un código fijo y la hora). */
   sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void>;
 }

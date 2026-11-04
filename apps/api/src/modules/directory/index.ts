@@ -84,3 +84,17 @@ export {
 } from './domain/management-policy.js';
 export type { UserRecord, UserStatus, UserSubject } from './domain/user.js';
 export { PgUserDirectory } from './infrastructure/pg-user-directory.js';
+
+export {
+  NotifyOffboarding,
+  offboardingNoticeDeliveriesOver,
+} from './application/notify-offboarding.js';
+export type { OffboardingNoticeDeliveries } from './application/notify-offboarding.js';
+export type { OffboardingNoticeQueue } from './application/ports/offboarding-notice-queue.js';
+export { PgOffboardingNoticeQueue } from './infrastructure/pg-offboarding-notice-queue.js';
+export {
+  OFFBOARDING_NOTICE_EVENT_TYPE,
+  OffboardingNoticeDeliveryError,
+  OffboardingNoticePayloadError,
+} from './domain/offboarding-notice.js';
+export type { OffboardingNoticePayload } from './domain/offboarding-notice.js';

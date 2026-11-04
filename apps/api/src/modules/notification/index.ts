@@ -5,6 +5,7 @@ export type {
   InvitationMessage,
   Mailer,
   PendingTotpNoticeMessage,
+  OffboardingNoticeMessage,
   RankChangeNoticeMessage,
   ResetRevealAlertMessage,
   RevealLimitAlertMessage,
@@ -17,6 +18,7 @@ export {
   renderInvitationEmail,
 } from './application/render-invitation-email.js';
 export { renderPendingTotpEmail } from './application/render-pending-totp-email.js';
+export { renderOffboardingEmail } from './application/render-offboarding-email.js';
 export { renderRankChangeEmail } from './application/render-rank-change-email.js';
 export { renderRevealLimitEmail } from './application/render-reveal-limit-email.js';
 export { renderResetRevealEmail } from './application/render-reset-reveal-email.js';

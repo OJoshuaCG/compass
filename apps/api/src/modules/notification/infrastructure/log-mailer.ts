@@ -5,6 +5,7 @@ import type {
   InfrastructureAlertMessage,
   InvitationMessage,
   Mailer,
+  OffboardingNoticeMessage,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
   ResetRevealAlertMessage,
@@ -83,6 +84,15 @@ export class LogMailer implements Mailer {
     this.logger.info(
       { fromRank: message.fromRank, toRank: message.toRank, changedAt: message.changedAt },
       'rank change notice (dev)',
+    );
+    return Promise.resolve();
+  }
+
+  sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void> {
+    // Sin destinatario ni nombre: son datos personales y aquí solo importan el tipo, los conteos y el momento.
+    this.logger.info(
+      { kind: message.kind, accountCount: message.accountCount, occurredAt: message.occurredAt },
+      'offboarding notice (dev)',
     );
     return Promise.resolve();
   }

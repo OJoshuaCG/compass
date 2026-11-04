@@ -97,6 +97,17 @@ export interface UserDirectory {
     readonly { readonly email: string; readonly locale: 'es-MX' | 'en-US' }[]
   >;
   /**
+   * Id, correo e idioma de los Administradores activos (rango 1). Igual que `listAdministratorContacts` pero
+   * con el id, que permite llevar un acuse de entrega por destinataria.
+   */
+  listAdministratorRecipients(): Promise<
+    readonly {
+      readonly id: UserId;
+      readonly email: string;
+      readonly locale: 'es-MX' | 'en-US';
+    }[]
+  >;
+  /**
    * Id, correo e idioma de la Raíz activa (rango 0): destinataria de los avisos de abuso, como el tope de
    * revelaciones. El id permite llevar un acuse de entrega por destinataria.
    */

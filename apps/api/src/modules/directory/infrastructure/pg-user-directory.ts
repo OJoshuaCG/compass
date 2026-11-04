@@ -201,6 +201,25 @@ export class PgUserDirectory implements UserDirectory {
     return result.rows;
   }
 
+  async listAdministratorRecipients(): Promise<
+    readonly {
+      readonly id: UserId;
+      readonly email: string;
+      readonly locale: 'es-MX' | 'en-US';
+    }[]
+  > {
+    const result = await this.transactions.current().query<{
+      id: string;
+      email: string;
+      locale: 'es-MX' | 'en-US';
+    }>("select id, email, locale from users where rank = 1 and status = 'active' order by email");
+    return result.rows.map((row) => ({
+      id: asUserId(row.id),
+      email: row.email,
+      locale: row.locale,
+    }));
+  }
+
   async listRootContacts(): Promise<
     readonly {
       readonly id: UserId;
