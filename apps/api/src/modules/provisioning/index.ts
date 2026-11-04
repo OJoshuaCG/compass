@@ -26,4 +26,5 @@ export type {
   RootRecoveryStore,
 } from './application/recover-root.js';
 export { PgRootRecoveryStore } from './infrastructure/pg-root-recovery-store.js';
+export { PgEmergencyCodeInvalidator } from './infrastructure/pg-emergency-code-invalidator.js';
 export { MailerAdministratorNotifier } from './infrastructure/mailer-administrator-notifier.js';

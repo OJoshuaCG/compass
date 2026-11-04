@@ -9,6 +9,7 @@ export { ChangePassword } from './application/change-password.js';
 export { Login } from './application/login.js';
 export type { LoginCommand, LoginOutcome } from './application/login.js';
 export { Logout } from './application/logout.js';
+export { RootAccessRevokerAdapter } from './application/root-access-revoker.js';
 export {
   EMERGENCY_CODE_COUNT,
   formatRecoveryCode,

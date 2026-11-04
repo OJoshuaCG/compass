@@ -79,6 +79,13 @@ export type {
   UserStatus,
 } from './users.js';
 
+export {
+  ROOT_TRANSFER_STATUSES,
+  proposeRootTransferRequestSchema,
+  rootTransferSchema,
+} from './root-transfer.js';
+export type { ProposeRootTransferRequest, RootTransfer } from './root-transfer.js';
+
 export { sessionSummarySchema } from './sessions.js';
 export type { SessionSummary } from './sessions.js';
 

@@ -8,7 +8,13 @@ import { DataKeyController } from '../modules/maintenance/interface/data-key.con
 import { PersonRolesController } from '../modules/access/interface/person-roles.controller.js';
 import { RolesController } from '../modules/access/interface/roles.controller.js';
 import { IdempotencyInterceptor, IdempotencyService } from '../modules/idempotency/index.js';
-import { ListDirectory, ListManaged, ManageUsers } from '../modules/directory/index.js';
+import {
+  ListDirectory,
+  ListManaged,
+  ManageRootTransfer,
+  ManageUsers,
+} from '../modules/directory/index.js';
+import { RootTransferController } from '../modules/directory/interface/root-transfer.controller.js';
 import { UsersController } from '../modules/directory/interface/users.controller.js';
 import {
   AcceptInvitation,
@@ -101,6 +107,7 @@ export class AppModule {
       { provide: ListDirectory, useValue: container.listDirectory },
       { provide: ListManaged, useValue: container.listManaged },
       { provide: ManageUsers, useValue: container.manageUsers },
+      { provide: ManageRootTransfer, useValue: container.manageRootTransfer },
       { provide: REQUEST_CONTEXT_RUNNER, useValue: container.requestContext },
       { provide: APP_GUARD, useClass: RateLimitGuard },
       { provide: APP_GUARD, useFactory: () => new CsrfGuard(appOrigin) },
@@ -143,6 +150,7 @@ export class AppModule {
         PersonRolesController,
         DataKeyController,
         UsersController,
+        RootTransferController,
         PlatformsController,
         AccountsController,
         AccountCredentialsController,

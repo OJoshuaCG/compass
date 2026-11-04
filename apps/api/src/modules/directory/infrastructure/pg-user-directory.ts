@@ -22,6 +22,7 @@ import type {
   UserDirectory,
 } from '../application/ports/user-directory.js';
 import type { UserRecord, UserStatus } from '../domain/user.js';
+import type { RootHierarchySwap } from '../application/ports/root-handover.js';
 
 const SORT_COLUMN = {
   displayName: 'display_name',
@@ -47,7 +48,7 @@ const UNIQUE_VIOLATION = '23505';
 const USER_COLUMNS =
   'id, organization_id, email, display_name, rank, status, managed_by, created_by, locale, timezone';
 
-export class PgUserDirectory implements UserDirectory {
+export class PgUserDirectory implements UserDirectory, RootHierarchySwap {
   constructor(private readonly transactions: TransactionProvider) {}
 
   async findById(id: UserId): Promise<UserRecord | null> {
@@ -178,6 +179,26 @@ export class PgUserDirectory implements UserDirectory {
         toManagerId,
       ]);
     return result.rowCount ?? 0;
+  }
+
+  /**
+   * Las restricciones de la base obligan al orden: la Raíz anterior baja primero a rango 1 con responsable la
+   * nueva (así deja de ser la Raíz activa única) y solo después la nueva pasa a rango 0 sin responsable.
+   */
+  async swapRoot(input: {
+    readonly fromUserId: UserId;
+    readonly toUserId: UserId;
+  }): Promise<number> {
+    const queryable = this.transactions.current();
+    await queryable.query('update users set rank = 1, managed_by = $2 where id = $1 and rank = 0', [
+      input.fromUserId,
+      input.toUserId,
+    ]);
+    await queryable.query(
+      'update users set rank = 0, managed_by = null where id = $1 and rank = 1',
+      [input.toUserId],
+    );
+    return this.reassignReports(input.fromUserId, input.toUserId);
   }
 
   async countActiveByRank(rank: Rank): Promise<number> {

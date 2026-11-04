@@ -5,6 +5,7 @@ export type { AuthorizationRequest, AuthorizerDeps } from './application/authori
 export type { RoleRecord, RoleRepository } from './application/ports/role-repository.js';
 export { OffboardingPermissionChecker } from './application/offboarding-permission-checker.js';
 export { RankRoleAdjuster } from './application/rank-role-adjuster.js';
+export { RootRoleHandoverAdapter } from './application/root-role-handover.js';
 export { ManageRoles } from './application/manage-roles.js';
 export { ManagePersonRoles } from './application/manage-person-roles.js';
 export type { PermissionCatalogEntry, PersonRolesView } from './application/manage-person-roles.js';

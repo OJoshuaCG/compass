@@ -147,6 +147,17 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.logout': [],
   'auth.session_revoked': [],
   'user.sessions_revoked': [],
+  // Transferencia de la Raíz (L22 de la bitácora ODD del 2026-11-04). Solo ids, fechas y conteos.
+  'root_transfer.requested': ['fromUserId', 'toUserId', 'expiresAt'],
+  'root_transfer.accepted': ['fromUserId', 'toUserId', 'executesAt'],
+  'root_transfer.cancelled': ['fromUserId', 'toUserId', 'reason'],
+  'root_transfer.expired': ['fromUserId', 'toUserId'],
+  'root_transfer.completed': [
+    'fromUserId',
+    'toUserId',
+    'reassignedReports',
+    'emergencyCodesInvalidated',
+  ],
   'auth.password_changed': [],
   'organization.provisioned': [],
   'auth.password_change_failed': [],

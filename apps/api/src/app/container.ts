@@ -15,6 +15,8 @@ import {
   OffboardingPermissionChecker,
   PgRoleRepository,
   RankRoleAdjuster,
+  REAUTH_WINDOW_MS,
+  RootRoleHandoverAdapter,
 } from '../modules/access/index.js';
 import { PgAuditEventRepository, RecordAuditEvent } from '../modules/audit/index.js';
 import {
@@ -39,8 +41,13 @@ import {
   CreateUser,
   ListDirectory,
   ListManaged,
+  ManageRootTransfer,
   ManageUsers,
+  PgRootTransferNoticeQueue,
+  PgRootTransferStore,
+  RootTransferFinalizer,
   NotifyOffboarding,
+  NotifyRootTransfer,
   NotifyRankChanged,
   OffboardAccounts,
   PgOffboardingNoticeQueue,
@@ -49,6 +56,7 @@ import {
   PgUserDirectory,
   RANK_CHANGE_NOTICE_EVENT_TYPE,
   OFFBOARDING_NOTICE_EVENT_TYPE,
+  ROOT_TRANSFER_NOTICE_EVENT_TYPE,
   offboardingNoticeDeliveriesOver,
   rankChangeNoticeHandlerKey,
 } from '../modules/directory/index.js';
@@ -72,6 +80,7 @@ import {
   NotifySecurityNotice,
   OtplibTotpEngine,
   PgCredentialRepository,
+  RootAccessRevokerAdapter,
   PgInvitationRepository,
   PgPreAuthLookup,
   PgSecurityNoticeQueue,
@@ -88,6 +97,7 @@ import {
   BootstrapOrganization,
   FirstRootSetup,
   PgOrganizationSeeder,
+  PgEmergencyCodeInvalidator,
 } from '../modules/provisioning/index.js';
 import type { Mailer } from '../modules/notification/index.js';
 import {
@@ -226,6 +236,20 @@ export function buildContainer(options: ContainerOptions) {
   const lookup = new PgPreAuthLookup(pool);
   const sessionRepository = new PgSessionRepository(uow);
   const credentials = new PgCredentialRepository(uow);
+  // Transferencia de la Raíz: el cierre (a mano o por el proceso periódico) comparte este ensamblaje.
+  const rootTransferStore = new PgRootTransferStore(uow);
+  const rootTransferFinalizer = new RootTransferFinalizer({
+    context: requestContext,
+    directory,
+    swap: directory,
+    roles: new RootRoleHandoverAdapter({ roles }),
+    access: new RootAccessRevokerAdapter({ sessions: sessionRepository, credentials }),
+    emergencyCodes: new PgEmergencyCodeInvalidator(uow),
+    store: rootTransferStore,
+    notices: new PgRootTransferNoticeQueue(uow),
+    audit,
+    clock,
+  });
   const invitations = new PgInvitationRepository(uow);
   const hasher = new Argon2PasswordHasher(options.argon2);
   const strength = new ZxcvbnPasswordStrength();
@@ -297,6 +321,15 @@ export function buildContainer(options: ContainerOptions) {
   });
   outboxHandlers.register(OFFBOARDING_NOTICE_EVENT_TYPE, (event) =>
     notifyOffboarding.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Avisos de la transferencia de la Raíz: a quien entrega, a quien recibe y a los Administradores.
+  const notifyRootTransfer = new NotifyRootTransfer({
+    directory,
+    mailer,
+    receipts: outboxDeliveryReceipts,
+  });
+  outboxHandlers.register(ROOT_TRANSFER_NOTICE_EVENT_TYPE, (event) =>
+    notifyRootTransfer.handle({ eventId: event.id, payload: event.payload }),
   );
   // Aviso a la Raíz cada vez que alguien revela restablecimientos de una vista (ADR 0045, IC-5c).
   const notifyResetRevealed = new NotifyResetRevealed({
@@ -637,6 +670,16 @@ export function buildContainer(options: ContainerOptions) {
       store: new PgIdempotencyStore(uow),
       primitives,
       clock,
+    }),
+    manageRootTransfer: new ManageRootTransfer({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory,
+      store: rootTransferStore,
+      finalizer: rootTransferFinalizer,
+      clock,
+      reauthWindowMs: REAUTH_WINDOW_MS,
     }),
     manageUsers: new ManageUsers({
       context: requestContext,

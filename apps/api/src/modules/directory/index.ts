@@ -98,3 +98,30 @@ export {
   OffboardingNoticePayloadError,
 } from './domain/offboarding-notice.js';
 export type { OffboardingNoticePayload } from './domain/offboarding-notice.js';
+
+export { CompleteRootTransfers } from './application/complete-root-transfers.js';
+export { ManageRootTransfer } from './application/manage-root-transfer.js';
+export type {
+  ManageRootTransferDeps,
+  RootTransferView,
+} from './application/manage-root-transfer.js';
+export { RootTransferFinalizer } from './application/root-transfer-finalizer.js';
+export type {
+  EmergencyCodeInvalidator,
+  RootAccessRevoker,
+  RootHierarchySwap,
+  RootRoleHandover,
+} from './application/ports/root-handover.js';
+export type { RootTransferNoticeQueue } from './application/ports/root-transfer-notice-queue.js';
+export type { RootTransferStore } from './application/ports/root-transfer-store.js';
+export { PgRootTransferNoticeQueue } from './infrastructure/pg-root-transfer-notice-queue.js';
+export { PgRootTransferStore } from './infrastructure/pg-root-transfer-store.js';
+export type { RootTransferRecord } from './domain/root-transfer.js';
+export type { RootTransferNoticePayload } from './domain/root-transfer-notice.js';
+export { NotifyRootTransfer } from './application/notify-root-transfer.js';
+export type { RootTransferNoticeReceipts } from './application/notify-root-transfer.js';
+export {
+  ROOT_TRANSFER_NOTICE_EVENT_TYPE,
+  RootTransferNoticeDeliveryError,
+  RootTransferNoticePayloadError,
+} from './domain/root-transfer-notice.js';
