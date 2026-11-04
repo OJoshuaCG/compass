@@ -131,11 +131,11 @@ Cómo leer el techo:
 
 Compartir una vista usa el permiso de compartir de la sección 2.4 y exige MANAGE sobre la vista. Quien crea un buzón o una vista recibe MANAGE sobre ellos. El detalle de cómo funciona está en [`vault.md`](vault.md#14-códigos-que-llegan-por-correo-y-sms).
 
-### 2.7 Avisos por Telegram
+### 2.7 Avisos de infraestructura y de seguridad
 
 | Permiso | Qué permite | Techo | Por qué existe |
 | --- | --- | --- | --- |
-| Gestionar los avisos de infraestructura | Configurar, probar y archivar el canal de avisos de infraestructura | 0 | Cambia a dónde salen los avisos de la plataforma; solo corresponde a la Raíz |
+| Gestionar los avisos de infraestructura | Configurar, probar y archivar el canal de avisos de infraestructura, y elegir si se reciben por correo, por Telegram o por ambos (siempre queda al menos un canal activo) | 0 | Cambia a dónde salen los avisos de la plataforma; solo corresponde a la Raíz |
 | Gestionar los avisos de seguridad | Configurar el canal de avisos de seguridad y decidir quién los recibe | 1 | Cambia quién ve la actividad de la plataforma; llega hasta los Administradores |
 
 Ambos exigen reautenticación y se auditan como evento crítico. El detalle está en el [ADR 0047](../adr/0047-user-configured-integrations.md).

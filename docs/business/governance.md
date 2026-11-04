@@ -27,7 +27,7 @@ La auditoría es el registro de **quién hizo qué y cuándo**. Es la evidencia 
 | No se puede alterar | Los eventos solo se agregan; ninguna persona ni la propia aplicación puede modificarlos o borrarlos |
 | Cadena verificable | Cada evento incluye una huella del anterior, de modo que cualquier alteración rompe la cadena. Una verificación diaria comprueba la cadena de cada organización y alerta si se rompe |
 | Misma operación que la acción | El evento se escribe junto con la acción. **Si la auditoría falla, la acción sensible falla**: no se permite actuar sin dejar constancia |
-| Copia externa inmutable | Los eventos se exportan periódicamente a un almacenamiento que ni siquiera un administrador de la base de datos puede reescribir |
+| Copia externa inmutable | Una vez al día se guarda, en un almacenamiento aparte que nadie puede borrar ni reescribir durante dos años (ni siquiera un administrador de la base de datos ni la cuenta dueña del almacenamiento), la huella del último evento de cada organización. Así se detecta que alguien borre los eventos más recientes o restaure una base vieja. Si un día no se puede guardar, la Raíz recibe un aviso |
 
 ### 1.2 Qué se registra y qué nunca
 
@@ -166,7 +166,7 @@ Reduce el acceso permanente: en lugar de dar acceso "por si acaso", la persona l
 
 ## 5. Alertas críticas y señales de operación
 
-Los eventos críticos (sección 1.5) avisan a las personas responsables. Además, el sistema vigila señales de operación y las clasifica por severidad:
+Los eventos críticos (sección 1.5) avisan a las personas responsables. Los avisos de infraestructura (por ejemplo, que no se pudo guardar la copia externa de la auditoría) llegan a la Raíz, que decide si los recibe por correo, por Telegram o por ambos; siempre queda al menos un canal activo. Además, el sistema vigila señales de operación y las clasifica por severidad:
 
 | Señal | Severidad |
 | --- | --- |

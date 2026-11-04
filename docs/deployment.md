@@ -164,6 +164,8 @@ Esta ruta se armó a partir del código y de `pnpm stack`; todavía **no se ha e
 | Claves (KEK) | AWS KMS (`KMS_ADAPTER=aws`, [ADR 0020](adr/0020-reference-cloud-aws.md)) | Adaptador listo; **no probado contra AWS real**. La API comprueba el acceso a la clave al arrancar y no arranca si falla (ver la sonda de arranque en [`backend.md`](backend.md) §6) |
 | Correo | SMTP del dominio de la organización | Ver [configurar correo](runbooks/configure-mail.md) |
 | Sondeo de correo entrante (`inbound-poll`) | Proceso periódico aparte, programado desde el anfitrión; el contenedor solo arranca la API (`docker/start.sh` ejecuta `main.http.js`) | Opcional, solo si se usan los códigos entrantes. Entorno y rol propios; ver [programar el sondeo](runbooks/inbound-poll.md). **Sin ensayar contra un servidor IMAP real** |
+| Purga de datos temporales (`purge-expired`) | Proceso periódico aparte, programado desde el anfitrión (cada hora, minuto 17); no corre dentro del contenedor | Ops debe programarlo; ver [programar la purga](runbooks/purge-expired.md) |
+| Ancla diaria de la auditoría (`anchor-audit`) | Proceso periódico aparte, **una vez al día**, programado desde el anfitrión; escribe en un bucket aparte de Wasabi con Object Lock (modo de cumplimiento, 2 años). Variables propias `AUDIT_ANCHOR_S3_*` en el mismo archivo de entorno de la API | **Ops todavía tiene que crear y verificar el bucket real y programar el cron**; ver [programar el ancla](runbooks/anchor-audit.md). Si falla, alerta a la Raíz por el outbox |
 | Respaldos de la base | Servidor dedicado | `pg_dump` cada hora a Wasabi (RPO de 1 h, RTO de 4 h; decidido el 2026-11-04). El trabajo programado y la retención: **por definir** |
 
 Restricción vigente: **una sola réplica** de la API ([ADR 0039](adr/0039-single-instance-until-redis.md), [runbook](runbooks/single-instance-operation.md)).
@@ -246,7 +248,8 @@ El arranque lo hace [`docker/start.sh`](../docker/start.sh), que también atiend
    | `MAIL_TRANSPORT` | `smtp`, con `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` |
    | `TRUST_PROXY` | Ver 2.8 |
    | `WEBAUTHN_RP_NAME`, `LOG_LEVEL`, `DB_POOL_MAX` | Opcionales (ver `apps/api/src/app/config.ts`) |
-   | `OUTBOX_WORKER_ENABLED`, `OUTBOX_POLL_INTERVAL_MS` | Opcionales; el publicador del outbox está apagado por defecto (ver `docs/backend.md` §6.5). **Con él apagado no sale el aviso por correo a la Raíz cuando alguien revela un restablecimiento de códigos entrantes**: el aviso viaja por el outbox. Si usas los códigos entrantes, pon `OUTBOX_WORKER_ENABLED=true` |
+   | `OUTBOX_WORKER_ENABLED`, `OUTBOX_POLL_INTERVAL_MS` | Opcionales; el publicador del outbox está apagado por defecto (ver `docs/backend.md` §6.5). **Con él apagado no sale el aviso por correo a la Raíz cuando alguien revela un restablecimiento de códigos entrantes**: el aviso viaja por el outbox. Si usas los códigos entrantes, pon `OUTBOX_WORKER_ENABLED=true`. **Lo mismo vale para las alertas de infraestructura a la Raíz** (por ejemplo, que `anchor-audit` no pudo anclar una organización): sin el publicador, nunca salen |
+   | `AUDIT_ANCHOR_S3_ENDPOINT`, `AUDIT_ANCHOR_S3_REGION`, `AUDIT_ANCHOR_S3_BUCKET`, `AUDIT_ANCHOR_S3_ACCESS_KEY_ID`, `AUDIT_ANCHOR_S3_SECRET_ACCESS_KEY` | No las lee la API sino el comando `anchor-audit`; van en el mismo archivo de entorno, que custodia Ops. Detalle en el [runbook](runbooks/anchor-audit.md) |
 
    La imagen ya fija `NODE_ENV=production`, `HOST=0.0.0.0`, `PORT=3000` y `WEB_DIST_DIR`. La API falla al arrancar si la configuración es inválida y el error nombra la variable, nunca su valor.
 

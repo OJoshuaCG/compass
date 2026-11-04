@@ -6,7 +6,7 @@
 
 ## Resumen
 
-**Recomendación (confianza media-alta, alrededor de 75 %):** un trabajo programado cada hora publica en almacenamiento de solo escritura (Object Lock en modo de cumplimiento) un manifiesto con el último `seq` y `hash` de cada organización. La clave en el KMS para firmar cada evento se descarta. Queda abierto **dónde** se publica, porque el ADR 0020 limita AWS al KMS.
+**Decidido por el dueño el 2026-11-04 (opción B, implementada):** un trabajo programado **una vez al día** publica en un bucket aparte de Wasabi con Object Lock en modo de cumplimiento un manifiesto con el último `seq` y `hash` de cada organización; la sección «Implementación» lo detalla. Lo que sigue en este resumen es la recomendación original del borrador (cada hora, destino abierto), que se conserva como historia. **Recomendación original (confianza media-alta, alrededor de 75 %):** un trabajo programado cada hora publica en almacenamiento de solo escritura (Object Lock en modo de cumplimiento) un manifiesto con el último `seq` y `hash` de cada organización. La clave en el KMS para firmar cada evento se descarta. Queda abierto **dónde** se publica, porque el ADR 0020 limita AWS al KMS.
 
 ## Contexto
 
@@ -98,7 +98,7 @@ Reglas que se derivan si se acepta:
 - **Nombre del objeto**: `audit-anchors/<organización>/<número de 12 dígitos>-<hash del manifiesto>.json`. Con solo el número, una base restaurada que reutilice números escribiría una versión nueva del mismo objeto; con el hash, cada manifiesto distinto tiene su propio nombre.
 - **Espera acotada**: el registro local fija `lock_timeout` de 5 s antes de insertar; si otra ancla de la misma organización tiene el turno, esa organización falla en vez de colgar el trabajo.
 - **Wasabi**: su documentación (`docs.wasabi.com`, «Object Locking») confirma el modo de cumplimiento, que no se puede revertir «por ningún motivo ni por ningún usuario», y que el bloqueo se habilita al crear el bucket y exige versionado. No confirma de forma explícita la retención de 2 años ni una política de solo `PutObject`: el runbook las deja como verificación obligatoria antes de cargar datos reales.
-- **Alerta**: por ahora, el código de salida y la ausencia de registro (más de 26 horas). Los avisos por correo o Telegram llegan con el panel de alertas de la Raíz.
+- **Alerta**: si una organización queda sin ancla, el comando encola para ella una alerta de infraestructura (`integration.infra_alert`, código `job_failed`) en una transacción aparte de la del ancla, y la API la entrega a la Raíz por correo, por Telegram o por ambos, según lo que ella elija ([ADR 0047](0047-user-configured-integrations.md), enmienda del 2026-11-04). No se agrupan: se encola una por organización con fallo y por ejecución, y la entrega exige el publicador del outbox (`OUTBOX_WORKER_ENABLED=true`). Siguen sin cubrirse el cron que no corre y la alerta que no se puede encolar: para eso queda el código de salida y la ausencia de registro (más de 26 horas). La pantalla del panel donde la Raíz elige los canales todavía no existe.
 - **Pendiente**: el verificador diario (TODO H1) que compara el bucket con la base; la opción C (firma con KMS) sigue sin pedirse.
 
 ## No verificado

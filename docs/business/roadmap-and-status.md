@@ -32,7 +32,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | 0 · Fundaciones | Una base técnica segura, sin pantallas de negocio todavía | **Hecho** (con una observación, ver sección 3) |
 | 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Cerrada en lo funcional** (decisión del dueño, 2026-11-04). El segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia. La revisión humana de las pruebas sensibles, el almacén compartido de contadores de intentos y la verificación automática (CI) pasan a ser condiciones de la puerta de producción; ver secciones 4.1 y 5 |
 | 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **En curso.** Ya funcionan cuentas, credenciales y revelado, compartición, segundo factor por clave manual y por imagen, y la importación por CSV y desde Google Authenticator; de la búsqueda avanzada ya funcionan la búsqueda de texto y los filtros; faltan el índice ciego por persona y las vistas guardadas. La entrega por celular del registro del segundo factor pasó a la versión 1.1 (ver sección 4.2) |
-| 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente |
+| 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente. Ya existe, por adelantado, la copia diaria de la auditoría en un almacenamiento inmutable (falta que Operaciones prepare y verifique el almacenamiento real) y el aviso a la Raíz si falla; la Raíz elegirá correo y/o Telegram, y la pantalla para elegir todavía no existe |
 | Puerta de producción | Prueba de intrusión, simulacro de restauración y procedimientos ensayados | Pendiente |
 | 2 · Inicio de sesión único (OIDC) | Que las herramientas internas usen este sistema para iniciar sesión | Pendiente |
 | 3 · SAML y SCIM | Entrada a Meta Business y altas y bajas automáticas en otras plataformas | Pendiente |
@@ -153,7 +153,7 @@ Decisiones ya tomadas: la biblioteca para leer códigos QR en el navegador; el l
 | Bajas con reasignación y tareas de rotación | [`governance.md`](governance.md) |
 | Panel de salud de credenciales | [`governance.md`](governance.md) |
 | Acceso temporal con aprobación | [`governance.md`](governance.md) |
-| Alertas críticas activas | [`governance.md`](governance.md) |
+| Alertas críticas activas (la Raíz elige si las recibe por correo, Telegram o ambos) | [`governance.md`](governance.md) |
 
 **Criterio de salida:** auditoría con cadena verificada y interfaz; baja con reasignación y tareas de rotación; panel de salud; acceso temporal; alertas críticas activas.
 

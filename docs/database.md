@@ -74,7 +74,7 @@ Los **respaldos de datos** dentro de una migración deben recordar que el aislam
 
 - Datos efímeros con TTL: `sessions`, `invitations`, `totp_handoffs`, `idempotency_keys`, `webauthn_challenges`, `outbox_events` (publicados).
 - Filas de relación cuya historia vive en la auditoría: `group_memberships`, `user_roles`.
-- Versiones antiguas de secretos (`credential_secrets` con `is_current = false`), que un job destruye a los 30 días. Una política RLS de `DELETE` impide borrar la versión vigente. Hoy `purge-expired` ya destruye así las del campo `totp_uri` (H1b, [ADR 0038](adr/0038-purge-expired-ephemeral-rows.md)): la fecha de reemplazo es la de creación de la versión posterior, porque la tabla no guarda otra. Las de contraseña y demás campos siguen sin purga (C9, decisión pendiente del dueño).
+- Versiones antiguas de secretos (`credential_secrets` con `is_current = false`), que un job destruye a los 30 días. Una política RLS de `DELETE` impide borrar la versión vigente. Hoy `purge-expired` ya destruye así las del campo `totp_uri` (H1b) y las de `password` (30 días, constante `REPLACED_PASSWORD_SECRET_RETENTION_DAYS`), ambas según el [ADR 0038](adr/0038-purge-expired-ephemeral-rows.md): la fecha de reemplazo es la de creación de la versión posterior, porque la tabla no guarda otra. El usuario, los códigos de recuperación y las notas siguen sin purga (C9, retención pendiente de decisión del dueño).
 
 `users`, `groups`, `roles`, `accounts`, `credentials`, `shares`, `audit_events` y `data_keys` no admiten `DELETE` para `iam_app`.
 

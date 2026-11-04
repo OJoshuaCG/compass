@@ -100,6 +100,19 @@ Se crea el módulo **integraciones**, con dos tipos cerrados y una configuració
 - Se aplica a usuarios, correos y nombres de cuenta o credencial. No se envía ningún valor de secreto, aunque estuviera censurado.
 - Una sola función compartida hace la censura, con pruebas de casos límite (cadena vacía, un solo carácter, sin separadores, caracteres no latinos).
 
+## Enmienda (2026-11-04): la Raíz elige correo y/o Telegram para las alertas de infraestructura
+
+Esta enmienda no reemplaza lo decidido arriba: lo amplía. Hasta aquí la alerta de infraestructura salía solo por Telegram.
+
+- **Decisión del dueño (S5):** «Que se pueda configurar la alerta, en un panel "root" para recibir estas alertas con opciones de "Correo y/o Telegram"».
+- **Dónde se guarda:** tabla `alert_settings` (migración `0034`), una fila por organización, con aislamiento por filas y sin borrado. Sin fila, rigen correo y Telegram encendidos: se conserva el aviso por Telegram que ya existía y se suma el correo.
+- **Regla de al menos un canal:** la configuración no puede dejar ambos canales apagados. Un intento así responde `INTEGRATIONS.ALERT_CHANNEL_REQUIRED` (422), y la tabla lo rechaza también por su propia restricción.
+- **Cómo se cambia:** `GET` y `PUT /integrations/alert-settings`, con el permiso `alerts.infra.manage` (solo la Raíz), reautenticación, versión optimista (un cambio sobre una versión vieja responde `CONFLICT.VERSION`) y auditoría crítica con la acción `integration.alert_settings_updated`.
+- **Entrega:** el manejador del evento `integration.infra_alert` (`NotifyInfrastructureAlert`, por el outbox) manda un correo a cada Raíz activa, en el idioma de cada una, y/o el aviso por Telegram, según la configuración. Cada destino lleva su propio acuse, así que un reintento no repite lo que ya llegó.
+- **Sin destino real:** si la alerta no tiene a quién llegar (por ejemplo, solo Telegram sin un chat activo), el evento va a cuarentena con el error interno `INTEGRATIONS.ALERT_CONFIG_INVALID`, sin reintentos, en vez de perderse en silencio. Si un canal falla de forma permanente pero el otro ya la entregó, el evento no va a cuarentena: solo va si no llegó a nadie.
+- **Primer productor:** el comando diario `anchor-audit` ([ADR 0042](0042-audit-chain-external-anchoring.md)) encola la alerta con código `job_failed` cuando una organización queda sin ancla. Como viaja por el outbox, solo sale si la API corre con `OUTBOX_WORKER_ENABLED=true`.
+- **Pendiente:** la pantalla del panel en la web. Hoy la configuración solo se cambia por la API.
+
 ## Preguntas abiertas
 
 1. Falta un ejemplo real de la API de Wotbi (una petición y su respuesta) para validar el modelo declarativo antes de cerrar el SMS.
