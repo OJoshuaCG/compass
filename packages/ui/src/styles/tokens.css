@@ -183,6 +183,26 @@
   backdrop-filter: blur(18px) saturate(150%);
 }
 
+/*
+ * Respaldo opaco: sin desenfoque (navegador sin soporte o transparencia reducida) el texto de
+ * abajo se mezclaría con la capa, así que el cristal pasa a fondo sólido de la superficie elevada.
+ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-bar {
+    background-color: var(--color-overlay);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-bar {
+    background-color: var(--color-overlay);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 /* Fondo detrás de una ventana modal. */
 @utility scrim {
   background-color: var(--color-scrim);
@@ -193,6 +213,8 @@
 @layer base {
   html {
     @apply bg-canvas font-sans text-text;
+    /* La barra superior es fija: sin este margen el foco por teclado queda tapado (WCAG 2.4.11). */
+    scroll-padding-top: 5rem;
   }
 
   /* Ambiente: dos degradados muy tenues que solo dan profundidad detrás del cristal. */
