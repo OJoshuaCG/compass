@@ -41,6 +41,7 @@ import {
   CreateUser,
   ListDirectory,
   ListManaged,
+  CompleteRootTransfers,
   ManageRootTransfer,
   ManageUsers,
   PgRootTransferNoticeQueue,
@@ -671,6 +672,14 @@ export function buildContainer(options: ContainerOptions) {
       primitives,
       clock,
     }),
+    // Lo usa el proceso periódico `main.complete-root-transfers.ts` (mismo ensamblaje) y las pruebas.
+    completeRootTransfers: new CompleteRootTransfers({
+      uow,
+      directory,
+      store: rootTransferStore,
+      finalizer: rootTransferFinalizer,
+    }),
+    tenantScope: scope,
     manageRootTransfer: new ManageRootTransfer({
       context: requestContext,
       uow,

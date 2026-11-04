@@ -140,6 +140,7 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.security_notice_failed': ['kind'],
   'auth.root_recovered': ['codesIssued', 'alertRecipients'],
   'auth.root_recovery_rejected': [],
+  'auth.emergency_codes_reissued': ['codesIssued'],
   'auth.totp_enrolled': [],
   'auth.reauthenticated': [],
   'auth.reauthenticated_passkey': [],

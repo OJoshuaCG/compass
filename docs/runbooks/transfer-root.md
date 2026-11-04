@@ -1,6 +1,6 @@
 # Runbook: Transferir la Raíz
 
-> **Borrador, pendiente de ensayo antes de producción.** Los comandos y las pantallas concretas están **por definir** (la fase 1c implementa el flujo).
+> **Borrador, pendiente de ensayo antes de producción.** El flujo está construido en la API ([ADR 0048](../adr/0048-root-transfer-and-emergency-code-reissue.md)); **no hay pantalla web** para él todavía, así que hoy se usa por la API. Falta ensayarlo de punta a punta.
 
 Referencias: [`plan.md`](../../plan.md) reglas 9 y 10 de jerarquía ("Transferencia de Raíz" y "Recuperación de la Raíz"), permiso `org.settings` y "Reautenticación (step-up)"; [ADR 0007](../adr/0007-four-actors.md).
 
@@ -25,13 +25,13 @@ El flujo está decidido por el dueño (J3, 2026-11-04) y se construye en la **fa
 
 ## Pasos
 
-1. La Raíz inicia la transferencia hacia el Administrador elegido y se reautentica. Interfaz o endpoint: por definir.
-2. El Administrador destino **acepta de forma explícita**, reautenticándose. Sin esa aceptación la transferencia no avanza. Interfaz o endpoint: por definir.
+1. La Raíz inicia la transferencia hacia el Administrador elegido y se reautentica. Endpoint: `POST /root-transfer` con `{ "targetUserId": "<id>" }`; consulta con `GET /root-transfer`.
+2. El Administrador destino **acepta de forma explícita**, reautenticándose. Sin esa aceptación la transferencia no avanza (la propuesta caduca a los 7 días). Endpoint: `POST /root-transfer/accept`. Las 72 horas corren desde esta aceptación.
 3. El sistema registra la solicitud como evento de auditoría crítico y avisa a **todos los Administradores**.
-4. Espera de **72 horas**. Durante ese periodo pueden cancelar la transferencia la Raíz, cualquier Administrador y el propio destino. Si el destino deja de ser un Administrador activo durante la espera, la transferencia se **cancela sola** y se avisa.
+4. Espera de **72 horas**. Durante ese periodo (y antes de aceptar) pueden cancelar la transferencia la Raíz, cualquier Administrador y el propio destino. Si el destino deja de ser un Administrador activo durante la espera, la transferencia se **cancela sola** y se avisa.
 5. Al cumplirse el plazo y sin cancelación, el sistema completa la transferencia: el Administrador pasa a Raíz; la Raíz anterior pasa a Administrador gestionado por la nueva Raíz, y los demás Administradores pasan a depender de la nueva Raíz. La unicidad de la Raíz activa la protege el índice único parcial.
 6. La Raíz anterior **pierde sus sesiones, sus factores** (los vuelve a registrar) **y los permisos que excedan el rango de Administrador**. Revisar que sus permisos corresponden al nuevo rango (los permisos efectivos se recortan por el techo del rango).
-7. Al completarse, los códigos de emergencia vigentes se **anulan** y se **emiten nuevos con los dos custodios**: imprimirlos y entregarlos a las dos personas; destruir los anteriores. Esto requiere un ADR y un comando que aún no existen: **por definir**. Procedimiento de custodia: por definir con el equipo (la identidad de los custodios sigue pendiente).
+7. Al completarse, los códigos de emergencia vigentes se **anulan** y se **emiten nuevos con los dos custodios**: imprimirlos y entregarlos a las dos personas; destruir los anteriores. Mientras no se emitan los nuevos **no hay recuperación de emergencia**. Operaciones los emite de inmediato con `ORG_SLUG=<slug> PROVISION_DATABASE_URL=<conexión de administración> pnpm --filter @iam/api reissue-emergency-codes`: imprime los códigos una sola vez, la mitad para cada custodio; el comando se niega si todavía hay códigos vigentes. Procedimiento de custodia: por definir con el equipo (la identidad de los custodios sigue pendiente).
 8. Revisar con la nueva Raíz las políticas de organización (por ejemplo, exigir passkeys a Raíz y Administradores) y los permisos que dependen de `org.settings`.
 9. Actualizar la lista de custodios y de personas de guardia.
 
@@ -46,7 +46,7 @@ El flujo está decidido por el dueño (J3, 2026-11-04) y se construye en la **fa
 
 ## Rollback y recuperación
 
-- **Cancelar**: la transferencia es cancelable durante las 72 horas de espera por la Raíz, cualquier Administrador o el destino; la cancelación se audita. Se cancela sola, con aviso, si el destino deja de ser Administrador activo.
+- **Cancelar**: la transferencia es cancelable (`DELETE /root-transfer`) durante las 72 horas de espera por la Raíz, cualquier Administrador o el destino; la cancelación se audita. Se cancela sola, con aviso, si el destino deja de ser Administrador activo.
 - **Después de completarla**: no hay reversión automática; se requiere una nueva transferencia desde la nueva Raíz hacia un Administrador.
 - **Raíz sin acceso**: usar los códigos de emergencia custodiados (usarlos alerta a todos los Administradores y queda auditado) y luego, si corresponde, ejecutar esta transferencia.
 - **Si la nueva Raíz pierde acceso antes de regenerar códigos**: escalar a los custodios de los códigos de emergencia existentes y restablecer factores según el procedimiento de recuperación del plan (por definir).
@@ -65,3 +65,13 @@ El flujo está decidido por el dueño (J3, 2026-11-04) y se construye en la **fa
 | Fecha | Quién | Resultado | Cambios al runbook |
 | --- | --- | --- | --- |
 | (sin ensayar) | | | |
+
+## Proceso periódico
+
+`complete-root-transfers` completa las transferencias cuya espera ya terminó, caduca las propuestas sin aceptar a los 7 días y cancela las que quedaron sin Administrador destino activo. Es idempotente y corre bajo el rol de la aplicación (`iam_app`), una vez por hora y en un solo anfitrión, igual que [`purge-expired`](purge-expired.md):
+
+```text
+23 * * * * cd <ruta de la API> && node dist/main.complete-root-transfers.js >> <ruta de registros>/complete-root-transfers.log 2>&1
+```
+
+Salida: una línea de conteos (completadas, canceladas, caducadas, con espera pendiente y organizaciones con fallo). Código `1` si alguna organización falló; alerta si pasa en dos ejecuciones seguidas.

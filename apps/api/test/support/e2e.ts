@@ -143,7 +143,7 @@ export class TestClient {
   ) {}
 
   async request<T = unknown>(
-    method: 'GET' | 'POST' | 'PATCH',
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     url: string,
     payload?: unknown,
     headers: Record<string, string> = {},
