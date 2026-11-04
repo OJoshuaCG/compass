@@ -1,0 +1,38 @@
+# Rediseño de la interfaz de Compass
+
+Objetivo: rediseñar todas las vistas de `apps/web` y el sistema de diseño de `packages/ui` según el artifact «Compass — Propuesta de diseño», y documentar sus reglas para que se respeten de aquí en adelante. Rama: `main` (sin ramas, autonomía del proyecto). Entrega: un commit convencional por unidad terminada, sin `git push`. Runner de pruebas: `pnpm --filter @iam/web test` y `pnpm --filter @iam/ui test`. Un solo escritor a la vez.
+
+Fuente del diseño: https://claude.ai/artifact/Tth2eUdgKBYiZjMmcZmwdn (lienzo de diseño con seis tableros: Home oscuro y claro, Users, Vault account · Reveal, Foundations oscuro y claro, más `compass.css`).
+
+## Specs
+
+- S1. «es necesario que se documenten estas reglas para que ahora en adelante se sigan y respeten». Las reglas del sistema (identidad, tokens de los dos temas, tipografía, componentes, cristal solo en capas flotantes, marco de la aplicación) se documentan en `docs/frontend.md` §4 y en un ADR nuevo.
+- S2. «siguiendo las reglas, colores y todo lop mencionado». Los colores, la tipografía, los radios y los componentes salen del artifact: un solo acento latón («la aguja»), superficies frías y neutras, temas oscuro y claro.
+- S3. «debes combinar algunas reglas y otras sobreescribir, principalmente algunas reglas de disenio, colores, y demas». Donde el diseño nuevo contradice una regla de diseño vigente, manda el diseño nuevo y se deja anotado el cambio (por ejemplo, «un solo juego de valores oscuros» pasa a dos temas). Las reglas de seguridad, accesibilidad AA, i18n, capas y tokens-solo se conservan.
+- S4. «si algo ya existe como las fuentes, entiendo que eso no lo reescribes, simplemente lo adaptas a la nueva propuesta». Las tres fuentes ya se sirven desde nuestro origen con `@fontsource-variable/*`: no se agrega ninguna dependencia ni se carga nada de Google Fonts.
+- S5. «todo el redisenio de todas las vistas de este proyecto». Todas las vistas de `apps/web/src/routes` y `apps/web/src/features` adoptan el sistema nuevo, con ayuda de los agentes `frontend-developer`, `ui-ux-designer` y la skill `ui-ux-pro-max`.
+- S6. Supuesto (no pedido literal): la vista de revelación de secretos se rediseña solo en lo visual, sin cambiar su lógica de autorización, auditoría ni cifrado. Cada cambio en ella pasa por los dos revisores ciegos.
+- S7. Se conservan, del proyecto: textos solo por catálogo en es-MX y en-US, tabla estándar `DataTable`, accesibilidad AA medida por la prueba de tokens, sin colores literales en componentes.
+
+## Tasks
+
+| ID | Specs | Ruta | Estado | Commit |
+| --- | --- | --- | --- | --- |
+| T1 Documentar reglas (`docs/frontend.md` §4, ADR 0044, guía para agentes) | S1, S3, S4 | inline | hecho: prettier en verde, contrastes calculados con la fórmula WCAG | ver `git log` |
+| T2 Tokens de dos temas, selector de tema y prueba de contraste | S2, S3, S7 | inline | pendiente | |
+| T3 Componentes base y marco (`packages/ui`: botón, chip, campo, tarjeta, tabla, cristal, AppShell, PageHeader) | S2, S5, S7 | delegado (frontend-developer), uno a la vez | pendiente | |
+| T4 Vistas: inicio, usuarios, sesiones, seguridad, roles | S5 | delegado (frontend-developer), uno a la vez | pendiente | |
+| T5 Vistas de bóveda: cuentas, credenciales, códigos entrantes, compartidos, catálogo | S5, S6 | delegado (frontend-developer), uno a la vez | pendiente | |
+| T6 Vistas públicas y de autenticación, alertas, vacío y 404 | S5 | delegado (frontend-developer), uno a la vez | pendiente | |
+| T7 Revisión de accesibilidad y consistencia, revisión ciega de la bóveda, e2e | S5, S6, S7 | `ui-ux-designer` (solo lectura) + `jd-judge-a`/`jd-judge-b` | pendiente | |
+
+Route declaration: un solo escritor a la vez (regla del usuario). T1 y T2 son inline porque definen el contrato que lee todo lo demás. T3 a T6 se delegan de forma secuencial a `frontend-developer` porque el lote es largo y evita llenar el contexto del orquestador (respaldo de contexto); nunca dos escritores en paralelo.
+
+## Log
+
+- L1 (2026-11-04, usuario): «Como tal si puedes leerlos para incorporarlos en las vistas? la idea es rediseniar todo Con ayuda de los agentes que existen tanto de frontend, ui/ux, y ui ux pro max, para trabajar en todo el redisenio tal y como esta estipulado en el artifact, siguiendo las reglas, colores y todo lop mencionado, es necesario que se documenten estas reglas para que ahora en adelante se sigan y respeten Ademas de aceptar las propuestas que se brindan para trabajar con todo el redisenio de todas las vistas de este proyecto. Nuevamente, todo con ayuda del artifact proporcionado.»
+- L2 (2026-11-04, usuario): «Entiendo que pueda chocar algunas cosas que se definieron, pero realmente debes combinar algunas reglas y otras sobreescribir, principalmente algunas reglas de disenio, colores, y demas, si algo ya existe como las fuentes, entiendo que eso no lo reescribes, simplemente lo adaptas a la nueva propuesta. Sobre todo lo demas, puedes llevar a cabo las adaptaciones correspondientes.»
+- L3 (análisis): el artifact trae `compass.css` con variables propias (`--bg`, `--surface-2`, `--accent-text`…). Decisión: se conservan los nombres semánticos actuales de `packages/ui` (`canvas`, `surface`, `raised`, `overlay`, `text*`, `accent*`) y se les cambian los valores, para no romper los componentes existentes. Correspondencia propuesta: bg→canvas, surface→surface, surface-2→raised, surface-3→overlay; nuevos tokens: `sidebar` (bg-side), `accent-soft`, `*-soft` de estado, `glass`, `glass-border`, `scrim`.
+- L4 (análisis): choques detectados. (a) `docs/frontend.md` §4.1 fija un solo tema oscuro: se reemplaza por dos temas con selector. (b) El mockup carga fuentes de Google: se ignora, las fuentes ya están locales. (c) El mockup trae textos en inglés literal: se pasan a catálogo es-MX y en-US. (d) La prueba `tokens.test.ts` lee solo el bloque `:root`: se amplía a los dos temas.
+- L5 (supuesto): las pantallas `Users` y `Account` del artifact se descargaron pero se leen al empezar T4 y T5; no se asumió nada sobre su contenido.
+- Próximo paso: T1.

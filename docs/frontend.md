@@ -88,82 +88,116 @@ Se verifica con `eslint-plugin-boundaries` y dependency-cruiser en CI, igual que
 
 ## 4. Sistema de diseño
 
-### 4.1 Tokens
+### 4.1 Identidad visual y tokens
 
-Todos los tokens viven en el archivo de tokens de `packages/ui` (ver nota de §3.1). Los componentes usan **solo** utilidades semánticas (superficie, texto secundario), nunca un color literal ni la paleta por defecto de Tailwind.
+Origen: el lienzo de diseño «Compass — Propuesta de diseño» (ADR [0044](adr/0044-compass-visual-system.md)). Este apartado es la fuente de verdad: si el lienzo y este documento difieren, manda este documento.
 
-Paleta "carbón": casi negro con un leve matiz frío, sin llegar a negro puro. Los contrastes están medidos con la fórmula WCAG 2.x. Tailwind consume cada token mediante el bloque de tema del CSS; las tres familias tipográficas y los tres radios también se publican como tokens.
+La idea en una frase: instrumentos silenciosos y una sola aguja de latón. La interfaz es calmada y precisa, con superficies frías y neutras, un único acento que sirve para orientarse y cristal solo donde algo flota sobre el trabajo.
+
+Todos los tokens viven en el archivo de tokens de `packages/ui` (ver nota de §3.1). Los componentes usan **solo** utilidades semánticas (superficie, texto secundario), nunca un color literal ni la paleta por defecto de Tailwind. Hay **dos temas**, oscuro y claro, con los mismos nombres de token y valores distintos. El tema se elige con el atributo `data-theme` del elemento raíz del documento.
 
 **Superficies** (de más profundo a más elevado)
 
-| Token | Valor |
-| --- | --- |
-| canvas | `#0f1114` |
-| surface | `#16191d` |
-| raised | `#1c2025` |
-| overlay | `#23282f` |
+| Token | Oscuro | Claro | Uso |
+| --- | --- | --- | --- |
+| canvas | `#0b0f13` | `#f2f4f6` | Fondo de la página |
+| sidebar | `#0e1318` | `#eaeef1` | Menú lateral |
+| surface | `#131920` | `#ffffff` | Tarjetas y tablas |
+| raised | `#19212a` | `#f6f8fa` | Controles, cabeceras de tabla, fila al pasar el cursor |
+| overlay | `#212b36` | `#ebeff2` | Chips neutros, segmento activo, avatares |
 
 **Texto**
 
-| Token | Valor |
-| --- | --- |
-| text | `#e8eaed` |
-| text-secondary | `#a8afba` |
-| text-muted | `#8b93a0` |
-| text-disabled | `#69717d` |
+| Token | Oscuro | Claro |
+| --- | --- | --- |
+| text | `#e9eef3` | `#0d1620` |
+| text-secondary | `#a6b2bf` | `#435061` |
+| text-muted | `#8592a0` | `#5a6878` |
+| text-disabled | `#6a7683` | `#7a8592` |
 
 **Bordes**
 
-| Token | Valor | Uso |
+| Token | Oscuro | Claro | Uso |
+| --- | --- | --- | --- |
+| border | `#1c242d` | `#dde2e7` | Separadores decorativos |
+| border-strong | `#34404d` | `#c3cbd3` | Tarjetas y tablas |
+| border-input | `#6b7785` | `#7d8896` | Controles interactivos (contraste mínimo de 3:1) |
+
+**Acento y estados**
+
+| Token | Oscuro | Claro | Uso |
+| --- | --- | --- | --- |
+| accent | `#ecc272` | `#7a5000` | Texto y detalles de acento: enlace activo, foco, valor revelado |
+| accent-solid | `#e6b45b` | `#dca235` | Relleno del botón principal y de la barra de progreso |
+| accent-solid-hover | `#f0c06a` | `#cf942a` | Botón principal al pasar el cursor |
+| on-accent | `#1b1407` | `#1b1407` | Texto sobre accent-solid |
+| success | `#5fd8a4` | `#0d7048` | Permitido, verificado |
+| warning | `#ecc272` | `#7a5000` | Atención, rotación pendiente |
+| danger | `#ff948f` | `#b02b27` | Negado, error |
+| danger-solid | `#c93843` | `#b02b27` | Relleno de acciones destructivas |
+| on-danger | `#ffffff` | `#ffffff` | Texto sobre danger-solid |
+| info | `#7fbcff` | `#1a58ad` | Informativo, invitaciones |
+| focus | `#ecc272` | `#7a5000` | Anillo de foco |
+
+Cada color de estado y de acento tiene una variante suave (`accent-soft`, `success-soft`, `warning-soft`, `danger-soft`, `info-soft`): el mismo color con 10 a 18 % de opacidad, para el fondo de chips y avisos. Su texto siempre usa el token pleno.
+
+**Capas flotantes (cristal)**
+
+| Token | Oscuro | Claro |
 | --- | --- | --- |
-| border | `#2a2f37` | Separadores decorativos |
-| border-strong | `#454d59` | Tarjetas y tablas |
-| border-input | `#656e7a` | Controles interactivos (contraste mínimo de 3:1) |
-
-**Marca y estados**
-
-| Token | Valor |
-| --- | --- |
-| accent | `#6aa6ff` |
-| accent-solid | `#2f6fe0` |
-| accent-solid-hover | `#2563c9` |
-| on-accent | `#ffffff` |
-| success | `#4cc49a` |
-| warning | `#e8b04a` |
-| danger | `#ff7a85` |
-| danger-solid | `#c93843` |
-| focus | `#6aa6ff` |
+| glass | `rgba(19,25,32,.64)` | `rgba(255,255,255,.66)` |
+| glass-border | `rgba(255,255,255,.13)` | `rgba(255,255,255,.85)` |
+| scrim | `rgba(4,7,10,.52)` | `rgba(226,232,238,.55)` |
 
 **Forma y movimiento**
 
 | Token | Valor |
 | --- | --- |
-| radio pequeño / medio / grande | 0.375 rem / 0.5 rem / 0.75 rem |
-| sombra de capas superpuestas | desplazamiento vertical de 8 px, desenfoque de 24 px, negro con 45 % de opacidad |
+| radio pequeño / medio / grande | 0.375 rem / 0.625 rem / 0.875 rem (6, 10 y 14 px) |
+| botones, campos y elementos de menú | 9 px de radio y 40 px de alto |
+| sombra de capas superpuestas | oscuro: desplazamiento vertical de 28 px, desenfoque de 70 px; claro: 28 px y 60 px, más un filo interior |
 | duración rápida / base | 120 ms / 200 ms |
-| esquema de color del navegador | oscuro |
+| esquema de color del navegador | el del tema activo |
 
-Reglas:
+**Reglas que se respetan siempre**
 
-- **Un solo juego de valores oscuros** (decisión del plan). No hay variantes por modo ni modo claro; las variables permiten cambiar la paleta en un solo archivo.
-- Para añadir un color nuevo: se agrega el token, se mide el contraste y se documenta aquí.
-- Valores arbitrarios de Tailwind (anchos o tamaños sueltos) prohibidos salvo justificación en un comentario. Lint con `eslint-plugin-tailwindcss` (aprobación pendiente).
+1. **Un solo acento.** El latón sirve para orientarse: página activa del menú, botón principal, foco, valor revelado, progreso. No decora y no significa estado.
+2. **El cristal es solo para capas flotantes:** ventanas modales, barra superior y menús. Nunca en tarjetas ni tablas: el contenido es opaco y legible.
+3. **El estado nunca se comunica solo con color.** Todo chip de estado lleva texto, y el punto de color es refuerzo.
+4. **Lo que una máquina produce o una persona debe leer exacto va en la fuente monoespaciada:** códigos TOTP, hashes, marcas de tiempo, identificadores y rangos de acceso.
+5. **El ambiente de fondo** (dos degradados radiales muy tenues) solo da profundidad detrás del cristal. No se usa para decorar contenido.
+6. **Dos temas completos.** Toda pantalla y todo componente se ve bien y cumple contraste en oscuro y en claro. Sin colores por tema escritos a mano: se cambia el valor del token.
+7. **El selector de tema** está en la barra superior. Sin preferencia guardada se sigue la del sistema operativo. Cambiar de tema nunca recarga la página.
+8. **Valores arbitrarios de Tailwind** (anchos o tamaños sueltos) prohibidos salvo justificación en un comentario.
+9. Para añadir un color nuevo: se agrega el token **en los dos temas**, se mide el contraste y se documenta aquí.
 
-### 4.2 Contraste medido (razón sobre canvas / surface / raised)
+**Marco de la aplicación**
 
-| Token | canvas | surface | raised | Uso |
-| --- | --- | --- | --- | --- |
-| text | 15.7 | 14.6 | 13.6 | Texto principal |
-| text-secondary | 8.6 | 8.0 | 7.4 | Texto de apoyo |
-| text-muted | 6.1 | 5.7 | 5.3 | Metadatos, placeholders |
-| accent | 7.7 | 7.1 | 6.6 | Enlaces, foco |
-| success / warning / danger | ≥7.5 / ≥8.4 / ≥6.5 | | | Texto de estado |
-| border-input | 3.7 | 3.4 | 3.2 | Bordes de controles (WCAG 1.4.11, ≥3:1) |
-| text-disabled | 3.8 | 3.6 | 3.3 | Solo controles inactivos |
+- **Barra superior fija:** marca (brújula y nombre), selector de idioma, selector de tema, persona con chip de su rango, y cerrar sesión. Usa cristal.
+- **Menú lateral de 248 px** con tres grupos de navegación: Espacio de trabajo (inicio, usuarios, mis sesiones, seguridad), Bóveda (cuentas, códigos de acceso, fuentes de códigos, vistas de códigos) y Acceso (roles). En teléfono pasa a ocupar todo el ancho sobre el contenido.
+- **Contenido** con ancho máximo de 1120 px, separación de 28 px entre bloques y encabezado de página: etiqueta pequeña, título de pantalla, texto de apoyo y, a la derecha, las acciones de la página.
 
-- Botón sólido: blanco sobre accent-solid = 4.7; sobre danger-solid = 5.1.
+### 4.2 Contraste medido (razón sobre canvas / surface / raised / overlay)
+
+Valores calculados con la fórmula WCAG 2.x sobre los tokens de §4.1.
+
+| Token | Tema | canvas | surface | raised | overlay |
+| --- | --- | --- | --- | --- | --- |
+| text | oscuro / claro | 16.5 / 16.5 | 15.1 / 18.2 | 13.9 / 17.1 | 12.3 / 15.8 |
+| text-secondary | oscuro / claro | 8.9 / 7.4 | 8.2 / 8.2 | 7.5 / 7.7 | 6.7 / 7.1 |
+| text-muted | oscuro / claro | 6.1 / 5.2 | 5.6 / 5.7 | 5.1 / 5.4 | 4.5 / 4.9 |
+| accent | oscuro / claro | 11.5 / 6.4 | 10.5 / 7.1 | 9.7 / 6.6 | 8.6 / 6.1 |
+| success | oscuro / claro | 10.8 / 5.6 | 10.0 / 6.1 | 9.2 / 5.8 | 8.1 / 5.3 |
+| warning | oscuro / claro | 11.5 / 6.4 | 10.5 / 7.1 | 9.7 / 6.6 | 8.6 / 6.1 |
+| danger | oscuro / claro | 9.1 / 5.9 | 8.3 / 6.5 | 7.6 / 6.1 | 6.8 / 5.6 |
+| info | oscuro / claro | 9.7 / 6.3 | 8.9 / 6.9 | 8.2 / 6.5 | 7.2 / 6.0 |
+| border-input | oscuro / claro | 4.2 / 3.3 | 3.9 / 3.6 | 3.6 / 3.4 | 3.1 / 3.1 |
+| text-disabled | oscuro / claro | 4.2 / 3.4 | 3.8 / 3.8 | 3.5 / 3.5 | 3.1 / 3.2 |
+
+- Botón principal: `on-accent` sobre `accent-solid` = 9.6 (oscuro) y 8.1 (claro). Botón destructivo: `on-danger` sobre `danger-solid` = 5.1 (oscuro) y 6.5 (claro).
 - **Decisión documentada:** text-disabled queda por debajo de 4.5 porque WCAG exime a los controles inactivos, y bajar el contraste es lo que los hace verse deshabilitados. Nunca se usa para información que el usuario deba leer; el estado se refuerza con los atributos de accesibilidad de deshabilitado, el cursor y, si hace falta, texto.
-- Una prueba automática recorre los pares anteriores y falla si alguno baja del umbral (ver sección 11).
+- Los textos pequeños en gris (11 a 12 px) deben usar text-muted o más oscuro; 4.3 sigue sin pasar.
+- Una prueba automática recorre los pares anteriores **en los dos temas** y falla si alguno baja del umbral (ver sección 11).
 
 ### 4.3 Tipografía
 
@@ -416,6 +450,7 @@ Se puede apoyar el desarrollo del frontend en los agentes de Claude Code disponi
 | `frontend-developer` | Construir componentes de `shared/ui`, pantallas de un feature, formularios, tablas con la tabla estándar, pruebas de componente | Escribe código; necesita alcance de archivos explícito |
 | `typescript-pro` | Tipos de marca, tipos genéricos de la tabla y de la consulta de tablas, cliente HTTP tipado, tipos derivados de `contracts` | Solo tipos y utilidades; no decide arquitectura |
 | `ui-ux-designer` | Auditar accesibilidad, contraste, consistencia con los tokens y usabilidad de una pantalla o componente | Solo lectura; entrega hallazgos, no edita |
+| Skill `ui-ux-pro-max` | Consultar criterios de interfaz, accesibilidad y tipografía al diseñar o revisar. El sistema del proyecto (§4.1, ADR 0044) manda sobre cualquier recomendación genérica | Orienta; no sustituye los tokens ni la guía |
 
 ### Cómo delegar
 
@@ -447,6 +482,8 @@ Las reglas que un agente debe respetar al trabajar en `apps/web` son estas. Si s
 1. Sigue esta guía. Si algo no está cubierto, propónlo y detente.
 2. Usa siempre componentes de `shared/ui`. Toda tabla es la tabla estándar.
 3. Usa solo los tokens de diseño. Prohibido color, tamaño o sombra literal.
+   - Respeta las «Reglas que se respetan siempre» de §4.1 (ADR 0044): un solo acento latón, cristal solo en capas flotantes, estado nunca solo con color, datos exactos en fuente monoespaciada, y todo se ve bien y cumple contraste en los dos temas.
+   - Antes de crear o cambiar una pantalla, comprueba que el marco (barra superior, menú lateral, encabezado de página) sea el de §4.1 y que reutilice los componentes de `packages/ui`.
 4. Ningún texto literal: claves i18n en `es-MX` y `en-US`.
 5. Respeta la regla de dependencia: `shared` no importa `features`; entre features, solo por la fachada.
 6. Prohibido insertar HTML a mano, evaluar código dinámico y escribir datos sensibles en la consola.
