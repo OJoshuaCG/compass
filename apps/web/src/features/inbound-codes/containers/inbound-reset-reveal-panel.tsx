@@ -1,5 +1,5 @@
 import { ErrorCode, type InboundReset } from '@iam/contracts';
-import { Alert, Button, Card, CopyButton, FormField, Input, PasswordInput } from '@iam/ui';
+import { Alert, Button, CopyButton, FormField, Input, PasswordInput } from '@iam/ui';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -151,7 +151,7 @@ function ShownResets({ resets, noticeRef, onHide, onClose }: ShownResetsProps) {
         <p
           ref={noticeRef}
           tabIndex={-1}
-          className="rounded-md border border-border-strong bg-raised px-4 py-3 text-sm text-text"
+          className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
         >
           {t('resets.none', { ns: 'inbound' })}
         </p>
@@ -173,42 +173,39 @@ function ShownResets({ resets, noticeRef, onHide, onClose }: ShownResetsProps) {
           const position = index + 1;
           const kindLabel = t(`templateKind.${reset.kind}`, { ns: 'inbound' });
           return (
-            <li key={reset.itemId}>
-              <Card className="flex flex-col gap-2 bg-raised p-4">
-                {/*
-                 * El enlace va en un campo enmascarado igual que un código y nunca como <a>: un clic
-                 * accidental lo consumiría en un navegador ajeno a la persona que restablece, y un ancla
-                 * lo dejaría en el historial y en la cabecera Referer.
-                 */}
-                <FormField
-                  label={t('resets.item', { ns: 'inbound', position, kind: kindLabel })}
-                  help={t('resets.expiresAt', {
-                    ns: 'inbound',
-                    time: formatDateTime(reset.expiresAt, i18n.language, timeZone),
-                  })}
-                >
-                  {(controlProps) => (
-                    <PasswordInput
-                      {...controlProps}
-                      readOnly
-                      value={reset.value}
-                      autoComplete="off"
-                      className="font-mono text-accent"
-                      showLabel={showLabel}
-                      hideLabel={hideLabel}
-                    />
-                  )}
-                </FormField>
-                <div className="flex justify-end">
-                  <CopyButton
+            <li key={reset.itemId} className="flex flex-col gap-2">
+              {/*
+               * El enlace va en un campo enmascarado igual que un código y nunca como <a>: un clic
+               * accidental lo consumiría en un navegador ajeno a la persona que restablece, y un ancla
+               * lo dejaría en el historial y en la cabecera Referer.
+               */}
+              <FormField
+                label={t('resets.item', { ns: 'inbound', position, kind: kindLabel })}
+                help={t('resets.expiresAt', {
+                  ns: 'inbound',
+                  time: formatDateTime(reset.expiresAt, i18n.language, timeZone),
+                })}
+              >
+                {(controlProps) => (
+                  <PasswordInput
+                    {...controlProps}
+                    readOnly
                     value={reset.value}
-                    label={t('resets.copy', { ns: 'inbound', position })}
-                    copiedLabel={copiedLabel}
-                    failedLabel={failedLabel}
-                    clearAfterMs={INBOUND_CLIPBOARD_CLEAR_MS}
+                    autoComplete="off"
+                    showLabel={showLabel}
+                    hideLabel={hideLabel}
                   />
-                </div>
-              </Card>
+                )}
+              </FormField>
+              <div className="flex justify-end">
+                <CopyButton
+                  value={reset.value}
+                  label={t('resets.copy', { ns: 'inbound', position })}
+                  copiedLabel={copiedLabel}
+                  failedLabel={failedLabel}
+                  clearAfterMs={INBOUND_CLIPBOARD_CLEAR_MS}
+                />
+              </div>
             </li>
           );
         })}
@@ -277,7 +274,7 @@ export function InboundResetRevealPanel({ viewId }: InboundResetRevealPanelProps
   }, [phase]);
 
   return (
-    <Card ref={sectionRef} aria-labelledby={headingId} className="flex flex-col gap-3 p-5">
+    <section ref={sectionRef} aria-labelledby={headingId} className="flex flex-col gap-3">
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-lg text-text">
         {t('resets.heading')}
       </h2>
@@ -324,7 +321,7 @@ export function InboundResetRevealPanel({ viewId }: InboundResetRevealPanelProps
           <p
             ref={phaseNoticeRef}
             tabIndex={-1}
-            className="rounded-md border border-border-strong bg-raised px-4 py-3 text-sm text-text"
+            className="rounded-md border border-border-strong px-4 py-3 text-sm text-text"
           >
             {t('resets.hidden')}
           </p>
@@ -340,6 +337,6 @@ export function InboundResetRevealPanel({ viewId }: InboundResetRevealPanelProps
           </div>
         </div>
       ) : null}
-    </Card>
+    </section>
   );
 }

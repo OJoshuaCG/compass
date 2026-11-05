@@ -92,7 +92,6 @@ export function TotpRegisterForm({
             {...controlProps}
             value={secretOrUri}
             autoComplete="off"
-            className="font-mono"
             spellCheck={false}
             showLabel={t('password.show', { ns: 'common' })}
             hideLabel={t('password.hide', { ns: 'common' })}

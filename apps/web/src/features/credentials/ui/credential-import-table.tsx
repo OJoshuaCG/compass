@@ -52,11 +52,7 @@ export function CredentialImportTable({
 
   const columns = useMemo<Column<CredentialImportRow>[]>(
     () => [
-      {
-        id: 'line',
-        header: t('import.col.line'),
-        cell: (row) => <span className="font-mono tabular-nums">{row.line}</span>,
-      },
+      { id: 'line', header: t('import.col.line'), cell: (row) => row.line },
       { id: 'platform', header: t('import.col.platform'), cell: (row) => row.platform },
       { id: 'account', header: t('import.col.account'), cell: (row) => row.accountName },
       { id: 'label', header: t('import.col.label'), cell: (row) => row.credentialLabel },
