@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/assets/logos/compass-horizontal-bold-dark.svg" />
+    <img src="site/assets/logos/compass-horizontal-bold-light.svg" alt="Compass" width="320" />
+  </picture>
+</p>
+
 # Compass: plataforma interna de identidad, accesos y bóveda
 
 Una herramienta interna para que un equipo pequeño gestione **quién puede entrar a qué**, y para guardar y compartir de forma segura las **cuentas de plataformas externas** (por ejemplo, redes sociales) con sus segundos factores de verificación. Cada acceso importante queda registrado en una bitácora que nadie puede reescribir.
@@ -89,8 +96,18 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | `packages` | Piezas compartidas: componentes visuales, textos en español e inglés, contratos entre servicio y web, configuración común |
 | `db` | Las migraciones de la base de datos y sus pruebas |
 | `e2e` | Pruebas en navegador real y el entorno local completo |
+| `site` | La página de presentación del proyecto (estática, para GitHub Pages) y una copia de los logos |
 | `docs` | Toda la documentación |
 | `odd` | Seguimiento de cada trabajo grande: qué se pidió, qué se hizo y qué se encontró |
+
+## Página de presentación
+
+La carpeta [`site/`](site/index.html) contiene una página estática que explica qué es Compass, con los mismos colores y los dos temas (oscuro y claro) de la aplicación. No necesita instalar nada ni compilar: se puede abrir `site/index.html` directamente en el navegador. Funciona en pantallas de escritorio y de celular.
+
+- **Publicación.** Un flujo de GitHub Actions (`.github/workflows/pages.yml`) la publica en GitHub Pages cada vez que cambia algo dentro de `site/` en la rama principal. La primera vez hay que activar Pages en el repositorio: **Settings → Pages → Source: GitHub Actions**. Su dirección será `https://ojoshuacg.github.io/compass/`. En repositorios privados, Pages depende del plan de GitHub.
+- **Logos.** La carpeta `site/assets/logos/` guarda una copia de los logos que viven en `apps/web/public/`, porque la página se publica sola y no puede leer fuera de `site/`. Si cambia un logo, hay que actualizar las dos copias.
+- **Colores.** Salen de los tokens de la aplicación (`packages/ui/src/styles/tokens.css`). Si cambia el sistema visual, se actualizan también en `site/styles.css`.
+- **Contenido.** Resume lo que dice esta documentación y no la reemplaza. Mientras la fase 1 no termine, la página avisa que no se cargan credenciales reales: si cambia el estado del proyecto, hay que actualizar también la sección «Estado» de la página.
 
 ## Dónde leer más
 
@@ -105,6 +122,7 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 | Operar el sistema (alta de una organización, correo, una sola instancia) o saber qué hacer ante un incidente | [`docs/runbooks/`](docs/runbooks/README.md) |
 | Seguir el trabajo grande en curso y el siguiente | [`odd/tasks/`](odd/tasks/phase-1b-vault.md) |
 | Ver todo el índice | [`docs/README.md`](docs/README.md) |
+| Ver la presentación pública del proyecto | [Página de Compass](https://ojoshuacg.github.io/compass/) (carpeta [`site/`](site/index.html)) |
 
 ## Cómo se colabora
 
