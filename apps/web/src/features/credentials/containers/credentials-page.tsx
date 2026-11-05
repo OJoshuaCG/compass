@@ -1,5 +1,14 @@
 import type { Credential } from '@iam/contracts';
-import { Badge, Button, buttonVariants, Plus, Spinner, StatusBadge, Users } from '@iam/ui';
+import {
+  Badge,
+  Button,
+  buttonVariants,
+  PlatformTile,
+  Plus,
+  Spinner,
+  StatusBadge,
+  Users,
+} from '@iam/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -206,7 +215,6 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   }
 
   const platform = platformsQuery.data?.find((item) => item.id === account.platformId);
-  const monogram = (platform?.name ?? account.displayName).slice(0, 2).toUpperCase();
   const subtitle = [platform?.name, account.handle].filter(Boolean).join(' · ');
 
   const tableStatus = credentialsQuery.isPending
@@ -219,12 +227,11 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
     <>
       {backLink}
       <div className="flex flex-wrap items-start gap-4">
-        <span
-          aria-hidden="true"
-          className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-raised text-lg font-bold text-accent"
-        >
-          {monogram}
-        </span>
+        <PlatformTile
+          size="lg"
+          slug={platform?.isGlobal === true ? platform.slug : undefined}
+          fallback={platform?.name ?? account.displayName}
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h1 className="text-2xl text-text">{account.displayName}</h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">

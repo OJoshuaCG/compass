@@ -5,5 +5,6 @@ export { IconBubble, iconBubbleVariants, type IconBubbleProps } from './icon-bub
 export { IconButton, type IconButtonProps } from './icon-button';
 export { Input, type InputProps } from './input';
 export { NativeSelect, type NativeSelectProps } from './native-select';
+export { PlatformTile, platformTileVariants, type PlatformTileProps } from './platform-tile';
 export { Skeleton, type SkeletonProps } from './skeleton';
 export { Spinner, type SpinnerProps } from './spinner';

@@ -113,6 +113,28 @@ describe('accounts navigation', () => {
   });
 });
 
+describe('accounts platform logos', () => {
+  it('draws the logo of a global platform and letters for an organization one, even with a brand slug', async () => {
+    setup({
+      'GET /platforms': jsonResponse({
+        data: [
+          { ...PLATFORMS[0], name: 'Instagram', slug: 'instagram' },
+          // Una plataforma propia no toma el logotipo de una marca real aunque repita su slug.
+          { ...PLATFORMS[1], name: 'Insta interna', slug: 'instagram' },
+        ],
+      }),
+    });
+    renderApp('/accounts');
+    await rowsLoaded();
+    const table = screen.getByRole('table', { name: es.accounts.caption });
+    const globalRow = within(table).getByRole('row', { name: /Nómina/ });
+    const orgRow = within(table).getByRole('row', { name: /Marketing/ });
+    expect(globalRow.querySelector('svg[fill="currentColor"] path')).not.toBeNull();
+    expect(orgRow.querySelector('svg[fill="currentColor"] path')).toBeNull();
+    expect(orgRow).toHaveTextContent('IN');
+  });
+});
+
 describe('accounts table', () => {
   it('lists name, platform, own level as text and status, without violations', async () => {
     setup();

@@ -5,6 +5,7 @@ import {
   buttonVariants,
   DataTable,
   EmptyState,
+  PlatformTile,
   StatusBadge,
   type Column,
 } from '@iam/ui';
@@ -70,8 +71,8 @@ export function AccountsTable({
   const { t } = useTranslation('accounts');
   const labels = useDataTableLabels();
 
-  const platformNames = useMemo(
-    () => new Map(platforms.map((platform) => [platform.id, platform.name])),
+  const platformsById = useMemo(
+    () => new Map(platforms.map((platform) => [platform.id, platform])),
     [platforms],
   );
 
@@ -82,15 +83,13 @@ export function AccountsTable({
       // Como el diseño de Compass: mosaico de la plataforma, nombre y, debajo, el identificador. En
       // "Mis cuentas" el nombre abre el detalle (el inventario no da acceso, así que no enlaza).
       cell: (row) => {
-        const platform = platformNames.get(row.platformId);
+        const platform = platformsById.get(row.platformId);
         return (
           <span className="flex items-center gap-3">
-            <span
-              aria-hidden="true"
-              className="flex size-9 shrink-0 items-center justify-center rounded-md bg-raised text-xs font-bold text-accent"
-            >
-              {(platform ?? row.displayName).slice(0, 2).toUpperCase()}
-            </span>
+            <PlatformTile
+              slug={platform?.isGlobal === true ? platform.slug : undefined}
+              fallback={platform?.name ?? row.displayName}
+            />
             <span className="flex min-w-0 flex-col">
               {variant === 'mine' ? (
                 <Link
@@ -114,7 +113,7 @@ export function AccountsTable({
     const platformColumn: Column<AccountListItem> = {
       id: 'platform',
       header: t('col.platform'),
-      cell: (row) => platformNames.get(row.platformId) ?? t('platform.unknown'),
+      cell: (row) => platformsById.get(row.platformId)?.name ?? t('platform.unknown'),
     };
     const levelColumn: Column<AccountListItem> = {
       id: 'level',
@@ -146,7 +145,7 @@ export function AccountsTable({
     return variant === 'mine'
       ? [nameColumn, platformColumn, levelColumn, lastChangedColumn, statusColumn]
       : [nameColumn, platformColumn, lastChangedColumn, statusColumn];
-  }, [platformNames, t, timeZone, variant]);
+  }, [platformsById, t, timeZone, variant]);
 
   const emptyTitle = variant === 'mine' ? t('empty.title') : t('inventory.empty.title');
   const emptyDescription =

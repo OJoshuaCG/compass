@@ -1,5 +1,5 @@
 import { ErrorCode } from '@iam/contracts';
-import { Button, Dialog, FormField, Input, NativeSelect } from '@iam/ui';
+import { Button, Dialog, FormField, Input, NativeSelect, PlatformTile } from '@iam/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useForm, useWatch } from 'react-hook-form';
@@ -45,6 +45,7 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
   });
   const platformId = useWatch({ control, name: 'platformId' });
   const displayName = useWatch({ control, name: 'displayName' });
+  const selectedPlatform = platforms.find((platform) => platform.id === platformId);
 
   async function submit(values: AccountFormValues) {
     const result = await action.run(values);
@@ -98,18 +99,28 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
         })}
       >
         {(field) => (
-          <NativeSelect
-            {...field}
-            {...register('platformId')}
-            invalid={field['aria-invalid'] === true}
-          >
-            <option value="">{t('create.platformPlaceholder', { ns: 'accounts' })}</option>
-            {platforms.map((platform) => (
-              <option key={platform.id} value={platform.id}>
-                {platform.name}
-              </option>
-            ))}
-          </NativeSelect>
+          // Un select nativo no admite imágenes: el logotipo de la elegida se muestra a su lado.
+          <div className="flex items-center gap-3">
+            {selectedPlatform !== undefined ? (
+              <PlatformTile
+                slug={selectedPlatform.isGlobal ? selectedPlatform.slug : undefined}
+                fallback={selectedPlatform.name}
+              />
+            ) : null}
+            <NativeSelect
+              {...field}
+              {...register('platformId')}
+              invalid={field['aria-invalid'] === true}
+              className="flex-1"
+            >
+              <option value="">{t('create.platformPlaceholder', { ns: 'accounts' })}</option>
+              {platforms.map((platform) => (
+                <option key={platform.id} value={platform.id}>
+                  {platform.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         )}
       </FormField>
       <FormField
