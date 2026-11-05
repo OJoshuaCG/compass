@@ -40,6 +40,10 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'inbound.read_codes': 3,
   'inbound.configure': 2,
   'inbound.reveal_reset': 1,
+  // Notificaciones por Telegram (ADR 0047). Infraestructura es solo de la Raíz; las de seguridad también
+  // las gestiona el Administrador.
+  'alerts.infra.manage': 0,
+  'alerts.security.manage': 1,
 };
 
 export const rankAllows = (permission: Permission, rank: Rank): boolean =>
@@ -79,6 +83,10 @@ export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> 
   'credential.export_totp': { reauth: true, writtenReason: true, criticalAudit: true },
   // Un restablecimiento (código o enlace) abre una cuenta ajena: mismo molde que exportar el 2FA.
   'inbound.reveal_reset': { reauth: true, writtenReason: true, criticalAudit: true },
+  // Configurar a dónde salen los avisos y a quién cambia quién ve la actividad de la plataforma:
+  // reautenticación reciente y auditoría crítica, como la configuración de la organización.
+  'alerts.infra.manage': { reauth: true, writtenReason: false, criticalAudit: true },
+  'alerts.security.manage': { reauth: true, writtenReason: false, criticalAudit: true },
 };
 
 export const policyFor = (permission: Permission): ActionPolicy =>

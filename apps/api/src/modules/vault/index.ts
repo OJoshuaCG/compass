@@ -5,7 +5,11 @@ export type {
   ManageAccountsDeps,
   UpdateAccountInput,
 } from './application/manage-accounts.js';
-export { ManageShares } from './application/manage-shares.js';
+export {
+  ManageShares,
+  REVEAL_LOOKBACK_DAYS,
+  ROTATION_TASK_DUE_DAYS,
+} from './application/manage-shares.js';
 export type { ManageSharesDeps } from './application/manage-shares.js';
 export { ManageCredentials } from './application/manage-credentials.js';
 export type {
@@ -80,6 +84,7 @@ export type {
   PlatformRecord,
 } from './application/ports/account-repository.js';
 export type {
+  NewRotationTask,
   ShareRecord,
   ShareRepository,
   ShareView,
@@ -87,4 +92,7 @@ export type {
 export { canGrant, levelSatisfies } from './domain/share-level.js';
 export { PgAccountRepository } from './infrastructure/pg-account-repository.js';
 export { PgVaultCredentialRepository } from './infrastructure/pg-credential-repository.js';
+export { PgOffboardingAccountStore } from './infrastructure/pg-offboarding-account-store.js';
+export { PgOffboardingAccessCleanup } from './infrastructure/pg-offboarding-access-cleanup.js';
+export { PgOffboardingRotationStore } from './infrastructure/pg-offboarding-rotation-store.js';
 export { PgShareRepository } from './infrastructure/pg-share-repository.js';

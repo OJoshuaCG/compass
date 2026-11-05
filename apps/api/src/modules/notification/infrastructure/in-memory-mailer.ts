@@ -1,9 +1,13 @@
 import type {
   EmergencyAlertMessage,
+  InfrastructureAlertMessage,
   InvitationMessage,
   Mailer,
+  OffboardingNoticeMessage,
+  RootTransferNoticeMessage,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
+  ResetRevealAlertMessage,
   RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
@@ -55,6 +59,28 @@ export class InMemoryMailer implements Mailer {
     return Promise.resolve();
   }
 
+  readonly resetRevealAlerts: ResetRevealAlertMessage[] = [];
+
+  sendResetRevealAlert(message: ResetRevealAlertMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.resetRevealAlerts.push(message);
+    return Promise.resolve();
+  }
+
+  readonly infrastructureAlerts: InfrastructureAlertMessage[] = [];
+
+  sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.infrastructureAlerts.push(message);
+    return Promise.resolve();
+  }
+
   readonly pendingTotpNotices: PendingTotpNoticeMessage[] = [];
 
   sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void> {
@@ -63,6 +89,28 @@ export class InMemoryMailer implements Mailer {
       return Promise.reject(new Error('mail provider unavailable'));
     }
     this.pendingTotpNotices.push(message);
+    return Promise.resolve();
+  }
+
+  readonly offboardingNotices: OffboardingNoticeMessage[] = [];
+
+  readonly rootTransferNotices: RootTransferNoticeMessage[] = [];
+
+  sendRootTransferNotice(message: RootTransferNoticeMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.rootTransferNotices.push(message);
+    return Promise.resolve();
+  }
+
+  sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('mail provider unavailable'));
+    }
+    this.offboardingNotices.push(message);
     return Promise.resolve();
   }
 

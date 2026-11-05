@@ -1,6 +1,6 @@
 # Lectura de códigos entrantes por correo y SMS (IC)
 
-Estado: **IC-1, IC-2a, IC-2b e IC-2c hechas y revisadas por dos jueces ciegos (2026-10-30; commits locales, sin push). IC-3 en adelante bloqueadas por la aprobación de dependencias (cliente IMAP, analizador MIME) y por el proceso trabajador.** Ruta protegida (identidad previa a la autenticación, criptografía, auditoría, permisos y migraciones con aislamiento): el dueño delegó el encargo humano para este lote; queda pendiente la revisión humana de las pruebas SENSIBLE (ver la bitácora de cada rebanada).
+Estado: **IC-1, IC-2a, IC-2b e IC-2c hechas y revisadas por dos jueces ciegos (2026-10-30; commits locales, sin push). IC-3a, IC-3b, IC-3c-1 e IC-3c-2 hechas y revisadas (2026-11-02); dependencias IMAP/MIME ya instaladas; IC-3c-3 e IC-3d hechas (2026-11-02). IC-5a, IC-5b, IC-5c e IC-6 (hasta IC-6d-5, a63356f) hechas (2026-11-02 y 2026-11-03). Pendientes: los huecos anotados de IC-3d e IC-5a, e IC-8 (bloqueada por decisiones del dueño). Actualizado 2026-11-03.** Ruta protegida (identidad previa a la autenticación, criptografía, auditoría, permisos y migraciones con aislamiento): el dueño delegó el encargo humano para este lote; queda pendiente la revisión humana de las pruebas SENSIBLE (ver la bitácora de cada rebanada).
 
 Diseño: [ADR 0045](../../docs/adr/0045-inbound-codes-mail-and-sms.md) (**Propuesta**). Negocio: `docs/business/vault.md` sección 14 (propuesta). Seguimiento: `TODO.md` épica T y fila S2.
 
@@ -51,18 +51,18 @@ Cada rebanada se entrega con sus pruebas y su documentación, y no depende de un
 | IC-0 | Ratificación del encargo y elección del camino A | — | **Cumplida** (dueño, 2026-10-30). El ADR sigue en Propuesta |
 | IC-1 | Dominio puro: plantillas y filtros **sin regex de usuario**, compuerta DKIM sobre **resultado estructurado** (puerto con resultados abstractos), extracción de código y de enlace con lista de anfitriones, vigencia, **clasificación fail-closed**. Sin base de datos ni red | IC-0 | Hecha y cerrada 2026-10-30 (jueces y mutación en la bitácora; falta la revisión humana de las pruebas SENSIBLE) |
 | IC-2a | Permisos, techo, plantillas de roles y lista blanca de auditoría ⚠ (molde 0021; la siguiente migración libre es la 0023): `inbound.read_codes`, `inbound.configure`, `inbound.reveal_reset` con política de acción, `permission_rank_ceiling()`, `SYSTEM_ROLES_VERSION`, exclusiones si el techo lo exige, acciones nuevas de auditoría | IC-0 | Hecha 2026-10-30 (ver bitácora) |
-| IC-2b | Tablas con RLS ⚠: fuentes, vistas, referencias a plantillas, elementos extraídos, historial de recepciones (con deduplicación), cuarentena; `mail_view` y `mail_source` en `shares` con **`shares_check_refs` redefinido**; reconciliación con `recovery_email_alias` | IC-2a | Hecha 2026-10-30 (ver bitácora); falta la conciliación con `recovery_email_alias` (diferida a IC-2c) |
+| IC-2b | Tablas con RLS ⚠: fuentes, vistas, referencias a plantillas, elementos extraídos, historial de recepciones (con deduplicación), cuarentena; `mail_view` y `mail_source` en `shares` con **`shares_check_refs` redefinido**; reconciliación con `recovery_email_alias` | IC-2a | Hecha 2026-10-30 (ver bitácora); la conciliación con `recovery_email_alias` se cerró en IC-2c (`0025_inbound_resolution_and_worker_role.sql`) |
 | IC-2c | Función `auth.resolve_inbound_address` y **rol de base de datos del worker** con sus grants ⚠ | IC-2b | Hecha 2026-10-30 (ver bitácora) |
 | IC-3 | **Dividida en IC-3a a IC-3d** (camino B, IMAP; diseño en el ADR 0045, sección "Diseño de IC-3 por IMAP"). Dependencias aprobadas e instaladas (`imapflow` 2.9.1, `postal-mime` 4.1.4) | IC-1, IC-2c | Diseño listo |
-| IC-3a | Migración 0026 ⚠: tablas de conexión y de estado de sondeo, grants (API, worker, definidor), función de listado, recifrador de la contraseña, purga de `poll_state` | IC-2c | Diseño revisado por jueces; pendiente |
-| IC-3b | Dominio y aplicación ⚠: `acceptedRecipients` y `keyBitsPolicy` en el IC-1, caso de uso de sondeo contra puertos falsos | IC-3a | Pendiente |
-| IC-3c | Infraestructura ⚠: guardia de red, analizadores de `Authentication-Results` y `DKIM-Signature`, adaptadores de `imapflow` y `postal-mime` (hijo), huella | IC-3b | Pendiente |
-| IC-3d | Punto de entrada, configuración propia, registro de DKIM, runbook ⚠ | IC-3c | Pendiente |
-| IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | Pendiente |
-| IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | Pendiente |
-| IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | Pendiente |
-| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | Pendiente |
-| IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Pendiente |
+| IC-3a | Migración 0029 ⚠: tablas de conexión y de estado de sondeo, grants (API, worker, definidor), función de listado, recifrador de la contraseña, purga de `poll_state` | IC-2c | **Hecha 2026-11-02** (jueces A/B, mutación 1) |
+| IC-3b | Dominio y aplicación ⚠: `acceptedRecipients` y `keyBitsPolicy` en el IC-1, caso de uso de sondeo contra puertos falsos | IC-3a | **Hecha 2026-11-02** (jueces A/B, mutaciones 1 a 3) |
+| IC-3c | Infraestructura ⚠: guardia de red, analizadores de `Authentication-Results` y `DKIM-Signature`, adaptadores de `imapflow` y `postal-mime` (hijo), huella. **Dividida**: 3c-1 piezas puras (guardia de red y verificador); 3c-2 adaptadores `imapflow` y MIME hijo; 3c-3 repositorios `pg` y huella | IC-3b | **3c-1, 3c-2 y 3c-3 hechas 2026-11-02** |
+| IC-3d | Punto de entrada, configuración propia, registro de DKIM, runbook ⚠ | IC-3c | **Hecha 2026-11-02** (jueces A/B, mutación; faltan `d=`/`s=` en el registro y el umbral de N fallos consecutivos) |
+| IC-5a | Lectura por USE ⚠: casos de uso y endpoint de códigos `login_code`, historial para VIEW, unidad de auditoría de lectura, entradas de la matriz de autorización | IC-2b, IC-3 | **Hecha 2026-11-02** (jueces A/B, mutación; falta el e2e HTTP y la web) |
+| IC-5b | Configuración ⚠: fuentes, vistas, compartir (caso de uso **nuevo**, no `ManageShares`), revocar y archivar, quién recibe MANAGE al crear, cuenta ligada archivada o revocada | IC-5a | **Hecha**: **IC-5b-1 hecha** (compartir y revocar vistas); **IC-5b-2 hecha** (alta, edición y archivo de fuentes y vistas); **IC-5b-3 hecha** (conexión: contraseña, `acceptedRecipients`, reautenticación) |
+| IC-5c | Enlaces y códigos de restablecimiento críticos ⚠: `inbound.reveal_reset` con reautenticación, motivo, evento crítico y aviso a la Raíz; tarea de rotación al revocar | IC-5b | **Hecha**: **IC-5c-1a hecha** (aviso a la Raíz por outbox); **IC-5c-1b hecha** (revelación con motivo, reautenticación y auditoría crítica); **IC-5c-2 hecha** (tareas de rotación al revocar) |
+| IC-6 | Web: fuentes y filtros, vistas compartidas, códigos con vencimiento visible. Solo componentes y tokens del sistema de diseño, tabla estándar, es-MX y en-US, accesibilidad. El código vive solo en el estado local del componente | IC-5a | **Hecha** (2026-11-03): IC-6a (listados de la API), IC-6b (web de lectura), IC-6c (revelación de restablecimientos), IC-6d-1 (listados para configurar), IC-6d-2 (web de fuentes), IC-6d-3 (conexión IMAP), IC-6d-4 (configuración de vistas) e IC-6d-5 (comparticiones de vistas) hechas |
+| IC-7 | SMS: `SmsProviderPort`, adaptador falso, canal `sms` en el mismo pipeline, aviso de remitente no verificado, límites por número | IC-5a | Se cubre en `odd/tasks/integrations.md` (T5, "completa IC-7"), de otra sesión: no se duplica aquí |
 | IC-8 | Adaptadores reales y operación: recepción de correo, proveedor de SMS, DNS (SPF, DKIM, DMARC), runbook, `docs/threat-model.md`, `docs/database.md` y `docs/backend.md`, alcance de la prueba de intrusión | IC-5c más las decisiones abiertas | **Bloqueada** por decisiones |
 
 ## Criterios de aceptación
@@ -175,3 +175,230 @@ Siguen abiertas:
 ### Diseño de IC-3 por IMAP y revisión de jueces (2026-10-30)
 
 Se escribió el diseño del sondeo por IMAP (ADR 0045, sección "Diseño de IC-3 por IMAP") y lo revisaron los jueces A y B, ciegos y sobre el mismo alcance. **Sin críticos sin resolver tras corregir; ambos coincidieron** en: orden elemento y recibo imposible con los grants (el recibo tiene clave foránea al elemento y el worker no actualiza), candado consultivo de sesión que se filtra con el pool, firma DKIM elegida sin `header.b` (una firma falsa con el mismo `d=` y `s=` anula las reglas `l=` y `h=`), huella del mensaje sin definir, `receivedAt` distinto de `INTERNALDATE` (se perderían códigos), tope y ventana que dejan sin código a un buzón inundado, mensaje venenoso que bloquea el cursor, guardia de red con rangos incompletos, registro de `imapflow` con la contraseña y errores con texto del servidor. **Solo B**: el worker no puede crear la DEK (`insert` en `data_keys`), `keyBits` desconocido hoy manda todo a `WEAK_KEY` (`dkim-gate.ts:165`), la regla del destinatario exige un solo `To` igual al alias (`dkim-gate.ts:143-149`), la contraseña necesita recifrador para la rotación de DEK y borrarse al cambiar el host. **Solo A**: la regla "primera `Authentication-Results` con el `authserv-id`" falla abierta (se exige exactamente una y la primera cabecera), y el conjunto del worker (DB, KMS y contraseñas en el mismo proceso que analiza MIME hostil) es un riesgo concentrado. **Aplicado todo** en el diseño, con una excepción: el riesgo del worker comprometido **no se cierra del todo**; se reduce (análisis MIME en un proceso hijo sin credenciales, `select` por columnas de `data_keys`, KMS solo con `Decrypt`, cortafuegos de salida) y queda declarado para el dueño y para la prueba de intrusión. **No verificado**: no se ejecutó nada; el comportamiento de `imapflow`, los límites de `postal-mime` y el comportamiento de cPanel con `Authentication-Results` se confirman al implementar.
+
+### 2026-11-02 · IC-3a hecha
+- Migración `0029_inbound_mail_connections.sql` (renumerada desde la 0026): `mail_source_connections`, `mail_source_poll_state`, grants (API, worker, `iam_auth_reader`) y `auth.list_pollable_inbound_sources()`. Se añadieron `authserv_id` y `accepted_recipients` a la conexión; las fuentes SMS quedan fuera del listado.
+- Recifrado de contraseñas (`ReencryptMailSourcePasswords`, enlazado en `main.reencrypt.ts`) y purga del estado de sondeo de fuentes archivadas (`ArchivedSourcePollStateStore`).
+- Jueces ciegos: A halló 2 avisos (predicado SMS sin prueba; privilegios de `iam_auth_reader` sin prueba), ya cubiertos con pruebas; B sin hallazgos. Sugerencia de A, no exigida por el ADR: la conexión y el cifrado de fuentes archivadas no se purgan (seguimiento).
+- Mutación 1 (quitar `s.channel = 'mail'`): la prueba SMS falla como debe; migración restaurada.
+- Verificación: 5 archivos / 56 pruebas en verde (db, reencrypt, purga integración y unitaria); typecheck y lint limpios.
+
+### 2026-11-02 · IC-3b hecha
+- Dominio: `keyBitsPolicy` (`'not_available'` exacto exime del tamaño de llave; cualquier otro valor sigue fallando cerrado) y `acceptedRecipients` en la compuerta DKIM; motivos nuevos de cuarentena (`AUTH_RESULTS_AMBIGUOUS`, `DKIM_SIGNATURE_AMBIGUOUS`, `MESSAGE_TOO_LARGE`, `FETCH_FAILED`, `PARSE_ERROR`); política de sondeo (`poll-policy.ts`: ventana, tope, retroceso, presupuesto).
+- Aplicación: `PollMailSource` con puertos (estado, conexión, buzón, MIME y autenticidad, registrador) y fakes en `testing/poll-fakes.ts`. Fallo de mensaje = cuarentena y el cursor avanza; fallo de conexión = retroceso sin avanzar el cursor.
+- Jueces ciegos A y B. **Confirmado por ambos y corregido**: con el presupuesto agotado el cursor saltaba los mensajes abandonados (siguen en la ventana; el código vive 10 min); ahora queda bajo el UID abandonado más bajo y el recibo deduplica los ya procesados. **Confirmado por ambos y cubierto**: los fakes no verificaban `SourceRef`, lease ni `maxBytes`; se añadieron pruebas de argumentos y de bordes (tamaño exacto, inicio de ventana). **Diferido a IC-3d (ambos)**: el registro por mensaje no lleva `d=`, `s=` ni alineación ni acota las cadenas de veredicto. **Solo un juez, sin aplicar y por verificar**: excepción no tipada de `parse`/`assess` tumba la pasada (B); `INTERNALDATE` sin tope superior (B); `computeBackoffMs(Infinity)` da 1 min (A); decodificar la contraseña antes de comprobar plantillas (B); UID fuera de 32 bits y lease sin token (A/B, sugerencias; el token y los tiempos por comando son del adaptador IC-3c).
+- Mutaciones detectadas y restauradas: (1) llave desconocida tratada como no aplicable (3 pruebas), (2) ignorar `acceptedRecipients` (3 pruebas), (3) cursor al UID más alto con abandonados por presupuesto (1 prueba).
+- Verificación: 4 archivos / 95 pruebas en verde, typecheck, lint y prettier limpios. **No verificado**: `pnpm build` y suite completa, revisión humana de las pruebas SENSIBLE.
+
+### 2026-11-02 · IC-3c-1 hecha (guardia de red y verificador de Authentication-Results)
+- `infrastructure/network-guard.ts`: tabla de rangos (IPv4 e IPv6, solo unicast global `2000::/3` menos `2001::/23`, documentación `2001:db8::/32` y `3fff::/20`), IPv4 mapeada validada por la IPv4 que contiene, resolución que valida TODOS los registros, excepciones del despliegue con prefijo mínimo (IPv4 16, IPv6 48) y nunca loopback, enlace local, no especificada ni multicast.
+- `infrastructure/authentication-results-verifier.ts`: una sola `Authentication-Results` con el `authserv-id` configurado y en la posición 0; una sola firma candidata identificada por `header.b` (prefijo), `d=` y `s=`; `keyBitsPolicy: 'not_available'` solo desde aquí; `x=`/`t=` ilegibles se leen como la época (nunca "sin expiración"); veredictos acotados a palabras cortas en minúsculas.
+- Jueces ciegos A y B. **Confirmado por ambos y corregido**: el analizador ignoraba las cadenas entrecomilladas, de modo que un valor copiado del remitente (`smtp.mailfrom="x;dkim=pass ..."`) podía fabricar un resultado `dkim=pass` alineado (A lo marcó crítico, B aviso); ahora un tokenizador respeta comillas y comentarios y una cabecera con comillas o comentario sin cerrar no vale. Excepciones de la guardia sin tope (`0.0.0.0/0` abría todo); ahora con prefijo mínimo y rangos nunca admitidos. Pruebas que no detectaban mutaciones (método distinto de dkim, primera propiedad gana, `d=`/`s=` por separado, largo del prefijo, plegado en `b=`, bordes IPv6, excepción IPv6 y mapeada). **Solo uno**: rangos `2001::/23` (se bloquea completo), código muerto de NAT64 (retirado: ya queda fuera de `2000::/3`), IPv4 mapeada contra excepción IPv4 (corregido). **No aplicado**: normalización IDN o de punto final en el dominio del `From` (falla cerrado), rangos IPv4 de uso especial menores (192.31.196.0/24, 192.52.193.0/24, 192.175.48.0/24).
+- Mutación: no abrir comillas en el tokenizador, detectada por 4 pruebas; restaurado.
+- Verificación: 162 pruebas en verde (2 archivos), typecheck, lint y prettier limpios. **No verificado**: resolución DNS real (el adaptador llega en 3c-2), comportamiento de cPanel con `Authentication-Results`, revisión humana de las pruebas SENSIBLE.
+
+### 2026-11-02 · IC-3c-2 hecha (adaptador de `imapflow` y análisis MIME en proceso hijo)
+
+- `infrastructure/imapflow-mailbox-connector.ts`: conecta a la IP validada por la guardia y conserva el nombre para el certificado (sin SNI si el host es una IP literal); TLS implícito o STARTTLS forzado (`doSTARTTLS`), certificado verificado, TLS 1.2 mínimo, registro de la biblioteca apagado, escucha de `error` siempre puesta, `EXAMINE` de solo lectura, tope de 500 metadatos, descarga acotada pidiendo un byte de más para detectar el truncado. Los errores se traducen a códigos acotados (`AUTH`, `TLS`, `TIMEOUT`, `NETWORK`, `MAILBOX_UNAVAILABLE`, `HOST_REJECTED`); un error de una sola descarga es `MessageFetchError`, uno de sesión caída es de conexión.
+- `infrastructure/mime-parse-core.ts`, `mime-parse-worker.ts`, `mime-child-process-parser.ts`: el análisis corre en un hijo sin entorno, con memoria, salida y tiempo acotados y bajo el modelo de permisos de Node (`--permission`: sin procesos hijos; solo lee el trabajador, el analizador y los `package.json` que el resolvedor pide, uno a uno). La salida del hijo se valida campo por campo y se copia a un objeto nuevo.
+- Jueces ciegos A y B. **Confirmado por ambos y corregido**: el clasificador ignoraba los códigos propios de imapflow (`CONNECT_TIMEOUT`, `GREETING_TIMEOUT`, `UPGRADE_TIMEOUT`, `tlsFailed`, `STARTTLS_INJECTION`, `EConnectionClosed`, `ClosedAfterConnect*`, `StateLogout`…); una sesión caída a mitad de la descarga mandaba mensajes a cuarentena y el cursor avanzaba. **Confirmado por ambos y corregido**: `deserialize` validaba tres campos; ahora valida todos. **Confirmado por ambos y corregido**: el aislamiento era solo un entorno vacío; ahora hay `--permission` (comprobado ejecutando el trabajador compilado: la primera versión fallaba por permisos del resolvedor). **Confirmado por ambos y cubierto**: el trabajador real no tenía prueba; ahora hay una de extremo a extremo con `tsx`, una con un mensaje hostil y pruebas que verifican que el sandbox deniega archivos, entorno del padre y procesos. **Solo un juez, verificado por mí y corregido**: con `multipart/mixed` el texto oculto de una parte HTML (`display:none`) llegaba a `bodyText`; ahora el texto solo se acepta sin HTML o bajo `multipart/alternative` (un `mixed` que anida una alternativa pierde el cuerpo: seguro, limitación aceptada). **Corregido además**: `spawn` que lanza de forma síncrona (E2BIG) escapaba como error crudo; `fromAddress` vacío pasa a `null`; `close()` corta el socket si falla liberar el candado.
+- Mutación: sin `--permission`, sin la rama `tlsFailed`→`TLS` y sin la restricción de HTML; ocho pruebas fallan (4 de sandbox, 3 de clasificador, 1 de HTML) y todo vuelve a verde al restaurar.
+- **No verificado**: el conector contra un servidor IMAP real (IP fijada con `servername`, STARTTLS forzado, registro apagado); no hay tope de sesión total, solo inactividad de 30 s (el presupuesto de 60 s por fuente lo aplica el caso de uso); `createImapFlowClient` no tiene prueba propia; el trabajador compilado bajo `--permission` se comprobó a mano, no con una prueba automática.
+- **Solo un juez, sin aplicar**: el tope de descarga confía en que el servidor respete el rango parcial (A); `attachmentEncoding: 'utf8'` no evita materializar adjuntos (A, el comentario se ajustó).
+
+### Revisión nativa de IC-3c-2 (2026-11-02)
+
+Candidato: solo el commit `e0cab4e` (el rango completo de 7125 líneas excedió el presupuesto de contexto de la revisión). Lentes `risk` y `resilience`: aprobado y reconocido. Aviso informativo (R1, confirmado ejecutándolo): en Node 24.22 `--permission` NO bloquea la red; la afirmación "sin red" era falsa y la prueba "denies the network" pasaba aunque la red estuviera abierta. Corregido: comentario, documentación y prueba (ahora fija el límite). **Pendiente de despliegue:** el contenedor del worker debe tener salida de red restringida a los servidores IMAP; el código no la garantiza.
+
+### 2026-11-02 · IC-3c-3 hecha (repositorios `pg` del sondeo y huella)
+- Piezas: `PgPollStateStore` (lease con propiedad por instancia, `claim` respeta `next_attempt_at`, la fila nueva nace con el `now` del llamador), `PgInboundRecorder` (ítem y recibo en una transacción corta; `ON CONFLICT DO NOTHING` y reversión si el recibo ya existía), `PgSourceTemplateStore`, `PgMailConnectionLoader`, `ReadOnlyDataKeyRepository` (solo lee las columnas concedidas a `iam_inbound_worker`; sin llave activa falla antes de que el resolvedor llegue al KMS y nunca crea una DEK) y `Sha256MessageFingerprinter`.
+- **Contrato para IC-5a**: la plantilla se escribe en `inbound_templates.definition` como `{senderAddress, subject, extraction}`; el contexto de cifrado del valor del ítem usa el campo `inbound_item_value` (`inboundItemContext`).
+- Jueces ciegos A y B. Confirmados por ambos y corregidos: propiedad del lease, `claim` respeta el backoff, el cargador ya no traga excepciones inesperadas, `findActive` falla antes de generar llave. Sin aplicar (un solo juez o inferencial): cifrar/descifrar dentro de una transacción de base que podría abarcar E/S del KMS; `errorCode` sin validar contra `^[A-Z_.]{1,64}$`; `releaseAfterSuccess` fija `next_attempt_at = now` (la cadencia depende de quien lista).
+- Pruebas: 53/53 en los cinco archivos dirigidos tras 4 ciclos de corrección. Mutación (restaurada y comparada con `cmp`): quitar la guarda de propiedad del cursor y quitar `next_attempt_at <= now` hacen fallar 2 pruebas; `findActive` devolviendo null hace fallar la unitaria. **No detectada**: quitar `if (!sealed.ok) throw` (probablemente equivalente: usar `sealed.value` indefinido falla igual). Las guardas de propiedad de `releaseAfter*` no se aislaron una a una.
+- **No verificado**: el worker contra un IMAP real, `pnpm build` completo, suite completa y e2e.
+
+### 2026-11-02 · IC-3d hecha (punto de entrada del sondeo, configuración propia y runbook)
+- Piezas: `main.inbound-poll.ts` (una pasada; script `pnpm --filter @iam/api inbound-poll`), `inbound-poll-config.ts` (esquema propio: `DATABASE_URL_INBOUND_WORKER`, `NODE_ENV` obligatorio, KMS, redes privadas permitidas, tope de fuentes y presupuesto), `PollInboundSources` (en serie, tope y presupuesto, un fallo no detiene a las demás), `PgPollableSourceLister` (solo `auth.list_pollable_inbound_sources()`), `LogPollObserver` (línea JSON de esquema cerrado) y `docs/runbooks/inbound-poll.md`.
+- Jueces ciegos A y B, **confirmado por ambos y corregido**: un fallo devuelto como `failed` con `UNEXPECTED` o `KMS_UNAVAILABLE` no cambiaba el código de salida (ahora cuenta como fallo del sistema y sale con 1); el presupuesto solo impide empezar otra fuente (el runbook decía que acotaba la duración). Verificado y aplicado por un solo juez: todo dentro del `try` con salida de una línea, escucha de `error` en los pools, cierre aislado, `NODE_ENV` obligatorio en el worker (el defecto `development` permitía la KEK local por omisión).
+- Sin aplicar: la conexión podría apuntar a otro rol sin que nada lo detecte (nada verifica `current_user`); `fingerprint` sin llave es un oráculo débil de confirmación para quien lee el registro (es la política del ADR); CIDR mal escritos se ignoran dentro de `NetworkGuard` (falla cerrado, sin aviso).
+- Pruebas: 50/50 en los cinco archivos dirigidos. Smoke manual del compilado: sin variables sale con 1 y una línea; con una base inalcanzable sale con 1 sin imprimir la contraseña. Mutación (restaurada, `cmp`): sin conteo de fallos del sistema, sin tope y sin presupuesto hacen fallar 4 pruebas.
+- **No verificado / pendiente**: `d=` y `s=` saneados, alineación y `l=`/`h=` en el registro por mensaje (el ADR los pide; el registro solo lleva los veredictos); salida distinta de 0 al superar N fallos consecutivos por fuente (ADR, punto 16); el entrypoint completo contra un IMAP real y una base con el rol real (no hay prueba de punta a punta del `main`); `pnpm build` completo, suite completa y e2e.
+
+### 2026-11-02 · IC-5a hecha (lectura de códigos y historial por vista compartida)
+- Piezas: `ReadInboundCodes` (`listCodes` con USE, `history` con VIEW; la jerarquía es USE < VIEW < EDIT < MANAGE, así que VIEW también ve los códigos vivos), `PgInboundViewReader`, cursor opaco del historial, `InboundCodesController` (`GET /inbound/views/:viewId/codes` y `/history`, `Cache-Control: no-store`), contratos en `packages/contracts/src/inbound.ts`, `targetViewId` en `auditDenial`. Migración **0030**: `inbound_receipts.template_id` (solo en aceptadas, FK compuesta) para atribuir el historial después de la purga de 10 minutos; el recibo aceptado lo escribe ya el recorder.
+- Decisiones: las consultas acotan también por `source_id` (una plantilla puede estar en vistas de otras fuentes); una auditoría `inbound.code_read` por (persona, elemento) con conteo sobre la propia auditoría; todos los bloqueos de lectura se toman antes, en orden estable, y solo después se audita; una vista inexistente o archivada también audita la negación.
+- Jueces ciegos A y B. **Confirmado por ambos y corregido**: interbloqueo posible al intercalar el bloqueo por elemento con la auditoría (ADR 0023); la negación por vista no viva no se auditaba; falta de prueba de la auditoría única contra base real (ahora hay pruebas de integración con auditoría real, incluso con lecturas concurrentes). Sin aplicar: cursor de milisegundos frente a `timestamptz` de microsegundos (hoy el recorder escribe `Date`, siempre milisegundos) y cursor no atado a la vista (no filtra datos: el nivel y el filtro se aplican igual).
+- Pruebas: 70/70 en los tres archivos dirigidos (unitario de 21 casos, integración del lector y de `ReadInboundCodes`, y repositorios del sondeo tras el cambio del recorder). Mutación (restaurada, `cmp`): quitar el filtro por fuente, el filtro de tipo/visibilidad, el conteo de lectura previa y el orden de bloqueos hace fallar 6 pruebas; quitar `outcome = 'accepted'` del historial no falla ninguna porque el CHECK de 0030 ya lo garantiza (doble barrera).
+- **No verificado**: e2e HTTP real del endpoint, `pnpm build` y suite completas. Preexistente y ajeno: la matriz de autorización e2e falla por `POST /setup` sin entrada en el manifiesto (ruta de `ede98b5`); las dos entradas nuevas de IC-5a están declaradas.
+
+### 2026-11-02 · IC-5b-1 hecha (compartir y revocar comparticiones de vistas)
+- Piezas: `ManageInboundViewShares` (`list`, `share`, `revoke`), puerto `InboundViewShareRepository` y `PgInboundViewShareRepository` (`resource_type='mail_view'`), `InboundViewSharesController` en `inbound/views/:viewId/shares` (POST con `@Idempotent`, revocar 204), contrato `inboundViewShareSchema`, tres entradas `full-session` en el manifiesto.
+- Reglas: `share.manage` + MANAGE sobre la vista; sin nivel `NOT_FOUND`, con menos `AUTHZ.SHARE`, ambos auditados; `canGrant`; caducidad ≤ 365 días; destinatario activo y distinto del actor; la vencida se cierra al recompartir; con fuente ligada a una cuenta se exige USE sobre ella; auditoría `inbound.view_shared` / `inbound.view_share_revoked` como último paso, `rotationTasks: 0` (las tareas de rotación llegan con IC-5c).
+- Jueces ciegos A y B. **Confirmado por ambos y corregido**: el comentario de `requireAccountUse` contradecía el código (queda `AUTHZ.SHARE`, el comentario se corrigió); carrera entre la lectura del nivel sobre la cuenta ligada y una revocación concurrente: ahora se bloquea la fuente (`for update of v, s`) y la cuenta (`for share`) antes de leer. No aplicado (advisory): auditar cada UUID de vista desconocida puede inflar la auditoría (misma regla que `ReadInboundCodes`, la exige el ADR); no se comprueba que la cuenta esté activa (el archivo de cuenta suspende la fuente, pendiente en IC-5b-2).
+- Pruebas: 26/26 (unitario de 18 casos e integración del repositorio de 8 con `iam_app`). Mutación (restaurada, `cmp` idéntico): quitar MANAGE, quitar USE de la cuenta, no revocar y no cerrar la vencida dan 10 fallos. `canGrant` no se puede mutar con efecto observable: MANAGE ya es el máximo (defensa en profundidad, como en la bóveda).
+- **No verificado**: e2e HTTP real, `pnpm build` y suite completas; la matriz de autorización e2e sigue fallando por `POST /setup` (preexistente y ajeno).
+
+### 2026-11-02 · IC-5b-2 hecha (alta, edición y archivo de fuentes y vistas)
+
+- `ManageInboundConfiguration` (6 operaciones), repositorio pg, controlador `inbound/sources` e `inbound/views` (6 rutas `full-session` en la matriz), 4 códigos de error con es-MX/en-US, y `targetSourceId` aditivo en `authorizer`/`denial-grouper` (módulo de acceso, ruta protegida; refleja `targetViewId`).
+- Reglas: `inbound.configure` + EDIT (editar, crear vista) o MANAGE (archivar); quien crea recibe MANAGE; las vistas solo referencian plantillas vigentes; ligar cuenta pide cuenta activa y USE; archivar revoca las comparticiones de la fuente y sus vistas.
+- Pruebas: 26 unitarias y 11 de integración con `iam_app`, verdes.
+- Jueces ciegos A y B. **Confirmado por ambos y corregido**: `updateView` escribía plantillas antes de un `err` por nombre repetido y la unidad de trabajo confirma cualquier retorno que no lance (ahora todo lo que puede fallar va antes de escribir; prueba de regresión); estado de la cuenta leído antes del bloqueo (ahora después); plantillas sin `for share`; cuenta inexistente sin auditoría de la negación. **Solo B, verificado y corregido**: orden de bloqueo fuente→vista fijo (antes dependía del plan, riesgo de 40P01 contra `archiveSource`). **No aplicado**: el oráculo de dirección entre organizaciones es el compromiso documentado en la migración 0024 (dirección única en toda la base); archivar dos veces responde NOT_FOUND y audita (misma regla que el resto, la exige el ADR).
+- Mutación (4 reglas a la vez): MANAGE al crear, EDIT vs MANAGE al archivar, validación de plantillas y orden de escritura en `updateView`; las 4 rompieron su prueba. Archivos restaurados (`cmp`).
+- Pendiente: la prueba HTTP e2e y la suite completa no se corrieron.
+
+### 2026-11-03 · IC-5b-3 hecha (conexión IMAP de una fuente)
+
+- `ManageInboundSourceConnection` (`get`, `put`), repositorio pg sobre `mail_source_connections`, controlador `GET`/`PUT /inbound/sources/:sourceId/connection` (2 rutas `full-session` en la matriz, sin `@Idempotent`), contratos (`putInboundSourceConnectionRequestSchema`, `inboundSourceConnectionSchema`, puerto 993 con TLS o 143 con STARTTLS, host DNS en minúsculas sin IP literal, 1 a 10 destinatarios) y el código `INBOUND.RECIPIENT_NOT_ALLOWED` (422) con es-MX/en-US.
+- Reglas: `inbound.configure` + EDIT; cambiar `acceptedRecipients` pide MANAGE; sin lista, la de la conexión o la dirección de la fuente; ningún destinatario puede ser el correo de una persona de la organización; guardar contraseña pide reautenticación reciente (la negación se audita); cambiar host, puerto, usuario o TLS sin contraseña nueva la borra; guardar o borrar sube `secret_version`; el cifrado solo pasa por `SecretCipher` y un fallo se lanza; la contraseña nunca se devuelve; la auditoría (`inbound.source_updated`) lleva nombres de campo, no valores.
+- Pruebas: 33 unitarias y 5 de integración con `iam_app`, verdes (38/38).
+- Jueces ciegos A y B. **Confirmado por ambos y corregido**: no se comprobaba el canal; una fuente de SMS podía recibir conexión IMAP (ahora NOT_FOUND después de comprobar el nivel). **Solo B, verificado y corregido**: la negación por reautenticación no se auditaba (ahora `auditDenial` en transacción independiente antes del `throw`). **No aplicado**: bloquear fuente y conexión antes de leer el nivel (mismo orden que IC-5b-2, ventana corta); la comprobación de correos de personas corre aunque la lista no cambie (se deja así: si un destinatario guardado pasa a ser el correo de alguien, la fuente debe dejar de aceptarse hasta que MANAGE la corrija).
+- Mutación (5 reglas a la vez): MANAGE para destinatarios, borrado al cambiar destino, ventana de reautenticación, subida de `secret_version` y canal; las 5 rompieron su prueba. Archivo restaurado (`cmp`).
+- Pendiente (fuera de esta parte): la comprobación contra el subdominio reservado de alias (C10 abierta, no existe en la configuración); la comprobación de correos de personas de otras organizaciones (pediría una función `auth.*` con definer); la prueba HTTP e2e y la suite completa no se corrieron.
+
+### 2026-11-03 · IC-5c-1a hecha (aviso a la Raíz al revelar restablecimientos, `abff6eb`)
+
+- Evento de outbox `inbound.reset_revealed_notice` (agregado `mail_view`) con `actorId`, `viewId`, `revealedCount` y `revealedAt`, nunca el valor. `NotifyResetRevealed` manda un correo a cada Raíz activa, con un recibo por (evento, destinatario) para no repetir envíos. Cuarentena si la carga útil no es válida. 34/34 pruebas verdes.
+
+### 2026-11-03 · IC-5c-1b hecha (revelación de restablecimientos)
+
+- `RevealInboundResets` y `POST /inbound/views/:viewId/resets/reveal` (`full-session`, `Cache-Control: no-store`, sin `@Idempotent`), puerto propio `InboundResetStore` (una lectura de USE no puede llegar a un restablecimiento), `PgInboundResetStore` y contratos `revealInboundResetsRequestSchema` / `inboundResetsResponseSchema`.
+- Reglas, en este orden:
+  1. `inbound.reveal_reset`: el motor exige reautenticación, motivo y auditoría crítica.
+  2. MANAGE sobre la vista. Sin nivel o sin vista, `NOT_FOUND`; con menos nivel, `AUTHZ.SHARE`. Ambas negaciones se auditan.
+  3. Motivo válido (`isValidRevealReason`). Si falta, `CREDENTIAL.REASON_INVALID`, auditado.
+  4. Solo `reset_code` / `reset_link` `sensitive` vigentes de la fuente de la vista, como máximo 20, descifrados por `SecretCipher`.
+  5. Una auditoría `inbound.reset_revealed` por elemento, cada vez, con el motivo y nunca el valor.
+  6. Un aviso a la Raíz por revelación.
+- Pruebas: 21 unitarias y de integración del almacén y del caso de uso con auditoría y outbox reales, verdes. Las 2 fallas de la matriz son las preexistentes de `POST /setup`.
+- Hallazgos de los jueces ciegos A y B:
+  - Confirmados por ambos y corregidos:
+    - el resultado de `audit.record` se ignoraba (ahora se lanza y revierte);
+    - un intento vacío o un fallo de descifrado no dejaban rastro (ahora se audita en la vista, o como fallo `CRYPTO.DECRYPT_FAILED`);
+    - el `max(2000)` de Zod negaba antes de auditar (el esquema acepta cualquier motivo y el caso de uso niega y audita; el cuerpo lo acota el límite por defecto de Fastify, 1 MiB).
+- Supuesto conservador: una revelación autorizada sin restablecimientos vigentes se audita como `inbound.reset_revealed` exitosa con destino `mail_view`, sin aviso a la Raíz.
+- Mutaciones, cada una rompió al menos una prueba (archivos restaurados, `cmp`):
+  1. MANAGE→EDIT;
+  2. permiso `read_codes`;
+  3. sin validación del motivo;
+  4. sin `throw` de auditoría;
+  5. `reauth: false` en el catálogo (rompe `access-domain.test.ts:92`).
+- Decisiones abiertas del dueño:
+  - límite de revelaciones por persona (lo señalaron ambos jueces; el ADR 0045 no fija ninguno);
+  - el tope de 20 recorta en silencio.
+- No cubierto: e2e HTTP (`no-store`, reautenticación real, cuerpo ausente) y una integración con el `Authorizer` real.
+
+### 2026-11-03 · IC-5c-2 hecha (tareas de rotación al revocar una vista)
+
+- `ManageInboundViewShares.revoke` crea tareas de rotación (ADR 0045 §5) bajo estas condiciones:
+  - Solo si la fuente está ligada a una cuenta de la bóveda.
+  - Solo si alguien que pierde MANAGE sobre la vista reveló un restablecimiento desde ella en los últimos 180 días (`REVEAL_LOOKBACK_DAYS` de la bóveda). Cuenta solo la auditoría `inbound.reset_revealed` exitosa sobre `inbound_item`, con `metadata.viewId` de la vista.
+- Detalle de las tareas:
+  - Se crea una tarea `share_revoked` por credencial viva de la cuenta.
+  - El SQL y la deduplicación de tareas abiertas se reutilizan de `PgShareRepository`, con el mismo vencimiento de 7 días.
+  - Si se revoca a un grupo, la tarea no queda atribuida a una persona.
+  - `rotationTasks` se audita con el número real.
+  - Sin cuenta ligada no hay tarea. Los `login_code` no generan tarea, porque no se revelan.
+- Hallazgos de los jueces ciegos:
+
+  | Hallazgo | Quién | Qué se hizo |
+  |---|---|---|
+  | Una revelación en curso podía escapar de la revocación | Ambos | Corregido: la revelación bloquea la vista en modo compartido (`lockViewForReveal`) antes de leer el nivel, y la revocación la bloquea en exclusiva. |
+  | Dos revocaciones de vistas distintas de la misma cuenta podían duplicar la tarea | Solo A, verificado | Corregido: se bloquea la cuenta en exclusiva (`lockAccountForRotation`), como `ManageShares.revoke`. |
+  | El nivel que permite revelar estaba duplicado | Solo B | Corregido: se exporta `REVEAL_REQUIRED_LEVEL`. |
+  | Faltaban pruebas de grupo con base de datos real | Ambos (sugerencia) | Agregadas. |
+
+- Pruebas: 75/75 verdes en las unitarias y de integración de compartir vistas y de revelación.
+- Mutaciones (4 a la vez), las 4 rompieron pruebas; archivos restaurados y verificados con `cmp`:
+  - quitar el bloqueo de la vista;
+  - quitar el bloqueo de la cuenta;
+  - contar a quien conserva MANAGE;
+  - quitar el filtro `target_type` del SQL.
+- Limitaciones abiertas, sin aplicar:
+  - La cuenta se toma de la fuente al revocar. Si la fuente se re-ligó a otra cuenta después de la revelación, se rota la cuenta actual y no la original (solo B). La auditoría de revelación no guarda la cuenta; corregirlo pide agregar `accountId` a la lista permitida de auditoría, que es ruta protegida.
+  - En la revocación a un grupo solo cuentan sus miembros actuales, como en la bóveda.
+  - La consulta filtra por una clave JSON sin índice, aceptable con el volumen actual.
+
+### 2026-11-03 · IC-6a hecha (listados de fuentes y vistas para la web)
+- La web necesita saber qué fuentes y vistas alcanza la persona; no había listado. Se agregan `GET /inbound/views` (permiso `inbound.read_codes`) y `GET /inbound/sources` (permiso `inbound.configure`), ambos `full-session` en la matriz y con `Cache-Control: no-store`.
+- Solo se lista lo que la persona alcanza por `effective_access` (directo o por grupo, el mayor nivel). Compartir la fuente no da sus vistas, ni una vista da la configuración de su fuente.
+- Las vistas listadas usan el mismo filtro que la lectura de códigos (vista no archivada, fuente activa, cuenta ligada activa). El listado de vistas no lleva la dirección de la fuente ni la cuenta: quien solo tiene USE ve códigos, no la configuración (decisión conservadora mía).
+- Las fuentes listadas excluyen las archivadas y muestran las suspendidas, para que quien configura pueda reactivarlas.
+- Tope de 200 elementos (`MAX_INBOUND_LISTING`), orden por nombre e identificador; listar no se audita porque no entrega códigos ni secretos.
+- Pruebas: unitarias del caso de uso (permiso, tope, sesión) e integración con RLS real (archivadas, suspendidas, cuenta archivada, revocadas, grupo, otra persona de la misma organización, tope, otra organización).
+- Mutaciones: admitir fuentes suspendidas en las vistas y quitar el filtro por persona; las dos las detecta alguna prueba. La segunda no la detectaba la primera versión (solo una persona tenía comparticiones) y se agregó el caso de otra persona.
+
+### 2026-11-03 · IC-6b hecha (web de lectura de códigos)
+- Pantallas `/inbound` (vistas que la persona puede leer, tabla estándar) y `/inbound/views/:viewId` (códigos vigentes con cuenta regresiva visible y silenciosa para el lector de pantalla, copiar con borrado del portapapeles a los 30 s, actualizar a mano, e historial paginado por cursor). El enlace del menú se ofrece solo con `inbound.read_codes`; el servidor decide siempre.
+- Los códigos se piden con `useAsyncAction`, sin clave de Query: viven solo en el estado del componente y se descartan al vencer, al cambiar de vista y ante un 403 o 404. Una prueba comprueba que no quedan en la caché, el almacenamiento ni la URL.
+- Espacio de nombres `inbound` en es-MX y en-US, registrado como diferido; la prueba de paridad lo cubre.
+- Hecha por el agente `frontend-developer`; las dos pruebas de error buscaban la región antes de que la página diferida se pintara y se corrigió la espera (sin tocar las aserciones).
+- Pendiente de esta rebanada: el reloj del navegador decide el vencimiento (un reloj desfasado puede ocultar antes o mostrar tarde); el tope de 30 s y el intervalo están duplicados de `credentials` porque su fachada no los exporta.
+
+### 2026-11-03 · IC-7 se deja a la otra sesión
+- `odd/tasks/integrations.md` (ADR 0047) ya planea el SMS por consulta con proveedor genérico como su T5 y dice que completa IC-7. Hacerlo aquí duplicaría el puerto y chocaría con ese módulo; se elige lo conservador y no se toca.
+
+### 2026-11-03 · IC-6c hecha (web de revelación de restablecimientos)
+- Panel en la página de la vista, visible solo con el permiso `inbound.reveal_reset` y nivel MANAGE sobre la vista (comodidad: el servidor decide). Motivo de 6 a 500 caracteres con la misma regla del contrato (`isValidRevealReason`); la reautenticación la abre el cliente HTTP.
+- Los valores viven solo en el estado del panel, en campos enmascarados con copiar (portapapeles limpio a los 30 s) y se ocultan solos a los 30 s. El enlace nunca se pinta como ancla, para que un clic no lo consuma en otro navegador ni quede en historial o `Referer`.
+- Jueces ciegos: ambos confirmaron que Cancelar con la petición en curso mostraba igual los valores al llegar la respuesta; se invalida la ejecución al desmontar el formulario. Ambos señalaron que el rechazo del motivo por el servidor no se limpiaba al corregirlo; corregido. Uno solo señaló que «Cerrar» sin resultados mostraba «se ocultaron»; verificado y corregido (vuelve al inicio).
+- Mutaciones (quitar el nivel MANAGE, bajar el ocultado a 20 s, quitar la invalidación al cancelar): las tres las detecta `inbound-resets.test.tsx`. Restaurado y comprobado con `cmp`.
+- Pendiente: el mismo defecto de Cancelar en curso existe en `credentials/containers/totp-export-panel.tsx` (no se toca aquí; queda anotado para una tarea propia). `maxLength` se aplica al texto sin recortar, igual que en TOTP.
+
+### 2026-11-03 · IC-6d-1 hecha (listados para configurar vistas)
+- La web de configuración no podía armar vistas: no había cómo listar las plantillas que una vista referencia ni las vistas de una fuente para editarlas. Se agregan `GET /inbound/configurable-views` (vistas no archivadas de fuentes no archivadas sobre las que la persona tiene nivel, con sus plantillas y su nivel) y `GET /inbound/templates` (plantillas vigentes: id, nombre y tipo, sin su definición). Ambos piden `inbound.configure`, no se auditan y van con `no-store`; editar sigue exigiendo EDIT o MANAGE en el servidor.
+- Decisión conservadora: el nivel sobre la fuente no lista sus vistas (cada vista se comparte por separado, igual que en la lectura). Las plantillas se listan todas las vigentes porque son configuración de la organización y `createView` ya acepta cualquiera vigente.
+- Mutaciones (sin filtro por persona, sin filtro de fuente archivada, sin filtro de plantilla archivada): las tres las detecta la prueba de integración. Restaurado y comprobado con `cmp`.
+- **Hueco detectado, sin decidir:** ninguna rebanada crea ni edita plantillas (`platform.manage`, ADR 0045 §1). Sin plantillas cargadas no se puede armar una vista desde la web. Queda para la persona dueña decidir si va como rebanada propia.
+
+### 2026-11-03 · IC-6d-2 hecha (web de fuentes de códigos)
+- Pantalla `/inbound/sources` con la tabla estándar: nombre, dirección, estado, nivel propio y fecha de alta. El enlace del menú se ofrece solo con `inbound.configure`; el servidor decide siempre.
+- Alta (dirección y nombre), renombrado (nivel EDIT o MANAGE) y archivo con confirmación (solo MANAGE). Tras cada cambio se recargan las fuentes y las vistas, porque archivar una fuente oculta sus vistas. En una fuente archivada no se ofrecen acciones.
+- Decisión conservadora: el alta no ofrece ligar la fuente a una cuenta de la bóveda (`accountId`). Ligarla necesita un selector de cuentas que la persona pueda usar y queda para otra rebanada.
+- `INBOUND.SOURCE_ADDRESS_TAKEN` se muestra como aviso del formulario, igual que los 409 de las cuentas; solo los 422 van al campo.
+- Hecha por el agente `frontend-developer` con alcance cerrado. Revisé el diff contra ese alcance y quedó dentro.
+- Pendiente: la prueba de que archivar recarga las vistas es débil (la consulta de vistas no tiene observador en esta pantalla).
+- Simplificación aplicada: el diálogo de alta se monta solo mientras está abierto, como los de renombrar y archivar, y la tabla usa directamente las reglas del modelo. Quedan como mejoras transversales, fuera de esta rebanada: compartir `levelSatisfies` en `shared/lib` (hoy hay copias en `accounts` y `credentials`, y aquí se comparan niveles por nombre); que el cliente HTTP mande `Idempotency-Key` en todo PATCH, en vez de que cada llamada pase una clave aleatoria; un único criterio de «404 al archivar cuenta como hecho»; `onSortChange` opcional en `DataTable`.
+
+### 2026-11-03 · IC-6d-3 hecha (conexión IMAP de una fuente)
+
+- La acción «Conexión» aparece en fuentes de correo no archivadas con nivel EDIT o MANAGE. Abre un diálogo que lee la conexión guardada una sola vez (sin recargas en segundo plano), con servidor, modo TLS (el puerto sale del modo: 993 o 143), usuario, `authserv-id`, destinatarios y contraseña.
+- La contraseña viaja solo por `useAsyncAction`: nunca toca la caché de Query, el almacenamiento, la URL ni el DOM después de cerrar. El campo vacío conserva la guardada, y el diálogo avisa cuando cambiar servidor, modo o usuario sin contraseña nueva la borrará en el servidor.
+- Con EDIT los destinatarios se muestran solo como texto y no se envían; solo MANAGE los cambia.
+- El cliente web ganó `put`. No manda `Idempotency-Key` a propósito: una caché de idempotencia guardaría un cuerpo con la contraseña. La reautenticación la resuelve el cliente, con un solo reintento y el mismo cuerpo.
+- La validación local usa el mismo esquema del contrato que el servidor, y los 422 del servidor se traducen al campo del formulario (`acceptedRecipients` → destinatarios, `port` → modo TLS).
+- Jueces ciegos A y B. Ambos confirmaron cuatro cosas y las corregí:
+  1. Una recarga en segundo plano podía desmontar el formulario con lo escrito.
+  2. Un guardado que terminaba después de cerrar el diálogo avisaba éxito y cerraba otro diálogo; ahora se cancela al desmontar.
+  3. La prueba de «sin contraseña en el DOM» solo miraba `textContent`.
+  4. Faltaban pruebas de ramas.
+- Lo que señaló un solo juez (el aviso no anunciado) no aplica: `Alert` en tono warning es `role="status"`.
+- Ronda de mutaciones. Las cuatro mutaciones quedaron atrapadas: contraseña siempre enviada, destinatarios siempre enviados, aviso nunca mostrado y sin cancelación al cerrar. La última sobrevivió al principio porque la prueba esperaba poco; la reforcé y ahora falla.
+- Pendiente fuera de esta rebanada: los archivos de IC-6c `inbound-resets.test.tsx` e `inbound-reset-policy.ts` no pasan `prettier --check` tal como están en HEAD.
+
+### 2026-11-03 · IC-6d-4 hecha (configuración de vistas)
+
+- Nueva pantalla `/inbound/view-settings`, enlazada en la navegación solo con `inbound.configure`. Lista las vistas configurables con la tabla estándar y permite crear, editar y archivar vistas.
+- Crear exige EDIT sobre una fuente que no esté archivada. Editar exige EDIT sobre la vista; archivar exige MANAGE porque revoca las comparticiones. Estas reglas solo deciden qué se ofrece en la interfaz; quien decide es siempre el servidor.
+- El selector de plantillas usa `GET /inbound/templates` y respeta el rango de 1 a 20 (`MAX_TEMPLATES_PER_VIEW`). Al editar, `PATCH` manda solo los campos que cambiaron, con su propia `Idempotency-Key`.
+- Decisión menor: al guardar un cambio de plantillas se descartan las archivadas de la vista. Es lo conservador, porque el servidor rechaza las plantillas archivadas.
+- `INBOUND.VIEW_NAME_TAKEN` e `INBOUND.TEMPLATE_INVALID` se muestran en su campo.
+- Pruebas dirigidas en verde: 7 archivos, 126 pruebas. También pasan prettier, eslint y tsc de `apps/web`. Esta rebanada no maneja secretos ni permisos nuevos, así que no pasó por jueces ciegos.
+
+### 2026-11-03 · IC-6d-5 hecha (comparticiones de vistas)
+
+- Nueva pantalla `/inbound/views/:viewId/shares`, enlazada desde la configuración de vistas con el botón «Accesos». Lista con quién se comparte la vista y permite compartirla y revocar accesos.
+- Solo se ofrece con las dos llaves del servidor: el permiso `share.manage` y MANAGE sobre la vista. Sin alguna de ellas, la página responde igual que a una vista que no existe y no pide el listado, porque el servidor lo negaría y cada intento quedaría como una negación en la auditoría.
+- El formulario de compartir y la tabla de accesos de las cuentas pasaron a ser genéricos en el feature `shares` (`ShareWithPersonForm`, `SharesTable`). Las vistas los reutilizan con sus propios textos y con el significado de cada nivel en una vista.
+- Jueces ciegos A y B. Ambos confirmaron dos cosas y las corregí:
+  1. La página pedía el listado de accesos sin las dos llaves.
+  2. Un 404 al revocar se anunciaba como éxito. El servidor responde igual cuando quien revoca perdió la vista, así que ahora el error queda a la vista y se recargan los listados.
+- Lo que señaló un solo juez lo verifiqué en el código y también lo corregí:
+  - Una respuesta tardía podía cerrar otro diálogo; ahora el cierre es por tipo de diálogo.
+  - El botón de confirmar ya no queda activo durante la espera por límite de intentos.
+  - Los nombres de los niveles quedaron alineados con la tabla (Usar, Ver, Editar, Administrar).
+  - La descripción de la página dice ahora «quién tiene acceso».
+  - Queda sin hacer, por menor: los estados de error y de no encontrada no tienen encabezado propio.
+- Ronda de mutaciones. Cuatro mutaciones, las cuatro atrapadas: administrar los accesos por debajo de MANAGE, 404 como éxito, pedir el listado sin las llaves y revocar con un identificador equivocado. Después restauré los archivos y comprobé con `cmp` que quedaron idénticos.
+- Pruebas: `inbound-view-shares.test.tsx` en verde. En `shares.test.tsx` falla una sola prueba, «is reachable from the accounts screen», y es ajena a esta rebanada. Su fixture de `GET /accounts` no trae `lastChangedAt` ni `passwordAge`, que el esquema `accountListItemSchema` exige desde el cambio de otra sesión. No la toqué porque corregir una prueba requiere consultarlo.
+- Limitación: el texto de `SHARE.ALREADY_EXISTS` habla de «acceso a la cuenta». El catálogo `errors.json` lo lleva otra sesión.

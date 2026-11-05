@@ -1,12 +1,12 @@
 # ADR 0042: Anclaje externo periódico de la cadena de auditoría
 
-- **Estado**: Propuesta. Borrador de Ingeniería para `TODO.md` F2; no es una decisión hasta que una persona lo ratifique.
+- **Estado**: Propuesta, con la opción B decidida por el dueño e implementada (2026-11-04). Pasa a «Aceptada» cuando Ops verifique en el bucket real los puntos pendientes de [`docs/runbooks/anchor-audit.md`](../runbooks/anchor-audit.md).
 - **Fecha**: 2026-10-29
 - **Referencias**: [ADR 0016](0016-append-only-audit-hash-chain.md) (cadena de hashes); [ADR 0023](0023-audit-advisory-lock-and-long-transactions.md) (lock y tiempos); [ADR 0024](0024-audit-retention-vs-revoke-delete.md) (retención y archivo inmutable); [ADR 0020](0020-reference-cloud-aws.md) (AWS solo para el KMS); [ADR 0038](0038-purge-expired-ephemeral-rows.md) (trabajos programados); [ADR 0039](0039-single-instance-until-redis.md) (instancia única); [`docs/database.md`](../database.md) §8.2 y §8.5; [`docs/threat-model.md`](../threat-model.md) (fila "Reescritura de la historia"); `TODO.md` F2, H1 y R1.
 
 ## Resumen
 
-**Recomendación (confianza media-alta, alrededor de 75 %):** un trabajo programado cada hora publica en almacenamiento de solo escritura (Object Lock en modo de cumplimiento) un manifiesto con el último `seq` y `hash` de cada organización. La clave en el KMS para firmar cada evento se descarta. Queda abierto **dónde** se publica, porque el ADR 0020 limita AWS al KMS.
+**Decidido por el dueño el 2026-11-04 (opción B, implementada):** un trabajo programado **una vez al día** publica en un bucket aparte de Wasabi con Object Lock en modo de cumplimiento un manifiesto con el último `seq` y `hash` de cada organización; la sección «Implementación» lo detalla. Lo que sigue en este resumen es la recomendación original del borrador (cada hora, destino abierto), que se conserva como historia. **Recomendación original (confianza media-alta, alrededor de 75 %):** un trabajo programado cada hora publica en almacenamiento de solo escritura (Object Lock en modo de cumplimiento) un manifiesto con el último `seq` y `hash` de cada organización. La clave en el KMS para firmar cada evento se descarta. Queda abierto **dónde** se publica, porque el ADR 0020 limita AWS al KMS.
 
 ## Contexto
 
@@ -80,8 +80,29 @@ Reglas que se derivan si se acepta:
 3. ¿Quién recibe la alerta de manifiesto ausente o discrepante y qué hace? Depende de la observabilidad que aún no existe.
 4. ¿Se justifica la opción C (firma con KMS)? Depende de quién se considere el atacante: con acceso al anfitrión, la firma tampoco lo detiene.
 
+## Decisión del dueño (2026-11-04)
+
+- **Opción B.** Destino: un bucket **aparte en Wasabi** (el proveedor que ya guarda los respaldos, TODO L2), con Object Lock en modo de cumplimiento y una credencial que solo puede escribir objetos nuevos, distinta de la de los respaldos, de la base y del KMS. Antes de implementar hay que verificar que Wasabi ofrece el modo de cumplimiento con la retención de 2 años.
+- **Frecuencia: una vez al día** (no cada hora). Consecuencia aceptada: una manipulación puede tardar hasta un día en notarse.
+- **Alertas configurables por la Raíz**: un panel donde la Raíz elige cómo recibir estas alertas, por correo, por Telegram o por ambos. Telegram es una integración nueva (comando de red y un token de bot que es un secreto, a cifrar con el módulo de criptografía): se trata como tarea aparte.
+- La opción C (firma del manifiesto con el KMS) no se pidió; queda como mejora posterior.
+- El estado sigue en «Propuesta» hasta verificar el soporte de Wasabi.
+
+## Implementación (2026-11-04)
+
+- **Comando**: `anchor-audit` (`apps/api/src/main.anchor-audit.ts`), una vez al día desde el cron del anfitrión. Procedimiento, variables y verificación del bucket en [`docs/runbooks/anchor-audit.md`](../runbooks/anchor-audit.md).
+- **Un manifiesto por organización, no uno global.** Cambia lo propuesto en la opción B: toda tabla lleva organización y aislamiento por filas, y el rol de la aplicación solo ve la organización fijada. Cada objeto es `audit-anchors/<organización>/<número>.json` y los manifiestos se encadenan dentro de cada organización.
+- **Registro local `audit_anchors`** (migración `0033`). Hace falta porque la credencial del bucket solo escribe y no puede leer el manifiesto anterior para encadenarlo. Como en `audit_events`, la base asigna el número, la cabeza anclada, el hash anterior, el hash propio y la fecha. El rol de la aplicación solo lee e inserta, y la tabla rechaza cambios y borrados incluso del dueño. Es el registro que pide el control de retiro de particiones del ADR 0024 (antes llamado `audit_exports`); **no es evidencia**: la evidencia es la copia en el bucket.
+- **Primero se publica, después se confirma.** Si la publicación falla, el registro local se revierte y esa organización queda sin ancla ese día (código de salida `1`). Si la confirmación fallara después de publicar, el bucket guarda una versión de más con ese número; el verificador la ve como repetida.
+- **Retención**: 2 años de calendario en modo de cumplimiento (`AUDIT_ANCHOR_RETENTION_YEARS`), no 730 días: con un 29 de febrero de por medio, 730 días quedan un día corto respecto a la retención de auditoría de 2 años. Si el área legal (A10) pide más, se alarga en el código; los objetos ya publicados no se pueden acortar.
+- **Nombre del objeto**: `audit-anchors/<organización>/<número de 12 dígitos>-<hash del manifiesto>.json`. Con solo el número, una base restaurada que reutilice números escribiría una versión nueva del mismo objeto; con el hash, cada manifiesto distinto tiene su propio nombre.
+- **Espera acotada**: el registro local fija `lock_timeout` de 5 s antes de insertar; si otra ancla de la misma organización tiene el turno, esa organización falla en vez de colgar el trabajo.
+- **Wasabi**: su documentación (`docs.wasabi.com`, «Object Locking») confirma el modo de cumplimiento, que no se puede revertir «por ningún motivo ni por ningún usuario», y que el bloqueo se habilita al crear el bucket y exige versionado. No confirma de forma explícita la retención de 2 años ni una política de solo `PutObject`: el runbook las deja como verificación obligatoria antes de cargar datos reales.
+- **Alerta**: si una organización queda sin ancla, el comando encola para ella una alerta de infraestructura (`integration.infra_alert`, código `job_failed`) en una transacción aparte de la del ancla, y la API la entrega a la Raíz por correo, por Telegram o por ambos, según lo que ella elija ([ADR 0047](0047-user-configured-integrations.md), enmienda del 2026-11-04). No se agrupan: se encola una por organización con fallo y por ejecución, y la entrega exige el publicador del outbox (`OUTBOX_WORKER_ENABLED=true`). Siguen sin cubrirse el cron que no corre y la alerta que no se puede encolar: para eso queda el código de salida y la ausencia de registro (más de 26 horas). La pantalla del panel donde la Raíz elige los canales todavía no existe.
+- **Pendiente**: el verificador diario (TODO H1) que compara el bucket con la base; la opción C (firma con KMS) sigue sin pedirse.
+
 ## No verificado
 
-- Soporte de Object Lock en el destino alternativo al de AWS.
+- Object Lock en Wasabi: confirmado en su documentación, no probado en un bucket real (lo verifica Ops según el runbook).
 - Latencia real de una llamada de firma al KMS desde el servidor (la cifra del código es una estimación).
 - Que el modo de cumplimiento permita la retención necesaria con el presupuesto disponible (política C9 pendiente con el área legal).

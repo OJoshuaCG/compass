@@ -28,7 +28,7 @@ import {
   inviteUser,
   inviteUserWithLink,
 } from '../api/directory-api';
-import { fetchInvitableManagers } from '../api/team-api';
+import { fetchAllManaged } from '../api/team-api';
 import { creatableRanks } from '../model/creatable-ranks';
 import { invitableManagers } from '../model/invitable-managers';
 import { InvitationLinkPanel } from '../ui/invitation-link-panel';
@@ -79,7 +79,7 @@ function InviteForm({ actorRank, onDone, onLinkReady }: InviteFormProps) {
   const actorId = useMe()?.user.id;
   const managersQuery = useQuery({
     queryKey: directoryKeys.invitableManagers(),
-    queryFn: ({ signal }) => fetchInvitableManagers(signal),
+    queryFn: ({ signal }) => fetchAllManaged(signal),
     // Un traspaso o una baja pueden cambiar el subárbol en cualquier momento.
     staleTime: 0,
   });

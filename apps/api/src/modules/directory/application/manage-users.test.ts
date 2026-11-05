@@ -11,8 +11,16 @@ import { RecordAuditEvent } from '../../audit/application/record-audit-event.js'
 import { InMemoryAuditEventRepository } from '../../audit/testing/in-memory-audit-event-repository.js';
 import type { UnitOfWork } from '../../organization/index.js';
 import type { UserRecord } from '../domain/user.js';
+import { InMemoryOffboardingAccountStore } from '../testing/in-memory-offboarding-account-store.js';
+import {
+  InMemoryOffboardingAccessCleanup,
+  InMemoryOffboardingRotationStore,
+} from '../testing/in-memory-offboarding-cleanup-and-rotation.js';
 import { InMemoryUserDirectory } from '../testing/in-memory-user-directory.js';
+import type { OffboardingNoticePayload } from '../domain/offboarding-notice.js';
 import { ManageUsers } from './manage-users.js';
+import { OffboardAccounts } from './offboard-accounts.js';
+import { ReassignOffboardedAccounts } from './reassign-offboarded-accounts.js';
 import type { RankChangeNotice } from './ports/rank-change-notice-queue.js';
 import type { SharedAccountSummary } from './ports/shared-by-lister.js';
 
@@ -116,6 +124,22 @@ function setup(options: SetupOptions = {}) {
     Promise.resolve({ total: options.shareTotal ?? sharedAccounts.length, rows: sharedAccounts }),
   );
 
+  const offboardingAccounts = new InMemoryOffboardingAccountStore();
+  const offboardingCleanup = new InMemoryOffboardingAccessCleanup();
+  const offboardingRotation = new InMemoryOffboardingRotationStore();
+  const offboardingNotices: OffboardingNoticePayload[] = [];
+  // Quien recibe las cuentas es siempre un superior con todos los permisos requeridos.
+  const offboarding = new OffboardAccounts({
+    reassignment: new ReassignOffboardedAccounts({
+      directory,
+      accounts: offboardingAccounts,
+      permissions: { hasRequiredPermissions: () => Promise.resolve(true) },
+    }),
+    cleanup: offboardingCleanup,
+    rotation: offboardingRotation,
+    clock: { now: () => NOW },
+  });
+
   const manageUsers = new ManageUsers({
     context: { current: context },
     uow,
@@ -131,11 +155,22 @@ function setup(options: SetupOptions = {}) {
         return Promise.resolve();
       },
     },
+    offboarding,
+    offboardingNotices: {
+      enqueue: (notice) => {
+        offboardingNotices.push(notice);
+        return Promise.resolve();
+      },
+    },
     audit,
     clock: { now: () => NOW },
   });
   return {
     manageUsers,
+    offboardingAccounts,
+    offboardingCleanup,
+    offboardingRotation,
+    offboardingNotices,
     directory,
     roles,
     auditEvents: auditRepository.events,
@@ -512,5 +547,73 @@ describe('authorization is never bypassed', () => {
     await expect(manageUsers.changeRank(ROOT_ID, RANK.LEADER)).rejects.toMatchObject({
       code: 'USER.ROOT_PROTECTED',
     });
+  });
+});
+
+describe('deactivate: offboarding of vault accounts', () => {
+  // SENSIBLE (revisión humana): la baja reasigna cuentas huérfanas, retira accesos y exige rotación.
+  it('reassigns the orphaned accounts, audits each one and the deactivation, and queues the notice', async () => {
+    const {
+      manageUsers,
+      offboardingAccounts,
+      offboardingCleanup,
+      offboardingNotices,
+      auditEvents,
+    } = setup();
+    offboardingAccounts.orphanedBy.set(OPERATOR_ID, ['acc-1', 'acc-2']);
+    offboardingCleanup.exposedAccounts = ['acc-1', 'acc-2', 'acc-3'];
+    offboardingCleanup.revokedShares = 4;
+    offboardingCleanup.removedGroups = 1;
+
+    const result = await manageUsers.deactivate(OPERATOR_ID);
+
+    expect(result.ok).toBe(true);
+    expect(offboardingAccounts.grants.map((grant) => grant.accountId)).toEqual(['acc-1', 'acc-2']);
+    expect(offboardingCleanup.calls).toEqual(['list', 'revoke', 'groups']);
+    const perAccount = auditEvents.filter(
+      (event) => event.action === 'account.offboarding_reassigned',
+    );
+    expect(perAccount.map((event) => event.targetId)).toEqual(['acc-1', 'acc-2']);
+    expect(perAccount.every((event) => event.targetType === 'account')).toBe(true);
+    const summary = auditEvents.find((event) => event.action === 'user.deactivated');
+    expect(summary?.metadata).toMatchObject({
+      exposedAccounts: 3,
+      reassignedAccounts: 2,
+      unassignedAccounts: 0,
+      revokedShares: 4,
+      removedGroups: 1,
+    });
+    // La auditoría general va después de las de cada cuenta (última escritura, ADR 0023).
+    expect(auditEvents.at(-1)?.action).toBe('user.deactivated');
+    expect(offboardingNotices).toHaveLength(1);
+    expect(offboardingNotices[0]).toMatchObject({
+      leaverId: OPERATOR_ID,
+      actorId: ROOT_ID,
+      assignedAccountCount: 2,
+      unassignedAccountCount: 0,
+      offboardedAt: NOW,
+    });
+  });
+
+  it('writes nothing about accounts when the person had none', async () => {
+    const { manageUsers, auditEvents, offboardingNotices } = setup();
+
+    const result = await manageUsers.deactivate(OPERATOR_ID);
+
+    expect(result.ok).toBe(true);
+    expect(auditEvents.some((event) => event.targetType === 'account')).toBe(false);
+    expect(offboardingNotices[0]).toMatchObject({ receiverId: null, assignedAccountCount: 0 });
+  });
+
+  it('does not offboard anything when the engine denies the deactivation', async () => {
+    const { manageUsers, require, offboardingCleanup, offboardingNotices } = setup();
+    require.mockRejectedValueOnce(new DomainError('AUTHZ.PERMISSION', 'Action not allowed'));
+
+    await expect(manageUsers.deactivate(OPERATOR_ID)).rejects.toMatchObject({
+      code: 'AUTHZ.PERMISSION',
+    });
+
+    expect(offboardingCleanup.calls).toEqual([]);
+    expect(offboardingNotices).toEqual([]);
   });
 });

@@ -31,6 +31,16 @@ El mismo comando destruye las versiones del secreto del segundo factor que un re
 7. **30 días fijo en código** (`REPLACED_TOTP_SECRET_RETENTION_DAYS`): `vault.md` lo llama "configurable", pero no hay variable ni pantalla definidas. Decisión abierta.
 8. **Rendimiento**: no hay índice parcial sobre versiones no vigentes; el borrado recorre las filas de la organización. Aceptable con el volumen actual; un índice sería una migración nueva si hiciera falta.
 
+## Ampliación (2026-11-04, tarea C9): versiones de contraseña reemplazadas
+
+Decisión del dueño del 2026-11-04 (TODO C9, opción A): las versiones viejas de la contraseña de una credencial se conservan **30 días** después de que una edición las reemplaza y luego se destruyen (`docs/business/vault.md` BO-6).
+
+1. **Mismo mecanismo que H1b**: la misma regla de reemplazo (existe una versión posterior creada hace 30 días o más), la misma política de la base y los mismos lotes por organización. El SQL vive en una sola función compartida (`purge-replaced-secret-versions.ts`) que recibe el campo; cada campo tiene su almacén (`PgReplacedTotpSecretStore`, `PgReplacedPasswordSecretStore`).
+2. **Alcance**: solo `password`. Las versiones viejas de usuario, códigos de recuperación y notas **se conservan**: su plazo no está decidido y la opción conservadora es no destruir lo que no se pidió.
+3. **Sin migración ni permisos nuevos**: la política `credential_secrets_purge_old` ya permite borrar cualquier versión no vigente.
+4. **30 días fijo en código** (`REPLACED_PASSWORD_SECRET_RETENTION_DAYS`), igual que en H1b, hasta que exista la tabla de ajustes del sistema.
+5. **Sin auditoría**, por la decisión 6. La validación legal de la retención (A10) sigue pendiente; si pide otro plazo, se cambia la constante.
+
 ## Alternativas
 
 - **Rol con `BYPASSRLS` para el trabajo**: descartada; rompe la garantía de que ningún proceso salta el aislamiento.

@@ -6,6 +6,12 @@ export type {
   OrganizationSeeder,
 } from './application/bootstrap-organization.js';
 export { PgOrganizationSeeder } from './infrastructure/pg-organization-seeder.js';
+export { FirstRootSetup } from './application/first-root-setup.js';
+export type {
+  FirstSetupInput,
+  FirstSetupRejection,
+  FirstSetupResult,
+} from './application/first-root-setup.js';
 export type { CustodyGroup } from './application/emergency-codes.js';
 export {
   RecoverRoot,
@@ -20,4 +26,15 @@ export type {
   RootRecoveryStore,
 } from './application/recover-root.js';
 export { PgRootRecoveryStore } from './infrastructure/pg-root-recovery-store.js';
+export { PgEmergencyCodeInvalidator } from './infrastructure/pg-emergency-code-invalidator.js';
 export { MailerAdministratorNotifier } from './infrastructure/mailer-administrator-notifier.js';
+export {
+  EMERGENCY_CODE_REISSUE_REJECTED,
+  EmergencyCodeReissueRejectedError,
+  ReissueEmergencyCodes,
+} from './application/reissue-emergency-codes.js';
+export type {
+  EmergencyCodeReissueResult,
+  EmergencyCodeReissueStore,
+} from './application/reissue-emergency-codes.js';
+export { PgEmergencyCodeReissueStore } from './infrastructure/pg-emergency-code-reissue-store.js';

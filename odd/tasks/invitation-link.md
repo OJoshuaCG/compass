@@ -1,6 +1,6 @@
 # Enlace de invitación visible para quien invita
 
-Estado: **en curso** (2026-10-30). Ruta protegida (identidad, acceso, migración con permisos de roles): requiere revisión humana de las pruebas SENSIBLE, jueces ciegos y prueba de mutación.
+Estado: **implementada** (commit c19a52f; revisado 2026-11-03). Pendiente: la ronda de jueces ciegos y la prueba de mutación, que no quedaron registradas en esta bitácora. Ruta protegida (identidad, acceso, migración con permisos de roles): requiere revisión humana de las pruebas SENSIBLE, jueces ciegos y prueba de mutación.
 
 ## Especificación
 
@@ -28,12 +28,12 @@ Riesgo declarado: quien ve el enlace puede aceptar la invitación en lugar del i
 
 ## Tareas
 
-- [ ] Contrato: permiso `user.invite_link` y respuesta con `link` y `emailSent`.
-- [ ] Motor: techo, política con reautenticación, `SYSTEM_ROLES_VERSION` 4 → 5.
-- [ ] Migración 0026 (función de techo y concesión a roles de sistema con `user.invite`).
-- [ ] Casos de uso, controlador, auditoría, contenedor.
-- [ ] Web: diálogo con el enlace y botón de copiar; i18n es-MX y en-US.
-- [ ] Pruebas (ver abajo), documentación, jueces ciegos y mutación.
+- [x] Contrato: permiso `user.invite_link` y respuesta con `link` y `emailSent`.
+- [x] Motor: techo, política con reautenticación, `SYSTEM_ROLES_VERSION` 4 → 5.
+- [x] Migración 0026 (función de techo y concesión a roles de sistema con `user.invite`).
+- [x] Casos de uso, controlador, auditoría, contenedor.
+- [x] Web: diálogo con el enlace y botón de copiar; i18n es-MX y en-US.
+- [ ] Pruebas (ver abajo), documentación, jueces ciegos y mutación. Pruebas y documentación están en c19a52f; faltan jueces ciegos y mutación.
 
 ## Bitácora
 

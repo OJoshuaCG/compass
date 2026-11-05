@@ -48,6 +48,14 @@ const accountFixture = (myLevel: ShareLevel | null): AccountListItem => ({
   passwordAge: 'none',
 });
 
+// El listado `GET /accounts` se valida con `accountListItemSchema`, que además exige el semáforo de
+// antigüedad de la contraseña (B6); sin estos campos el listado no se valida y la tabla queda vacía.
+const accountListItemFixture = (myLevel: ShareLevel | null): AccountListItem => ({
+  ...accountFixture(myLevel),
+  lastChangedAt: null,
+  passwordAge: 'none',
+});
+
 const ROTATED: Credential = {
   id: CREDENTIAL_ID,
   accountId: ACCOUNT_ID,
@@ -153,7 +161,7 @@ describe('credentials list', () => {
     setup({
       extra: {
         'GET /accounts': jsonResponse({
-          data: [accountFixture('USE')],
+          data: [accountListItemFixture('USE')],
           page: { nextCursor: null, limit: 25 },
         }),
         'GET /platforms': jsonResponse({ data: [] }),

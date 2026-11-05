@@ -8,7 +8,13 @@ import { DataKeyController } from '../modules/maintenance/interface/data-key.con
 import { PersonRolesController } from '../modules/access/interface/person-roles.controller.js';
 import { RolesController } from '../modules/access/interface/roles.controller.js';
 import { IdempotencyInterceptor, IdempotencyService } from '../modules/idempotency/index.js';
-import { ListDirectory, ListManaged, ManageUsers } from '../modules/directory/index.js';
+import {
+  ListDirectory,
+  ListManaged,
+  ManageRootTransfer,
+  ManageUsers,
+} from '../modules/directory/index.js';
+import { RootTransferController } from '../modules/directory/interface/root-transfer.controller.js';
 import { UsersController } from '../modules/directory/interface/users.controller.js';
 import {
   AcceptInvitation,
@@ -27,6 +33,8 @@ import {
   SessionService,
 } from '../modules/identity/index.js';
 import { AuthController, MeController } from '../modules/identity/interface/auth.controller.js';
+import { FirstSetupController } from '../modules/provisioning/interface/first-setup.controller.js';
+import { FirstRootSetup } from '../modules/provisioning/index.js';
 import { InvitationsController } from '../modules/identity/interface/invitations.controller.js';
 import {
   ManageAccounts,
@@ -46,6 +54,23 @@ import {
 } from '../modules/vault/interface/credentials.controller.js';
 import { CredentialImportController } from '../modules/vault/interface/credential-import.controller.js';
 import { TotpController } from '../modules/vault/interface/totp.controller.js';
+import {
+  ListInboundDirectory,
+  ManageInboundConfiguration,
+  ManageInboundSourceConnection,
+  ManageInboundViewShares,
+  ReadInboundCodes,
+  RevealInboundResets,
+} from '../modules/inbound-codes/index.js';
+import { InboundConfigurationController } from '../modules/inbound-codes/interface/inbound-configuration.controller.js';
+import { InboundSourceConnectionController } from '../modules/inbound-codes/interface/inbound-source-connection.controller.js';
+import { InboundCodesController } from '../modules/inbound-codes/interface/inbound-codes.controller.js';
+import { InboundDirectoryController } from '../modules/inbound-codes/interface/inbound-directory.controller.js';
+import { InboundResetsController } from '../modules/inbound-codes/interface/inbound-resets.controller.js';
+import { InboundViewSharesController } from '../modules/inbound-codes/interface/inbound-view-shares.controller.js';
+import { ManageAlertSettings, ManageTelegramIntegrations } from '../modules/integrations/index.js';
+import { AlertSettingsController } from '../modules/integrations/interface/alert-settings.controller.js';
+import { IntegrationsController } from '../modules/integrations/interface/integrations.controller.js';
 import { CsrfGuard } from '../shared/http/csrf.guard.js';
 import { RateLimitGuard } from '../shared/http/rate-limit.guard.js';
 import {
@@ -68,6 +93,7 @@ export class AppModule {
 
     const providers: Provider[] = [
       { provide: SessionService, useValue: container.sessions },
+      { provide: FirstRootSetup, useValue: container.firstRootSetup },
       { provide: Login, useValue: container.login },
       { provide: Logout, useValue: container.logout },
       { provide: SecondFactor, useValue: container.secondFactor },
@@ -81,6 +107,7 @@ export class AppModule {
       { provide: ListDirectory, useValue: container.listDirectory },
       { provide: ListManaged, useValue: container.listManaged },
       { provide: ManageUsers, useValue: container.manageUsers },
+      { provide: ManageRootTransfer, useValue: container.manageRootTransfer },
       { provide: REQUEST_CONTEXT_RUNNER, useValue: container.requestContext },
       { provide: APP_GUARD, useClass: RateLimitGuard },
       { provide: APP_GUARD, useFactory: () => new CsrfGuard(appOrigin) },
@@ -96,6 +123,17 @@ export class AppModule {
       { provide: ManageShares, useValue: container.manageShares },
       { provide: ImportCredentials, useValue: container.importCredentials },
       { provide: ManageTotp, useValue: container.manageTotp },
+      { provide: ListInboundDirectory, useValue: container.listInboundDirectory },
+      { provide: ReadInboundCodes, useValue: container.readInboundCodes },
+      { provide: RevealInboundResets, useValue: container.revealInboundResets },
+      { provide: ManageInboundConfiguration, useValue: container.manageInboundConfiguration },
+      {
+        provide: ManageInboundSourceConnection,
+        useValue: container.manageInboundSourceConnection,
+      },
+      { provide: ManageAlertSettings, useValue: container.manageAlertSettings },
+      { provide: ManageTelegramIntegrations, useValue: container.manageTelegramIntegrations },
+      { provide: ManageInboundViewShares, useValue: container.manageInboundViewShares },
       { provide: IdempotencyService, useValue: container.idempotency },
       { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
@@ -107,10 +145,12 @@ export class AppModule {
         AuthController,
         MeController,
         InvitationsController,
+        FirstSetupController,
         RolesController,
         PersonRolesController,
         DataKeyController,
         UsersController,
+        RootTransferController,
         PlatformsController,
         AccountsController,
         AccountCredentialsController,
@@ -118,6 +158,14 @@ export class AppModule {
         CredentialsController,
         CredentialImportController,
         TotpController,
+        InboundCodesController,
+        InboundDirectoryController,
+        InboundResetsController,
+        InboundViewSharesController,
+        InboundConfigurationController,
+        InboundSourceConnectionController,
+        IntegrationsController,
+        AlertSettingsController,
       ],
       providers,
     };

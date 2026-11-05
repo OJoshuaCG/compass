@@ -1,10 +1,12 @@
 # ADR 0045: Lectura de códigos entrantes por correo y SMS, compartida por vistas filtradas
 
-- **Estado**: Propuesta. Borrador de Ingeniería por **encargo del dueño (2026-10-30)**, que adelanta antes de la prueba de intrusión la lectura de códigos por correo (fase 4 del plan) y por SMS (fase 5). Todo lo que aquí no viene del encargo es **propuesta mía** y está marcado así. No es una decisión hasta que una persona la ratifique. Revisado por dos jueces ciegos el 2026-10-30 (ver "Revisión por jueces 2026-10-30").
+- **Estado**: Propuesta. Borrador de Ingeniería por **encargo del dueño (2026-10-30)**, que adelanta antes de la prueba de intrusión la lectura de códigos por correo (fase 4 del plan) y por SMS (fase 5). Todo lo que aquí no viene del encargo es **propuesta mía** y está marcado así. No es una decisión hasta que una persona la ratifique. Revisado por dos jueces ciegos el 2026-10-30 (ver "Revisión por jueces 2026-10-30"). **Implementada de IC-1 a IC-6d-5 (2026-11-03) sin cambiar de estado:** falta que el dueño ratifique el documento y cierre las decisiones abiertas (ver "Estado de implementación 2026-11-03").
 - **Fecha**: 2026-10-30
 - **Referencias**: [`plan.md`](../../plan.md) "Preparación para lectura de correos y SMS" (líneas 773 a 801); [ADR 0004](0004-server-side-encryption-kms-per-org-dek.md) (AAD); [ADR 0015](0015-mandatory-mfa-passkeys-preferred.md) (sin SMS ni correo como segundo factor del sistema); [ADR 0021](0021-pre-authentication-access-with-rls.md); [ADR 0035](0035-transactional-outbox-for-events.md); [ADR 0038](0038-purge-expired-ephemeral-rows.md); [ADR 0036](0036-effective-access-computed-on-the-fly.md); [ADR 0039](0039-single-instance-until-redis.md); [`docs/database.md`](../database.md) líneas 656 y 680 a 682 (tablas y función previstas); migraciones `0005_vault.sql` (`shares`, trigger `shares_check_refs`) y `0021_credential_restore_version_permission.sql` (molde de permisos); `odd/tasks/inbound-codes.md`; `TODO.md` filas T y S2.
 
 ## Resumen
+
+> **Nota (2026-11-03).** Este resumen describe la propuesta original. Para el correo del dueño la enmienda del 2026-10-30 sustituyó el camino A por el **camino B (sondeo por IMAP, con la contraseña del buzón cifrada)**: ver "Enmienda 2026-10-30: ratificación parcial y camino B" y "Diseño de IC-3 por IMAP". Lo construido está en "Estado de implementación 2026-11-03".
 
 **Propuesta (confianza media, alrededor de 70 %):** recibir el correo por un **alias propio bajo un subdominio dedicado** con recepción programable (camino A del plan, sin IMAP ni contraseñas de buzones), exigir **DKIM válido y alineado de forma estricta** antes de aplicar cualquier plantilla, y compartir **vistas filtradas** reutilizando los niveles de `shares` (USE, VIEW, EDIT, MANAGE). La clasificación **falla cerrada**: solo una plantilla explícita de `login_code`, mantenida en el catálogo de plataforma, produce algo visible con USE; todo lo demás es sensible o va a cuarentena. Se guarda solo el código extraído, cifrado y con vigencia de 10 minutos; **se prefiere no persistir el cuerpo en absoluto**. El SMS usa el mismo canal interno detrás de `SmsProviderPort` con adaptador falso. **Esta propuesta no introduce ningún adaptador real**: subdominio, vía de recepción (y dónde corre la verificación DKIM), proveedor de SMS y retención legal siguen abiertos.
 
@@ -284,7 +286,9 @@ El proceso padre reúne base de datos, KMS y las contraseñas descifradas, y el 
 
 Por mensaje procesado, una línea estructurada: id de fuente, resultado (aceptado o motivo de cuarentena), veredictos `spf`, `dkim` y `dmarc` del servidor, `d=` y `s=` saneados, si hay alineación, si la firma trae `l=`, qué cabeceras cubre `h=` y la huella. **Nunca** asunto, cuerpo, direcciones, código ni enlace. Al final de la pasada, un resumen con conteos por motivo y los mensajes omitidos por el prefiltro. Con ese registro el dueño decide si el worker verifica DKIM por su cuenta.
 
-### Cambios de base de datos (migración 0026, ruta protegida)
+### Cambios de base de datos (migración 0029, ruta protegida)
+
+Se propuso como 0026; al implementarse quedó numerada `0029_inbound_mail_connections.sql`, porque la 0026 la tomó `invitation_link_permission`.
 
 - Tablas `mail_source_connections` y `mail_source_poll_state`, con organización, índice (`(organization_id, next_attempt_at)` para el listado), aislamiento forzado y `COMMENT` donde el significado no sea obvio. La contraseña es `bytea` cifrada con `nonce`, `dek_version` (clave foránea a `data_keys`) y `secret_version`, con largo mínimo.
 - `iam_app`: escribe la conexión (IC-5b) y lee `mail_source_poll_state` **sin** columnas de secretos para mostrar el estado. Para el **recifrado por rotación de DEK** (ADR 0040) la API necesita `select` y `update` de `ciphertext`, `nonce` y `dek_version` de la conexión, y un recifrador nuevo en `main.reencrypt.ts`; sin eso, tras rotar, la contraseña queda sin recifrar y la DEK vieja no se puede retirar.
@@ -299,12 +303,40 @@ Por mensaje procesado, una línea estructurada: id de fuente, resultado (aceptad
 
 | ID | Rebanada | Depende de |
 | --- | --- | --- |
-| IC-3a ⚠ | Migración 0026: tablas, índices, grants de `iam_app`, del worker y del definidor, función de listado, `COMMENT`, adenda de purga de `poll_state`; recifrador de la contraseña; pruebas de aislamiento y de mínimo privilegio ampliadas | IC-2c |
+| IC-3a ⚠ | Migración 0029 (propuesta como 0026): tablas, índices, grants de `iam_app`, del worker y del definidor, función de listado, `COMMENT`, adenda de purga de `poll_state`; recifrador de la contraseña; pruebas de aislamiento y de mínimo privilegio ampliadas | IC-2c |
 | IC-3b ⚠ | Dominio y aplicación: `acceptedRecipients`, `keyBitsPolicy` y motivos nuevos de cuarentena en el IC-1 (pruebas y mutaciones nuevas, sin debilitar las cerradas); caso de uso de sondeo contra puertos falsos (idempotencia, orden elemento y recibo, cursor, `UIDVALIDITY`, arrendamiento, retroceso, clases de fallo, ventana y tope) | IC-3a |
 | IC-3c ⚠ | Infraestructura: guardia de red con su tabla de rangos, analizadores de `Authentication-Results` y `DKIM-Signature` (una sola candidata), adaptador de `imapflow` (registro apagado, STARTTLS forzado, errores acotados), proceso hijo del análisis MIME, repositorios `pg`, huella | IC-3b |
 | IC-3d ⚠ | Punto de entrada, esquema de configuración propio, repositorio de llaves de solo lectura, registro de DKIM, código de salida, runbook (cron, `authserv-id`, limpieza de cabeceras, cortafuegos, KMS) | IC-3c |
 
 IC-3d se prueba de punta a punta con datos sembrados por conexión de administrador; la prueba con la API real espera a IC-5b (que escribe la conexión). Las pruebas de los adaptadores usan un servidor IMAP de prueba en contenedor; la imagen se elige en IC-3c y no agrega dependencias de la aplicación.
+
+## Estado de implementación 2026-11-03
+
+El seguimiento detallado, con jueces y mutaciones por rebanada, está en [`odd/tasks/inbound-codes.md`](../../odd/tasks/inbound-codes.md).
+
+| Parte | Estado | Dónde |
+| --- | --- | --- |
+| Dominio: plantillas sin regex de usuario, compuerta DKIM, extracción, clasificación que falla cerrada (IC-1) | Hecha | `apps/api/src/modules/inbound-codes/domain/` |
+| Permisos, techos y auditoría (IC-2a); tablas con aislamiento (IC-2b); resolución previa y rol del worker (IC-2c) | Hechas | migraciones `0023`, `0024`, `0025` |
+| Sondeo por IMAP: conexión y estado (IC-3a), caso de uso (IC-3b), guardia de red, verificador y análisis MIME aislado (IC-3c), punto de entrada y runbook (IC-3d) | Hechas | migración `0029`; `apps/api/src/main.inbound-poll.ts`; [runbook](../runbooks/inbound-poll.md) |
+| Lectura por USE e historial por VIEW (IC-5a) | Hecha | API de `inbound-codes` |
+| Fuentes, vistas, comparticiones y conexión IMAP (IC-5b) | Hecha | API de `inbound-codes` |
+| Revelación de restablecimientos con motivo, reautenticación, auditoría crítica, aviso a la Raíz y tareas de rotación al revocar (IC-5c) | Hecha | API de `inbound-codes` y outbox |
+| Web: lectura, revelación, fuentes, conexión, configuración y comparticiones de vistas (IC-6a a IC-6d-5) | Hecha | `apps/web/src/features/inbound-codes/` |
+| SMS (IC-7) | En otra épica | [`odd/tasks/integrations.md`](../../odd/tasks/integrations.md) |
+| Adaptadores reales y operación: recepción en producción, DNS, prueba de intrusión (IC-8) | Bloqueada | decisiones abiertas de este ADR |
+
+Sigue pendiente: la ratificación de este ADR, la retención legal, el subdominio de alias, la revisión humana de las pruebas marcadas como sensibles y el e2e HTTP del módulo.
+
+## Enmienda 2026-11-04: decisiones del dueño sobre los pendientes
+
+El dueño respondió los pendientes de la sección «Decisiones abiertas»; esa lista es anterior al camino B y queda sustituida por esto:
+
+- **Subdominio de alias y DNS (C10): no aplica con el camino B.** El buzón se da de alta por IMAP contra el servidor de correo propio; no hay subdominio ni registros SPF, DKIM o DMARC que configurar de nuestro lado. Solo volvería si se reabre el camino A.
+- **Autenticidad del correo**: se mantiene la fase 1 de la enmienda (2): se confía en `Authentication-Results` del servidor propio y **no** se verifica DKIM en el worker. Lo que el remitente firma lo comprueba el servidor al recibir; el sistema solo lee el veredicto. Pendiente de **comprobación**, no de decisión: confirmar con un buzón real que el servidor antepone esa cabecera con el `authserv-id` configurado.
+- **SMS**: genérico, sin proveedor por defecto y configurable por organización. El costo no es criterio y se admite cualquier tipo de número, VoIP incluido (que algunas plataformas no envíen códigos a números VoIP es una limitación de ellas, no una regla nuestra). Hasta que haya una necesidad real, solo existe el adaptador simulado de pruebas; el primer conector real se elige cuando se necesite.
+- **Cifras ratificadas**: vigencia de 10 minutos, tolerancia de 5 minutos, historial de 30 días, cuarentena de 7 días y tope de tamaño de 256 KB. Si correos reales caen en cuarentena por `MESSAGE_TOO_LARGE`, se sube el tope. El mínimo de 2048 bits queda escrito pero sin efecto con el camino B, porque el servidor propio no informa el tamaño de la clave (`keyBitsPolicy: 'not_available'`).
+- **Sigue pendiente**: la revisión de privacidad con el área legal (TODO A10). Por eso el estado no cambia a «Aceptada».
 
 ## No verificado
 

@@ -16,6 +16,14 @@ import {
   SecretCipher,
 } from './modules/crypto/index.js';
 import { PgCredentialRepository, ReencryptTotpSecrets } from './modules/identity/index.js';
+import {
+  PgMailConnectionSecretStore,
+  ReencryptMailSourcePasswords,
+} from './modules/inbound-codes/index.js';
+import {
+  PgIntegrationSecretStore,
+  ReencryptIntegrationSecrets,
+} from './modules/integrations/index.js';
 import { PgOrganizationLister, ReencryptSecrets } from './modules/maintenance/index.js';
 import { PgTenantScope, PgUnitOfWork } from './modules/organization/index.js';
 import { AsyncLocalRequestContext } from './shared/infrastructure/async-local-request-context.js';
@@ -47,6 +55,8 @@ try {
     organizations: new PgOrganizationLister(pool),
     reencryptors: [
       new ReencryptTotpSecrets({ credentials: new PgCredentialRepository(uow), cipher }),
+      new ReencryptMailSourcePasswords({ store: new PgMailConnectionSecretStore(uow), cipher }),
+      new ReencryptIntegrationSecrets({ store: new PgIntegrationSecretStore(uow), cipher }),
     ],
     scope: new PgTenantScope(requestContext, uow),
     ids: new UuidV7Generator(),

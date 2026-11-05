@@ -2,13 +2,20 @@ import { describe, expect, it } from 'vitest';
 
 import { asOrganizationId } from '../../../shared/kernel/index.js';
 import type { TenantScope } from '../../organization/index.js';
-import type { OutboxRetentionStore, ReplacedTotpSecretStore } from './ports/purge-ports.js';
+import type {
+  ArchivedSourcePollStateStore,
+  OutboxRetentionStore,
+  ReplacedPasswordSecretStore,
+  ReplacedTotpSecretStore,
+} from './ports/purge-ports.js';
 import {
   EXPIRED_RETENTION_GRACE_MS,
   OUTBOX_RETENTION_DAYS,
   OUTBOX_RETENTION_MS,
   PURGE_BATCH_SIZE,
   PurgeExpiredEphemeral,
+  REPLACED_PASSWORD_SECRET_RETENTION_DAYS,
+  REPLACED_PASSWORD_SECRET_RETENTION_MS,
   REPLACED_TOTP_SECRET_RETENTION_DAYS,
   REPLACED_TOTP_SECRET_RETENTION_MS,
 } from './purge-expired-ephemeral.js';
@@ -24,6 +31,14 @@ const passthroughScope: TenantScope = {
 
 const noReplacedTotpSecrets: ReplacedTotpSecretStore = {
   purgeReplacedTotpSecrets: () => Promise.resolve(0),
+};
+
+const noReplacedPasswordSecrets: ReplacedPasswordSecretStore = {
+  purgeReplacedPasswordSecrets: () => Promise.resolve(0),
+};
+
+const noArchivedSourcePollState: ArchivedSourcePollStateStore = {
+  purgeArchivedSourcePollState: () => Promise.resolve(0),
 };
 
 const noPublishedOutboxEvents: OutboxRetentionStore = {
@@ -43,8 +58,10 @@ describe('PurgeExpiredEphemeral', () => {
         },
         purgeWebauthnChallenges: () => Promise.resolve(0),
       },
+      replacedPasswordSecrets: noReplacedPasswordSecrets,
       replacedTotpSecrets: noReplacedTotpSecrets,
       outboxRetention: noPublishedOutboxEvents,
+      archivedSourcePollState: noArchivedSourcePollState,
       scope: passthroughScope,
       ids: { next: () => 'req-1' },
       clock: { now: () => NOW },
@@ -68,11 +85,13 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_BROKEN, ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(1),
         purgeWebauthnChallenges: () => Promise.resolve(2),
       },
+      replacedPasswordSecrets: noReplacedPasswordSecrets,
       replacedTotpSecrets: noReplacedTotpSecrets,
       outboxRetention: noPublishedOutboxEvents,
       scope,
@@ -97,6 +116,7 @@ describe('PurgeExpiredEphemeral', () => {
         purgeIdempotencyKeys: () => Promise.resolve(0),
         purgeWebauthnChallenges: () => Promise.resolve(0),
       },
+      replacedPasswordSecrets: noReplacedPasswordSecrets,
       replacedTotpSecrets: {
         purgeReplacedTotpSecrets: (replacedBefore) => {
           cutoffs.push(replacedBefore);
@@ -104,6 +124,7 @@ describe('PurgeExpiredEphemeral', () => {
         },
       },
       outboxRetention: noPublishedOutboxEvents,
+      archivedSourcePollState: noArchivedSourcePollState,
       scope: passthroughScope,
       ids: { next: () => 'req-1' },
       clock: { now: () => NOW },
@@ -117,6 +138,66 @@ describe('PurgeExpiredEphemeral', () => {
     expect(cutoffs[0]?.getTime()).toBe(NOW.getTime() - REPLACED_TOTP_SECRET_RETENTION_MS);
   });
 
+  it('uses a 30-day cutoff for replaced password versions and drains full batches', async () => {
+    const cutoffs: Date[] = [];
+    const batches = [PURGE_BATCH_SIZE, 4];
+    const purge = new PurgeExpiredEphemeral({
+      organizations: { listIds: () => Promise.resolve([ORG_OK]) },
+      store: {
+        purgeIdempotencyKeys: () => Promise.resolve(0),
+        purgeWebauthnChallenges: () => Promise.resolve(0),
+      },
+      replacedTotpSecrets: noReplacedTotpSecrets,
+      replacedPasswordSecrets: {
+        purgeReplacedPasswordSecrets: (replacedBefore) => {
+          cutoffs.push(replacedBefore);
+          return Promise.resolve(batches.shift() ?? 0);
+        },
+      },
+      outboxRetention: noPublishedOutboxEvents,
+      archivedSourcePollState: noArchivedSourcePollState,
+      scope: passthroughScope,
+      ids: { next: () => 'req-1' },
+      clock: { now: () => NOW },
+    });
+
+    const summary = await purge.execute();
+
+    expect(REPLACED_PASSWORD_SECRET_RETENTION_DAYS).toBe(30);
+    expect(summary.replacedPasswordSecrets).toBe(PURGE_BATCH_SIZE + 4);
+    expect(summary.replacedTotpSecrets).toBe(0);
+    expect(cutoffs).toHaveLength(2);
+    expect(cutoffs[0]?.getTime()).toBe(NOW.getTime() - REPLACED_PASSWORD_SECRET_RETENTION_MS);
+  });
+
+  it('reports a failure of the replaced password purge without stopping the other organizations', async () => {
+    const purge = new PurgeExpiredEphemeral({
+      organizations: { listIds: () => Promise.resolve([ORG_BROKEN, ORG_OK]) },
+      store: {
+        purgeIdempotencyKeys: () => Promise.resolve(0),
+        purgeWebauthnChallenges: () => Promise.resolve(0),
+      },
+      replacedTotpSecrets: noReplacedTotpSecrets,
+      replacedPasswordSecrets: {
+        purgeReplacedPasswordSecrets: () => Promise.resolve(5),
+      },
+      outboxRetention: noPublishedOutboxEvents,
+      archivedSourcePollState: noArchivedSourcePollState,
+      scope: {
+        runAs: (context, fn) =>
+          context.organizationId === ORG_BROKEN ? Promise.reject(new Error('boom')) : fn(),
+        runAsAtomic: (_context, fn) => fn(),
+      },
+      ids: { next: () => 'req-1' },
+      clock: { now: () => NOW },
+    });
+
+    const summary = await purge.execute();
+
+    expect(summary.failedOrganizations).toEqual([{ organizationId: ORG_BROKEN, reason: 'Error' }]);
+    expect(summary.replacedPasswordSecrets).toBe(5);
+  });
+
   it('runs the replaced TOTP secret purge as a system job with the organization context', async () => {
     const contexts: { organizationId: string; actorId: string | null }[] = [];
     const scope: TenantScope = {
@@ -127,11 +208,13 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(0),
         purgeWebauthnChallenges: () => Promise.resolve(0),
       },
+      replacedPasswordSecrets: noReplacedPasswordSecrets,
       replacedTotpSecrets: { purgeReplacedTotpSecrets: () => Promise.resolve(0) },
       outboxRetention: noPublishedOutboxEvents,
       scope,
@@ -155,11 +238,13 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_BROKEN, ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(0),
         purgeWebauthnChallenges: () => Promise.resolve(0),
       },
+      replacedPasswordSecrets: noReplacedPasswordSecrets,
       replacedTotpSecrets: {
         purgeReplacedTotpSecrets: () => {
           if (current === ORG_BROKEN) return Promise.reject(new Error('boom'));
@@ -190,6 +275,7 @@ describe('PurgeExpiredEphemeral', () => {
         purgeIdempotencyKeys: () => Promise.resolve(0),
         purgeWebauthnChallenges: () => Promise.resolve(0),
       },
+      replacedPasswordSecrets: noReplacedPasswordSecrets,
       replacedTotpSecrets: noReplacedTotpSecrets,
       outboxRetention: {
         purgePublishedEvents: (publishedBefore, limit) => {
@@ -200,6 +286,7 @@ describe('PurgeExpiredEphemeral', () => {
           return Promise.resolve({ events, deliveries: events * 2 });
         },
       },
+      archivedSourcePollState: noArchivedSourcePollState,
       scope: passthroughScope,
       ids: { next: () => 'req-1' },
       clock: { now: () => NOW },
@@ -225,11 +312,13 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(0),
         purgeWebauthnChallenges: () => Promise.resolve(0),
       },
+      replacedPasswordSecrets: noReplacedPasswordSecrets,
       replacedTotpSecrets: noReplacedTotpSecrets,
       outboxRetention: {
         purgePublishedEvents: () => Promise.resolve({ events: 1, deliveries: 1 }),
@@ -255,11 +344,13 @@ describe('PurgeExpiredEphemeral', () => {
       runAsAtomic: (_context, fn) => fn(),
     };
     const purge = new PurgeExpiredEphemeral({
+      archivedSourcePollState: noArchivedSourcePollState,
       organizations: { listIds: () => Promise.resolve([ORG_BROKEN, ORG_OK]) },
       store: {
         purgeIdempotencyKeys: () => Promise.resolve(0),
         purgeWebauthnChallenges: () => Promise.resolve(0),
       },
+      replacedPasswordSecrets: noReplacedPasswordSecrets,
       replacedTotpSecrets: noReplacedTotpSecrets,
       outboxRetention: {
         purgePublishedEvents: () => {

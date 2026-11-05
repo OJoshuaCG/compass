@@ -1,0 +1,15 @@
+{
+  "alerts.title": "Infrastructure alerts",
+  "alerts.description": "An infrastructure alert tells Root when something in the platform fails, for example when the daily audit anchor could not be published.",
+  "alerts.rule": "Choose where they are sent. At least one channel must stay on.",
+  "alerts.defaults": "No configuration has been saved yet: the defaults apply (email and Telegram on) until you save.",
+  "alerts.channels.legend": "Notification channels",
+  "alerts.channels.email.label": "Email",
+  "alerts.channels.email.description": "Each active Root receives it in her language.",
+  "alerts.channels.telegram.label": "Telegram",
+  "alerts.channels.telegram.description": "The infrastructure Telegram channel.",
+  "alerts.save": "Save changes",
+  "alerts.saved": "Alert settings saved.",
+  "alerts.conflict": "Someone else changed these settings while you were editing. The current values were loaded; review them and save again.",
+  "alerts.updatedAt": "Last updated: {{date}}"
+}

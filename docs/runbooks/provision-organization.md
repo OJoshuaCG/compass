@@ -4,6 +4,8 @@
 
 Referencias: [`plan.md`](../../plan.md) ("Autenticación del propio sistema" y reglas de jerarquía sobre la Raíz); [`docs/backend.md`](../backend.md) §3.6 (módulo `provisioning`); [ADR 0027](../adr/0027-emergency-codes-root-reset-model.md).
 
+> **Primera organización:** usa el enlace de configuración inicial (`FIRST_SETUP_TOKEN`, [ADR 0046](../adr/0046-first-root-one-time-setup.md) y [`deployment.md`](../deployment.md) §2.10); no requiere conexión de administración. Este runbook sigue siendo la vía para una organización posterior y para operaciones con una conexión de administración disponible.
+
 ## Objetivo
 
 Crear una organización con su persona Raíz, sus roles del sistema y los códigos de emergencia, dejando el alta en la auditoría. Estado final: la Raíz existe en estado "invitada" con una contraseña inicial de un solo uso, y dos custodios tienen los códigos de emergencia en papel.

@@ -16,7 +16,7 @@ Tipo de documento: referencia para quien opera o amplía el sistema.
 | Verificación de vida (`/health/live`) | Implementada |
 | Verificación de disponibilidad (`readiness`: base de datos, KMS) | **No existe** |
 | Trazas y métricas con OpenTelemetry | **No existe**: ninguna dependencia instalada |
-| Alertas | **No existen**; las de seguridad que sí hay salen por correo, no por métricas |
+| Alertas | No hay alertas por métricas. Sí existen avisos puntuales por correo (seguridad) y las **alertas de infraestructura a la Raíz**, por correo y/o Telegram según lo que ella elija (`integration.infra_alert`, [ADR 0047](adr/0047-user-configured-integrations.md)); su primer productor es `anchor-audit`. Salen por el outbox, así que exigen `OUTBOX_WORKER_ENABLED=true` |
 | Verificación diaria de la cadena de auditoría | **No existe** (la tarea corresponde al worker, H1) |
 
 ## Logs
@@ -26,6 +26,7 @@ Tipo de documento: referencia para quien opera o amplía el sistema.
 - Formato JSON de `pino`, creado en `apps/api/src/shared/infrastructure/logger.ts`. El nivel sale de la configuración validada al arrancar.
 - Cada petición recibe un identificador (`uuidv7`) que viaja en la cabecera de respuesta `x-request-id` y en el registro del error. Las respuestas de error de la API llevan ese mismo `requestId`, para que soporte rastree el caso sin ver detalles internos.
 - Eventos que hoy se registran: arranque del servidor, resultado de las migraciones, errores no controlados de peticiones y, con el transporte de correo de desarrollo, el aviso de que se "envió" un correo.
+- El proceso `inbound-poll` (sondeo de correo entrante, [runbook](runbooks/inbound-poll.md)) escribe por la salida estándar una línea JSON por mensaje con `event: inbound.message`: id de fuente, huella, resultado, motivo y veredictos `spf`, `dkim` y `dmarc`. Nunca lleva asunto, cuerpo, direcciones, código ni enlace. Es un proceso aparte de la API: sus líneas salen en el registro del anfitrión, no en el de la API.
 
 ### Redacción
 
@@ -67,6 +68,7 @@ Ninguna existe todavía. El plan pide OpenTelemetry y estas métricas de negocio
 | Deriva del reloj mayor a 2 s | `plan.md`, "Sincronización de hora" | No existe |
 | Uso de un código de emergencia de la Raíz | ADR 0027 y ADR 0037 | **Existe**: aviso por correo a los Administradores |
 | Errores del KMS | `docs/threat-model.md` | No existe |
+| Ancla de auditoría fallida o sin registro nuevo en más de 26 horas | ADR 0042, [runbook](runbooks/anchor-audit.md) | **Existe en parte**: si una organización queda sin ancla, `anchor-audit` alerta a la Raíz (correo y/o Telegram). Las más de 26 horas sin registro (cron detenido) y la alerta que no se puede encolar dependen de vigilar el registro del trabajo |
 
 Cuando se decida el destino de las alertas y el equipo de guardia (C11), cada fila debe decir quién la recibe y qué runbook sigue.
 

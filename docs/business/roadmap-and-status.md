@@ -30,14 +30,14 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 | Fase | Qué entrega al negocio | Estado |
 | --- | --- | --- |
 | 0 · Fundaciones | Una base técnica segura, sin pantallas de negocio todavía | **Hecho** (con una observación, ver sección 3) |
-| 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Implementada en lo esencial, con pendientes** (el segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia; faltan los límites de intentos compartidos y otros pendientes; ver sección 4.1) |
-| 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **En curso.** Ya funcionan cuentas, credenciales y revelado, compartición, segundo factor por clave manual y por imagen, y la importación por CSV y desde Google Authenticator; faltan la búsqueda avanzada y la entrega por celular del registro del segundo factor (ver sección 4.2) |
-| 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente |
+| 1a · Identidad | Invitar personas, jerarquía, permisos, segundo factor obligatorio y entrada con passkey | **Cerrada en lo funcional** (decisión del dueño, 2026-11-04). El segundo factor funciona con aplicación autenticadora o con passkey, y la Raíz ya tiene códigos de emergencia. La revisión humana de las pruebas sensibles, el almacén compartido de contadores de intentos y la verificación automática (CI) pasan a ser condiciones de la puerta de producción; ver secciones 4.1 y 5 |
+| 1b · Bóveda y 2FA | Cuentas, credenciales, compartición, revelación auditada y códigos de segundo factor | **En curso.** Ya funcionan cuentas, credenciales y revelado, compartición, segundo factor por clave manual y por imagen, y la importación por CSV y desde Google Authenticator; de la búsqueda avanzada ya funcionan la búsqueda de texto y los filtros; faltan el índice ciego por persona y las vistas guardadas. La entrega por celular del registro del segundo factor pasó a la versión 1.1 (ver sección 4.2) |
+| 1c · Gobernanza | Auditoría con interfaz, bajas con rotación, panel de salud, acceso temporal y alertas | Pendiente. Ya existe, por adelantado, la copia diaria de la auditoría en un almacenamiento inmutable (falta que Operaciones prepare y verifique el almacenamiento real) y el aviso a la Raíz si falla; la Raíz elegirá correo y/o Telegram, y la pantalla para elegir todavía no existe |
 | Puerta de producción | Prueba de intrusión, simulacro de restauración y procedimientos ensayados | Pendiente |
 | 2 · Inicio de sesión único (OIDC) | Que las herramientas internas usen este sistema para iniciar sesión | Pendiente |
 | 3 · SAML y SCIM | Entrada a Meta Business y altas y bajas automáticas en otras plataformas | Pendiente |
-| 4 · Correos | Lectura automática de códigos que llegan por correo | Adelantada por el dueño (2026-10-30), en propuesta; ver [`vault.md`](vault.md) sección 14 |
-| 5 · SMS | Lectura de códigos por mensaje de texto | Adelantada por el dueño (2026-10-30), en propuesta con proveedor de prueba; el real sigue sin elegir |
+| 4 · Correos | Lectura automática de códigos que llegan por correo | **Construida, salvo la operación real.** Adelantada por el dueño (2026-10-30). Falta ponerla en operación con correo real, lo que depende de decisiones del dueño (ver sección 6); el documento técnico que la respalda sigue sin ratificarse. Ver [`vault.md`](vault.md) sección 14 |
+| 5 · SMS | Lectura de códigos por mensaje de texto | Pendiente. Adelantada por el dueño (2026-10-30), pero el proveedor sigue sin elegirse |
 | 6 · Extensión de navegador | Autocompletado de usuario y segundo factor | Pendiente |
 | 7 · Broker de sesiones | Iniciar sesión en una plataforma sin ver la contraseña | Pendiente |
 
@@ -64,7 +64,7 @@ Este documento explica qué entrega cada fase al negocio, cuándo se considera t
 
 La fase 1 se divide en tres entregas. Llega a producción interna solo después de la puerta de producción.
 
-### 4.1 Fase 1a: Identidad (implementada en lo esencial, con pendientes)
+### 4.1 Fase 1a: Identidad (cerrada en lo funcional, con condiciones para producción)
 
 | Qué entrega | Documento donde se explica |
 | --- | --- |
@@ -95,13 +95,15 @@ La fase 1 se divide en tres entregas. Llega a producción interna solo después 
 | Protección contra fuerza bruta | Retraso progresivo y bloqueo temporal de 15 minutos tras 10 intentos fallidos, nunca permanente, contado por correo y por usuario. Además, un límite por dirección de red en las pantallas de acceso e invitación |
 | Sesiones | Identificador de sesión protegido, caducidad por inactividad de 30 minutos y absoluta de 12 horas, cierre de sesión que la revoca en el servidor y protección contra solicitudes desde otros sitios. Una persona suspendida o dada de baja deja de poder usar su sesión |
 | Reautenticación | Un factor verificado en los últimos 5 minutos habilita las acciones sensibles. El motor de autorización exige reautenticación, motivo escrito o auditoría crítica según la acción. Solo se acepta el código de la aplicación autenticadora, no el de recuperación; el flujo completo se prueba en un navegador real |
-| Autorización | Los tres ejes, la matriz de jerarquía y el catálogo de 28 permisos con sus techos de rango. Toda negación se audita con su código de motivo, aunque la acción se revierta |
+| Autorización | Los tres ejes, la matriz de jerarquía y el catálogo de 34 permisos con sus techos de rango. Toda negación se audita con su código de motivo, aunque la acción se revierta |
 | Directorio de personas | Cualquier persona activa busca nombre y correo de las demás personas activas, con orden, límite y paginación |
 | Interfaz | Pantallas de ingreso (con la opción de passkey), verificación en dos pasos, registro del segundo factor (código QR y clave), cambio de contraseña, aceptación de invitación, directorio con la opción de invitar, gestión de equipo, invitaciones pendientes, roles, mis sesiones, seguridad (passkeys) y diálogo de reautenticación |
 
 Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingreso, sesión y autorización) pasan contra una base de datos real, no simulada.
 
 #### Lo que sigue pendiente en la fase 1a
+
+El dueño declaró la fase cerrada en lo funcional el 2026-11-04. Lo de esta tabla ya no la mantiene abierta: lo que afecta a la seguridad se cumple antes de la puerta de producción (sección 5).
 
 | Pendiente | Efecto en el negocio |
 | --- | --- |
@@ -122,15 +124,15 @@ Las pruebas de punta a punta de la fase (invitación, alta, segundo factor, ingr
 | --- | --- | --- |
 | Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora; la passkey es una alternativa opcional, no obligatoria (ADR 0028) |
 | Entrada con passkey | Cumplido | Funciona de punta a punta, probada en un navegador real con un autenticador virtual. Es opcional para todas las personas |
-| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 28 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
+| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 34 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub; despriorizada por el dueño |
 
-**Conclusión.** La fase 1a funciona en lo esencial, pero no se da por cerrada: la entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados, y quedan pendientes de seguridad, como los límites de intentos compartidos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y el procedimiento de caída total de los códigos de emergencia (la recuperación de una Raíz que pierde contraseña y factores ya existe), que deben resolverse antes de la puerta de producción. La fase 1b no ha empezado.
+**Conclusión.** El dueño declaró la fase 1a **cerrada en lo funcional** el 2026-11-04. La entrada con passkey y los códigos de emergencia de la Raíz ya existen y fueron revisados. Tres condiciones pasan a la puerta de producción (sección 5): la revisión humana de las pruebas de autorización, criptografía y aislamiento, el almacén compartido de contadores de intentos entre instancias (mientras tanto el sistema debe operar con una sola instancia) y la verificación automática (CI) en GitHub. Sigue pendiente el procedimiento de caída total de los códigos de emergencia (la recuperación de una Raíz que pierde contraseña y factores ya existe). La fase 1b está en curso (ver sección 4.2).
 
 ### 4.2 Fase 1b: Bóveda y 2FA (en curso)
 
-**Estado.** Las tablas y el cifrado existen desde la fase 0 y la mayor parte de las siete porciones ya tiene reglas y pantallas en funcionamiento: cuentas, credenciales con revelado auditado, compartición, segundo factor por clave manual o imagen del QR, e importación desde Google Authenticator y por CSV con previsualización. También funcionan la alerta a la Raíz por superar el límite de revelaciones y el aviso de segundo factor sin confirmar. Faltan la búsqueda avanzada y la entrega por celular del registro del segundo factor. Las porciones, en este orden: cuentas y acceso efectivo; credenciales y revelación; compartición y grupos; segundo factor en el servidor; registro del segundo factor por captura, importación y celular; búsqueda avanzada; importación por CSV. Sigue vigente que **no debe cargarse ninguna credencial real** hasta cerrar la fase 1 y pasar la prueba de intrusión externa.
+**Estado.** Las tablas y el cifrado existen desde la fase 0 y la mayor parte de las siete porciones ya tiene reglas y pantallas en funcionamiento: cuentas, credenciales con revelado auditado, compartición, segundo factor por clave manual o imagen del QR, e importación desde Google Authenticator y por CSV con previsualización. También funcionan la alerta a la Raíz por superar el límite de revelaciones, el aviso a las 24 horas de un segundo factor sin confirmar y el límite de intentos al confirmarlo. De la búsqueda avanzada ya funcionan la búsqueda de texto y los filtros; faltan el índice ciego por persona y las vistas guardadas. La entrega por celular del registro del segundo factor pasó a la versión 1.1. Las porciones, en este orden: cuentas y acceso efectivo; credenciales y revelación; compartición y grupos; segundo factor en el servidor; registro del segundo factor por captura, importación y celular; búsqueda avanzada; importación por CSV. Sigue vigente que **no debe cargarse ninguna credencial real** hasta cerrar la fase 1 y pasar la prueba de intrusión externa.
 
 Decisiones ya tomadas: la biblioteca para leer códigos QR en el navegador; el límite de 30 revelaciones por persona y hora, con aviso a la Raíz; y quitar el motivo escrito al revelar una contraseña (2026-10-31; el motivo sigue en exportar el segundo factor y en el acceso de emergencia).
 
@@ -151,7 +153,7 @@ Decisiones ya tomadas: la biblioteca para leer códigos QR en el navegador; el l
 | Bajas con reasignación y tareas de rotación | [`governance.md`](governance.md) |
 | Panel de salud de credenciales | [`governance.md`](governance.md) |
 | Acceso temporal con aprobación | [`governance.md`](governance.md) |
-| Alertas críticas activas | [`governance.md`](governance.md) |
+| Alertas críticas activas (la Raíz elige si las recibe por correo, Telegram o ambos) | [`governance.md`](governance.md) |
 
 **Criterio de salida:** auditoría con cadena verificada y interfaz; baja con reasignación y tareas de rotación; panel de salud; acceso temporal; alertas críticas activas.
 
@@ -163,6 +165,9 @@ Antes de cargar credenciales reales, y después de completar 1a, 1b y 1c, se deb
 | --- | --- |
 | Prueba de intrusión externa independiente | Sin hallazgos altos ni críticos abiertos. Cubre autorización, aislamiento, cifrado, sesiones y flujos de segundo factor |
 | Simulacro de restauración exitoso | Restauración completa en un entorno aislado, incluido abrir los secretos con las claves de cifrado |
+| Revisión humana de las pruebas sensibles | Una persona escribe o revisa las pruebas de autorización, criptografía y aislamiento de la fase 1a (condición agregada al cerrar la fase en lo funcional, 2026-11-04) |
+| Almacén compartido de contadores de intentos | Los límites de intentos funcionan entre instancias y no se pierden al reiniciar (condición agregada al cerrar la fase 1a en lo funcional, 2026-11-04) |
+| Verificación automática (CI) en verde | Las pruebas se ejecutan en GitHub y pasan (condición agregada al cerrar la fase 1a en lo funcional, 2026-11-04) |
 | Procedimientos de incidentes ensayados | Los procedimientos de incidentes y recuperación de [`../runbooks/`](../runbooks/README.md), incluido el de caída total. Los catorce están redactados como borrador y ninguno se ha ensayado |
 
 **Regla:** no se cargan credenciales reales hasta cerrar los hallazgos altos y críticos. La prueba de intrusión se repite antes de cada fase de inicio de sesión único.
@@ -177,8 +182,8 @@ Cada fase reutiliza la identidad, los permisos y la auditoría de la anterior.
 | --- | --- | --- | --- |
 | 2 · Inicio de sesión único con OpenID Connect | El sistema actúa como proveedor de inicio de sesión para herramientas internas y servicios que lo acepten. Registro de aplicaciones solo por administradores. Al desactivar a una persona, se cierran sus sesiones en las aplicaciones conectadas | Al menos una aplicación interna con inicio de sesión, cierre de sesión coordinado y revocación al desactivar personas | Pendiente |
 | 3 · SAML y aprovisionamiento automático (SCIM) | Entrada a Meta Business con cuentas administradas de Meta, de modo que desactivar a alguien aquí le quita el acceso a páginas, anuncios e Instagram. Altas y bajas automáticas en las plataformas que lo soporten | Entrada a Meta Business con cuentas administradas y baja automática verificada | Pendiente. Tiene una puerta propia: confirmar antes la elegibilidad de la organización para cuentas administradas de Meta |
-| 4 · Correos | Los códigos que llegan por correo se leen y se muestran a quien tenga USE. Cada cuenta ya recibe un alias propio desde la fase 1 | Códigos extraídos para las plataformas del catálogo, con la autenticidad del remitente verificada y vigencia corta | Pendiente |
-| 5 · SMS | Números de teléfono operativos para plataformas que no ofrecen otro segundo factor | Números operativos para plataformas sin código de aplicación autenticadora | Pendiente |
+| 4 · Correos | Los códigos que llegan a un buzón de correo dedicado se leen y se muestran a quien tenga acceso USE o superior a la vista compartida | Códigos extraídos para las plataformas del catálogo, con la autenticidad del remitente verificada y vigencia corta | **Construida, salvo la operación real.** Falta ensayarla con un servidor de correo real y ponerla en operación; esto depende de ratificar el documento técnico, del subdominio de los alias y su DNS, y de la retención legal, que siguen abiertos |
+| 5 · SMS | Números de teléfono operativos para plataformas que no ofrecen otro segundo factor | Números operativos para plataformas sin código de aplicación autenticadora | Pendiente; el proveedor sigue sin elegirse |
 | 6 · Extensión de navegador | Autocompletado de usuario y segundo factor desde el navegador, con sesión ligada al dispositivo | Autocompletado de usuario y segundo factor desde la extensión con sesión de dispositivo | Pendiente |
 | 7 · Broker de sesiones | Que una persona con nivel USE inicie sesión en una plataforma sin ver la contraseña | Inicio de sesión con USE sin revelar la contraseña en al menos una plataforma, con monitoreo de fallas | Pendiente |
 
@@ -188,7 +193,7 @@ Cada fase reutiliza la identidad, los permisos y la auditoría de la anterior.
 | --- | --- |
 | 2 | Solo flujos seguros: sin flujos heredados inseguros; las aplicaciones se registran a mano y solo por quienes tienen el permiso correspondiente; las claves de firma se rotan cada 90 días |
 | 3 | Antes de empezar se confirma la elegibilidad para cuentas administradas de Meta; hay revisión de seguridad dedicada del protocolo SAML |
-| 4 | El remitente debe estar verificado; un correo que no coincide con las reglas de la plataforma va a cuarentena; el código se guarda cifrado con vigencia de 10 minutos; los enlaces de restablecimiento de contraseña exigen MANAGE y se auditan como evento crítico |
+| 4 | El remitente debe estar verificado; un correo que no coincide con las reglas de la plataforma va a cuarentena; el código se guarda cifrado con vigencia de 10 minutos; ver un restablecimiento de contraseña (enlace o código) exige MANAGE sobre la vista, un permiso específico de la Raíz y los Administradores, reautenticación y motivo escrito, y se audita como evento crítico |
 | 5 | El SMS es el factor más débil: se prefiere siempre el código de aplicación autenticadora y el SMS se usa solo cuando no hay otra opción; varias plataformas rechazan números virtuales |
 | 6 | La extensión protege contra la exposición casual, no contra una persona decidida con herramientas de desarrollador |
 | 7 | Es lo más frágil: puede chocar con las protecciones de las plataformas contra automatización y con sus términos de uso. Queda al final y como opcional |
@@ -240,5 +245,5 @@ Además de las decisiones anteriores, estos puntos no están definidos por el pl
 | 2 | Quién es el equipo de guardia para incidentes | Los procedimientos sugieren responsables, pero el plan no fija un equipo de guardia |
 | 3 | Cuándo se resuelven las dos decisiones técnicas que siguen en estado de propuesta: los bloqueos de auditoría en transacciones largas y la retención de auditoría | La auditoría de las negaciones ya quedó resuelta y aceptada en la fase 1a. Las dos restantes afectan a la auditoría de acciones largas y a cuánto tiempo se conserva. Ver [`docs/adr/`](../adr/README.md) |
 | 4 | Qué documento fija el procedimiento de caída total | Ya hay un borrador en [`../runbooks/total-outage.md`](../runbooks/total-outage.md), sin ensayar. Falta definir la administración directa de la base de datos cuando no quedan códigos de emergencia y la política de los sobres sellados |
-| 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin el procedimiento de caída total de los códigos de emergencia | Las passkeys, los códigos de emergencia y la recuperación de la Raíz ya existen; esos dos pendientes siguen abiertos |
+| 5 | Si la fase 1a puede darse por cerrada sin el almacén compartido de contadores de intentos y sin el procedimiento de caída total de los códigos de emergencia | **Resuelta el 2026-11-04 (dueño):** se cierra en lo funcional; la revisión humana de las pruebas sensibles, el almacén compartido y la verificación automática pasan a la puerta de producción (sección 5) |
 | 6 | Cuál es el dominio de envío del correo y quién configura sus registros de autenticación del remitente | Se decidió que el correo sale del dominio propio de la organización; el dominio concreto y su configuración de DNS dependen del equipo |

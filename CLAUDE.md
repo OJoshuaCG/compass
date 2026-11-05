@@ -14,7 +14,7 @@ Guarda secretos reales de una empresa: ante la duda, la seguridad gana a la velo
 - Qué hace el producto y sus reglas: `docs/business/`. Léelo antes de cambiar una regla de negocio.
 - Cómo se construye: `docs/backend.md`, `docs/frontend.md`, `docs/database.md`. Decisiones: `docs/adr/`.
 - Estado, plan ordenado y decisiones abiertas: `docs/handoff.md`. Seguimiento de cada trabajo grande: `odd/tasks/`.
-- Si una regla no está cubierta, propónla y detente. No improvises.
+- Si una regla no está cubierta, propónla y pregunta como indica «Cómo preguntar». No improvises.
 
 ## Seguridad (no negociable)
 
@@ -40,11 +40,51 @@ Identidad, acceso, criptografía, auditoría, migraciones con aislamiento, CSP y
 - Commits convencionales, por parte terminada, sin `Co-Authored-By` ni atribución a herramientas. Subir commits al remoto (`git push`) está permitido cuando la persona lo pide en el turno actual; nunca con `--force` ni hacia una rama distinta de la que se trabaja.
 - Imita el código vecino y reutiliza antes de crear.
 
+## Interfaz: sistema visual (ADR 0049)
+
+Antes de crear o cambiar cualquier pantalla o componente lee `docs/frontend.md` §4.1 (reglas y tokens) y §17 (reglas para agentes). Si algo contradice esas reglas, manda el sistema visual, salvo en seguridad.
+
+- Un solo acento latón («la aguja»): menú activo, botón principal, foco, valor revelado, progreso y el chip de la Raíz. No decora y no significa estado; la advertencia es naranja y distinta.
+- Dos temas completos (oscuro y claro) con los mismos nombres de token. Solo utilidades semánticas (`bg-surface`, `text-text-secondary`, `border-border-strong`…): nunca un color literal, la paleta por defecto de Tailwind ni un color por tema escrito a mano.
+- Cristal (`glass`, `glass-bar`) solo en capas flotantes: modales, barra superior y menús. Nunca en tarjetas ni tablas.
+- El estado nunca va solo en color: texto más ícono o punto. Lo que debe leerse exacto (códigos, hashes, identificadores, marcas de tiempo, IP) va en `font-mono`.
+- Pantallas nuevas: `PageHeader` con `eyebrow`, contenido en `Card`, rango con `RankBadge`, persona con `PersonCell`, tabla con la estándar. Reutiliza componentes de `@iam/ui` antes de crear uno.
+- Un color nuevo se agrega en los dos temas, se mide el contraste en `apps/web/src/shared/styles/tokens.test.ts` y se documenta en §4.1 y §4.2 en el mismo cambio.
+- Valores arbitrarios de Tailwind (`w-[37px]`, `opacity-85`…) prohibidos sin un comentario que explique el porqué.
+- Los secretos revelados siguen sus reglas de Seguridad: opacos (`bg-raised`), `font-mono text-accent` y solo en el estado del componente que los muestra.
+
 ## Cómo trabajar
 
 - En un trabajo grande, crea o actualiza su documento en `odd/tasks/` (especificaciones citando lo pedido, tareas y bitácora) y itera hasta 5 veces: implementar, probar, corregir.
 - Código sensible: revisión adversarial con dos revisores ciegos (los agentes `jd-judge-a` y `jd-judge-b`) sobre el mismo alcance congelado; corrige solo lo que ambos confirman. Después rompe la regla a propósito y comprueba que alguna prueba falla. Los agentes `review-*` no funcionan en este entorno.
-- Agentes de ejecución: `frontend-developer` (global) para interfaz; para base de datos y documentación se delega a `general-purpose`, citando la skill `cognitive-doc-design` cuando el lector es humano. No tocan rutas protegidas ni agregan dependencias. Cada encargo nombra el documento que deben leer, las rutas que pueden editar y los criterios de aceptación.
+- Agentes de ejecución: `frontend-developer` (global) para interfaz (cada encargo le cita `docs/frontend.md` §4.1 y §17); para base de datos y documentación se delega a `general-purpose`, citando la skill `cognitive-doc-design` cuando el lector es humano. No tocan rutas protegidas ni agregan dependencias. Cada encargo nombra el documento que deben leer, las rutas que pueden editar y los criterios de aceptación.
+
+## Autonomía: avanzar sin pedir permiso en cada paso
+
+Esta sección es una autorización permanente de la persona dueña del proyecto. Cuenta como «el usuario aceptó» para las reglas globales que piden aprobar un plan, confirmar el alcance de un commit o pedir permiso para seguir.
+
+- Si un trabajo ya tiene un plan aceptado o la persona dijo que siga, se ejecuta tarea tras tarea hasta terminar el lote. Un plan aceptado es un documento en `odd/tasks/`, una decisión en `docs/handoff.md` o un ADR aceptado. No se vuelve a proponer el plan ni se pregunta «¿sigo?» entre tareas o subtareas.
+- Cada unidad terminada se commitea sin preguntar. Al agente `git` se le pasa la lista exacta de archivos de esa unidad como alcance ya aprobado.
+- Se trabaja en `main`. No se crean ramas ni se pregunta por ellas.
+- Solo se detiene el trabajo por algo de esta lista:
+  - `git push`, resets, borrar datos o cualquier acción contra producción.
+  - Una dependencia nueva, un comando de red o despliegue, o editar una migración ya aplicada.
+  - Una ruta protegida que el encargo no incluye. Si el lote va a tocar rutas protegidas, se pide el encargo una sola vez al empezar, para todo el lote, no archivo por archivo.
+  - Secretos o datos personales en el cambio.
+  - Una regla de negocio que falta o es ambigua y que no está decidida en `docs/`.
+  - La misma falla dos veces, una falla del entorno o una prueba que parece estar mal.
+- Fuera de esa lista, ante una duda menor se elige la opción más conservadora y coherente con lo ya decidido, se anota en la bitácora del documento ODD y se sigue.
+
+## Cómo preguntar
+
+- Las preguntas se hacen aquí, en el chat. No se manda a la persona a leer un archivo para descubrir qué se le pregunta. El archivo puede guardar el detalle, pero la pregunta y lo necesario para responderla van en el mensaje.
+- Cada pregunta va en lenguaje sencillo, sin tecnicismos, y trae:
+  1. **Contexto:** qué se está haciendo y por qué salió la duda.
+  2. **Escenario:** un ejemplo concreto de cuándo aplica.
+  3. **Opciones e impacto:** qué se gana y qué se pierde con cada una, en seguridad, tiempo, costo o experiencia del usuario.
+  4. **Recomendación:** cuál se sugiere y por qué.
+  5. **La pregunta:** cerrada y fácil de contestar.
+- Si hay varias preguntas que bloquean el mismo lote, van juntas en un solo mensaje y numeradas, para responderlas de una vez y seguir sin más pausas.
 
 ## Trampas del entorno
 

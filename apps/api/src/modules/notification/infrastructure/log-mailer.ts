@@ -2,10 +2,14 @@ import type { Logger } from 'pino';
 
 import type {
   EmergencyAlertMessage,
+  InfrastructureAlertMessage,
   InvitationMessage,
   Mailer,
+  OffboardingNoticeMessage,
+  RootTransferNoticeMessage,
   PendingTotpNoticeMessage,
   RankChangeNoticeMessage,
+  ResetRevealAlertMessage,
   RevealLimitAlertMessage,
   SecurityNoticeMessage,
 } from '../application/ports/mailer.js';
@@ -52,6 +56,24 @@ export class LogMailer implements Mailer {
     return Promise.resolve();
   }
 
+  sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void> {
+    // Sin destinatario: es un dato personal y aquí solo importa el código.
+    this.logger.warn(
+      { code: message.code, occurredAt: message.occurredAt },
+      'infrastructure alert (dev)',
+    );
+    return Promise.resolve();
+  }
+
+  sendResetRevealAlert(message: ResetRevealAlertMessage): Promise<void> {
+    // Sin destinatario ni nombre de la persona: son datos personales y aquí solo importa el conteo.
+    this.logger.warn(
+      { revealedCount: message.revealedCount, occurredAt: message.occurredAt },
+      'reset reveal alert (dev)',
+    );
+    return Promise.resolve();
+  }
+
   sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void> {
     // Sin destinatario ni nombre: son datos personales y aquí solo importa cuándo se registró el factor.
     this.logger.info({ registeredAt: message.registeredAt }, 'pending totp notice (dev)');
@@ -63,6 +85,24 @@ export class LogMailer implements Mailer {
     this.logger.info(
       { fromRank: message.fromRank, toRank: message.toRank, changedAt: message.changedAt },
       'rank change notice (dev)',
+    );
+    return Promise.resolve();
+  }
+
+  sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void> {
+    // Sin destinatario ni nombre: son datos personales y aquí solo importan el tipo, los conteos y el momento.
+    this.logger.info(
+      { kind: message.kind, accountCount: message.accountCount, occurredAt: message.occurredAt },
+      'offboarding notice (dev)',
+    );
+    return Promise.resolve();
+  }
+
+  sendRootTransferNotice(message: RootTransferNoticeMessage): Promise<void> {
+    // Sin destinatario ni nombres: son datos personales y aquí solo importan el tipo, el papel y el momento.
+    this.logger.info(
+      { kind: message.kind, recipientRole: message.recipientRole, occurredAt: message.occurredAt },
+      'root transfer notice (dev)',
     );
     return Promise.resolve();
   }

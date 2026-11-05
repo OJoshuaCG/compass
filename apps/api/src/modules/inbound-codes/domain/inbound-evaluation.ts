@@ -28,6 +28,12 @@ export const QUARANTINE_REASONS = [
   'MATCHED_TEMPLATE_INVALID',
   'EXTRACTION_FAILED',
   'AMBIGUOUS_EXTRACTION',
+  // Motivos que fija la capa de sondeo (ADR 0045, IC-3), no esta evaluación pura.
+  'AUTH_RESULTS_AMBIGUOUS',
+  'DKIM_SIGNATURE_AMBIGUOUS',
+  'MESSAGE_TOO_LARGE',
+  'FETCH_FAILED',
+  'PARSE_ERROR',
 ] as const;
 
 export type QuarantineReason = DkimRejectionReason | (typeof QUARANTINE_REASONS)[number];
@@ -35,6 +41,8 @@ export type QuarantineReason = DkimRejectionReason | (typeof QUARANTINE_REASONS)
 export interface InboundMailMessage {
   /** Dirección de la fuente que recibió el mensaje. */
   readonly sourceAlias: string;
+  /** Ver `DkimGateInput.acceptedRecipients`; por defecto, solo `sourceAlias`. */
+  readonly acceptedRecipients?: readonly string[];
   readonly receivedAt: Date;
   /** Hash ya calculado del identificador del mensaje del proveedor. */
   readonly fingerprint: string;
@@ -109,6 +117,9 @@ export function evaluateInboundMail(
 
   const gate = evaluateDkimGate({
     sourceAlias: message.sourceAlias,
+    ...(message.acceptedRecipients === undefined
+      ? {}
+      : { acceptedRecipients: message.acceptedRecipients }),
     now: message.receivedAt,
     fromAddress: message.fromAddress,
     toAddresses: message.toAddresses,

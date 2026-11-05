@@ -24,6 +24,16 @@ export interface ReplacedTotpSecretStore {
   purgeReplacedTotpSecrets(replacedBefore: Date, limit: number): Promise<number>;
 }
 
+/**
+ * Destruye físicamente, en la organización en curso, las versiones viejas de la contraseña de una credencial
+ * (`credential_secrets.field = 'password'`) reemplazadas por una edición hace más de `replacedBefore`. Nunca
+ * toca la versión vigente ni los demás campos. Cada llamada borra como máximo `limit` filas y devuelve
+ * cuántas borró. No descifra nada: solo borra filas.
+ */
+export interface ReplacedPasswordSecretStore {
+  purgeReplacedPasswordSecrets(replacedBefore: Date, limit: number): Promise<number>;
+}
+
 /** Lo que borró un lote de la retención del outbox. */
 export interface OutboxRetentionBatchResult {
   /** Eventos publicados borrados; el recorrido continúa mientras un lote llegue lleno. */
@@ -40,4 +50,13 @@ export interface OutboxRetentionBatchResult {
  */
 export interface OutboxRetentionStore {
   purgePublishedEvents(publishedBefore: Date, limit: number): Promise<OutboxRetentionBatchResult>;
+}
+
+/**
+ * Borra, en la organización en curso, el estado de sondeo (`mail_source_poll_state`) de las fuentes de
+ * correo archivadas (ADR 0045, IC-3a): una fuente archivada ya no se sondea y su cursor no sirve. Cada
+ * llamada borra como máximo `limit` filas. Solo toca metadatos del cursor; no lee secretos.
+ */
+export interface ArchivedSourcePollStateStore {
+  purgeArchivedSourcePollState(limit: number): Promise<number>;
 }

@@ -18,9 +18,11 @@ import type {
   ManagedPage,
   ManagedRow,
   NewUser,
+  SuperiorLink,
   UserDirectory,
 } from '../application/ports/user-directory.js';
 import type { UserRecord, UserStatus } from '../domain/user.js';
+import type { RootHierarchySwap } from '../application/ports/root-handover.js';
 
 const SORT_COLUMN = {
   displayName: 'display_name',
@@ -46,7 +48,7 @@ const UNIQUE_VIOLATION = '23505';
 const USER_COLUMNS =
   'id, organization_id, email, display_name, rank, status, managed_by, created_by, locale, timezone';
 
-export class PgUserDirectory implements UserDirectory {
+export class PgUserDirectory implements UserDirectory, RootHierarchySwap {
   constructor(private readonly transactions: TransactionProvider) {}
 
   async findById(id: UserId): Promise<UserRecord | null> {
@@ -116,6 +118,32 @@ export class PgUserDirectory implements UserDirectory {
     return result.rows[0]?.found ?? false;
   }
 
+  async listSuperiorChain(userId: UserId): Promise<readonly SuperiorLink[]> {
+    // `path` guarda los ids ya recorridos: un ciclo en `managed_by` corta la cadena en lugar de repetirla.
+    const result = await this.transactions.current().query<{
+      id: string;
+      rank: number;
+      status: UserStatus;
+    }>(
+      `with recursive chain(id, managed_by, rank, status, depth, path) as (
+         select m.id, m.managed_by, m.rank, m.status, 1, array[u.id, m.id]
+         from users u join users m on m.id = u.managed_by
+         where u.id = $1
+         union all
+         select m.id, m.managed_by, m.rank, m.status, c.depth + 1, c.path || m.id
+         from chain c join users m on m.id = c.managed_by
+         where m.id <> all(c.path)
+       )
+       select id, rank, status from chain order by depth`,
+      [userId],
+    );
+    return result.rows.map((row) => ({
+      id: asUserId(row.id),
+      rank: toRank(row.rank),
+      status: row.status,
+    }));
+  }
+
   async hasReports(userId: UserId): Promise<boolean> {
     const result = await this.transactions
       .current()
@@ -153,6 +181,26 @@ export class PgUserDirectory implements UserDirectory {
     return result.rowCount ?? 0;
   }
 
+  /**
+   * Las restricciones de la base obligan al orden: la Raíz anterior baja primero a rango 1 con responsable la
+   * nueva (así deja de ser la Raíz activa única) y solo después la nueva pasa a rango 0 sin responsable.
+   */
+  async swapRoot(input: {
+    readonly fromUserId: UserId;
+    readonly toUserId: UserId;
+  }): Promise<number> {
+    const queryable = this.transactions.current();
+    await queryable.query('update users set rank = 1, managed_by = $2 where id = $1 and rank = 0', [
+      input.fromUserId,
+      input.toUserId,
+    ]);
+    await queryable.query(
+      'update users set rank = 0, managed_by = null where id = $1 and rank = 1',
+      [input.toUserId],
+    );
+    return this.reassignReports(input.fromUserId, input.toUserId);
+  }
+
   async countActiveByRank(rank: Rank): Promise<number> {
     const result = await this.transactions
       .current()
@@ -172,6 +220,25 @@ export class PgUserDirectory implements UserDirectory {
       locale: 'es-MX' | 'en-US';
     }>("select email, locale from users where rank = 1 and status = 'active' order by email");
     return result.rows;
+  }
+
+  async listAdministratorRecipients(): Promise<
+    readonly {
+      readonly id: UserId;
+      readonly email: string;
+      readonly locale: 'es-MX' | 'en-US';
+    }[]
+  > {
+    const result = await this.transactions.current().query<{
+      id: string;
+      email: string;
+      locale: 'es-MX' | 'en-US';
+    }>("select id, email, locale from users where rank = 1 and status = 'active' order by email");
+    return result.rows.map((row) => ({
+      id: asUserId(row.id),
+      email: row.email,
+      locale: row.locale,
+    }));
   }
 
   async listRootContacts(): Promise<

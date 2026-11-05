@@ -36,6 +36,8 @@ export const PERMISSIONS = [
   'inbound.read_codes',
   'inbound.configure',
   'inbound.reveal_reset',
+  'alerts.infra.manage',
+  'alerts.security.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

@@ -136,6 +136,10 @@ export class Authorizer {
     readonly permission: Permission;
     readonly targetUserId?: UserId;
     readonly targetAccountId?: string;
+    /** Vista de códigos entrantes sobre la que recae la acción (ADR 0045). */
+    readonly targetViewId?: string;
+    /** Fuente de mensajes entrantes sobre la que recae la acción (ADR 0045). */
+    readonly targetSourceId?: string;
   }): Promise<void> {
     await this.recordDenial(input);
   }
@@ -145,6 +149,8 @@ export class Authorizer {
     readonly permission: Permission | typeof DIRECTORY_VIEW;
     readonly targetUserId?: UserId;
     readonly targetAccountId?: string;
+    readonly targetViewId?: string;
+    readonly targetSourceId?: string;
   }): Promise<void> {
     const { audit, context, independently, denialGrouper } = this.deps;
     const current = context.current();
@@ -156,22 +162,33 @@ export class Authorizer {
       permission: input.permission,
       targetUserId: input.targetUserId ?? null,
       targetAccountId: input.targetAccountId ?? null,
+      targetViewId: input.targetViewId ?? null,
+      targetSourceId: input.targetSourceId ?? null,
     };
     const grouping = denialGrouper.decide(groupKey);
     if (!grouping.record) return;
-    // Una negación apunta a un usuario o a una cuenta, nunca a ambos.
+    // Una negación apunta a un usuario, a una cuenta, a una vista o a una fuente, nunca a varios.
     const targetType =
       input.targetUserId !== undefined
         ? 'user'
         : input.targetAccountId !== undefined
           ? 'account'
-          : null;
+          : input.targetViewId !== undefined
+            ? 'mail_view'
+            : input.targetSourceId !== undefined
+              ? 'mail_source'
+              : null;
     const recorded = await independently(async () => {
       return audit.record({
         action: 'authz.denied',
         actorId: current.actorId,
         targetType,
-        targetId: input.targetUserId ?? input.targetAccountId ?? null,
+        targetId:
+          input.targetUserId ??
+          input.targetAccountId ??
+          input.targetViewId ??
+          input.targetSourceId ??
+          null,
         outcome: 'denied',
         reasonCode: input.code,
         ip: null,

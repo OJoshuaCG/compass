@@ -1,6 +1,6 @@
 # B6: búsqueda de cuentas, indicador de antigüedad de la contraseña y vistas guardadas
 
-Estado: **en curso** (2026-11-02). Ruta protegida (bóveda, índice ciego, migración con aislamiento por filas): el dueño asignó el trabajo ("lleva a cabo todo lo necesario y puedes continuar tarea tras tarea pendiente relacionada a ella"). Requiere jueces ciegos y prueba de mutación. Rama: `main` (sin ramas nuevas). Pruebas: solo por `test-runner`.
+Estado: **parcial** (revisado 2026-11-03): T1, T2 y T3 hechas; T4 (índice ciego) y T5 (vistas guardadas) pendientes. Ruta protegida (bóveda, índice ciego, migración con aislamiento por filas): el dueño asignó el trabajo ("lleva a cabo todo lo necesario y puedes continuar tarea tras tarea pendiente relacionada a ella"). Requiere jueces ciegos y prueba de mutación. Rama: `main` (sin ramas nuevas). Pruebas: solo por `test-runner`.
 
 ## Especificación
 
@@ -30,7 +30,7 @@ Reglas:
 - [x] T2. Estado de antigüedad por cuenta (API) y filtros «Por revisar» y «Sin 2FA». Evidencia: `password-age.test.ts` y las pruebas de la API; paginación con cursor y filtro (12 cuentas, 2 páginas).
 - [x] T3. Web: campo de búsqueda, fichas de filtro y columna «Último cambio» con círculo (es-MX y en-US, accesibilidad). Evidencia: `accounts.test.tsx` y `use-table-query.test.tsx` en verde (iteración 1: 58/58 con directory; iteración 2 pendiente de cierre); typecheck y lint web en verde. Decisión: búsqueda y filtro viven en memoria (la pantalla ya guarda la pestaña en memoria y su ruta no tiene parámetros de búsqueda), no en la URL.
 - [ ] T4. Búsqueda exacta por usuario con índice ciego (ruta protegida; prueba de plan de ejecución).
-- [ ] T5. Vistas guardadas (migración 0028, API y web).
+- [ ] T5. Vistas guardadas (migración nueva, API y web). La 0028 ya la usa `0028_first_organization_setup.sql`; al 2026-11-03 la siguiente libre es la 0033.
 - [ ] T6. Jueces ciegos, mutación deliberada, documentación.
 
 ## Bitácora

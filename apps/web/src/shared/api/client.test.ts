@@ -74,6 +74,18 @@ describe('api client request headers', () => {
     expect(lastCall(fetchImpl).headers.get('Idempotency-Key')).toBe('key-from-caller');
   });
 
+  it('sends PUT with X-Requested-With and the JSON body, without Idempotency-Key', async () => {
+    const { client, fetchImpl } = setup(jsonResponse({ ok: true }));
+    await client.put('/things/1', schema, { body: { name: 'value' } });
+    const { url, init, headers } = lastCall(fetchImpl);
+    expect(url).toBe('/api/v1/things/1');
+    expect(init?.method).toBe('PUT');
+    expect(init?.body).toBe(JSON.stringify({ name: 'value' }));
+    expect(headers.get('X-Requested-With')).toBe('XMLHttpRequest');
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.has('Idempotency-Key')).toBe(false);
+  });
+
   it('adds X-Requested-With on DELETE', async () => {
     const { client, fetchImpl } = setup(jsonResponse({ ok: true }));
     await client.delete('/things/1', schema);

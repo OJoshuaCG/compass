@@ -27,6 +27,7 @@ import { useToast } from '../../../shared/toast';
 import { directoryKeys } from '../api/directory-api';
 import { fetchManagedPage, teamApi } from '../api/team-api';
 import { availableActions, type TeamAction } from '../model/team-actions';
+import { PersonCell } from '../ui/person-cell';
 
 import { ChangeRankDialog } from './change-rank-dialog';
 import { CloseSessionsDialog } from './close-sessions-dialog';
@@ -48,15 +49,6 @@ const STATUS_TONE: Record<UserStatus, Status> = {
   suspended: 'warning',
   deactivated: 'neutral',
 };
-
-/** Iniciales para el avatar: primera letra de las dos primeras palabras del nombre. */
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
 
 /** Guion visual de "no aplica" con su lectura en texto para lectores de pantalla. */
 function NotApplicable({ label }: { label: string }) {
@@ -168,20 +160,7 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
       {
         id: 'displayName',
         header: t('team.col.person', { ns: 'directory' }),
-        cell: (row) => (
-          <span className="flex items-center gap-3">
-            <span
-              aria-hidden="true"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-raised text-xs font-bold text-accent"
-            >
-              {initials(row.displayName)}
-            </span>
-            <span className="flex min-w-0 flex-col">
-              <span className="font-semibold text-text">{row.displayName}</span>
-              <span className="text-text-muted">{row.email}</span>
-            </span>
-          </span>
-        ),
+        cell: (row) => <PersonCell displayName={row.displayName} email={row.email} />,
         sortKey: 'displayName',
       },
       {

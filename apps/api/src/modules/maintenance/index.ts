@@ -2,13 +2,17 @@
 export { PurgeExpiredEphemeral } from './application/purge-expired-ephemeral.js';
 export type { PurgeSummary } from './application/purge-expired-ephemeral.js';
 export type {
+  ArchivedSourcePollStateStore,
   ExpiredEphemeralStore,
   OrganizationLister,
   OutboxRetentionStore,
+  ReplacedPasswordSecretStore,
   ReplacedTotpSecretStore,
 } from './application/ports/purge-ports.js';
 export { PgExpiredEphemeralStore } from './infrastructure/pg-expired-ephemeral-store.js';
+export { PgArchivedSourcePollStateStore } from './infrastructure/pg-archived-source-poll-state-store.js';
 export { PgOutboxRetentionStore } from './infrastructure/pg-outbox-retention-store.js';
+export { PgReplacedPasswordSecretStore } from './infrastructure/pg-replaced-password-secret-store.js';
 export { PgReplacedTotpSecretStore } from './infrastructure/pg-replaced-totp-secret-store.js';
 export { PgOrganizationLister } from './infrastructure/pg-organization-lister.js';
 export { ReencryptSecrets } from './application/reencrypt-secrets.js';

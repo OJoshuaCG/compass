@@ -3,6 +3,7 @@ import type {
   DirectoryPage,
   ManagedPage,
   NewUser,
+  SuperiorLink,
   UserDirectory,
 } from '../application/ports/user-directory.js';
 import type { UserRecord, UserStatus } from '../domain/user.js';
@@ -46,6 +47,20 @@ export class InMemoryUserDirectory implements UserDirectory {
       current = current.managedBy === null ? undefined : this.users.get(current.managedBy);
     }
     return Promise.resolve(false);
+  }
+
+  listSuperiorChain(userId: UserId): Promise<readonly SuperiorLink[]> {
+    const chain: SuperiorLink[] = [];
+    const seen = new Set<string>([userId]);
+    let current = this.users.get(userId);
+    while (current?.managedBy !== null && current?.managedBy !== undefined) {
+      const superior = this.users.get(current.managedBy);
+      if (superior === undefined || seen.has(superior.id)) break;
+      seen.add(superior.id);
+      chain.push({ id: superior.id, rank: superior.rank, status: superior.status });
+      current = superior;
+    }
+    return Promise.resolve(chain);
   }
 
   hasReports(userId: UserId): Promise<boolean> {
@@ -98,6 +113,20 @@ export class InMemoryUserDirectory implements UserDirectory {
       [...this.users.values()]
         .filter((u) => u.rank === 1 && u.status === 'active')
         .map((u) => ({ email: u.email, locale: u.locale })),
+    );
+  }
+
+  listAdministratorRecipients(): Promise<
+    readonly {
+      readonly id: UserId;
+      readonly email: string;
+      readonly locale: 'es-MX' | 'en-US';
+    }[]
+  > {
+    return Promise.resolve(
+      [...this.users.values()]
+        .filter((u) => u.rank === 1 && u.status === 'active')
+        .map((u) => ({ id: u.id, email: u.email, locale: u.locale })),
     );
   }
 

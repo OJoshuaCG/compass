@@ -24,6 +24,12 @@ const envSchema = z
     AWS_REGION: z.string().min(1).optional(),
     /** Origen del navegador que usa la API (verificación de `Origin` contra CSRF y enlaces de correo). */
     APP_ORIGIN: z.url().default('http://localhost:5173'),
+    /**
+     * Token del enlace único que crea la primera organización y su Raíz (ADR 0046). Lo genera quien
+     * despliega (por ejemplo `openssl rand -base64 36`) y se retira al terminar. Sin él la ruta no
+     * existe. Es un secreto: no se registra ni se compone con otros valores.
+     */
+    FIRST_SETUP_TOKEN: z.string().min(32).max(200).optional(),
     /** Carpeta de la SPA compilada; si se omite, la API no sirve el frontend (útil en desarrollo con Vite). */
     WEB_DIST_DIR: z.string().min(1).optional(),
     DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),

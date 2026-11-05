@@ -13,7 +13,7 @@ export interface SystemRole {
 }
 
 /** Versión de las plantillas: se incrementa al cambiarlas, para poder migrar organizaciones existentes. */
-export const SYSTEM_ROLES_VERSION = 5;
+export const SYSTEM_ROLES_VERSION = 6;
 
 const withCeilingAtLeast = (minimum: number): Permission[] =>
   PERMISSIONS.filter((permission) => PERMISSION_CEILING[permission] >= minimum);
@@ -39,7 +39,9 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
   {
     key: 'administrator',
     name: 'Administrator',
-    permissions: PERMISSIONS.filter((permission) => permission !== 'org.settings'),
+    // Todo lo que el rango 1 puede tener: excluye los permisos de techo 0 (org.settings y
+    // alerts.infra.manage), que el disparador de techos de la base rechazaría para un Administrador.
+    permissions: withCeilingAtLeast(1),
   },
   { key: 'leader', name: 'Leader', permissions: withCeilingAtLeast(2) },
   { key: 'operator', name: 'Operator', permissions: operatorPermissions() },

@@ -91,6 +91,12 @@ const invitationRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/auth-routes'), 'InvitationRoute'),
 });
 
+const firstSetupRoute = createRoute({
+  getParentRoute: () => publicLayout,
+  path: '/setup',
+  component: lazyRouteComponent(() => import('../routes/auth-routes'), 'FirstSetupRoute'),
+});
+
 const homeRoute = createRoute({ getParentRoute: () => appLayout, path: '/', component: HomePage });
 
 const usersRoute = createRoute({
@@ -110,6 +116,12 @@ const securityRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/security',
   component: lazyRouteComponent(() => import('../routes/security-route'), 'SecurityRoute'),
+});
+
+const alertsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/alerts',
+  component: lazyRouteComponent(() => import('../routes/alerts-route'), 'AlertsRoute'),
 });
 
 const rolesRoute = createRoute({
@@ -156,6 +168,45 @@ const sharesRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/accounts/$accountId/shares',
   component: lazyRouteComponent(() => import('../routes/shares-route'), 'SharesRoute'),
+});
+
+const inboundRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/inbound',
+  component: lazyRouteComponent(() => import('../routes/inbound-route'), 'InboundRoute'),
+});
+
+const inboundSourcesRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/inbound/sources',
+  component: lazyRouteComponent(
+    () => import('../routes/inbound-sources-route'),
+    'InboundSourcesRoute',
+  ),
+});
+
+const inboundViewSettingsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/inbound/view-settings',
+  component: lazyRouteComponent(
+    () => import('../routes/inbound-view-settings-route'),
+    'InboundViewSettingsRoute',
+  ),
+});
+
+const inboundViewRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/inbound/views/$viewId',
+  component: lazyRouteComponent(() => import('../routes/inbound-view-route'), 'InboundViewRoute'),
+});
+
+const inboundViewSharesRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/inbound/views/$viewId/shares',
+  component: lazyRouteComponent(
+    () => import('../routes/inbound-view-shares-route'),
+    'InboundViewSharesRoute',
+  ),
 });
 
 // El catálogo solo existe en desarrollo: en producción el `import()` queda como código muerto
@@ -218,12 +269,14 @@ const routeTree = rootRoute.addChildren([
     mfaRoute,
     enrollRoute,
     invitationRoute,
+    firstSetupRoute,
   ]),
   appLayout.addChildren([
     homeRoute,
     usersRoute,
     sessionsRoute,
     securityRoute,
+    alertsRoute,
     rolesRoute,
     newRoleRoute,
     roleRoute,
@@ -231,6 +284,11 @@ const routeTree = rootRoute.addChildren([
     credentialsRoute,
     credentialImportRoute,
     sharesRoute,
+    inboundRoute,
+    inboundViewRoute,
+    inboundViewSharesRoute,
+    inboundSourcesRoute,
+    inboundViewSettingsRoute,
     catalogRoute,
     vaultPreviewRoute,
     auditPreviewRoute,

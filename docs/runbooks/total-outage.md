@@ -32,7 +32,7 @@ Volver a tener el sistema operando tras la pérdida de toda la plataforma (servi
 
 1. Declara la caída total, avisa a la Raíz y a los Administradores por un canal que **no dependa del sistema caído** (por definir).
 2. Confirma que no hay intrusión (ver "Cuándo usarlo"). Si la hay, detén este runbook.
-3. Restaura la base de datos y la infraestructura siguiendo [Restaurar respaldo](restore-backup.md) (comandos de infraestructura **por definir**). Objetivos del plan: pérdida máxima de 5 min y recuperación en 4 h, **ambas cifras sin validar** (C2 del `TODO.md`).
+3. Restaura la base de datos y la infraestructura siguiendo [Restaurar respaldo](restore-backup.md) (comandos de infraestructura **por definir**). Objetivos decididos por el dueño el 2026-11-04 (C2, L2): respaldo de `pg_dump` cada hora a Wasabi, pérdida máxima de 1 h (RPO) y recuperación en 4 h (RTO); **ambas cifras sin validar** en un simulacro.
 4. Antes de abrir el tráfico, arranca la API con la misma KEK (misma clave y versión) y comprueba que descifra: la verificación de [Restaurar respaldo](restore-backup.md) abre un secreto de prueba con su DEK.
 5. Aplica las migraciones pendientes con el comando de la API (`node dist/main.migrate.js`) y comprueba la cadena de auditoría y el aislamiento por organización (comando de verificación **por definir**).
 6. Si la Raíz no puede entrar (perdió contraseña o factores), sigue [Recuperar a la Raíz](recover-root.md) con los dos custodios.
@@ -50,7 +50,7 @@ Volver a tener el sistema operando tras la pérdida de toda la plataforma (servi
 
 ## Rollback
 
-- Si la restauración falla, no sobrescribas el respaldo usado: prueba con el anterior (35 días de recuperación a un punto en el tiempo según el plan) y anota la pérdida adicional.
+- Si la restauración falla, no sobrescribas el respaldo usado: prueba con el respaldo horario anterior que siga guardado en Wasabi (la retención está **por definir**) y anota la pérdida adicional.
 - Un sobre abierto no se "cierra": se reemplaza (paso 9). No hay marcha atrás.
 - Si la KEK no es recuperable, los secretos restaurados son ilegibles: pasa a [Pérdida o borrado de la KEK](kek-loss.md).
 

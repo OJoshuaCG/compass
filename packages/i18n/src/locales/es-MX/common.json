@@ -231,5 +231,11 @@
   "auditPreview.field.previous": "anterior",
   "auditPreview.field.current": "este",
   "auditPreview.field.genesis": "inicio de la cadena",
-  "auditPreview.field.chainHelp": "Cada evento incluye el hash del anterior. Si alguien modifica un registro, la verificación de la cadena falla desde ese punto."
+  "auditPreview.field.chainHelp": "Cada evento incluye el hash del anterior. Si alguien modifica un registro, la verificación de la cadena falla desde ese punto.",
+  "nav.accounts": "Cuentas",
+  "nav.codes": "Códigos",
+  "nav.inbound": "Códigos de acceso",
+  "nav.inboundSources": "Fuentes de códigos",
+  "nav.inboundViewSettings": "Vistas de códigos",
+  "nav.alerts": "Alertas de infraestructura"
 }

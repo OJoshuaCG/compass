@@ -37,6 +37,17 @@ const PHASE1_TENANT_TABLES = [
   'mail_view_templates',
   'inbound_items',
   'inbound_receipts',
+  // SENSIBLE (revisión humana): declaradas aquí para que la prueba compruebe su RLS forzada, su política
+  // y su índice que empieza por organización. Las dos de correo llegaron con la migración 0029 (IC-5b-3)
+  // y faltaban; las de integraciones llegan con la 0032 (ADR 0047).
+  'mail_source_connections',
+  'mail_source_poll_state',
+  'integrations',
+  'integration_secrets',
+  // SENSIBLE (revisión humana): registro local del ancla externa de la auditoría (migración 0033, ADR 0042).
+  'audit_anchors',
+  // SENSIBLE (revisión humana): canales de alerta de la Raíz (migración 0034).
+  'alert_settings',
 ];
 
 let adminUrl = '';

@@ -119,5 +119,12 @@
   "access.special.catalogError": "We could not check which permissions this rank allows; the server will validate on save.",
   "access.special.empty": "There are no permissions that can be assigned to this rank.",
   "access.special.submit": "Save special permissions",
-  "access.special.toast": "Updated the special permissions of {{name}}."
+  "access.special.toast": "Updated the special permissions of {{name}}.",
+  "users.tabs.hierarchy": "Hierarchy",
+  "hierarchy.label": "Responsibility tree",
+  "hierarchy.empty.title": "You have no people under you yet",
+  "hierarchy.empty.description": "Once someone reports to you they will appear in the tree.",
+  "hierarchy.detached.title": "No visible manager",
+  "hierarchy.detached.description": "People whose manager could not be loaded. Some levels of the tree may be missing.",
+  "hierarchy.you": "You"
 }

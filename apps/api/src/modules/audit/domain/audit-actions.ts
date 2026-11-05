@@ -29,7 +29,24 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   // Sincronización de plantillas de sistema (B5a): `removed` y `added` son nombres de permisos separados por
   // coma (la auditoría solo admite valores primitivos); nunca contenido de credenciales.
   'role.system_synced': ['roleName', 'removed', 'added'],
-  'user.deactivated': ['rotationTasks', 'reassignedReports'],
+  // Baja (governance §2.4). Solo conteos: `reassignedReports` son subordinados, `exposedAccounts` las cuentas
+  // con acceso de VER o más que tenía la persona, `reassignedAccounts` y `unassignedAccounts` las que se
+  // quedaron sin responsable y a quién se dieron (o a nadie), `revokedShares` y `removedGroups` lo que se le
+  // retiró y `rotationTasks` las tareas de rotación creadas. Nunca nombres de cuentas ni de credenciales.
+  'user.deactivated': [
+    'rotationTasks',
+    'reassignedReports',
+    'exposedAccounts',
+    'reassignedAccounts',
+    'unassignedAccounts',
+    'revokedShares',
+    'removedGroups',
+  ],
+  // Una por cuenta que se quedó sin responsable en una baja. `receiverId` es el id opaco de quien la recibe;
+  // `reason` es `branch` o `nearest_administrator`; `notified` indica si se le avisó por estar fuera de la rama
+  // de quien dio la baja; `grant` es `granted` o `upgraded`. La cuenta sin responsable no lleva metadatos.
+  'account.offboarding_reassigned': ['leaverId', 'receiverId', 'reason', 'notified', 'grant'],
+  'account.offboarding_unassigned': ['leaverId'],
   'user.suspended': [],
   'user.reactivated': [],
   // Cambio de rango: `reason` es el motivo escrito (hasta 500, ver abajo). `removedRoles` es una lista de ids
@@ -96,6 +113,16 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'inbound.code_read': ['sourceId', 'viewId'],
   // Revelar un restablecimiento (evento crítico): motivo escrito, nunca el valor.
   'inbound.reset_revealed': ['sourceId', 'viewId', 'reason'],
+  // Integraciones configurables (ADR 0047). Solo el tipo, nombres de campo y conteos: nunca tokens, llaves,
+  // identificadores de chat ni el contenido de la configuración. `changedFields` son nombres de campo.
+  'integration.created': ['kind'],
+  'integration.updated': ['kind', 'changedFields'],
+  'integration.secret_rotated': ['kind', 'field', 'secretVersion'],
+  'integration.archived': ['kind'],
+  // Mensaje de prueba: `outcome` es `sent` o un código estable de fallo; nunca el texto de la respuesta.
+  'integration.test_sent': ['kind', 'outcome'],
+  // Canales de las alertas de infraestructura de la Raíz (migración 0034): solo booleanos y la versión.
+  'integration.alert_settings_updated': ['infraEmail', 'infraTelegram', 'version'],
   'audit.chain_verified': ['checked'],
   'auth.login_failed': [],
   'auth.login_password_verified': [],
@@ -113,6 +140,7 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.security_notice_failed': ['kind'],
   'auth.root_recovered': ['codesIssued', 'alertRecipients'],
   'auth.root_recovery_rejected': [],
+  'auth.emergency_codes_reissued': ['codesIssued'],
   'auth.totp_enrolled': [],
   'auth.reauthenticated': [],
   'auth.reauthenticated_passkey': [],
@@ -120,6 +148,17 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.logout': [],
   'auth.session_revoked': [],
   'user.sessions_revoked': [],
+  // Transferencia de la Raíz (L22 de la bitácora ODD del 2026-11-04). Solo ids, fechas y conteos.
+  'root_transfer.requested': ['fromUserId', 'toUserId', 'expiresAt'],
+  'root_transfer.accepted': ['fromUserId', 'toUserId', 'executesAt'],
+  'root_transfer.cancelled': ['fromUserId', 'toUserId', 'reason'],
+  'root_transfer.expired': ['fromUserId', 'toUserId'],
+  'root_transfer.completed': [
+    'fromUserId',
+    'toUserId',
+    'reassignedReports',
+    'emergencyCodesInvalidated',
+  ],
   'auth.password_changed': [],
   'organization.provisioned': [],
   'auth.password_change_failed': [],

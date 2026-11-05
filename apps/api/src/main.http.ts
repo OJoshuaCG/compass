@@ -70,6 +70,7 @@ const container = buildContainer({
       : new LogMailer(logger, config.APP_ORIGIN, config.NODE_ENV),
   logger,
   outboxPollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
+  ...(config.FIRST_SETUP_TOKEN === undefined ? {} : { firstSetupToken: config.FIRST_SETUP_TOKEN }),
 });
 const app = await createApp({
   logger,

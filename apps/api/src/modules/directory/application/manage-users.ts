@@ -8,6 +8,8 @@
  * - La Raíz nunca se suspende, se da de baja, cambia de rango ni se transfiere.
  * - Suspender, dar de baja o cambiar el rango cierra todas sus sesiones en la misma transacción que
  *   el cambio.
+ * - Dar de baja retira sus accesos a la bóveda y a los grupos, reasigna las cuentas que se quedan sin
+ *   responsable y exige rotar sus credenciales (`OffboardAccounts`).
  * - Dar de baja reasigna a sus subordinados vigentes a su propio responsable (nadie queda huérfano)
  *   y revoca las invitaciones pendientes que dejó.
  * - La organización nunca se queda sin una persona ACTIVA de rango 1: bajar de rango, suspender o dar
@@ -36,11 +38,13 @@ import {
   wouldLeaveNoActiveAdministrator,
 } from '../domain/management-policy.js';
 import type { UserRecord } from '../domain/user.js';
+import type { OffboardAccounts, OffboardAccountsReport } from './offboard-accounts.js';
 import type {
   AssignedRoleRevoker,
   RoleAdjustment,
   RoleSummary,
 } from './ports/assigned-role-revoker.js';
+import type { OffboardingNoticeQueue } from './ports/offboarding-notice-queue.js';
 import type { RankChangeNoticeQueue } from './ports/rank-change-notice-queue.js';
 import type { SharedAccountSummary, SharedByLister } from './ports/shared-by-lister.js';
 import type { UserDirectory } from './ports/user-directory.js';
@@ -100,6 +104,9 @@ export interface ManageUsersDeps {
   readonly roles: AssignedRoleRevoker;
   readonly sharedBy: SharedByLister;
   readonly rankChangeNotices: RankChangeNoticeQueue;
+  /** Lo que la baja hace en la bóveda y en los grupos (governance §2.1 y §2.4). */
+  readonly offboarding: OffboardAccounts;
+  readonly offboardingNotices: OffboardingNoticeQueue;
   readonly audit: AuditLog;
   readonly clock: Clock;
 }
@@ -164,11 +171,23 @@ export class ManageUsers {
       const blocked = await this.refuseIfLastAdministrator(target, null, 'user.deactivate');
       if (blocked !== null) return blocked;
       const at = this.deps.clock.now();
+      const actor = await this.actor();
       const reassigned = await directory.reassignReports(target.id, target.managedBy);
+      // Las cuentas se bloquean aquí, después de la jerarquía; la auditoría va después del último bloqueo.
+      const offboarded = await this.deps.offboarding.run({
+        leaverId: target.id,
+        actorId: actor.id,
+      });
       await directory.setStatus(target.id, 'deactivated');
       await this.deps.sessions.revokeAllOfUser(target.id, at);
       await invitations.revokePendingOfUser(target.id, at);
-      await this.record('user.deactivated', target.id, { reassignedReports: reassigned });
+      await this.enqueueOffboardingNotice({
+        leaverId: target.id,
+        actorId: actor.id,
+        offboarded,
+        at,
+      });
+      await this.recordOffboarding(target.id, reassigned, offboarded);
       return ok(undefined);
     });
   }
@@ -418,16 +437,74 @@ export class ManageUsers {
     return err(new DomainError(code, message));
   }
 
+  private async enqueueOffboardingNotice(input: {
+    readonly leaverId: UserId;
+    readonly actorId: UserId;
+    readonly offboarded: OffboardAccountsReport;
+    readonly at: Date;
+  }): Promise<void> {
+    const { reassigned, unassignedAccountIds } = input.offboarded.reassignment;
+    await this.deps.offboardingNotices.enqueue({
+      leaverId: input.leaverId,
+      actorId: input.actorId,
+      receiverId: reassigned[0]?.managerId ?? null,
+      // Solo se avisa a quien recibe fuera de la rama de quien dio la baja.
+      notifyReceiver: reassigned.some((reassignment) => reassignment.notify),
+      assignedAccountCount: reassigned.length,
+      unassignedAccountCount: unassignedAccountIds.length,
+      rotationTaskCount: input.offboarded.rotationTasksCreated,
+      rotationAssigneeId: input.offboarded.rotationAssigneeId,
+      notifyRotationAssignee: input.offboarded.rotationAssigneeNeedsNotice,
+      offboardedAt: input.at,
+    });
+  }
+
+  /** Una entrada por cuenta que cambió de responsable y la general de la baja, al final (ADR 0023). */
+  private async recordOffboarding(
+    leaverId: UserId,
+    reassignedReports: number,
+    offboarded: OffboardAccountsReport,
+  ): Promise<void> {
+    const { reassigned, unassignedAccountIds } = offboarded.reassignment;
+    for (const reassignment of reassigned) {
+      await this.record(
+        'account.offboarding_reassigned',
+        reassignment.accountId,
+        {
+          leaverId,
+          receiverId: reassignment.managerId,
+          reason: reassignment.reason,
+          notified: reassignment.notify,
+          grant: reassignment.grant,
+        },
+        'account',
+      );
+    }
+    for (const accountId of unassignedAccountIds) {
+      await this.record('account.offboarding_unassigned', accountId, { leaverId }, 'account');
+    }
+    await this.record('user.deactivated', leaverId, {
+      reassignedReports,
+      exposedAccounts: offboarded.exposedAccountCount,
+      reassignedAccounts: reassigned.length,
+      unassignedAccounts: unassignedAccountIds.length,
+      revokedShares: offboarded.revokedShareCount,
+      removedGroups: offboarded.removedGroupMembershipCount,
+      rotationTasks: offboarded.rotationTasksCreated,
+    });
+  }
+
   private async record(
     action: string,
-    targetId: UserId,
+    targetId: string,
     metadata: Readonly<Record<string, string | number | boolean | null>>,
+    targetType: 'user' | 'account' = 'user',
   ): Promise<void> {
     const current = this.deps.context.current();
     const recorded = await this.deps.audit.record({
       action,
       actorId: current.actorId,
-      targetType: 'user',
+      targetType,
       targetId,
       outcome: 'success',
       reasonCode: null,

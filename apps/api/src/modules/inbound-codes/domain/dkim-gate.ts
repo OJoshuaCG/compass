@@ -49,6 +49,15 @@ export interface HeaderCounts {
   readonly date: number;
 }
 
+/**
+ * Cómo se trata el tamaño de clave de una firma.
+ * - `enforced` (por defecto): la compuerta exige `DKIM_MIN_KEY_BITS`.
+ * - `not_available`: el veredicto no trae el tamaño (fase 1 del ADR 0045: `Authentication-Results` del
+ *   servidor propio). SOLO el puerto del servidor propio puede declararlo; cualquier otro valor, incluido
+ *   uno desconocido, se trata como `enforced` (falla cerrado).
+ */
+export type DkimKeyBitsPolicy = 'enforced' | 'not_available';
+
 /** Una firma que el verificador YA validó criptográficamente. */
 export interface DkimSignatureEvidence {
   /** `d=`: dominio firmante. */
@@ -61,13 +70,19 @@ export interface DkimSignatureEvidence {
   readonly signedAt: Date | null;
   /** `x=`; `null` si no viene. */
   readonly expiresAt: Date | null;
-  /** Tamaño de la clave pública en bits. */
+  /** Tamaño de la clave pública en bits (se ignora solo si `keyBitsPolicy` es `not_available`). */
   readonly keyBits: number;
+  readonly keyBitsPolicy?: DkimKeyBitsPolicy;
 }
 
 export interface DkimGateInput {
   /** Dirección de la fuente que recibió el mensaje. */
   readonly sourceAlias: string;
+  /**
+   * Direcciones que el único `To` puede traer (buzón al que se reenvía correo). Por defecto, solo
+   * `sourceAlias`. Una lista vacía no acepta nada: falla cerrado.
+   */
+  readonly acceptedRecipients?: readonly string[];
   readonly now: Date;
   /** Dirección ya extraída de la cabecera `From` (sin nombre visible); `null` si no hubo. */
   readonly fromAddress: string | null;
@@ -140,11 +155,16 @@ function findMessageLevelRejection(
   const fromAddress = input.fromAddress === null ? null : normalizeEmailAddress(input.fromAddress);
   if (fromAddress === null) return { reason: 'INVALID_FROM_ADDRESS' };
 
-  // Un correo firmado para otro destinatario no se reutiliza: el `To` debe ser exactamente el alias.
-  const alias = normalizeEmailAddress(input.sourceAlias);
+  // Un correo firmado para otro destinatario no se reutiliza: hay un solo `To` y pertenece al conjunto
+  // aceptado (por defecto, el alias de la fuente). Las direcciones inválidas del conjunto no aceptan nada.
+  const acceptedAddresses = new Set<string>();
+  for (const rawAddress of input.acceptedRecipients ?? [input.sourceAlias]) {
+    const accepted = normalizeEmailAddress(rawAddress);
+    if (accepted !== null) acceptedAddresses.add(accepted.address);
+  }
   const onlyRecipient = input.toAddresses.length === 1 ? input.toAddresses[0] : undefined;
   const recipient = onlyRecipient === undefined ? null : normalizeEmailAddress(onlyRecipient);
-  if (alias === null || recipient === null || recipient.address !== alias.address) {
+  if (recipient === null || !acceptedAddresses.has(recipient.address)) {
     return { reason: 'RECIPIENT_MISMATCH' };
   }
 
@@ -162,7 +182,9 @@ function findSignatureRejection(
   const nowMs = input.now.getTime();
 
   if (signature.hasBodyLengthLimit) return 'BODY_LENGTH_LIMIT_PRESENT';
-  if (!(signature.keyBits >= DKIM_MIN_KEY_BITS)) return 'WEAK_KEY';
+  // Solo el valor exacto `not_available` omite el tamaño de clave; cualquier otro lo exige.
+  const isKeySizeEnforced = signature.keyBitsPolicy !== 'not_available';
+  if (isKeySizeEnforced && !(signature.keyBits >= DKIM_MIN_KEY_BITS)) return 'WEAK_KEY';
 
   // `x=` inválido o igual al instante actual cuenta como vencido (falla cerrado).
   if (signature.expiresAt !== null) {

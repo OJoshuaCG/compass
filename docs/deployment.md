@@ -163,7 +163,10 @@ Esta ruta se armó a partir del código y de `pnpm stack`; todavía **no se ha e
 | PostgreSQL | Servidor dedicado, fuera de Dokploy | Por provisionar |
 | Claves (KEK) | AWS KMS (`KMS_ADAPTER=aws`, [ADR 0020](adr/0020-reference-cloud-aws.md)) | Adaptador listo; **no probado contra AWS real**. La API comprueba el acceso a la clave al arrancar y no arranca si falla (ver la sonda de arranque en [`backend.md`](backend.md) §6) |
 | Correo | SMTP del dominio de la organización | Ver [configurar correo](runbooks/configure-mail.md) |
-| Respaldos de la base | Servidor dedicado | **Por definir** (decisión pendiente) |
+| Sondeo de correo entrante (`inbound-poll`) | Proceso periódico aparte, programado desde el anfitrión; el contenedor solo arranca la API (`docker/start.sh` ejecuta `main.http.js`) | Opcional, solo si se usan los códigos entrantes. Entorno y rol propios; ver [programar el sondeo](runbooks/inbound-poll.md). **Sin ensayar contra un servidor IMAP real** |
+| Purga de datos temporales (`purge-expired`) | Proceso periódico aparte, programado desde el anfitrión (cada hora, minuto 17); no corre dentro del contenedor | Ops debe programarlo; ver [programar la purga](runbooks/purge-expired.md) |
+| Ancla diaria de la auditoría (`anchor-audit`) | Proceso periódico aparte, **una vez al día**, programado desde el anfitrión; escribe en un bucket aparte de Wasabi con Object Lock (modo de cumplimiento, 2 años). Variables propias `AUDIT_ANCHOR_S3_*` en el mismo archivo de entorno de la API | **Ops todavía tiene que crear y verificar el bucket real y programar el cron**; ver [programar el ancla](runbooks/anchor-audit.md). Si falla, alerta a la Raíz por el outbox |
+| Respaldos de la base | Servidor dedicado | `pg_dump` cada hora a Wasabi (RPO de 1 h, RTO de 4 h; decidido el 2026-11-04). El trabajo programado y la retención: **por definir** |
 
 Restricción vigente: **una sola réplica** de la API ([ADR 0039](adr/0039-single-instance-until-redis.md), [runbook](runbooks/single-instance-operation.md)).
 
@@ -196,11 +199,13 @@ Detalle de los roles en [`database.md`](database.md) §3.
    DATABASE_URL='postgres://<admin>@<host>/<base>' node db/dist/cli.js bootstrap
    ```
 
-2. Los roles `iam_migrator` e `iam_app` se crean **sin login**. Asígnales `LOGIN` y una contraseña generada, guardada en tu gestor de secretos (`iam_auth_reader` no inicia sesión nunca):
+2. Los roles `iam_migrator` e `iam_app` se crean **sin login**. Asígnales `LOGIN` y una contraseña generada, guardada en tu gestor de secretos (`iam_auth_reader` no inicia sesión nunca). El `bootstrap` también crea `iam_inbound_worker`, el rol del sondeo de correo entrante: también nace sin login, y solo necesita `LOGIN` si vas a programar `inbound-poll` (ver su [runbook](runbooks/inbound-poll.md)):
 
    ```sql
    ALTER ROLE iam_migrator LOGIN PASSWORD '<secreto>';
    ALTER ROLE iam_app LOGIN PASSWORD '<secreto>';
+   -- Solo si programas el sondeo de correo entrante:
+   ALTER ROLE iam_inbound_worker LOGIN PASSWORD '<secreto>';
    ```
 
 3. Restringe `pg_hba.conf` y el firewall para que solo entre el servidor de Dokploy, y exige TLS.
@@ -243,7 +248,8 @@ El arranque lo hace [`docker/start.sh`](../docker/start.sh), que también atiend
    | `MAIL_TRANSPORT` | `smtp`, con `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` |
    | `TRUST_PROXY` | Ver 2.8 |
    | `WEBAUTHN_RP_NAME`, `LOG_LEVEL`, `DB_POOL_MAX` | Opcionales (ver `apps/api/src/app/config.ts`) |
-   | `OUTBOX_WORKER_ENABLED`, `OUTBOX_POLL_INTERVAL_MS` | Opcionales; el publicador del outbox está apagado por defecto (ver `docs/backend.md` §6.5) |
+   | `OUTBOX_WORKER_ENABLED`, `OUTBOX_POLL_INTERVAL_MS` | Opcionales; el publicador del outbox está apagado por defecto (ver `docs/backend.md` §6.5). **Con él apagado no sale el aviso por correo a la Raíz cuando alguien revela un restablecimiento de códigos entrantes**: el aviso viaja por el outbox. Si usas los códigos entrantes, pon `OUTBOX_WORKER_ENABLED=true`. **Lo mismo vale para las alertas de infraestructura a la Raíz** (por ejemplo, que `anchor-audit` no pudo anclar una organización): sin el publicador, nunca salen |
+   | `AUDIT_ANCHOR_S3_ENDPOINT`, `AUDIT_ANCHOR_S3_REGION`, `AUDIT_ANCHOR_S3_BUCKET`, `AUDIT_ANCHOR_S3_ACCESS_KEY_ID`, `AUDIT_ANCHOR_S3_SECRET_ACCESS_KEY` | No las lee la API sino el comando `anchor-audit`; van en el mismo archivo de entorno, que custodia Ops. Detalle en el [runbook](runbooks/anchor-audit.md) |
 
    La imagen ya fija `NODE_ENV=production`, `HOST=0.0.0.0`, `PORT=3000` y `WEB_DIST_DIR`. La API falla al arrancar si la configuración es inválida y el error nombra la variable, nunca su valor.
 
@@ -286,7 +292,16 @@ La imagen trae un `HEALTHCHECK` que consulta `GET /api/v1/health/live` (solo ind
 
 ### 2.10 Alta de la primera organización
 
-Sigue [Dar de alta una organización](runbooks/provision-organization.md): el comando necesita una conexión de **administrador** (`PROVISION_DATABASE_URL`) y imprime secretos una sola vez, así que no lo ejecutes en un lugar que registre la salida. Se puede correr con la misma imagen (`node apps/api/dist/main.provision.js`) desde una terminal privada de operaciones.
+La vía recomendada es el **enlace de configuración inicial** ([ADR 0046](adr/0046-first-root-one-time-setup.md)): no necesita conexión de administrador ni rol con `BYPASSRLS`.
+
+1. Genera un token y ponlo en las variables de entorno de la aplicación en Dokploy: `FIRST_SETUP_TOKEN` (`openssl rand -hex 32`; mínimo 32 caracteres; evita caracteres que un navegador pueda alterar en el enlace). Redespliega.
+2. Abre `<APP_ORIGIN>/setup#token=<valor>` en el navegador. El token va en el fragmento (`#`), así que no llega al servidor ni a los registros del proxy; la página lo quita de la barra de direcciones al cargar.
+3. Captura el nombre y el identificador de la organización, el nombre y el correo de la persona Raíz y su contraseña. La respuesta muestra **una sola vez** los códigos de emergencia (grupos A y B): imprímelos y entrega cada grupo a un custodio distinto.
+4. **Borra `FIRST_SETUP_TOKEN`** y redespliega. Aunque se quedara, el enlace ya no funciona: la base de datos rechaza la operación si existe cualquier organización.
+
+Cualquier fallo (token equivocado, variable ausente, alta ya hecha) responde `404` idéntico; el motivo real queda solo en el registro del servidor, sin el token ni la contraseña.
+
+La alternativa es [Dar de alta una organización](runbooks/provision-organization.md) con el comando de operaciones: necesita una conexión de **administrador** (`PROVISION_DATABASE_URL`) e imprime secretos una sola vez, así que no lo ejecutes en un lugar que registre la salida. Se puede correr con la misma imagen (`node apps/api/dist/main.provision.js`) desde una terminal privada de operaciones.
 
 ### 2.11 Verificar el despliegue
 
@@ -322,5 +337,5 @@ Redespliega el commit anterior. Las migraciones no se revierten: se corrigen con
   La prueba usó `NODE_ENV=development` con KMS local y correo por registro, porque producción exige AWS KMS y SMTP reales. Podman ignora el `HEALTHCHECK` con el formato OCI; Docker (el de Dokploy) lo respeta. **Falta verificar en Dokploy** que marque el despliegue como fallido cuando el contenedor sale con error.
 - **Dokploy**: los datos de esta guía salen de su documentación pública, no de un ensayo. No encontré un paso previo al despliegue, el valor por defecto del puerto del contenedor ni confirmación de `stop-first`.
 - **AWS KMS real**, **TLS a PostgreSQL** (`sslmode` en la cadena de conexión) y la IP que ve la API tras Traefik.
-- **Respaldos**: la estrategia y su ensayo siguen pendientes (ver [restaurar un respaldo](runbooks/restore-backup.md)). No cargues credenciales reales hasta cerrar la fase 1 y la prueba de penetración externa.
+- **Respaldos**: la estrategia está decidida (`pg_dump` cada hora a Wasabi, RPO de 1 h y RTO de 4 h; 2026-11-04) y su ensayo sigue pendiente (ver [restaurar un respaldo](runbooks/restore-backup.md)). No cargues credenciales reales hasta cerrar la fase 1 y la prueba de penetración externa.
 - `main.migrate` y `db/dist/cli.js` se leyeron en el código pero no se ejecutaron para esta guía.

@@ -77,6 +77,75 @@ export interface RankChangeNoticeMessage {
   readonly changedAt: Date;
 }
 
+/**
+ * Aviso a la Raíz de que alguien vio restablecimientos (códigos o enlaces) recibidos por una vista de códigos
+ * entrantes (ADR 0045). Dice quién, cuántos y cuándo. NO incluye el motivo (va a la auditoría), el valor, la
+ * dirección de la fuente, el nombre de la vista ni enlaces.
+ */
+export interface ResetRevealAlertMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  /** Nombre visible de la persona; `null` si ya no se puede resolver (el aviso sale igual, sin nombre). */
+  readonly actorDisplayName: string | null;
+  /** Restablecimientos revelados en esa petición (al menos uno). */
+  readonly revealedCount: number;
+  readonly occurredAt: Date;
+}
+
+/**
+ * Alerta de infraestructura a una cuenta Raíz (ADR 0047; decisión del dueño del 2026-11-04: correo y/o
+ * Telegram). Solo un código de una lista cerrada y la hora: ningún mensaje de error, ruta, host ni nombre.
+ */
+export interface InfrastructureAlertMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  readonly code: 'service_unhealthy' | 'job_failed' | 'events_quarantined';
+  readonly occurredAt: Date;
+}
+
+/**
+ * Aviso de una baja (governance §2.4). `accounts_assigned`: a quien recibió cuentas fuera de su rama;
+ * `accounts_unassigned`: a Administradores y Raíz cuando alguna cuenta quedó sin responsable; `report`: a quien
+ * dio la baja. Solo nombre de quien se fue, conteos y hora: NUNCA nombres de cuentas ni de credenciales ni
+ * enlaces; el detalle está en la auditoría, protegida por permisos.
+ */
+export interface OffboardingNoticeMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  readonly kind: 'accounts_assigned' | 'rotation_assigned' | 'accounts_unassigned' | 'report';
+  /** Nombre visible de quien se fue; `null` si ya no se puede resolver (el aviso sale igual, sin nombre). */
+  readonly leaverDisplayName: string | null;
+  /** Cuentas asignadas (`accounts_assigned`), tareas de rotación (`rotation_assigned`) o cuentas sin responsable (`accounts_unassigned`). */
+  readonly accountCount: number;
+  /** Solo en el informe: cuentas reasignadas, sin responsable y tareas de rotación creadas. */
+  readonly report: {
+    readonly assignedAccountCount: number;
+    readonly unassignedAccountCount: number;
+    readonly rotationTaskCount: number;
+  } | null;
+  readonly occurredAt: Date;
+}
+
+/**
+ * Aviso de la transferencia de la Raíz. Solo nombres visibles de las dos personas, el tipo de aviso y fechas:
+ * nunca enlaces, códigos ni correos de terceros. `recipientRole` dice desde qué lado se redacta el texto.
+ */
+export interface RootTransferNoticeMessage {
+  readonly to: string;
+  readonly locale: 'es-MX' | 'en-US';
+  readonly kind: 'requested' | 'accepted' | 'cancelled' | 'expired' | 'completed';
+  readonly recipientRole: 'previous_root' | 'new_root' | 'administrator';
+  /** Nombre visible de la Raíz que entrega el puesto; `null` si ya no se puede resolver. */
+  readonly fromDisplayName: string | null;
+  /** Nombre visible de quien lo recibe; `null` si ya no se puede resolver. */
+  readonly toDisplayName: string | null;
+  /** Solo en `cancelled`: la cancelación fue automática (la destinataria dejó de ser elegible). */
+  readonly automatic: boolean;
+  readonly occurredAt: Date;
+  /** Cuándo terminará la espera de 72 horas (solo en `accepted`). */
+  readonly executesAt: Date | null;
+}
+
 /** Correo saliente detrás de un puerto (SES en producción; el proveedor es intercambiable). */
 export interface Mailer {
   sendInvitation(message: InvitationMessage): Promise<void>;
@@ -86,8 +155,16 @@ export interface Mailer {
   sendSecurityNotice(message: SecurityNoticeMessage): Promise<void>;
   /** Avisa a la Raíz de que una persona alcanzó el tope de revelaciones por hora (sin secretos ni credenciales). */
   sendRevealLimitAlert(message: RevealLimitAlertMessage): Promise<void>;
+  /** Avisa a la Raíz de que alguien vio restablecimientos de códigos entrantes (sin valores, motivos ni direcciones). */
+  sendResetRevealAlert(message: ResetRevealAlertMessage): Promise<void>;
   /** Avisa a quien registró un segundo factor de que sigue sin confirmarse pasadas 24 horas (sin secretos ni nombres). */
   sendPendingTotpNotice(message: PendingTotpNoticeMessage): Promise<void>;
   /** Avisa a la persona de que su rango cambió, con el nombre de quien lo hizo (sin motivo, roles ni enlaces). */
   sendRankChangeNotice(message: RankChangeNoticeMessage): Promise<void>;
+  /** Avisa de una baja a quien recibe cuentas, a Administradores y Raíz, o a quien la dio (solo conteos). */
+  sendOffboardingNotice(message: OffboardingNoticeMessage): Promise<void>;
+  /** Avisa de una transferencia de la Raíz a quien entrega, a quien recibe y a los Administradores. */
+  sendRootTransferNotice(message: RootTransferNoticeMessage): Promise<void>;
+  /** Avisa a la Raíz de una falla de la plataforma (solo un código fijo y la hora). */
+  sendInfrastructureAlert(message: InfrastructureAlertMessage): Promise<void>;
 }

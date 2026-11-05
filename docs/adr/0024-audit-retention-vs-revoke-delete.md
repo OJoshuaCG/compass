@@ -1,6 +1,6 @@
 # ADR 0024: Retención de auditoría frente a `REVOKE DELETE`
 
-- **Estado**: Propuesta
+- **Estado**: Aceptada en su dirección (2026-11-04): particionado mensual con retiro de particiones (opción 1). Siguen abiertos los puntos de la sección «Decisión del dueño (2026-11-04)».
 - **Fecha**: 2026-10-26
 - **Referencias**: [`plan.md`](../../plan.md) sección "Auditoría" (append-only, retención de 2 años en línea, exportación a almacenamiento inmutable) y "Decisiones pendientes del equipo" (política de retención); [`docs/backend.md`](../backend.md) §6.1 y §16; [ADR 0016](0016-append-only-audit-hash-chain.md).
 
@@ -25,6 +25,17 @@ Esta es una recomendación para decidir, no una decisión.
 - **Retención en línea: 6 meses** (en lugar de los 2 años que traía el plan, que eran un valor de partida sin razón documentada). Con unas 100 personas usuarias el volumen es bajo, así que el plazo no se fija por espacio sino por lo que hace falta para investigar un incidente descubierto tarde.
 - **Archivo exportado e inmutable: al menos 2 años**, pendiente de validar con el área legal antes de producción.
 - **Sigue abierto**: la elección de la opción de expiración (la recomendada es el particionado, opción 1), la granularidad de partición, el formato del hash de cierre y dónde vive el archivo inmutable. Por eso el estado se mantiene en "Propuesta".
+
+## Decisión del dueño (2026-11-04)
+
+- **El archivo de al menos 2 años queda aceptado** por el dueño.
+- **El archivo inmutable vive en Wasabi**, en el mismo destino que el ancla del [ADR 0042](0042-audit-chain-external-anchoring.md).
+- **Particionado mensual y opción 1, confirmados** el mismo día tras la recomendación de Ingeniería: `audit_events` se particiona por mes sobre `created_at`, con una sola serie global, y las particiones de más de 6 meses se retiran (opción A1 del borrador) solo con un ancla del [ADR 0042](0042-audit-chain-external-anchoring.md) que cubra su último evento.
+- **Sigue abierto**:
+  - la validación legal del plazo (A10, preguntas 1 a 3 del borrador);
+  - el camino de migración, que depende de si hay eventos reales que conservar (pregunta 7);
+  - la aceptación explícita, por un revisor humano, de que `seq` deja de ser único en la base y queda garantizado por el lock y la verificación (pregunta 8).
+- **Orden de implementación**: el retiro de particiones depende del ancla del ADR 0042, que espera la verificación de Wasabi y la aprobación del cliente S3. La migración a tabla particionada es ruta protegida y se hace con dos jueces ciegos.
 
 ## Consecuencias (si se acepta la recomendación)
 

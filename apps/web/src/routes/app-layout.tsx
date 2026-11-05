@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   Lock,
   LogOut,
+  Mail,
   Settings,
   Users,
   type LucideIcon,
@@ -39,7 +40,7 @@ function NavItem({
   exact,
   children,
 }: {
-  to: '/' | '/users' | '/security' | '/accounts' | '/catalog';
+  to: '/' | '/users' | '/security' | '/accounts' | '/catalog' | '/inbound' | '/inbound/sources';
   paths?: readonly string[];
   icon: LucideIcon;
   exact?: boolean;
@@ -63,7 +64,8 @@ function NavItem({
 
 const VAULT_PATHS = ['/accounts', '/vault'] as const;
 const PEOPLE_PATHS = ['/users', '/roles'] as const;
-const SETTINGS_PATHS = ['/security', '/sessions', '/audit'] as const;
+const SETTINGS_PATHS = ['/security', '/sessions', '/audit', '/alerts'] as const;
+const INBOUND_PATHS = ['/inbound'] as const;
 
 /** Iniciales para el avatar: primera letra de las dos primeras palabras del nombre. */
 function initials(name: string): string {
@@ -83,6 +85,12 @@ export function AppLayout() {
   const canReadAllAudit = usePermission('audit.read_all');
   const canReadScopeAudit = usePermission('audit.read_scope');
   const canReadAudit = canReadAllAudit || canReadScopeAudit;
+  // Solo comodidad: el enlace se ofrece a quien puede leer códigos; el servidor decide siempre.
+  const canReadInboundCodes = usePermission('inbound.read_codes');
+  // Solo comodidad: el enlace de configurar fuentes se ofrece con `inbound.configure`; el servidor decide.
+  const canConfigureInbound = usePermission('inbound.configure');
+  // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
+  const canManageInfraAlerts = usePermission('alerts.infra.manage');
   const { logout, pending } = useLogout();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
@@ -99,12 +107,27 @@ export function AppLayout() {
     ...(import.meta.env.DEV && canReadAudit
       ? [{ to: '/audit' as const, label: t('nav.audit') }]
       : []),
+    ...(canManageInfraAlerts ? [{ to: '/alerts' as const, label: t('nav.alerts') }] : []),
+  ];
+  // Códigos de acceso: leerlos y configurar sus fuentes y vistas son pantallas hermanas.
+  const inboundLinks: SectionLink[] = [
+    ...(canReadInboundCodes
+      ? [{ to: '/inbound' as const, label: t('nav.inbound'), exact: true }]
+      : []),
+    ...(canConfigureInbound
+      ? [
+          { to: '/inbound/sources' as const, label: t('nav.inboundSources') },
+          { to: '/inbound/view-settings' as const, label: t('nav.inboundViewSettings') },
+        ]
+      : []),
   ];
   const section = PEOPLE_PATHS.some((path) => isWithin(pathname, path))
     ? { label: t('nav.sectionsOf', { section: t('nav.people') }), links: peopleLinks }
     : SETTINGS_PATHS.some((path) => isWithin(pathname, path))
       ? { label: t('nav.sectionsOf', { section: t('nav.settings') }), links: settingsLinks }
-      : undefined;
+      : INBOUND_PATHS.some((path) => isWithin(pathname, path))
+        ? { label: t('nav.sectionsOf', { section: t('nav.codes') }), links: inboundLinks }
+        : undefined;
 
   return (
     <AppShell
@@ -133,6 +156,15 @@ export function AppLayout() {
             <NavItem to="/users" paths={PEOPLE_PATHS} icon={Users}>
               {t('nav.people')}
             </NavItem>
+            {canReadInboundCodes || canConfigureInbound ? (
+              <NavItem
+                to={canReadInboundCodes ? '/inbound' : '/inbound/sources'}
+                paths={INBOUND_PATHS}
+                icon={Mail}
+              >
+                {t('nav.codes')}
+              </NavItem>
+            ) : null}
             <NavItem to="/security" paths={SETTINGS_PATHS} icon={Settings}>
               {t('nav.settings')}
             </NavItem>

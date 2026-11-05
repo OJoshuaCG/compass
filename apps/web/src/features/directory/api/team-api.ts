@@ -25,12 +25,11 @@ export function fetchManagerCandidates(q: string, signal: AbortSignal) {
 const MAX_MANAGER_PAGES = 10;
 
 /**
- * Posibles responsables de una persona invitada: el subárbol de quien invita (`/users/managed`), que
- * es exactamente el alcance que el servidor exige y no pide permisos de gestión. Se ordena por
- * rango para que, si el subárbol excediera el tope, se pierdan los de menos autoridad (los que
- * menos probablemente sean elegibles). El servidor valida de todos modos.
+ * Todo el subárbol de quien consulta (`/users/managed`), ordenado por rango para que, si excediera
+ * el tope de páginas, se pierdan las personas de menos autoridad. Lo usan el selector de
+ * responsable al invitar y el árbol jerárquico; el servidor valida de todos modos.
  */
-export async function fetchInvitableManagers(signal: AbortSignal) {
+export async function fetchAllManaged(signal: AbortSignal) {
   const people: ManagedUser[] = [];
   let cursor: string | undefined;
   for (let pageNumber = 0; pageNumber < MAX_MANAGER_PAGES; pageNumber += 1) {

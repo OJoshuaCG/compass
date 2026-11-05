@@ -168,6 +168,24 @@ describe('user_roles rank ceiling (ADR 0012)', () => {
     expect(await assignmentOutcome(tenant.adminId, inviteLink)).toBe(ACCEPTED);
   });
 
+  // SENSIBLE (revisión humana): las alertas por Telegram (migración 0031, ADR 0047). La de infraestructura
+  // es solo de la Raíz (techo 0); la de seguridad también la gestiona el Administrador (techo 1).
+  it('knows the alert permissions: infrastructure is Root only, security reaches the Administrator (migration 0031)', async () => {
+    const { rows } = await app.query<{ infra: number | null; security: number | null }>(
+      "select permission_rank_ceiling('alerts.infra.manage') as infra, permission_rank_ceiling('alerts.security.manage') as security",
+    );
+    expect(rows[0]?.infra).toBe(0);
+    expect(rows[0]?.security).toBe(1);
+
+    const infraAlerts = await createRole('Infra alerts', ['alerts.infra.manage']);
+    const securityAlerts = await createRole('Security alerts', ['alerts.security.manage']);
+    expect(await assignmentOutcome(tenant.rootId, infraAlerts)).toBe(ACCEPTED);
+    expect(await assignmentOutcome(tenant.adminId, infraAlerts)).toBe(REJECTED_BY_CEILING);
+    expect(await assignmentOutcome(tenant.operatorId, infraAlerts)).toBe(REJECTED_BY_CEILING);
+    expect(await assignmentOutcome(tenant.adminId, securityAlerts)).toBe(ACCEPTED);
+    expect(await assignmentOutcome(tenant.operatorId, securityAlerts)).toBe(REJECTED_BY_CEILING);
+  });
+
   it('lets the application role call the ceiling function, which returns NULL for unknown names', async () => {
     const { rows } = await app.query<{ ceiling: number | null; unknown: number | null }>(
       "select permission_rank_ceiling('role.manage') as ceiling, permission_rank_ceiling('made.up') as unknown",

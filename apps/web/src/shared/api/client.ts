@@ -60,6 +60,16 @@ export type ApiClient = {
     schema: S,
     options?: RequestOptions,
   ) => Promise<z.infer<S>>;
+  /**
+   * PUT reemplaza un recurso completo y ya es idempotente: no lleva `Idempotency-Key`, así ninguna
+   * caché de idempotencia del servidor retiene un cuerpo que puede traer un secreto (la contraseña de
+   * una casilla de correo en `PUT /inbound/sources/:id/connection`).
+   */
+  put: <S extends z.ZodType>(
+    path: string,
+    schema: S,
+    options?: RequestOptions,
+  ) => Promise<z.infer<S>>;
   delete: <S extends z.ZodType>(
     path: string,
     schema: S,
@@ -195,6 +205,7 @@ export function createApiClient(config: ApiClientConfig = {}): ApiClient {
     get: (path, schema, options) => request('GET', path, schema, options),
     post: (path, schema, options) => request('POST', path, schema, options),
     patch: (path, schema, options) => request('PATCH', path, schema, options),
+    put: (path, schema, options) => request('PUT', path, schema, options),
     delete: (path, schema, options) => request('DELETE', path, schema, options),
   };
 }

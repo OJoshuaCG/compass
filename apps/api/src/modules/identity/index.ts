@@ -9,6 +9,7 @@ export { ChangePassword } from './application/change-password.js';
 export { Login } from './application/login.js';
 export type { LoginCommand, LoginOutcome } from './application/login.js';
 export { Logout } from './application/logout.js';
+export { RootAccessRevokerAdapter } from './application/root-access-revoker.js';
 export {
   EMERGENCY_CODE_COUNT,
   formatRecoveryCode,
@@ -55,6 +56,7 @@ export { PgSecurityNoticeQueue } from './infrastructure/pg-security-notice-queue
 export { SessionService } from './application/session-service.js';
 export type { AuthenticatedPrincipal, IssuedSession } from './application/session-service.js';
 export { evaluatePassword, personalTokens } from './domain/password-policy.js';
+export { passwordProblemToError } from './application/password-problem.js';
 export type { PasswordProblem } from './domain/password-policy.js';
 export { REAUTH_WINDOW_MS } from '../access/index.js';
 export {

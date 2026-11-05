@@ -231,5 +231,11 @@
   "auditPreview.field.previous": "previous",
   "auditPreview.field.current": "this",
   "auditPreview.field.genesis": "start of the chain",
-  "auditPreview.field.chainHelp": "Each event includes the hash of the previous one. If someone modifies a record, chain verification fails from that point on."
+  "auditPreview.field.chainHelp": "Each event includes the hash of the previous one. If someone modifies a record, chain verification fails from that point on.",
+  "nav.accounts": "Accounts",
+  "nav.codes": "Codes",
+  "nav.inbound": "Access codes",
+  "nav.inboundSources": "Code sources",
+  "nav.inboundViewSettings": "Code views",
+  "nav.alerts": "Infrastructure alerts"
 }

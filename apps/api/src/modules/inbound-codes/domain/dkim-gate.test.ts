@@ -100,6 +100,42 @@ describe('DKIM gate', () => {
       expect(rejectionOf(strongKey)).toBeNull();
     });
 
+    it('skips the key size check only when the policy is exactly not_available', () => {
+      const unknownSize = { keyBits: Number.NaN };
+      const notAvailable = buildGateInput({
+        validatedSignatures: [buildSignature({ ...unknownSize, keyBitsPolicy: 'not_available' })],
+      });
+      const enforced = buildGateInput({
+        validatedSignatures: [buildSignature({ ...unknownSize, keyBitsPolicy: 'enforced' })],
+      });
+      const unspecified = buildGateInput({
+        validatedSignatures: [buildSignature({ ...unknownSize })],
+      });
+      // Un valor desconocido (dato hostil que llegue con otro tipo) debe exigir el tamaño.
+      const unknownPolicy = buildGateInput({
+        validatedSignatures: [
+          buildSignature({
+            ...unknownSize,
+            keyBitsPolicy: 'NOT_AVAILABLE' as unknown as 'not_available',
+          }),
+        ],
+      });
+
+      expect(rejectionOf(notAvailable)).toBeNull();
+      expect(rejectionOf(enforced)).toBe('WEAK_KEY');
+      expect(rejectionOf(unspecified)).toBe('WEAK_KEY');
+      expect(rejectionOf(unknownPolicy)).toBe('WEAK_KEY');
+    });
+
+    it('does not let not_available bypass any other signature rule', () => {
+      const input = buildGateInput({
+        validatedSignatures: [
+          buildSignature({ keyBitsPolicy: 'not_available', hasBodyLengthLimit: true }),
+        ],
+      });
+      expect(rejectionOf(input)).toBe('BODY_LENGTH_LIMIT_PRESENT');
+    });
+
     it('rejects an expired x= (also at the exact instant and with an invalid date)', () => {
       for (const expiresAt of [
         new Date(FIXTURE_NOW.getTime() - MILLISECONDS_PER_MINUTE),
@@ -245,6 +281,52 @@ describe('DKIM gate', () => {
       expect(rejectionOf(withExtraRecipient)).toBe('RECIPIENT_MISMATCH');
       expect(rejectionOf(withoutRecipient)).toBe('RECIPIENT_MISMATCH');
       expect(rejectionOf(superstring)).toBe('RECIPIENT_MISMATCH');
+    });
+
+    it('accepts a single recipient that belongs to the accepted set and rejects any other', () => {
+      const forwardedTo = 'original@dominio.example';
+      const acceptedRecipients = [FIXTURE_ALIAS, forwardedTo];
+
+      const forwarded = buildGateInput({ acceptedRecipients, toAddresses: [forwardedTo] });
+      const stranger = buildGateInput({
+        acceptedRecipients,
+        toAddresses: ['otro@dominio.example'],
+      });
+      const aliasOutsideSet = buildGateInput({
+        acceptedRecipients: [forwardedTo],
+        toAddresses: [FIXTURE_ALIAS],
+      });
+
+      expect(rejectionOf(forwarded)).toBeNull();
+      expect(rejectionOf(stranger)).toBe('RECIPIENT_MISMATCH');
+      // Si se declara un conjunto, el alias de la fuente deja de contar por sí solo.
+      expect(rejectionOf(aliasOutsideSet)).toBe('RECIPIENT_MISMATCH');
+    });
+
+    it('still requires a single To even when several recipients are accepted', () => {
+      const acceptedRecipients = [FIXTURE_ALIAS, 'original@dominio.example'];
+      const input = buildGateInput({
+        acceptedRecipients,
+        toAddresses: [FIXTURE_ALIAS, 'original@dominio.example'],
+      });
+      expect(rejectionOf(input)).toBe('RECIPIENT_MISMATCH');
+    });
+
+    it('fails closed with an empty or invalid accepted set', () => {
+      const empty = buildGateInput({ acceptedRecipients: [] });
+      const invalidOnly = buildGateInput({
+        acceptedRecipients: ['no-es-una-direccion'],
+        toAddresses: ['no-es-una-direccion'],
+      });
+      expect(rejectionOf(empty)).toBe('RECIPIENT_MISMATCH');
+      expect(rejectionOf(invalidOnly)).toBe('RECIPIENT_MISMATCH');
+    });
+
+    it('compares the accepted set case-insensitively', () => {
+      const input = buildGateInput({
+        acceptedRecipients: [FIXTURE_ALIAS.toUpperCase()],
+      });
+      expect(rejectionOf(input)).toBeNull();
     });
 
     it('compares the recipient case-insensitively', () => {

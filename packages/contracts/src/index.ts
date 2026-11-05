@@ -79,6 +79,13 @@ export type {
   UserStatus,
 } from './users.js';
 
+export {
+  ROOT_TRANSFER_STATUSES,
+  proposeRootTransferRequestSchema,
+  rootTransferSchema,
+} from './root-transfer.js';
+export type { ProposeRootTransferRequest, RootTransfer } from './root-transfer.js';
+
 export { sessionSummarySchema } from './sessions.js';
 export type { SessionSummary } from './sessions.js';
 
@@ -224,3 +231,99 @@ export {
   rotateDataKeyRequestSchema,
 } from './data-key.js';
 export type { DataKeyRotation, RotateDataKeyRequest } from './data-key.js';
+export {
+  emergencyCodeCustodySchema,
+  firstSetupRequestSchema,
+  firstSetupResponseSchema,
+} from './first-setup.js';
+export type { FirstSetupRequest, FirstSetupResponse } from './first-setup.js';
+export {
+  INBOUND_TEMPLATE_KINDS,
+  inboundCodeSchema,
+  inboundCodesResponseSchema,
+  inboundResetSchema,
+  inboundResetsResponseSchema,
+  revealInboundResetsRequestSchema,
+  inboundHistoryQuerySchema,
+  inboundHistoryResponseSchema,
+  inboundReceiptSchema,
+  inboundTemplateKindSchema,
+  inboundViewShareSchema,
+  inboundSourceSchema,
+  inboundViewSchema,
+  createInboundSourceRequestSchema,
+  updateInboundSourceRequestSchema,
+  createInboundViewRequestSchema,
+  updateInboundViewRequestSchema,
+  INBOUND_SOURCE_STATUSES,
+  MAX_TEMPLATES_PER_VIEW,
+  MAX_ACCEPTED_RECIPIENTS,
+  MAIL_TLS_MODES,
+  MAIL_PORT_BY_TLS_MODE,
+  putInboundSourceConnectionRequestSchema,
+  inboundSourceConnectionSchema,
+  MAX_INBOUND_LISTING,
+  inboundViewSummarySchema,
+  inboundViewsResponseSchema,
+  inboundSourceSummarySchema,
+  inboundSourcesResponseSchema,
+  inboundConfigurableViewSchema,
+  inboundConfigurableViewsResponseSchema,
+  inboundTemplateSummarySchema,
+  inboundTemplatesResponseSchema,
+} from './inbound.js';
+export type {
+  InboundCode,
+  InboundCodesResponse,
+  InboundReset,
+  InboundResetsResponse,
+  RevealInboundResetsRequest,
+  InboundHistoryQuery,
+  InboundHistoryResponse,
+  InboundReceipt,
+  InboundTemplateKind,
+  InboundViewShare,
+  InboundSource,
+  InboundView,
+  CreateInboundSourceRequest,
+  UpdateInboundSourceRequest,
+  CreateInboundViewRequest,
+  UpdateInboundViewRequest,
+  MailTlsMode,
+  PutInboundSourceConnectionRequest,
+  InboundSourceConnection,
+  InboundViewSummary,
+  InboundViewsResponse,
+  InboundSourceSummary,
+  InboundSourcesResponse,
+  InboundConfigurableView,
+  InboundConfigurableViewsResponse,
+  InboundTemplateSummary,
+  InboundTemplatesResponse,
+} from './inbound.js';
+
+export {
+  TELEGRAM_INTEGRATION_KIND_VALUES,
+  alertSettingsSchema,
+  createTelegramIntegrationRequestSchema,
+  infrastructureAlertChannelsSchema,
+  rotateTelegramBotTokenRequestSchema,
+  telegramIntegrationKindSchema,
+  telegramIntegrationSchema,
+  telegramIntegrationsResponseSchema,
+  telegramTestResultSchema,
+  updateAlertSettingsRequestSchema,
+  updateTelegramIntegrationRequestSchema,
+} from './integrations.js';
+export type {
+  AlertSettings,
+  CreateTelegramIntegrationRequest,
+  InfrastructureAlertChannels,
+  RotateTelegramBotTokenRequest,
+  TelegramIntegration,
+  TelegramIntegrationKindValue,
+  TelegramIntegrationsResponse,
+  TelegramTestResult,
+  UpdateAlertSettingsRequest,
+  UpdateTelegramIntegrationRequest,
+} from './integrations.js';

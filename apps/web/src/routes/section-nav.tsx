@@ -1,8 +1,23 @@
 import { Link } from '@tanstack/react-router';
 
-export type SectionPath = '/users' | '/roles' | '/security' | '/sessions' | '/audit';
+export type SectionPath =
+  | '/users'
+  | '/roles'
+  | '/security'
+  | '/sessions'
+  | '/audit'
+  | '/alerts'
+  | '/inbound'
+  | '/inbound/sources'
+  | '/inbound/view-settings';
 
-export type SectionLink = { readonly to: SectionPath; /** Ya traducido. */ readonly label: string };
+export type SectionLink = {
+  readonly to: SectionPath;
+  /** Ya traducido. */
+  readonly label: string;
+  /** Solo se marca en su ruta exacta: `/inbound` no debe quedar activo dentro de `/inbound/sources`. */
+  readonly exact?: boolean;
+};
 
 /**
  * Pestañas de una sección del menú (Personas, Configuración): cada una es una ruta propia, así
@@ -17,6 +32,7 @@ export function SectionNav({ label, links }: { label: string; links: readonly Se
           <li key={link.to} className="flex">
             <Link
               to={link.to}
+              activeOptions={{ exact: link.exact === true }}
               className="flex items-center border-b-2 px-3 text-sm font-semibold whitespace-nowrap transition-colors duration-fast"
               activeProps={{ 'aria-current': 'page', className: 'border-accent text-text' }}
               inactiveProps={{

@@ -1,6 +1,7 @@
 import {
   ErrorCode,
   acceptInvitationResponseSchema,
+  firstSetupResponseSchema,
   invitationPreviewResponseSchema,
   loginResponseSchema,
   totpConfirmResponseSchema,
@@ -55,6 +56,15 @@ export function createAuthApi(client: ApiClient = apiClient) {
       client.post('/invitations/preview', invitationPreviewResponseSchema, { body: { token } }),
     acceptInvitation: (input: { token: string; displayName: string; password: string }) =>
       client.post('/invitations/accept', acceptInvitationResponseSchema, { body: input }),
+    /** Alta de la primera organización y su Raíz con el token del enlace único (ADR 0046). */
+    completeFirstSetup: (input: {
+      token: string;
+      organizationName: string;
+      organizationSlug: string;
+      rootEmail: string;
+      rootDisplayName: string;
+      password: string;
+    }) => client.post('/setup', firstSetupResponseSchema, { body: input }),
   };
 }
 

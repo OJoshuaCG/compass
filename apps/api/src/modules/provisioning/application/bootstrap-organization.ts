@@ -24,6 +24,11 @@ export interface BootstrapInput {
   readonly rootPassword?: string;
 }
 
+export interface BootstrapOptions {
+  /** `false` cuando `rootPassword` la eligió la propia Raíz y no hay que obligarla a cambiarla. */
+  readonly rootPasswordMustChange?: boolean;
+}
+
 export interface OrganizationSeeder {
   /** Inserta organización, roles del sistema, la Raíz y su contraseña en UNA transacción. */
   seed(input: {
@@ -34,6 +39,8 @@ export interface OrganizationSeeder {
     readonly rootEmail: string;
     readonly rootDisplayName: string;
     readonly rootPasswordHash: string;
+    /** Por defecto `true`: la contraseña la entrega operaciones. `false` cuando la eligió la propia Raíz. */
+    readonly rootPasswordMustChange?: boolean;
     /** SHA-256 de los códigos de emergencia de la Raíz (nunca el código) y el custodio que los conserva. */
     readonly emergencyCodes: readonly {
       readonly hash: Uint8Array;
@@ -68,7 +75,7 @@ export class BootstrapOrganization {
     },
   ) {}
 
-  async execute(input: BootstrapInput): Promise<BootstrapResult> {
+  async execute(input: BootstrapInput, options: BootstrapOptions = {}): Promise<BootstrapResult> {
     const { seeder, hasher, strength, ids } = this.deps;
     const tokens = personalTokens(input.rootEmail.trim().toLowerCase(), input.rootDisplayName);
     const generated = input.rootPassword === undefined;
@@ -94,6 +101,7 @@ export class BootstrapOrganization {
       rootEmail: email,
       rootDisplayName: input.rootDisplayName.trim(),
       rootPasswordHash: await hasher.hash(rootPassword),
+      rootPasswordMustChange: options.rootPasswordMustChange ?? true,
       emergencyCodes: emergencyCodes.map(({ hash, custodyGroup }) => ({ hash, custodyGroup })),
       roles: SYSTEM_ROLES.map((role) => ({ name: role.name, permissions: role.permissions })),
     });

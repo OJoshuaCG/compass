@@ -2,6 +2,8 @@
  * Raíz de composición: el único lugar que conoce todas las capas y une cada puerto con su adaptador.
  * Los módulos no se importan entre sí salvo por su fachada; el cableado concreto vive aquí.
  */
+import { lookup as resolveDnsRecords } from 'node:dns/promises';
+
 import type { Pool } from 'pg';
 import type { Logger } from 'pino';
 
@@ -10,8 +12,11 @@ import {
   DenialGrouper,
   ManagePersonRoles,
   ManageRoles,
+  OffboardingPermissionChecker,
   PgRoleRepository,
   RankRoleAdjuster,
+  REAUTH_WINDOW_MS,
+  RootRoleHandoverAdapter,
 } from '../modules/access/index.js';
 import { PgAuditEventRepository, RecordAuditEvent } from '../modules/audit/index.js';
 import {
@@ -36,11 +41,24 @@ import {
   CreateUser,
   ListDirectory,
   ListManaged,
+  CompleteRootTransfers,
+  ManageRootTransfer,
   ManageUsers,
+  PgRootTransferNoticeQueue,
+  PgRootTransferStore,
+  RootTransferFinalizer,
+  NotifyOffboarding,
+  NotifyRootTransfer,
   NotifyRankChanged,
+  OffboardAccounts,
+  PgOffboardingNoticeQueue,
   PgRankChangeNoticeQueue,
+  ReassignOffboardedAccounts,
   PgUserDirectory,
   RANK_CHANGE_NOTICE_EVENT_TYPE,
+  OFFBOARDING_NOTICE_EVENT_TYPE,
+  ROOT_TRANSFER_NOTICE_EVENT_TYPE,
+  offboardingNoticeDeliveriesOver,
   rankChangeNoticeHandlerKey,
 } from '../modules/directory/index.js';
 import {
@@ -63,6 +81,7 @@ import {
   NotifySecurityNotice,
   OtplibTotpEngine,
   PgCredentialRepository,
+  RootAccessRevokerAdapter,
   PgInvitationRepository,
   PgPreAuthLookup,
   PgSecurityNoticeQueue,
@@ -75,6 +94,12 @@ import {
   ZxcvbnPasswordStrength,
 } from '../modules/identity/index.js';
 import type { Argon2Params } from '../modules/identity/index.js';
+import {
+  BootstrapOrganization,
+  FirstRootSetup,
+  PgOrganizationSeeder,
+  PgEmergencyCodeInvalidator,
+} from '../modules/provisioning/index.js';
 import type { Mailer } from '../modules/notification/index.js';
 import {
   ManageAccounts,
@@ -89,6 +114,9 @@ import {
   OtplibTotpGenerator,
   PENDING_TOTP_NOTICE_EVENT_TYPE,
   PgAccountRepository,
+  PgOffboardingAccessCleanup,
+  PgOffboardingAccountStore,
+  PgOffboardingRotationStore,
   PgPendingTotpNoticeStore,
   PgTotpRepository,
   PgShareRepository,
@@ -97,6 +125,36 @@ import {
   REVEAL_LIMIT_NOTICE_EVENT_TYPE,
   revealLimitNoticeHandlerKey,
 } from '../modules/vault/index.js';
+import {
+  ListInboundDirectory,
+  ManageInboundConfiguration,
+  ManageInboundSourceConnection,
+  ManageInboundViewShares,
+  PgInboundConfigurationRepository,
+  PgInboundDirectory,
+  PgInboundSourceConnectionRepository,
+  PgInboundViewReader,
+  PgInboundViewShareRepository,
+  NetworkGuard,
+  NotifyResetRevealed,
+  PgInboundResetStore,
+  ReadInboundCodes,
+  RevealInboundResets,
+  RESET_REVEAL_NOTICE_EVENT_TYPE,
+  resetRevealNoticeHandlerKey,
+} from '../modules/inbound-codes/index.js';
+import {
+  GuardedHttpsClient,
+  INFRASTRUCTURE_ALERT_EVENT_TYPE,
+  ManageAlertSettings,
+  ManageTelegramIntegrations,
+  NotifyInfrastructureAlert,
+  PgAlertSettingsStore,
+  PgIntegrationRepository,
+  PgTelegramChannelStore,
+  TelegramBotSender,
+  createNodeHttpsTransport,
+} from '../modules/integrations/index.js';
 import { PgTenantScope, PgUnitOfWork } from '../modules/organization/index.js';
 import type { Clock } from '../shared/kernel/index.js';
 import { AsyncLocalRequestContext } from '../shared/infrastructure/async-local-request-context.js';
@@ -119,6 +177,8 @@ export interface ContainerOptions {
   readonly clock?: Clock;
   /** Pausa entre pasadas del publicador del outbox (ms); ver `OUTBOX_POLL_INTERVAL_MS`. */
   readonly outboxPollIntervalMs?: number;
+  /** `FIRST_SETUP_TOKEN` (ADR 0046): sin valor, la ruta de configuración inicial queda cerrada. */
+  readonly firstSetupToken?: string;
 }
 
 /** Pausa por defecto entre pasadas del publicador; la configuración de la API la sobrescribe. */
@@ -177,6 +237,20 @@ export function buildContainer(options: ContainerOptions) {
   const lookup = new PgPreAuthLookup(pool);
   const sessionRepository = new PgSessionRepository(uow);
   const credentials = new PgCredentialRepository(uow);
+  // Transferencia de la Raíz: el cierre (a mano o por el proceso periódico) comparte este ensamblaje.
+  const rootTransferStore = new PgRootTransferStore(uow);
+  const rootTransferFinalizer = new RootTransferFinalizer({
+    context: requestContext,
+    directory,
+    swap: directory,
+    roles: new RootRoleHandoverAdapter({ roles }),
+    access: new RootAccessRevokerAdapter({ sessions: sessionRepository, credentials }),
+    emergencyCodes: new PgEmergencyCodeInvalidator(uow),
+    store: rootTransferStore,
+    notices: new PgRootTransferNoticeQueue(uow),
+    audit,
+    clock,
+  });
   const invitations = new PgInvitationRepository(uow);
   const hasher = new Argon2PasswordHasher(options.argon2);
   const strength = new ZxcvbnPasswordStrength();
@@ -239,6 +313,64 @@ export function buildContainer(options: ContainerOptions) {
   outboxHandlers.register(RANK_CHANGE_NOTICE_EVENT_TYPE, (event) =>
     notifyRankChanged.handle({ eventId: event.id, payload: event.payload }),
   );
+  // Avisos de una baja: a quien recibe cuentas fuera de su rama, a Administradores y Raíz si alguna cuenta
+  // quedó sin responsable, y el informe a quien dio la baja (solo conteos).
+  const notifyOffboarding = new NotifyOffboarding({
+    directory,
+    mailer,
+    deliveries: offboardingNoticeDeliveriesOver(outboxDeliveryReceipts),
+  });
+  outboxHandlers.register(OFFBOARDING_NOTICE_EVENT_TYPE, (event) =>
+    notifyOffboarding.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Avisos de la transferencia de la Raíz: a quien entrega, a quien recibe y a los Administradores.
+  const notifyRootTransfer = new NotifyRootTransfer({
+    directory,
+    mailer,
+    receipts: outboxDeliveryReceipts,
+  });
+  outboxHandlers.register(ROOT_TRANSFER_NOTICE_EVENT_TYPE, (event) =>
+    notifyRootTransfer.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Aviso a la Raíz cada vez que alguien revela restablecimientos de una vista (ADR 0045, IC-5c).
+  const notifyResetRevealed = new NotifyResetRevealed({
+    directory,
+    mailer,
+    deliveries: {
+      wasDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.wasDelivered(eventId, resetRevealNoticeHandlerKey(recipientId)),
+      markDelivered: (eventId, recipientId) =>
+        outboxDeliveryReceipts.markDelivered(eventId, resetRevealNoticeHandlerKey(recipientId)),
+    },
+  });
+  outboxHandlers.register(RESET_REVEAL_NOTICE_EVENT_TYPE, (event) =>
+    notifyResetRevealed.handle({ eventId: event.id, payload: event.payload }),
+  );
+  // Alertas de infraestructura al chat de Telegram de la Raíz (ADR 0047). Telegram es un host público
+  // fijo: el guardia de red no lleva excepciones de redes privadas.
+  const telegramGuard = new NetworkGuard(async (host) => {
+    const records = await resolveDnsRecords(host, { all: true });
+    return records.map((record) => record.address);
+  });
+  const telegramSender = new TelegramBotSender(
+    new GuardedHttpsClient(telegramGuard, createNodeHttpsTransport()),
+  );
+  const notifyInfrastructureAlert = new NotifyInfrastructureAlert({
+    settings: new PgAlertSettingsStore(uow),
+    channels: new PgTelegramChannelStore(uow),
+    cipher,
+    sender: telegramSender,
+    directory,
+    mailer,
+    deliveries: outboxDeliveryReceipts,
+  });
+  outboxHandlers.register(INFRASTRUCTURE_ALERT_EVENT_TYPE, (event) =>
+    notifyInfrastructureAlert.handle({
+      eventId: event.id,
+      organizationId: event.organizationId,
+      payload: event.payload,
+    }),
+  );
   // Aviso de seguridad a la dueña de la cuenta (hoy: baja de su app de autenticación). Solo a ella.
   const notifySecurityNotice = new NotifySecurityNotice({
     directory,
@@ -270,6 +402,27 @@ export function buildContainer(options: ContainerOptions) {
     notifyPendingTotpUnconfirmed.handle({ eventId: event.id, payload: event.payload }),
   );
   const organizationLister = new PgOrganizationLister(pool);
+  // Configuración inicial (ADR 0046): la organización nace por la función definer de la base de datos,
+  // con el pool de la aplicación; no hace falta ningún rol con BYPASSRLS.
+  const firstRootSetup = new FirstRootSetup({
+    configuredToken: options.firstSetupToken,
+    organizations: organizationLister,
+    bootstrap: new BootstrapOrganization({
+      seeder: new PgOrganizationSeeder(pool, 'first-setup'),
+      hasher,
+      strength,
+      ids,
+      randomBytes: (length) => primitives.randomBytes(length),
+      sha256: (data) => primitives.sha256(data),
+    }),
+    strength,
+    sha256: (data) => primitives.sha256(data),
+    constantTimeEquals: (left, right) => primitives.constantTimeEquals(left, right),
+    // Sin token ni cuerpo: solo el motivo y la IP (un intento fallido no puede auditarse en la base de datos).
+    onRejected: ({ reason, ip }) => {
+      logger.warn({ reason, ip }, 'first setup request rejected');
+    },
+  });
   const outboxWorker = new OutboxWorker({
     organizations: organizationLister,
     repository: new PgOutboxRepository(uow),
@@ -330,6 +483,7 @@ export function buildContainer(options: ContainerOptions) {
   });
 
   return {
+    firstRootSetup,
     clock,
     ids,
     outboxHandlers,
@@ -440,11 +594,101 @@ export function buildContainer(options: ContainerOptions) {
       clock,
       confirmAttempts: new InMemoryTotpConfirmAttemptStore(),
     }),
+    listInboundDirectory: new ListInboundDirectory({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory: new PgInboundDirectory(uow),
+    }),
+    readInboundCodes: new ReadInboundCodes({
+      context: requestContext,
+      uow,
+      authorizer,
+      views: new PgInboundViewReader(uow),
+      cipher,
+      audit,
+      auditCounter: auditEvents,
+      clock,
+    }),
+    revealInboundResets: new RevealInboundResets({
+      context: requestContext,
+      uow,
+      authorizer,
+      views: new PgInboundViewReader(uow),
+      resets: new PgInboundResetStore(uow),
+      cipher,
+      audit,
+      clock,
+    }),
+    manageInboundConfiguration: new ManageInboundConfiguration({
+      context: requestContext,
+      uow,
+      authorizer,
+      configuration: new PgInboundConfigurationRepository(uow),
+      ids,
+      audit,
+      clock,
+    }),
+    manageInboundSourceConnection: new ManageInboundSourceConnection({
+      context: requestContext,
+      uow,
+      authorizer,
+      configuration: new PgInboundConfigurationRepository(uow),
+      connections: new PgInboundSourceConnectionRepository(uow),
+      cipher,
+      audit,
+      clock,
+    }),
+    manageAlertSettings: new ManageAlertSettings({
+      context: requestContext,
+      uow,
+      authorizer,
+      settings: new PgAlertSettingsStore(uow),
+      audit,
+    }),
+    manageTelegramIntegrations: new ManageTelegramIntegrations({
+      context: requestContext,
+      uow,
+      authorizer,
+      integrations: new PgIntegrationRepository(uow),
+      cipher,
+      sender: telegramSender,
+      audit,
+      clock,
+    }),
+    manageInboundViewShares: new ManageInboundViewShares({
+      context: requestContext,
+      uow,
+      authorizer,
+      shares: new PgInboundViewShareRepository(uow),
+      rotations: shareRepository,
+      ids,
+      audit,
+      clock,
+    }),
     idempotency: new IdempotencyService({
       scope,
       store: new PgIdempotencyStore(uow),
       primitives,
       clock,
+    }),
+    // Lo usa el proceso periódico `main.complete-root-transfers.ts` (mismo ensamblaje) y las pruebas.
+    completeRootTransfers: new CompleteRootTransfers({
+      uow,
+      directory,
+      store: rootTransferStore,
+      finalizer: rootTransferFinalizer,
+    }),
+    tenantScope: scope,
+    manageRootTransfer: new ManageRootTransfer({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory,
+      store: rootTransferStore,
+      finalizer: rootTransferFinalizer,
+      clock,
+      reauthWindowMs: REAUTH_WINDOW_MS,
     }),
     manageUsers: new ManageUsers({
       context: requestContext,
@@ -460,6 +704,18 @@ export function buildContainer(options: ContainerOptions) {
       },
       // El aviso se escribe en el outbox en la misma transacción del cambio (ADR 0035).
       rankChangeNotices: new PgRankChangeNoticeQueue(uow),
+      // La baja retira accesos, reasigna cuentas huérfanas y exige rotar credenciales en su transacción.
+      offboarding: new OffboardAccounts({
+        reassignment: new ReassignOffboardedAccounts({
+          directory,
+          accounts: new PgOffboardingAccountStore(uow),
+          permissions: new OffboardingPermissionChecker(roles),
+        }),
+        cleanup: new PgOffboardingAccessCleanup(uow),
+        rotation: new PgOffboardingRotationStore(uow),
+        clock,
+      }),
+      offboardingNotices: new PgOffboardingNoticeQueue(uow),
       audit,
       clock,
     }),

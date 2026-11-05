@@ -66,6 +66,10 @@ describe('lazy catalogs parity', () => {
     });
   }
 
+  it('registers the inbound namespace so the parity checks above cover it', () => {
+    expect(LAZY_NAMESPACES).toContain('inbound');
+  });
+
   it('keeps lazy namespaces out of the eagerly bundled resources', () => {
     for (const ns of LAZY_NAMESPACES) {
       for (const locale of LOCALES) expect(resources[locale]).not.toHaveProperty(ns);

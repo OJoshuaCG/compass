@@ -1,9 +1,11 @@
 import type { Clock, IdGenerator, OrganizationId } from '../../../shared/kernel/index.js';
 import type { TenantScope } from '../../organization/index.js';
 import type {
+  ArchivedSourcePollStateStore,
   ExpiredEphemeralStore,
   OrganizationLister,
   OutboxRetentionStore,
+  ReplacedPasswordSecretStore,
   ReplacedTotpSecretStore,
 } from './ports/purge-ports.js';
 
@@ -24,6 +26,16 @@ export const REPLACED_TOTP_SECRET_RETENTION_DAYS = 30;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 export const REPLACED_TOTP_SECRET_RETENTION_MS =
   REPLACED_TOTP_SECRET_RETENTION_DAYS * MILLISECONDS_PER_DAY;
+
+/**
+ * Días que se conserva una versión vieja de la contraseña de una credencial después de que una edición la
+ * reemplaza. Decisión del dueño del 2026-11-04 (TODO C9, opción A; docs/business/vault.md BO-6): 30 días,
+ * para poder recuperar una contraseña cambiada por error. Solo aplica al campo `password`: la retención de
+ * usuario, códigos de recuperación y notas no está decidida y esas versiones se conservan.
+ */
+export const REPLACED_PASSWORD_SECRET_RETENTION_DAYS = 30;
+export const REPLACED_PASSWORD_SECRET_RETENTION_MS =
+  REPLACED_PASSWORD_SECRET_RETENTION_DAYS * MILLISECONDS_PER_DAY;
 
 /**
  * Días que se conserva un evento del outbox ya publicado (y sus acuses de entrega) antes de borrarlo.
@@ -48,8 +60,10 @@ interface PurgeTally {
   idempotencyKeys: number;
   webauthnChallenges: number;
   replacedTotpSecrets: number;
+  replacedPasswordSecrets: number;
   outboxEvents: number;
   outboxDeliveries: number;
+  archivedSourcePollStates: number;
 }
 
 export interface PurgeSummary {
@@ -58,10 +72,14 @@ export interface PurgeSummary {
   readonly webauthnChallenges: number;
   /** Versiones de secreto del segundo factor reemplazadas hace más de 30 días y ya destruidas. */
   readonly replacedTotpSecrets: number;
+  /** Versiones viejas de contraseña reemplazadas hace más de 30 días y ya destruidas (C9). */
+  readonly replacedPasswordSecrets: number;
   /** Eventos del outbox publicados hace más de 7 días y ya borrados. */
   readonly outboxEvents: number;
   /** Acuses de entrega (`outbox_deliveries`) de esos eventos, borrados con ellos. */
   readonly outboxDeliveries: number;
+  /** Estados de sondeo de fuentes de correo archivadas (IC-3a), ya borrados. */
+  readonly archivedSourcePollStates: number;
   /** Organizaciones cuyo borrado falló; el resto se procesó igual. */
   readonly failedOrganizations: readonly OrganizationFailure[];
 }
@@ -70,7 +88,9 @@ interface Dependencies {
   readonly organizations: OrganizationLister;
   readonly store: ExpiredEphemeralStore;
   readonly replacedTotpSecrets: ReplacedTotpSecretStore;
+  readonly replacedPasswordSecrets: ReplacedPasswordSecretStore;
   readonly outboxRetention: OutboxRetentionStore;
+  readonly archivedSourcePollState: ArchivedSourcePollStateStore;
   readonly scope: TenantScope;
   readonly ids: IdGenerator;
   readonly clock: Clock;
@@ -78,7 +98,8 @@ interface Dependencies {
 
 /**
  * Borra las filas efímeras vencidas (`idempotency_keys`, `webauthn_challenges`) y las versiones de secreto
- * del segundo factor reemplazadas hace más de 30 días (H1b) y los eventos del outbox publicados hace más de 7 días
+ * del segundo factor reemplazadas hace más de 30 días (H1b), las versiones viejas de contraseña reemplazadas
+ * hace más de 30 días (C9) y los eventos del outbox publicados hace más de 7 días
  * con sus acuses (D6), organización por organización, bajo el
  * aislamiento por filas normal (ADR 0038). No genera auditoría: son datos de mantenimiento sin actor,
  * no una acción sensible (decisión abierta para la purga de secretos: ver el ADR 0038).
@@ -91,6 +112,9 @@ export class PurgeExpiredEphemeral {
     const replacedBefore = new Date(
       this.deps.clock.now().getTime() - REPLACED_TOTP_SECRET_RETENTION_MS,
     );
+    const passwordReplacedBefore = new Date(
+      this.deps.clock.now().getTime() - REPLACED_PASSWORD_SECRET_RETENTION_MS,
+    );
     const publishedBefore = new Date(this.deps.clock.now().getTime() - OUTBOX_RETENTION_MS);
     const organizationIds = await this.deps.organizations.listIds();
 
@@ -98,8 +122,10 @@ export class PurgeExpiredEphemeral {
       idempotencyKeys: 0,
       webauthnChallenges: 0,
       replacedTotpSecrets: 0,
+      replacedPasswordSecrets: 0,
       outboxEvents: 0,
       outboxDeliveries: 0,
+      archivedSourcePollStates: 0,
     };
     const failedOrganizations: OrganizationFailure[] = [];
 
@@ -109,6 +135,7 @@ export class PurgeExpiredEphemeral {
           organizationId,
           expiredBefore,
           replacedBefore,
+          passwordReplacedBefore,
           publishedBefore,
           tally,
         );
@@ -123,8 +150,10 @@ export class PurgeExpiredEphemeral {
       idempotencyKeys: tally.idempotencyKeys,
       webauthnChallenges: tally.webauthnChallenges,
       replacedTotpSecrets: tally.replacedTotpSecrets,
+      replacedPasswordSecrets: tally.replacedPasswordSecrets,
       outboxEvents: tally.outboxEvents,
       outboxDeliveries: tally.outboxDeliveries,
+      archivedSourcePollStates: tally.archivedSourcePollStates,
       failedOrganizations,
     };
   }
@@ -133,6 +162,7 @@ export class PurgeExpiredEphemeral {
     organizationId: OrganizationId,
     expiredBefore: Date,
     replacedBefore: Date,
+    passwordReplacedBefore: Date,
     publishedBefore: Date,
     tally: PurgeTally,
   ): Promise<void> {
@@ -163,6 +193,18 @@ export class PurgeExpiredEphemeral {
         tally.replacedTotpSecrets += deleted;
       },
     );
+    await this.drain(
+      (limit) =>
+        this.inBatch(organizationId, () =>
+          this.deps.replacedPasswordSecrets.purgeReplacedPasswordSecrets(
+            passwordReplacedBefore,
+            limit,
+          ),
+        ),
+      (deleted) => {
+        tally.replacedPasswordSecrets += deleted;
+      },
+    );
     // El lote lleno se decide por eventos; los acuses se suman aparte (un evento puede tener varios o ninguno).
     await this.drain(
       async (limit) => {
@@ -174,6 +216,15 @@ export class PurgeExpiredEphemeral {
       },
       (deleted) => {
         tally.outboxEvents += deleted;
+      },
+    );
+    await this.drain(
+      (limit) =>
+        this.inBatch(organizationId, () =>
+          this.deps.archivedSourcePollState.purgeArchivedSourcePollState(limit),
+        ),
+      (deleted) => {
+        tally.archivedSourcePollStates += deleted;
       },
     );
   }
