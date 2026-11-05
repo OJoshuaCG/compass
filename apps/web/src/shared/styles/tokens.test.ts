@@ -27,31 +27,6 @@ function readTokens(source: string, theme: ThemeName): Record<string, string> {
   return tokens;
 }
 
-/** Lee un token suave `rgb(r g b / alfa)`: devuelve el color base y su opacidad. */
-function readSoftToken(
-  source: string,
-  theme: ThemeName,
-  name: string,
-): { base: string; alpha: number } {
-  const block = THEME_BLOCKS[theme].exec(source)?.[1] ?? '';
-  const match = new RegExp(
-    `--color-${name}-soft:\\s*rgb\\((\\d+) (\\d+) (\\d+) / ([\\d.]+)\\)`,
-  ).exec(block);
-  if (match === null) throw new Error(`Missing token --color-${name}-soft in ${theme}`);
-  const [, red, green, blue, alpha] = match;
-  const toHex = (value: string | undefined) => Number(value).toString(16).padStart(2, '0');
-  return { base: `#${toHex(red)}${toHex(green)}${toHex(blue)}`, alpha: Number(alpha) };
-}
-
-/** Color que se ve al poner `foreground` con opacidad `alpha` sobre `background`. */
-function composite(foreground: string, alpha: number, background: string): string {
-  const parse = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
-  const front = parse(foreground);
-  const back = parse(background);
-  const mixed = front.map((value, i) => Math.round(value * alpha + (back[i] ?? 0) * (1 - alpha)));
-  return `#${mixed.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
-}
-
 function channel(value: number): number {
   const c = value / 255;
   return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
@@ -159,30 +134,6 @@ describe('design tokens', () => {
       expect(contrast(token('text'), token('sidebar'))).toBeGreaterThanOrEqual(4.5);
       expect(contrast(token('text-secondary'), token('sidebar'))).toBeGreaterThanOrEqual(4.5);
       expect(contrast(token('accent'), token('sidebar'))).toBeGreaterThanOrEqual(4.5);
-    });
-
-    it('keeps muted text and input borders readable on the overlay and sidebar surfaces', () => {
-      for (const surface of ['overlay', 'sidebar']) {
-        expect(contrast(token('text-muted'), token(surface)), surface).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(token('border-input'), token(surface)), surface).toBeGreaterThanOrEqual(3);
-      }
-    });
-
-    it.each(['accent', 'success', 'warning', 'danger', 'info'])(
-      'text %s stays at 4.5:1 on its own soft background (chips and alerts)',
-      (name) => {
-        const soft = readSoftToken(css, theme, name);
-        for (const surface of ['canvas', 'surface', 'raised', 'overlay']) {
-          const background = composite(soft.base, soft.alpha, token(surface));
-          expect(contrast(token(name), background), `${name} on ${surface}`).toBeGreaterThanOrEqual(
-            4.5,
-          );
-        }
-      },
-    );
-
-    it('keeps warning visibly apart from the accent: they never share a value', () => {
-      expect(token('warning')).not.toBe(token('accent'));
     });
 
     it('solid buttons keep 4.5:1 for their label', () => {

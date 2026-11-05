@@ -17,7 +17,8 @@ export const navItemClass = cn(
  * Clases del contenedor del ícono: apagado, y con el acento cuando el enlace es la página actual.
  * El tamaño lo fija el ícono (por ejemplo `className="size-5"`).
  */
-export const navItemIconClass = 'inline-flex shrink-0 group-aria-[current=page]:text-accent';
+export const navItemIconClass =
+  'inline-flex shrink-0 opacity-85 group-aria-[current=page]:text-accent group-aria-[current=page]:opacity-100';
 
 export type NavItemProps = Omit<ComponentProps<'a'>, 'children'> & {
   /** Ya traducido. */

@@ -132,7 +132,7 @@ Todos los tokens viven en el archivo de tokens de `packages/ui` (ver nota de §3
 | accent-solid-hover | `#f0c06a` | `#cf942a` | Botón principal al pasar el cursor |
 | on-accent | `#1b1407` | `#1b1407` | Texto sobre accent-solid |
 | success | `#5fd8a4` | `#0d7048` | Permitido, verificado |
-| warning | `#ff9f5a` | `#8f3d00` | Atención, rotación pendiente (naranja: distinto del latón del acento) |
+| warning | `#ecc272` | `#7a5000` | Atención, rotación pendiente |
 | danger | `#ff948f` | `#b02b27` | Negado, error |
 | danger-solid | `#c93843` | `#b02b27` | Relleno de acciones destructivas |
 | on-danger | `#ffffff` | `#ffffff` | Texto sobre danger-solid |
@@ -161,7 +161,7 @@ Cada color de estado y de acento tiene una variante suave (`accent-soft`, `succe
 
 **Reglas que se respetan siempre**
 
-1. **Un solo acento.** El latón sirve para orientarse: página activa del menú, botón principal, foco, valor revelado, progreso y el chip de rango de la Raíz. No decora y no significa estado.
+1. **Un solo acento.** El latón sirve para orientarse: página activa del menú, botón principal, foco, valor revelado, progreso. No decora y no significa estado.
 2. **El cristal es solo para capas flotantes:** ventanas modales, barra superior y menús. Nunca en tarjetas ni tablas: el contenido es opaco y legible.
 3. **El estado nunca se comunica solo con color.** Todo chip de estado lleva texto, y el punto de color es refuerzo.
 4. **Lo que una máquina produce o una persona debe leer exacto va en la fuente monoespaciada:** códigos TOTP, hashes, marcas de tiempo, identificadores y rangos de acceso.
@@ -172,7 +172,7 @@ Cada color de estado y de acento tiene una variante suave (`accent-soft`, `succe
 9. Para añadir un color nuevo: se agrega el token **en los dos temas**, se mide el contraste y se documenta aquí.
 10. **El cristal tiene respaldo opaco.** Sin `backdrop-filter` en el navegador, o con la preferencia de transparencia reducida, las capas de cristal usan el fondo opaco `overlay`. Todo componente nuevo con cristal reutiliza las clases `glass` y `glass-bar`, no su propio desenfoque.
 
-**Brechas conocidas del rediseño:** ninguna abierta. Las de la revisión T7 se cerraron: el chip de rango de la barra superior, la advertencia en naranja propio, el contorno del menú activo con colores forzados, la medición de contraste de `text-muted` y `border-input` sobre `overlay` y menú lateral y de los fondos `*-soft` en `tokens.test.ts`, y las marcas de tiempo en fuente monoespaciada.
+**Brechas conocidas del rediseño** (revisión T7, sin corregir): la barra superior aún no muestra el chip de rango que pide el marco; el acento y la advertencia comparten valor, y el chip de la Raíz usa acento fuera de los usos de la regla 1; el estado activo del menú depende de una sombra que desaparece con colores forzados; faltan medir en la prueba de tokens `text-muted` sobre `overlay` y el menú lateral, los fondos `*-soft` y `border-input`; las marcas de tiempo de `invitations-table`, `history-dialog` y `passkeys-table` no usan fuente monoespaciada.
 
 **Marco de la aplicación**
 
@@ -191,7 +191,7 @@ Valores calculados con la fórmula WCAG 2.x sobre los tokens de §4.1.
 | text-muted | oscuro / claro | 6.1 / 5.2 | 5.6 / 5.7 | 5.1 / 5.4 | 4.5 / 4.9 |
 | accent | oscuro / claro | 11.5 / 6.4 | 10.5 / 7.1 | 9.7 / 6.6 | 8.6 / 6.1 |
 | success | oscuro / claro | 10.8 / 5.6 | 10.0 / 6.1 | 9.2 / 5.8 | 8.1 / 5.3 |
-| warning | oscuro / claro | 9.5 / 6.7 | 8.7 / 7.4 | 8.0 / 7.0 | 7.1 / 6.4 |
+| warning | oscuro / claro | 11.5 / 6.4 | 10.5 / 7.1 | 9.7 / 6.6 | 8.6 / 6.1 |
 | danger | oscuro / claro | 9.1 / 5.9 | 8.3 / 6.5 | 7.6 / 6.1 | 6.8 / 5.6 |
 | info | oscuro / claro | 9.7 / 6.3 | 8.9 / 6.9 | 8.2 / 6.5 | 7.2 / 6.0 |
 | border-input | oscuro / claro | 4.2 / 3.3 | 3.9 / 3.6 | 3.6 / 3.4 | 3.1 / 3.1 |

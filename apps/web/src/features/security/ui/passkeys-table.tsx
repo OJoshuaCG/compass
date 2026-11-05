@@ -67,13 +67,9 @@ export function PasskeysTable({
         id: 'lastUsed',
         header: t('col.lastUsed'),
         cell: (row) =>
-          row.lastUsedAt === null ? (
-            t('lastUsed.never')
-          ) : (
-            <span className="font-mono text-text-secondary">
-              {formatDateTime(row.lastUsedAt, i18n.language, timeZone)}
-            </span>
-          ),
+          row.lastUsedAt === null
+            ? t('lastUsed.never')
+            : formatDateTime(row.lastUsedAt, i18n.language, timeZone),
       },
     ],
     [t, i18n.language, timeZone],

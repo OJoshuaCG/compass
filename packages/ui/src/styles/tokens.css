@@ -37,7 +37,7 @@
   --color-accent-solid-hover: #f0c06a;
   --color-on-accent: #1b1407;
   --color-success: #5fd8a4;
-  --color-warning: #ff9f5a;
+  --color-warning: #ecc272;
   --color-danger: #ff948f;
   --color-danger-solid: #c93843;
   --color-on-danger: #ffffff;
@@ -47,7 +47,7 @@
   /* Variantes suaves: fondo de chips y avisos; su texto usa el token pleno */
   --color-accent-soft: rgb(230 180 91 / 0.13);
   --color-success-soft: rgb(95 216 164 / 0.12);
-  --color-warning-soft: rgb(255 159 90 / 0.13);
+  --color-warning-soft: rgb(230 180 91 / 0.13);
   --color-danger-soft: rgb(255 148 143 / 0.13);
   --color-info-soft: rgb(127 188 255 / 0.13);
 
@@ -86,7 +86,7 @@
   --color-accent-solid-hover: #cf942a;
   --color-on-accent: #1b1407;
   --color-success: #0d7048;
-  --color-warning: #8f3d00;
+  --color-warning: #7a5000;
   --color-danger: #b02b27;
   --color-danger-solid: #b02b27;
   --color-on-danger: #ffffff;
@@ -95,7 +95,7 @@
 
   --color-accent-soft: rgb(220 162 53 / 0.17);
   --color-success-soft: rgb(13 112 72 / 0.1);
-  --color-warning-soft: rgb(143 61 0 / 0.1);
+  --color-warning-soft: rgb(220 162 53 / 0.18);
   --color-danger-soft: rgb(176 43 39 / 0.09);
   --color-info-soft: rgb(26 88 173 / 0.09);
 
@@ -256,17 +256,5 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
-  }
-}
-
-/*
- * Colores forzados (Windows alto contraste): el estado activo del menú se marca con un anillo
- * (sombra), y el sistema elimina las sombras. El contorno sí se conserva y mantiene la señal
- * sin depender del color.
- */
-@media (forced-colors: active) {
-  [aria-current='page'] {
-    outline: 2px solid Highlight;
-    outline-offset: -2px;
   }
 }
