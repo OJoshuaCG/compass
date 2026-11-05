@@ -94,7 +94,7 @@ export function RecoveryCodesPanel({ codes, onContinue }: RecoveryCodesPanelProp
       </h2>
       <ul
         aria-labelledby={headingId}
-        className="grid grid-cols-1 gap-2 rounded-md border border-border bg-raised p-4 font-mono text-sm text-text sm:grid-cols-2"
+        className="grid grid-cols-1 gap-2 rounded-md border border-border-strong bg-raised p-4 font-mono text-sm text-text sm:grid-cols-2"
       >
         {codes.map((code) => (
           <li key={code} className="tabular-nums">

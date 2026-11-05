@@ -24,7 +24,7 @@ export function PublicLayout() {
       <main
         id={MAIN_CONTENT_ID}
         tabIndex={-1}
-        className={`${MAIN_CONTENT_CLASS} mx-auto w-full max-w-md flex-1 px-4 py-10 sm:py-16`}
+        className={`${MAIN_CONTENT_CLASS} mx-auto w-full max-w-md flex-1 px-4 py-8`}
       >
         <Outlet />
       </main>

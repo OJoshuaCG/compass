@@ -17,7 +17,7 @@ export function RootNotFound() {
       <main
         id={MAIN_CONTENT_ID}
         tabIndex={-1}
-        className={`${MAIN_CONTENT_CLASS} mx-auto max-w-xl p-6 pt-16`}
+        className={`${MAIN_CONTENT_CLASS} mx-auto max-w-xl p-6`}
       >
         <NotFoundPage />
       </main>
