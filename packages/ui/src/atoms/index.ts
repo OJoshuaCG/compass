@@ -1,6 +1,4 @@
-export { Avatar, initialsOf, type AvatarProps } from './avatar';
 export { Badge, badgeVariants, type BadgeProps } from './badge';
-export { BrandMark, type BrandMarkProps } from './brand-mark';
 export { Button, buttonVariants, type ButtonProps } from './button';
 export { Checkbox, type CheckboxProps } from './checkbox';
 export { IconButton, type IconButtonProps } from './icon-button';

@@ -41,7 +41,7 @@ export function StrengthMeter({ level, label, levelText, className }: StrengthMe
             key={bar}
             aria-hidden="true"
             className={cn(
-              'h-1.5 flex-1 rounded-full',
+              'h-1.5 flex-1 rounded-sm',
               bar <= level ? barTone(level) : 'bg-border-strong',
             )}
           />

@@ -1,57 +1,15 @@
-import {
-  AppShell,
-  Avatar,
-  Bell,
-  BrandMark,
-  Button,
-  House,
-  Inbox,
-  KeyRound,
-  Layers,
-  LayoutGrid,
-  LogOut,
-  Monitor,
-  NavGroup,
-  navItemClass,
-  navItemIconClass,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserCog,
-  Users,
-} from '@iam/ui';
+import { AppShell, Button, LogOut } from '@iam/ui';
 import { Link, Outlet } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useLogout, useMe, usePermission } from '../shared/auth';
 import { LanguageSwitcher } from '../shared/i18n';
-import { ThemeSwitcher } from '../shared/theme';
 
-// El estado activo se dibuja desde `aria-current` (ver `navItemClass`), que el enrutador fija.
-const activeProps = { 'aria-current': 'page' } as const;
+const linkClass =
+  'flex min-h-8 items-center rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-raised hover:text-text';
+const activeProps = { 'aria-current': 'page', className: 'bg-raised text-text' } as const;
 
-type NavLinkProps = {
-  to: string;
-  icon: ReactNode;
-  label: string;
-  exact?: boolean;
-};
-
-/** Enlace del menú lateral: el `Link` del enrutador con las clases compartidas de `NavItem`. */
-function NavLink({ to, icon, label, exact = false }: NavLinkProps) {
-  return (
-    <li>
-      <Link to={to} className={navItemClass} activeProps={activeProps} activeOptions={{ exact }}>
-        <span aria-hidden="true" className={navItemIconClass}>
-          {icon}
-        </span>
-        {label}
-      </Link>
-    </li>
-  );
-}
-
-/** Marco de la app autenticada: barra superior, navegación agrupada y contenido. */
+/** Marco de la app autenticada: navegación, cabecera con idioma, usuario y cierre de sesión. */
 export function AppLayout() {
   const { t } = useTranslation('common');
   const me = useMe();
@@ -63,32 +21,22 @@ export function AppLayout() {
   // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
   const canManageInfraAlerts = usePermission('alerts.infra.manage');
   const { logout, pending } = useLogout();
-  const showCatalog: boolean = import.meta.env.DEV;
-  // El grupo Acceso se oculta entero cuando ninguno de sus enlaces aplica a la persona.
-  const showAccessGroup: boolean = canManageRoles || canManageInfraAlerts || showCatalog;
   return (
     <AppShell
       skipLinkLabel={t('nav.skipToContent')}
       header={
         <>
-          <span className="inline-flex items-center gap-2.5 font-heading text-lg font-semibold text-text">
-            <BrandMark />
-            {t('app.name')}
-          </span>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="font-heading text-lg text-text">{t('app.name')}</span>
+          <div className="flex items-center gap-4">
             <LanguageSwitcher />
-            <ThemeSwitcher />
             {me !== undefined ? (
-              <span className="inline-flex items-center gap-2.5">
-                <Avatar name={me.user.displayName} size="sm" />
-                <span className="hidden text-sm text-text-secondary sm:inline">
-                  {me.user.displayName}
-                </span>
+              <span className="hidden text-sm text-text-secondary sm:inline">
+                {me.user.displayName}
               </span>
             ) : null}
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               loading={pending}
               onClick={() => {
                 void logout();
@@ -101,62 +49,81 @@ export function AppLayout() {
         </>
       }
       sidebar={
-        <nav aria-label={t('nav.label')} className="flex flex-col gap-5">
-          <NavGroup label={t('nav.group.workspace')}>
-            <NavLink to="/" exact icon={<House className="size-5" />} label={t('nav.home')} />
-            <NavLink to="/users" icon={<Users className="size-5" />} label={t('nav.users')} />
-            <NavLink
-              to="/sessions"
-              icon={<Monitor className="size-5" />}
-              label={t('nav.sessions')}
-            />
-            <NavLink
-              to="/security"
-              icon={<ShieldCheck className="size-5" />}
-              label={t('nav.security')}
-            />
-          </NavGroup>
-          <NavGroup label={t('nav.group.vault')}>
-            <NavLink
-              to="/accounts"
-              icon={<KeyRound className="size-5" />}
-              label={t('nav.accounts')}
-            />
+        <nav aria-label={t('nav.label')}>
+          <ul className="flex flex-col gap-1">
+            <li>
+              <Link
+                to="/"
+                className={linkClass}
+                activeProps={activeProps}
+                activeOptions={{ exact: true }}
+              >
+                {t('nav.home')}
+              </Link>
+            </li>
+            <li>
+              <Link to="/users" className={linkClass} activeProps={activeProps}>
+                {t('nav.users')}
+              </Link>
+            </li>
+            <li>
+              <Link to="/sessions" className={linkClass} activeProps={activeProps}>
+                {t('nav.sessions')}
+              </Link>
+            </li>
+            <li>
+              <Link to="/security" className={linkClass} activeProps={activeProps}>
+                {t('nav.security')}
+              </Link>
+            </li>
+            <li>
+              <Link to="/accounts" className={linkClass} activeProps={activeProps}>
+                {t('nav.accounts')}
+              </Link>
+            </li>
             {canReadInboundCodes ? (
-              <NavLink to="/inbound" icon={<Inbox className="size-5" />} label={t('nav.inbound')} />
+              <li>
+                <Link to="/inbound" className={linkClass} activeProps={activeProps}>
+                  {t('nav.inbound')}
+                </Link>
+              </li>
             ) : null}
             {canConfigureInbound ? (
               <>
-                <NavLink
-                  to="/inbound/sources"
-                  icon={<Layers className="size-5" />}
-                  label={t('nav.inboundSources')}
-                />
-                <NavLink
-                  to="/inbound/view-settings"
-                  icon={<SlidersHorizontal className="size-5" />}
-                  label={t('nav.inboundViewSettings')}
-                />
+                <li>
+                  <Link to="/inbound/sources" className={linkClass} activeProps={activeProps}>
+                    {t('nav.inboundSources')}
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/inbound/view-settings" className={linkClass} activeProps={activeProps}>
+                    {t('nav.inboundViewSettings')}
+                  </Link>
+                </li>
               </>
             ) : null}
-          </NavGroup>
-          {showAccessGroup ? (
-            <NavGroup label={t('nav.group.access')}>
-              {canManageRoles ? (
-                <NavLink to="/roles" icon={<UserCog className="size-5" />} label={t('nav.roles')} />
-              ) : null}
-              {canManageInfraAlerts ? (
-                <NavLink to="/alerts" icon={<Bell className="size-5" />} label={t('nav.alerts')} />
-              ) : null}
-              {showCatalog ? (
-                <NavLink
-                  to="/catalog"
-                  icon={<LayoutGrid className="size-5" />}
-                  label={t('nav.catalog')}
-                />
-              ) : null}
-            </NavGroup>
-          ) : null}
+            {canManageRoles ? (
+              <li>
+                <Link to="/roles" className={linkClass} activeProps={activeProps}>
+                  {t('nav.roles')}
+                </Link>
+              </li>
+            ) : null}
+            {canManageInfraAlerts ? (
+              <li>
+                <Link to="/alerts" className={linkClass} activeProps={activeProps}>
+                  {t('nav.alerts')}
+                </Link>
+              </li>
+            ) : null}
+            {import.meta.env.DEV ? (
+              <li>
+                <Link to="/catalog" className={linkClass} activeProps={activeProps}>
+                  {t('nav.catalog')}
+                </Link>
+              </li>
+            ) : null}
+          </ul>
         </nav>
       }
     >

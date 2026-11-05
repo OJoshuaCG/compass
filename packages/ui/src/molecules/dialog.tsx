@@ -29,8 +29,8 @@ export function Dialog({
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         {/* z-50 > z-40 del aviso emergente: el aviso nunca tapa los botones de un diálogo abierto. */}
-        <RadixDialog.Overlay className="fixed inset-0 z-50 scrim" />
-        <RadixDialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto glass rounded-lg p-6">
+        <RadixDialog.Overlay className="fixed inset-0 z-50 bg-canvas/80" />
+        <RadixDialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto rounded-lg border border-border-strong bg-overlay p-6 shadow-overlay">
           <RadixDialog.Title className="pe-8 font-heading text-lg break-words text-text">
             {title}
           </RadixDialog.Title>

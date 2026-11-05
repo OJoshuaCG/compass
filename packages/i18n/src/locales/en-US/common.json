@@ -96,8 +96,5 @@
   "nav.inbound": "Access codes",
   "nav.inboundSources": "Code sources",
   "nav.inboundViewSettings": "Code views",
-  "nav.alerts": "Infrastructure alerts",
-  "nav.group.workspace": "Workspace",
-  "nav.group.vault": "Vault",
-  "nav.group.access": "Access"
+  "nav.alerts": "Infrastructure alerts"
 }

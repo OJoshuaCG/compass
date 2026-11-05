@@ -4,14 +4,13 @@ import type { ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from '../icons';
 import { cn } from '../lib/cn';
 
-// Fondo suave del estado + borde y texto con el token pleno; el ícono y el texto refuerzan el color.
 const alert = cva('flex items-start gap-3 rounded-md border px-4 py-3 text-sm', {
   variants: {
     tone: {
-      danger: 'border-danger bg-danger-soft text-danger',
-      warning: 'border-warning bg-warning-soft text-warning',
-      success: 'border-success bg-success-soft text-success',
-      info: 'border-info bg-info-soft text-text',
+      danger: 'border-danger text-danger',
+      warning: 'border-warning text-warning',
+      success: 'border-success text-success',
+      info: 'border-border-strong text-text',
     },
   },
   defaultVariants: { tone: 'info' },

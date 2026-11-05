@@ -52,8 +52,8 @@ export function ConfirmDialog({
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         {/* z-50 > z-40 del aviso emergente: el aviso nunca tapa los botones de un diálogo abierto. */}
-        <Dialog.Overlay className="fixed inset-0 z-50 scrim" />
-        <Dialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto glass rounded-lg p-6">
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-canvas/80" />
+        <Dialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto rounded-lg border border-border-strong bg-overlay p-6 shadow-overlay">
           <Dialog.Title className="font-heading text-lg break-words text-text">
             {title}
           </Dialog.Title>
