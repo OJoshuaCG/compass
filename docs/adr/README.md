@@ -65,7 +65,6 @@ Plantilla: [`template.md`](template.md).
 | [0046](0046-first-root-one-time-setup.md) | Alta de la primera organización y su Raíz por un enlace de un solo uso, sin rol privilegiado (encargo del dueño, 2026-11-02) | Aceptada | Al desplegar un entorno nuevo |
 | [0047](0047-user-configured-integrations.md) | Integraciones configurables por la persona administradora: alertas de infraestructura por correo y/o Telegram (Raíz) y recepción de SMS por API genérica de consulta (encargo del dueño, 2026-11-03) | Aceptada | Al construir las integraciones |
 | [0048](0048-root-transfer-and-emergency-code-reissue.md) | Transferencia de la Raíz con espera de 72 horas y reemisión de los códigos de emergencia | Aceptada |
-| [0049](0049-compass-visual-system.md) | Sistema visual de Compass: acento latón, dos temas (oscuro y claro) y cristal solo en capas flotantes (encargo del dueño, 2026-11-04) | Aceptada | Al crear o cambiar cualquier pantalla o componente |
 
 Las fases indicadas son una recomendación de este registro, no una decisión del plan.
 

@@ -1,4 +1,4 @@
-/** Los dos temas del sistema visual (docs/frontend.md §4.1, ADR 0049). */
+/** Los dos temas del sistema visual (docs/frontend.md §4.1, ADR 0044). */
 export type Theme = 'dark' | 'light';
 
 export const THEME_STORAGE_KEY = 'iam.theme';

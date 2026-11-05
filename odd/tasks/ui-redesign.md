@@ -19,7 +19,7 @@ Fuente del diseño: https://claude.ai/artifact/Tth2eUdgKBYiZjMmcZmwdn (lienzo de
 
 | ID | Specs | Ruta | Estado | Commit |
 | --- | --- | --- | --- | --- |
-| T1 Documentar reglas (`docs/frontend.md` §4, ADR 0049, guía para agentes) | S1, S3, S4 | inline | hecho: prettier en verde, contrastes calculados con la fórmula WCAG | ver `git log` |
+| T1 Documentar reglas (`docs/frontend.md` §4, ADR 0044, guía para agentes) | S1, S3, S4 | inline | hecho: prettier en verde, contrastes calculados con la fórmula WCAG | ver `git log` |
 | T2 Tokens de dos temas, selector de tema y prueba de contraste | S2, S3, S7 | inline | hecho: 116 pruebas verdes (tokens en dos temas, tema, paridad i18n, a11y de ui), tipos y lint limpios en web y ui; falta cablear el selector en la barra superior (T3) | ver `git log` |
 | T3 Componentes base y marco (`packages/ui`: botón, chip, campo, tarjeta, tabla, cristal, AppShell, PageHeader) | S2, S5, S7 | delegado (frontend-developer), uno a la vez | hecho: 18 archivos y 228 pruebas verdes (ui, web, paridad i18n); sin ejecutar aún lint, tipos y e2e en esta unidad | ver `git log` |
 | T4 Vistas: inicio, usuarios, sesiones, seguridad, roles | S5 | delegado (frontend-developer), uno a la vez | hecho: 15 archivos y 202 pruebas verdes, tipos y lint limpios; el árbol jerárquico queda fuera (L6); el Home no tiene prueba | ver `git log` |
