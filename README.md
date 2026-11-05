@@ -7,6 +7,8 @@
 
 # Compass: plataforma interna de identidad, accesos y bóveda
 
+**Presentación del proyecto:** [ojoshuacg.github.io/compass](https://ojoshuacg.github.io/compass/)
+
 Una herramienta interna para que un equipo pequeño gestione **quién puede entrar a qué**, y para guardar y compartir de forma segura las **cuentas de plataformas externas** (por ejemplo, redes sociales) con sus segundos factores de verificación. Cada acceso importante queda registrado en una bitácora que nadie puede reescribir.
 
 Está pensada para una sola organización de unas tres personas operando, aunque el diseño ya permite crecer a varias. Guarda secretos reales de la empresa, así que en cada decisión **la seguridad pesa más que la velocidad**.
@@ -102,9 +104,9 @@ Sistema probado: Linux. Cuenta con unos 4 GB de memoria libres y conexión a int
 
 ## Página de presentación
 
-La carpeta [`site/`](site/index.html) contiene una página estática que explica qué es Compass, con los mismos colores y los dos temas (oscuro y claro) de la aplicación. No necesita instalar nada ni compilar: se puede abrir `site/index.html` directamente en el navegador. Funciona en pantallas de escritorio y de celular.
+La carpeta [`site/`](site/index.html) contiene una página estática que explica qué es Compass, con los mismos colores y los dos temas (oscuro y claro) de la aplicación. No necesita instalar nada ni compilar: se puede abrir `site/index.html` directamente en el navegador. Funciona en pantallas de escritorio y en dispositivos móviles.
 
-- **Publicación.** Un flujo de GitHub Actions (`.github/workflows/pages.yml`) la publica en GitHub Pages cada vez que cambia algo dentro de `site/` en la rama principal. La primera vez hay que activar Pages en el repositorio: **Settings → Pages → Source: GitHub Actions**. Su dirección será `https://ojoshuacg.github.io/compass/`. En repositorios privados, Pages depende del plan de GitHub.
+- **Publicación.** Un flujo de GitHub Actions (`.github/workflows/pages.yml`) la publica en GitHub Pages cada vez que cambia algo dentro de `site/` en la rama principal. La primera vez hay que activar Pages en el repositorio: **Settings → Pages → Source: GitHub Actions**. Su dirección es [https://ojoshuacg.github.io/compass/](https://ojoshuacg.github.io/compass/). En repositorios privados, Pages depende del plan de GitHub.
 - **Logos.** La carpeta `site/assets/logos/` guarda una copia de los logos que viven en `apps/web/public/`, porque la página se publica sola y no puede leer fuera de `site/`. Si cambia un logo, hay que actualizar las dos copias.
 - **Colores.** Salen de los tokens de la aplicación (`packages/ui/src/styles/tokens.css`). Si cambia el sistema visual, se actualizan también en `site/styles.css`.
 - **Contenido.** Resume lo que dice esta documentación y no la reemplaza. Mientras la fase 1 no termine, la página avisa que no se cargan credenciales reales: si cambia el estado del proyecto, hay que actualizar también la sección «Estado» de la página.
