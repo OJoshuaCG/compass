@@ -109,6 +109,7 @@ La carpeta [`site/`](site/index.html) contiene una página estática que explica
 - **Publicación.** Un flujo de GitHub Actions (`.github/workflows/pages.yml`) la publica en GitHub Pages cada vez que cambia algo dentro de `site/` en la rama principal. La primera vez hay que activar Pages en el repositorio: **Settings → Pages → Source: GitHub Actions**. Su dirección es [https://ojoshuacg.github.io/compass/](https://ojoshuacg.github.io/compass/). En repositorios privados, Pages depende del plan de GitHub.
 - **Logos.** La carpeta `site/assets/logos/` guarda una copia de los logos que viven en `apps/web/public/`, porque la página se publica sola y no puede leer fuera de `site/`. Si cambia un logo, hay que actualizar las dos copias.
 - **Colores.** Salen de los tokens de la aplicación (`packages/ui/src/styles/tokens.css`). Si cambia el sistema visual, se actualizan también en `site/styles.css`.
+- **Idioma.** El texto base está en español y un botón de la barra superior cambia entre español e inglés (recuerda la elección y, la primera vez, usa el idioma del navegador). Las traducciones al inglés viven en `site/i18n.js`, indexadas por el texto en español: si se cambia un texto de `site/index.html`, hay que actualizar también esa entrada.
 - **Contenido.** Resume lo que dice esta documentación y no la reemplaza. Mientras la fase 1 no termine, la página avisa que no se cargan credenciales reales: si cambia el estado del proyecto, hay que actualizar también la sección «Estado» de la página.
 
 ## Dónde leer más
