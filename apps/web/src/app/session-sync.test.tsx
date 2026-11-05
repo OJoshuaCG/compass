@@ -8,10 +8,6 @@ import { FakeBroadcastChannel } from '../test/fake-broadcast-channel';
 import { jsonResponse, meFixture, noContent, problem, stubApi } from '../test/fake-api';
 import { es } from '../test/helpers';
 import { renderApp } from '../test/render-app';
-import { openUserMenu } from '../test/user-menu';
-
-/** Nombre de `meFixture()`: el botón del menú de la persona se llama como ella. */
-const ME_DISPLAY_NAME = meFixture().user.displayName;
 
 /** "Otra pestaña": una instancia independiente del mismo canal. */
 function otherTab() {
@@ -41,8 +37,7 @@ describe('cross-tab session sync', () => {
     loggedInApi();
     const { router } = renderApp('/');
     const tab = otherTab();
-    await openUserMenu(user, ME_DISPLAY_NAME);
-    await user.click(await screen.findByRole('menuitem', { name: es.common['actions.logout'] }));
+    await user.click(await screen.findByRole('button', { name: es.common['actions.logout'] }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/login');
     });
@@ -61,8 +56,7 @@ describe('cross-tab session sync', () => {
     });
     renderApp('/');
     const tab = otherTab();
-    await openUserMenu(user, ME_DISPLAY_NAME);
-    await user.click(await screen.findByRole('menuitem', { name: es.common['actions.logout'] }));
+    await user.click(await screen.findByRole('button', { name: es.common['actions.logout'] }));
     await screen.findByText(es.common['actions.logoutFailed']);
     expect(tab.received).toEqual([]);
   });
@@ -170,8 +164,7 @@ describe('cross-tab session sync', () => {
     const user = userEvent.setup();
     loggedInApi();
     const { router } = renderApp('/');
-    await openUserMenu(user, ME_DISPLAY_NAME);
-    await user.click(await screen.findByRole('menuitem', { name: es.common['actions.logout'] }));
+    await user.click(await screen.findByRole('button', { name: es.common['actions.logout'] }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/login');
     });

@@ -35,7 +35,7 @@ describe('app shell and routing', () => {
     const user = userEvent.setup();
     renderApp('/');
     await screen.findByRole('heading', { level: 1, name: es['home.title'] });
-    await user.click(screen.getByRole('button', { name: /English/ }));
+    await user.selectOptions(screen.getByRole('combobox', { name: es['language.label'] }), 'en-US');
     expect(
       await screen.findByRole('heading', { level: 1, name: en['home.title'] }),
     ).toBeInTheDocument();
@@ -43,12 +43,13 @@ describe('app shell and routing', () => {
     expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('en-US');
   });
 
-  it('shows the active language code and names the language it switches to', async () => {
+  it('marks each language option with its own lang so screen readers pronounce it correctly', async () => {
     renderApp('/');
     await screen.findByRole('heading', { level: 1, name: es['home.title'] });
-    const toggle = screen.getByRole('button', { name: /English/ });
-    expect(toggle).toHaveTextContent('ES');
-    expect(toggle.querySelector('[lang="es-MX"]')).not.toBeNull();
+    const spanishOption = screen.getByRole('option', { name: es['language.es-MX'] });
+    const englishOption = screen.getByRole('option', { name: es['language.en-US'] });
+    expect(spanishOption).toHaveAttribute('lang', 'es-MX');
+    expect(englishOption).toHaveAttribute('lang', 'en-US');
   });
 
   it('shows the not-found page for unknown routes', async () => {
@@ -162,14 +163,14 @@ describe('route announcements', () => {
     const user = userEvent.setup();
     renderApp('/');
     await screen.findByRole('heading', { level: 1, name: es['home.title'] });
-    const languageToggle = screen.getByRole('button', { name: /English/ });
+    const languageSelect = screen.getByRole('combobox', { name: es['language.label'] });
 
-    await user.click(languageToggle);
+    await user.selectOptions(languageSelect, 'en-US');
 
     await waitFor(() => {
       expect(document.title).toBe(`${en['home.title']} · ${en['app.name']}`);
     });
-    expect(languageToggle).toHaveFocus();
+    expect(languageSelect).toHaveFocus();
   });
 });
 

@@ -99,21 +99,5 @@
   "nav.alerts": "Infrastructure alerts",
   "nav.group.workspace": "Workspace",
   "nav.group.vault": "Vault",
-  "nav.group.access": "Access",
-  "language.switchTo": "Switch to {{language}}",
-  "nav.hideMenu": "Hide menu",
-  "nav.showMenu": "Show menu",
-  "home.summary.title": "Summary",
-  "home.stat.unavailable": "Total not available",
-  "home.stat.unavailableHint": "There are more records than fit in one request. Open the list to see them.",
-  "home.team.title": "People you manage",
-  "home.team.empty": "You do not manage anyone yet.",
-  "home.inventory.title": "Accounts in the inventory",
-  "home.inventory.empty": "There are no accounts in the inventory yet.",
-  "home.sessions.title": "Your open sessions",
-  "home.sessions.empty": "There are no open sessions.",
-  "home.shortcuts.title": "Shortcuts",
-  "home.shortcuts.users": "Browse and manage the people in your organization.",
-  "home.shortcuts.accounts": "Browse the vault accounts you can access.",
-  "home.shortcuts.security": "Review your sign-in methods and your account security."
+  "nav.group.access": "Access"
 }
