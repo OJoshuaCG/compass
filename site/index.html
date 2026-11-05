@@ -41,6 +41,13 @@
           <a href="#estado">Estado</a>
         </nav>
         <div class="actions">
+          <button class="btn btn-lang" type="button" id="lang-toggle" aria-label="Cambiar el idioma a inglés">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z" />
+            </svg>
+            <span id="lang-label" class="mono">EN</span>
+          </button>
           <button class="btn btn-icon" type="button" id="theme-toggle" aria-label="Cambiar tema claro u oscuro">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="4" />
@@ -323,5 +330,6 @@
     </footer>
 
     <script src="theme-toggle.js" defer></script>
+    <script src="i18n.js" defer></script>
   </body>
 </html>
