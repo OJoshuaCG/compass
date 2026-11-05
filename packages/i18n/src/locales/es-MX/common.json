@@ -7,8 +7,6 @@
   "language.label": "Idioma",
   "language.es-MX": "Español (México)",
   "language.en-US": "English (US)",
-  "theme.switchToLight": "Cambiar al tema claro",
-  "theme.switchToDark": "Cambiar al tema oscuro",
   "home.title": "Plataforma de identidad y accesos",
   "home.description": "Administra las personas, los roles y los accesos de tu organización.",
   "actions.cancel": "Cancelar",

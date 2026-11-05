@@ -11,10 +11,6 @@ import { App } from './app/app';
 import { createQueryClient } from './app/query-client';
 import { createAppRouter } from './app/router';
 import { createI18n, detectInitialLocale } from './shared/i18n';
-import { applyTheme, detectInitialTheme } from './shared/theme';
-
-// El tema se fija antes de pintar para evitar un destello del tema equivocado.
-applyTheme(detectInitialTheme());
 
 const container = document.getElementById('root');
 if (container === null) throw new Error('Root container #root not found');
