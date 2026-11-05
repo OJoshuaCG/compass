@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compass: identidad, accesos y bóveda para tu equipo</title>
+    <meta
+      name="description"
+      content="Compass es una plataforma interna para gestionar quién puede entrar a qué, y guardar y compartir cuentas de plataformas externas con sus segundos factores, con una bitácora que nadie puede reescribir."
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b0f13" />
+    <link rel="icon" type="image/svg+xml" href="assets/logos/compass-icon-app-dark.svg" />
+    <link rel="apple-touch-icon" href="assets/logos/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Compass: identidad, accesos y bóveda" />
+    <meta
+      property="og:description"
+      content="Quién entra a qué, cuentas compartidas con segundo factor y una bitácora a prueba de manipulación."
+    />
+    <meta property="og:image" content="https://ojoshuacg.github.io/compass/assets/logos/og-card.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Fija el tema guardado antes de pintar, para evitar un parpadeo. -->
+    <script src="theme-init.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#contenido">Saltar al contenido</a>
+
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="#inicio" aria-label="Compass, inicio">
+          <img class="logo-dark" src="assets/logos/compass-horizontal-bold-dark.svg" alt="Compass" width="107" height="28" />
+          <img class="logo-light" src="assets/logos/compass-horizontal-bold-light.svg" alt="Compass" width="107" height="28" />
+        </a>
+        <nav class="nav" aria-label="Principal">
+          <a href="#problema">Problema</a>
+          <a href="#capacidades">Capacidades</a>
+          <a href="#jerarquia">Jerarquía</a>
+          <a href="#seguridad">Seguridad</a>
+          <a href="#estado">Estado</a>
+        </nav>
+        <div class="actions">
+          <button class="btn btn-icon" type="button" id="theme-toggle" aria-label="Cambiar tema claro u oscuro">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+            </svg>
+          </button>
+          <a class="btn btn-primary" href="https://github.com/OJoshuaCG/compass">Ver el proyecto</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="contenido">
+      <div class="hero" id="inicio">
+        <div class="wrap">
+          <div>
+            <span class="eyebrow">Plataforma interna</span>
+            <h1>Quién entra a qué, <em>bajo control</em>.</h1>
+            <p class="lead">
+              Compass gestiona las personas de tu equipo y custodia las cuentas de plataformas externas con sus segundos
+              factores, sin pasar contraseñas por chat ni hojas de cálculo. Cada acceso importante queda en una bitácora
+              que nadie puede reescribir.
+            </p>
+            <div class="cta">
+              <a class="btn btn-primary" href="#capacidades">Qué puede hacer</a>
+              <a class="btn" href="#estado">En qué punto está</a>
+            </div>
+            <p class="notice">
+              <span><strong>En desarrollo.</strong> Todavía no se cargan credenciales reales: antes hace falta cerrar la
+              fase 1 y pasar una prueba de penetración externa.</span>
+            </p>
+          </div>
+
+          <aside class="card log" aria-label="Ejemplo ilustrativo de la bitácora">
+            <div class="log-head">
+              <strong>Bitácora de auditoría</strong>
+              <span class="mono">ejemplo</span>
+            </div>
+            <ul class="mono">
+              <li>
+                <span class="tag tag-ok">permitido</span>
+                <time datetime="2026-01-01T09:14:02">09:14:02</time>
+                <span>Operador revela una credencial compartida</span>
+              </li>
+              <li>
+                <span class="tag tag-deny">negado</span>
+                <time datetime="2026-01-01T09:21:47">09:21:47</time>
+                <span>Líder intenta ver un secreto sin compartición</span>
+              </li>
+              <li>
+                <span class="tag tag-ok">permitido</span>
+                <time datetime="2026-01-01T09:30:10">09:30:10</time>
+                <span>Operador usa un código 2FA sin ver el secreto</span>
+              </li>
+            </ul>
+            <p class="log-foot">Las acciones negadas también quedan registradas.</p>
+          </aside>
+        </div>
+      </div>
+
+      <section id="problema" class="band">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">El problema</span>
+            <h2>Los accesos suelen vivir en una hoja de cálculo</h2>
+            <p>O en la memoria de unas pocas personas. Compass sustituye cada hábito riesgoso por una regla clara.</p>
+          </div>
+          <div class="pairs">
+            <div class="card pair">
+              <p class="before">Contraseñas compartidas por chat o correo</p>
+              <p class="after">Se comparten dentro del sistema, con nivel de acceso y vencimiento opcional.</p>
+            </div>
+            <div class="card pair">
+              <p class="before">El código de verificación vive en el teléfono de una sola persona</p>
+              <p class="after">El sistema guarda el secreto y entrega el código a quien tenga permiso.</p>
+            </div>
+            <div class="card pair">
+              <p class="before">Alguien se va y nadie sabe qué cambiar</p>
+              <p class="after">La baja señala qué conocía esa persona para rotarlo.</p>
+            </div>
+            <div class="card pair">
+              <p class="before">Nadie sabe quién entró a una cuenta</p>
+              <p class="after">Toda revelación y todo uso quedan en la auditoría.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="capacidades">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Capacidades</span>
+            <h2>Seis piezas que trabajan juntas</h2>
+            <p>Pensado para un equipo pequeño, con un diseño que ya permite crecer a varias organizaciones.</p>
+          </div>
+          <div class="grid cols">
+            <article class="card feature">
+              <div class="ico">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="3.5" /><path d="M2 21v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1M17 3.5a3.5 3.5 0 0 1 0 7M22 21v-1a6 6 0 0 0-4-5.6" /></svg>
+              </div>
+              <h3>Personas y jerarquía</h3>
+              <p>Cuatro niveles. Cada persona solo gestiona a quien está por debajo de ella en su propia línea.</p>
+            </article>
+            <article class="card feature">
+              <div class="ico">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+              </div>
+              <h3>Entrada segura</h3>
+              <p>Nadie se registra por su cuenta: se entra por invitación, con contraseña y segundo factor obligatorio, o con llave de acceso.</p>
+            </article>
+            <article class="card feature">
+              <div class="ico">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3Z" /><circle cx="12" cy="11" r="2" /><path d="M12 13v3" /></svg>
+              </div>
+              <h3>Bóveda compartida</h3>
+              <p>Las credenciales se comparten con niveles claros (usar, ver, editar, gestionar) y los secretos viven cifrados.</p>
+            </article>
+            <article class="card feature">
+              <div class="ico">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+              </div>
+              <h3>Segundo factor centralizado</h3>
+              <p>Un operador puede usar el código de una cuenta sin llegar a conocer el secreto que lo genera.</p>
+            </article>
+            <article class="card feature">
+              <div class="ico">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg>
+              </div>
+              <h3>Registro a prueba de manipulación</h3>
+              <p>Quién hizo qué, cuándo y con qué resultado, incluidas las acciones que se negaron.</p>
+            </article>
+            <article class="card feature">
+              <div class="ico">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+              </div>
+              <h3>Salida ordenada</h3>
+              <p>Cuando alguien deja el equipo se cierra su acceso y se señalan los secretos que conoció para cambiarlos.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="jerarquia" class="band">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Jerarquía</span>
+            <h2>Cuatro rangos, una línea de responsabilidad</h2>
+            <p>Ser jefe de alguien no da acceso a sus cuentas: el acceso a un secreto solo existe por una compartición explícita y auditada.</p>
+          </div>
+          <div class="ranks">
+            <div class="card rank root">
+              <h3>Raíz</h3>
+              <p>Dueña de la organización. Una sola persona.</p>
+            </div>
+            <div class="card rank">
+              <h3>Administrador</h3>
+              <p>Gestiona su rama de Líderes y Operadores.</p>
+            </div>
+            <div class="card rank">
+              <h3>Líder</h3>
+              <p>Gestiona a los Operadores de su rama.</p>
+            </div>
+            <div class="card rank">
+              <h3>Operador</h3>
+              <p>Usa las cuentas que le comparten.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="seguridad">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Seguridad</span>
+            <h2>Cuando chocan seguridad y velocidad, gana la seguridad</h2>
+            <p>Compass guarda secretos reales de una empresa. Estas reglas guían cada decisión de diseño.</p>
+          </div>
+          <ul class="principles">
+            <li>
+              <strong>Se niega por defecto</strong>
+              <span>Si ninguna regla autoriza una acción, la acción no ocurre.</span>
+            </li>
+            <li>
+              <strong>Nadie otorga lo que no tiene</strong>
+              <span>Una persona no puede dar a otra un permiso superior al suyo.</span>
+            </li>
+            <li>
+              <strong>Si no se puede auditar, no se hace</strong>
+              <span>Las acciones sensibles se rechazan si el sistema no logra dejar constancia.</span>
+            </li>
+            <li>
+              <strong>Sin criptografía inventada</strong>
+              <span>Se usan componentes auditados y ampliamente aceptados.</span>
+            </li>
+            <li>
+              <strong>Aislamiento por organización</strong>
+              <span>Los datos de cada organización se separan desde la base de datos.</span>
+            </li>
+            <li>
+              <strong>Nada se borra</strong>
+              <span>Las personas se desactivan y las cuentas se archivan: la historia se mantiene.</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="estado" class="band">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Estado</span>
+            <h2>Se entrega por fases usables</h2>
+            <p>No se abre una fase hasta cumplir los criterios de salida de la anterior. No se estiman fechas.</p>
+          </div>
+          <ol class="roadmap">
+            <li class="card phase">
+              <span class="status done">Terminada</span>
+              <h3>0 · Fundaciones</h3>
+              <p>Base técnica, aislamiento por organización, cifrado, registro y diseño visual.</p>
+            </li>
+            <li class="card phase">
+              <span class="status wip">Funciona en lo esencial</span>
+              <h3>1a · Identidad</h3>
+              <p>Invitaciones, contraseña, segundo factor, llaves de acceso, sesiones, permisos y directorio.</p>
+            </li>
+            <li class="card phase">
+              <span class="status wip">En curso</span>
+              <h3>1b · Bóveda y segundo factor</h3>
+              <p>Cuentas, credenciales con revelado auditado, compartición e importación.</p>
+            </li>
+            <li class="card phase">
+              <span class="status">Pendiente</span>
+              <h3>1c · Gobernanza</h3>
+              <p>Pantalla de auditoría, bajas con rotación, salud de credenciales y acceso temporal.</p>
+            </li>
+            <li class="card phase">
+              <span class="status wip">Construida en lo esencial</span>
+              <h3>4 · Códigos por correo</h3>
+              <p>Lectura de códigos que llegan por correo, compartidos por vistas filtradas.</p>
+            </li>
+            <li class="card phase">
+              <span class="status">Pendiente</span>
+              <h3>2, 3, 5, 6 y 7</h3>
+              <p>Inicio de sesión único, SAML y SCIM, SMS, extensión de navegador y broker de sesiones.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="closing">
+        <div class="wrap">
+          <img class="emblem logo-dark" src="assets/logos/compass-emblem-dark.svg" alt="" width="80" height="80" />
+          <img class="emblem logo-light" src="assets/logos/compass-emblem-light.svg" alt="" width="80" height="80" />
+          <h2>Conoce el diseño completo</h2>
+          <p>
+            El producto, sus reglas, las decisiones de arquitectura y el modelo de amenazas están documentados en el
+            repositorio.
+          </p>
+          <div class="cta">
+            <a class="btn btn-primary" href="https://github.com/OJoshuaCG/compass">Ir al repositorio</a>
+            <a class="btn" href="https://github.com/OJoshuaCG/compass#readme">Leer el README</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <a class="brand" href="#inicio" aria-label="Compass, inicio">
+          <img class="logo-dark" src="assets/logos/compass-horizontal-bold-dark.svg" alt="Compass" width="91" height="24" />
+          <img class="logo-light" src="assets/logos/compass-horizontal-bold-light.svg" alt="Compass" width="91" height="24" />
+        </a>
+        <ul>
+          <li><a href="https://github.com/OJoshuaCG/compass">GitHub</a></li>
+          <li><a href="https://github.com/OJoshuaCG/compass/tree/main/docs">Documentación</a></li>
+        </ul>
+        <p>Compass · plataforma interna de identidad, accesos y bóveda</p>
+      </div>
+    </footer>
+
+    <script src="theme-toggle.js" defer></script>
+  </body>
+</html>

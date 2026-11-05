@@ -9,3 +9,6 @@ plan.md
 # La documentación en Markdown no se reformatea automáticamente
 **/*.md
 odd
+
+# Página estática de presentación (GitHub Pages): se edita a mano, sin pasar por Prettier
+site
