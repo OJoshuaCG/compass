@@ -60,7 +60,6 @@ export function InboundSourcesPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('nav.group.vault', { ns: 'common' })}
         title={t('sources.title', { ns: 'inbound' })}
         description={t('sources.description', { ns: 'inbound' })}
         actions={

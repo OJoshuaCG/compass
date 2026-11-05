@@ -184,7 +184,6 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
     <>
       {backLink}
       <PageHeader
-        eyebrow={t('nav.group.vault', { ns: 'common' })}
         title={t('title', { ns: 'credentials', name: account.displayName })}
         description={t('description', { ns: 'credentials' })}
         actions={

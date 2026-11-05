@@ -92,7 +92,6 @@ export function SharesPage({ accountId }: SharesPageProps) {
     <>
       {backLink}
       <PageHeader
-        eyebrow={t('nav.group.vault', { ns: 'common' })}
         title={t('title', { ns: 'shares', name: account.displayName })}
         description={t('description', { ns: 'shares' })}
         actions={

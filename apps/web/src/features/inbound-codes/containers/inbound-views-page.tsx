@@ -31,7 +31,6 @@ export function InboundViewsPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('nav.group.vault', { ns: 'common' })}
         title={t('title', { ns: 'inbound' })}
         description={t('description', { ns: 'inbound' })}
       />

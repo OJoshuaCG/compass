@@ -75,27 +75,15 @@ export function CredentialsTable({
 
   const columns = useMemo<Column<Credential>[]>(
     () => [
-      {
-        id: 'label',
-        header: t('col.label'),
-        cell: (row) => <span className="font-medium text-text">{row.label}</span>,
-      },
-      {
-        id: 'kind',
-        header: t('col.kind'),
-        cell: (row) => <Badge dot>{t(`kind.${row.kind}`)}</Badge>,
-      },
+      { id: 'label', header: t('col.label'), cell: (row) => row.label },
+      { id: 'kind', header: t('col.kind'), cell: (row) => <Badge>{t(`kind.${row.kind}`)}</Badge> },
       {
         id: 'lastRotated',
         header: t('col.lastRotated'),
         cell: (row) =>
-          row.lastRotatedAt === null ? (
-            t('rotated.never')
-          ) : (
-            <span className="font-mono text-text-secondary">
-              {formatDateTime(row.lastRotatedAt, i18n.language, timeZone)}
-            </span>
-          ),
+          row.lastRotatedAt === null
+            ? t('rotated.never')
+            : formatDateTime(row.lastRotatedAt, i18n.language, timeZone),
       },
     ],
     [i18n.language, t, timeZone],
