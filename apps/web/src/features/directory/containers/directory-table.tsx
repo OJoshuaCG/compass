@@ -7,8 +7,6 @@ import { useTableQuery, type TableSearch } from '../../../shared/api';
 import { useDataTableLabels, useErrorMessage } from '../../../shared/i18n';
 import { useDebouncedCommit } from '../../../shared/lib';
 import { directoryKeys, fetchUsersPage } from '../api/directory-api';
-import { PersonCell } from '../ui/person-cell';
-import { RankBadge } from '../ui/rank-badge';
 
 export type DirectoryTableProps = {
   search: TableSearch;
@@ -35,21 +33,19 @@ export function DirectoryTable({ search, onSearchChange }: DirectoryTableProps) 
       {
         id: 'displayName',
         header: t('users.col.name', { ns: 'directory' }),
-        cell: (row) => <PersonCell displayName={row.displayName} />,
+        cell: (row) => row.displayName,
         sortKey: 'displayName',
       },
       {
         id: 'email',
         header: t('users.col.email', { ns: 'directory' }),
-        cell: (row) => <span className="font-mono text-text-secondary">{row.email}</span>,
+        cell: (row) => <span className="text-text-secondary">{row.email}</span>,
         sortKey: 'email',
       },
       {
         id: 'rank',
         header: t('users.col.rank', { ns: 'directory' }),
-        cell: (row) => (
-          <RankBadge rank={row.rank} label={t(`rank.${String(row.rank)}`, { ns: 'common' })} />
-        ),
+        cell: (row) => t(`rank.${String(row.rank)}`, { ns: 'common' }),
         sortKey: 'rank',
       },
     ],

@@ -42,21 +42,15 @@ export function RolesTable({
 
   const columns = useMemo<Column<Role>[]>(
     () => [
-      {
-        id: 'name',
-        header: t('col.name'),
-        cell: (row) => <span className="font-medium text-text">{row.name}</span>,
-      },
+      { id: 'name', header: t('col.name'), cell: (row) => row.name },
       {
         id: 'type',
         header: t('col.type'),
         cell: (row) =>
           row.isSystem ? (
-            <Badge dot>{t('badge.system')}</Badge>
+            <Badge>{t('badge.system')}</Badge>
           ) : (
-            <Badge tone="accent" dot>
-              {t('badge.custom')}
-            </Badge>
+            <Badge tone="accent">{t('badge.custom')}</Badge>
           ),
       },
       {

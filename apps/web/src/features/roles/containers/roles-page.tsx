@@ -24,7 +24,6 @@ export function RolesPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('nav.group.access', { ns: 'common' })}
         title={t('title', { ns: 'roles' })}
         description={t('description', { ns: 'roles' })}
       />

@@ -26,8 +26,6 @@ import { useToast } from '../../../shared/toast';
 import { directoryKeys } from '../api/directory-api';
 import { fetchManagedPage, teamApi } from '../api/team-api';
 import { availableActions, type TeamAction } from '../model/team-actions';
-import { PersonCell } from '../ui/person-cell';
-import { RankBadge } from '../ui/rank-badge';
 
 import { ChangeRankDialog } from './change-rank-dialog';
 import { CloseSessionsDialog } from './close-sessions-dialog';
@@ -148,21 +146,19 @@ export function TeamManagement({ search, onSearchChange, actor }: TeamManagement
       {
         id: 'displayName',
         header: t('users.col.name', { ns: 'directory' }),
-        cell: (row) => <PersonCell displayName={row.displayName} />,
+        cell: (row) => row.displayName,
         sortKey: 'displayName',
       },
       {
         id: 'email',
         header: t('users.col.email', { ns: 'directory' }),
-        cell: (row) => <span className="font-mono text-text-secondary">{row.email}</span>,
+        cell: (row) => <span className="text-text-secondary">{row.email}</span>,
         sortKey: 'email',
       },
       {
         id: 'rank',
         header: t('users.col.rank', { ns: 'directory' }),
-        cell: (row) => (
-          <RankBadge rank={row.rank} label={t(`rank.${String(row.rank)}`, { ns: 'common' })} />
-        ),
+        cell: (row) => t(`rank.${String(row.rank)}`, { ns: 'common' }),
         sortKey: 'rank',
       },
       {
