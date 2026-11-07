@@ -1,7 +1,7 @@
 import type { AccountListItem, Permission, Platform } from '@iam/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, noContent, problem, stubApi } from '../../test/fake-api';
@@ -856,6 +856,93 @@ describe('account tags', () => {
     await waitFor(() => {
       expect(api.callsTo('GET', '/accounts/tags').length).toBeGreaterThan(1);
     });
+  });
+});
+
+describe('account row actions by screen size', () => {
+  const menuLabel = (name: string) => withName(es.accounts['action.menuLabel'], name);
+
+  it('shows icon buttons named for screen readers and titled for the mouse on desktop', async () => {
+    setup();
+    renderApp('/accounts');
+    await rowsLoaded();
+    const edit = screen.getByRole('button', { name: editLabel('Nómina') });
+    expect(edit).toHaveAttribute('title', es.accounts['action.edit']);
+    expect(edit).not.toHaveTextContent(es.accounts['action.edit']);
+    expect(
+      screen.getByRole('link', { name: withName(es.accounts['action.shareLabel'], 'Nómina') }),
+    ).toHaveAttribute('title', es.accounts['action.share']);
+    expect(screen.queryByRole('button', { name: menuLabel('Nómina') })).toBeNull();
+  });
+
+  it('groups the actions in a menu on narrow screens, archive last and set apart', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: false,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+    const user = userEvent.setup();
+    setup();
+    renderApp('/accounts');
+    await rowsLoaded();
+    expect(screen.queryByRole('button', { name: editLabel('Nómina') })).toBeNull();
+
+    const trigger = await waitFor(() => {
+      const button = screen.getByRole('button', { name: menuLabel('Nómina') });
+      expect(button).toBeEnabled();
+      return button;
+    });
+    await user.click(trigger);
+    const menu = await screen.findByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      es.accounts['action.credentials'],
+      es.accounts['action.share'],
+      es.accounts['action.edit'],
+      es.accounts['action.archive'],
+    ]);
+    expect(within(menu).getByRole('separator')).toBeInTheDocument();
+
+    await user.click(within(menu).getByRole('menuitem', { name: es.accounts['action.edit'] }));
+    expect(
+      await screen.findByRole('dialog', { name: withName(es.accounts['edit.title'], 'Nómina') }),
+    ).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it('only offers the actions the row allows in the menu', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: false,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+    const user = userEvent.setup();
+    setup();
+    renderApp('/accounts');
+    await rowsLoaded();
+    const trigger = await waitFor(() => {
+      const button = screen.getByRole('button', { name: menuLabel('Soporte') });
+      expect(button).toBeEnabled();
+      return button;
+    });
+    await user.click(trigger);
+    const menu = await screen.findByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual([es.accounts['action.credentials'], es.accounts['action.share']]);
+    expect(within(menu).queryByRole('separator')).toBeNull();
+    vi.unstubAllGlobals();
   });
 });
 

@@ -1,4 +1,5 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { Fragment } from 'react';
 
 import { IconButton } from '../atoms/icon-button';
 import { Ellipsis } from '../icons';
@@ -27,18 +28,28 @@ export function RowActionsMenuImpl({ label, items }: RowActionsMenuProps) {
           sideOffset={4}
           className="z-50 min-w-48 rounded-md border border-border-strong bg-overlay p-1 shadow-overlay"
         >
-          {items.map((item) => (
-            <DropdownMenu.Item
-              key={item.id}
-              onSelect={item.onSelect}
-              className={cn(
-                'flex min-h-8 cursor-pointer select-none items-center rounded-sm px-3 text-sm outline-none',
-                'data-[highlighted]:bg-raised data-[highlighted]:outline data-[highlighted]:outline-2 data-[highlighted]:outline-focus',
-                item.tone === 'danger' ? 'text-danger' : 'text-text',
-              )}
-            >
-              {item.label}
-            </DropdownMenu.Item>
+          {items.map((item, index) => (
+            <Fragment key={item.id}>
+              {/* Una línea separa la primera acción destructiva de las demás, para no pulsarla por error. */}
+              {item.tone === 'danger' && index > 0 && items[index - 1]?.tone !== 'danger' ? (
+                <DropdownMenu.Separator className="my-1 h-px bg-border" />
+              ) : null}
+              <DropdownMenu.Item
+                onSelect={item.onSelect}
+                className={cn(
+                  'flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-sm px-3 text-sm outline-none',
+                  'data-[highlighted]:bg-raised data-[highlighted]:outline data-[highlighted]:outline-2 data-[highlighted]:outline-focus',
+                  item.tone === 'danger' ? 'text-danger' : 'text-text',
+                )}
+              >
+                {item.icon !== undefined ? (
+                  <span aria-hidden="true" className="inline-flex">
+                    {item.icon}
+                  </span>
+                ) : null}
+                {item.label}
+              </DropdownMenu.Item>
+            </Fragment>
           ))}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

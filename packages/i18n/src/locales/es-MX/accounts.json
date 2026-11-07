@@ -70,5 +70,6 @@
   "form.tagsSuggestions": "Sugerencias",
   "form.tagsSuggestionAdd": "Agregar la etiqueta {{tag}}",
   "tags.more": "+{{count}}",
-  "tags.moreLabel": "{{count}} etiquetas más: {{tags}}"
+  "tags.moreLabel": "{{count}} etiquetas más: {{tags}}",
+  "action.menuLabel": "Acciones de la cuenta {{name}}"
 }

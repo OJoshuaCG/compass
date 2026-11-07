@@ -283,7 +283,7 @@ De arriba abajo, la tabla tiene cuatro zonas:
 - **Estado en la URL**: orden, dirección, límite, búsqueda y filtros viven en los parámetros de búsqueda del enrutador (validados con Zod). Así recargar o compartir el enlace conserva la vista. El cursor **no** va en la URL (caduca y no es compartible).
 - **Estados**: cargando (esqueleto con las mismas columnas, sin saltos de layout), vacío (con acción sugerida), vacío por filtros (con botón "Limpiar filtros") y error (mensaje traducido del código de la API y "Reintentar").
 - **Cambio de página sin parpadeo**: se conserva la página anterior mientras llega la siguiente, con un indicador de carga sutil.
-- **Acciones por fila**: menú de "⋯" con teclado; las destructivas piden confirmación. Las acciones visibles dependen de los permisos del perfil, solo como comodidad.
+- **Acciones por fila**: menú de "⋯" con teclado; las destructivas piden confirmación y, en el menú, van al final tras una línea separadora. Las acciones visibles dependen de los permisos del perfil, solo como comodidad. Una tabla con pocas acciones (por ejemplo, Cuentas) puede mostrarlas en escritorio como botones de solo ícono con nombre accesible y `title`, y pasar al menú "⋯" en pantallas angostas (`useMediaQuery`): se pinta una versión u otra, nunca las dos.
 - **Selección múltiple** (si el caso la exige): casilla por fila y en el encabezado, con contador y barra de acciones masivas.
 - **Densidad única**: una sola altura de fila. Texto secundario en el color de apoyo; cifras tabulares.
 

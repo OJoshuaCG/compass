@@ -1,22 +1,32 @@
 import type { Account, AccountListItem, Platform } from '@iam/contracts';
 import {
+  Archive,
   Badge,
-  Button,
   buttonVariants,
+  cn,
   DataTable,
   EmptyState,
+  IconButton,
+  KeyRound,
   PlatformTile,
+  RowActionsMenu,
+  Share2,
+  SquarePen,
   StatusBadge,
   type Column,
 } from '@iam/ui';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { TablePaging } from '../../../shared/api';
 import { useDataTableLabels } from '../../../shared/i18n';
+import { DESKTOP_MEDIA_QUERY, useMediaQuery } from '../../../shared/lib';
 
 import { PasswordAgeIndicator } from './password-age-indicator';
+
+/** Enlace con el mismo aspecto que `IconButton` pequeño (`size-8`, sin relleno). */
+const iconLinkClass = cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'size-8 p-0');
 
 /** Etiquetas visibles por fila: más alargarían la tabla; el resto se resume en «+N». */
 const VISIBLE_TAGS = 3;
@@ -99,6 +109,8 @@ export function AccountsTable({
 }: AccountsTableProps) {
   const { t } = useTranslation('accounts');
   const labels = useDataTableLabels();
+  const navigate = useNavigate();
+  const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY);
 
   const platformsById = useMemo(
     () => new Map(platforms.map((platform) => [platform.id, platform])),
@@ -201,54 +213,116 @@ export function AccountsTable({
       errorState={{ message: errorMessage, onRetry }}
       rowActions={
         variant === 'mine'
-          ? (row) => (
-              <span className="flex flex-wrap justify-end gap-2">
-                {/* Navegación, no acción: es un enlace con aspecto de botón. Todas las filas de
-                    "Mis cuentas" tienen al menos USE; el servidor decide qué se ve dentro. */}
-                <Link
-                  to="/accounts/$accountId/credentials"
-                  params={{ accountId: row.id }}
-                  className={buttonVariants({ variant: 'secondary', size: 'sm' })}
-                  aria-label={t('action.credentialsLabel', { name: row.displayName })}
-                >
-                  {t('action.credentials')}
-                </Link>
-                {/* Solo quien administra la cuenta puede compartirla, pero aquí no se oculta: el
-                    servidor decide y la pantalla de compartir explica la negativa. */}
-                <Link
-                  to="/accounts/$accountId/shares"
-                  params={{ accountId: row.id }}
-                  className={buttonVariants({ variant: 'secondary', size: 'sm' })}
-                  aria-label={t('action.shareLabel', { name: row.displayName })}
-                >
-                  {t('action.share')}
-                </Link>
-                {canEdit(row) ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    aria-label={t('action.editLabel', { name: row.displayName })}
-                    onClick={() => {
-                      onEdit(row);
-                    }}
+          ? (row) => {
+              const name = row.displayName;
+              // Escritorio: botones de solo ícono con su nombre al pasar el cursor. Móvil: un menú
+              // «⋯» para que la fila no se desborde. Se pinta uno u otro, nunca ambos, para no
+              // duplicar los nombres accesibles. Todas las filas de «Mis cuentas» tienen al menos
+              // USE; compartir no se oculta: el servidor decide y la pantalla explica la negativa.
+              if (!isDesktop) {
+                return (
+                  <RowActionsMenu
+                    label={t('action.menuLabel', { name })}
+                    items={[
+                      {
+                        id: 'credentials',
+                        label: t('action.credentials'),
+                        icon: <KeyRound className="size-4" />,
+                        onSelect: () => {
+                          void navigate({
+                            to: '/accounts/$accountId/credentials',
+                            params: { accountId: row.id },
+                          });
+                        },
+                      },
+                      {
+                        id: 'share',
+                        label: t('action.share'),
+                        icon: <Share2 className="size-4" />,
+                        onSelect: () => {
+                          void navigate({
+                            to: '/accounts/$accountId/shares',
+                            params: { accountId: row.id },
+                          });
+                        },
+                      },
+                      ...(canEdit(row)
+                        ? [
+                            {
+                              id: 'edit',
+                              label: t('action.edit'),
+                              icon: <SquarePen className="size-4" />,
+                              onSelect: () => {
+                                onEdit(row);
+                              },
+                            },
+                          ]
+                        : []),
+                      ...(canArchive(row)
+                        ? [
+                            {
+                              id: 'archive',
+                              label: t('action.archive'),
+                              tone: 'danger' as const,
+                              icon: <Archive className="size-4" />,
+                              onSelect: () => {
+                                onArchive(row);
+                              },
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                );
+              }
+              return (
+                <span className="flex justify-end gap-1.5">
+                  {/* Navegación, no acción: enlaces con aspecto de botón de ícono. */}
+                  <Link
+                    to="/accounts/$accountId/credentials"
+                    params={{ accountId: row.id }}
+                    className={iconLinkClass}
+                    aria-label={t('action.credentialsLabel', { name })}
+                    title={t('action.credentials')}
                   >
-                    {t('action.edit')}
-                  </Button>
-                ) : null}
-                {canArchive(row) ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    aria-label={t('action.archiveLabel', { name: row.displayName })}
-                    onClick={() => {
-                      onArchive(row);
-                    }}
+                    <KeyRound aria-hidden="true" className="size-4" />
+                  </Link>
+                  <Link
+                    to="/accounts/$accountId/shares"
+                    params={{ accountId: row.id }}
+                    className={iconLinkClass}
+                    aria-label={t('action.shareLabel', { name })}
+                    title={t('action.share')}
                   >
-                    {t('action.archive')}
-                  </Button>
-                ) : null}
-              </span>
-            )
+                    <Share2 aria-hidden="true" className="size-4" />
+                  </Link>
+                  {canEdit(row) ? (
+                    <IconButton
+                      variant="secondary"
+                      size="sm"
+                      label={t('action.editLabel', { name })}
+                      title={t('action.edit')}
+                      icon={<SquarePen className="size-4" />}
+                      onClick={() => {
+                        onEdit(row);
+                      }}
+                    />
+                  ) : null}
+                  {canArchive(row) ? (
+                    <IconButton
+                      variant="secondary"
+                      size="sm"
+                      label={t('action.archiveLabel', { name })}
+                      title={t('action.archive')}
+                      icon={<Archive className="size-4" />}
+                      onClick={() => {
+                        onArchive(row);
+                      }}
+                    />
+                  ) : null}
+                </span>
+              );
+            }
           : undefined
       }
     />

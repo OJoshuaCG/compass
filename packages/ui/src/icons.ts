@@ -32,6 +32,7 @@ export {
   RefreshCw,
   Settings,
   Share2,
+  SquarePen,
   ShieldCheck,
   Smartphone,
   Sun,
