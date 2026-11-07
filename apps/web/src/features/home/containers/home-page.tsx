@@ -20,7 +20,7 @@ import {
 } from '@iam/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useMe, usePermission } from '../../../shared/auth';
@@ -30,6 +30,7 @@ import { fetchMyPasskeysPage, passkeysKeys } from '../../security';
 import { fetchMySessionsPage, sessionsKeys } from '../../sessions';
 import { fetchInventoryCount, fetchManagedCount, homeKeys } from '../api/home-api';
 import { buildAttention, countInvitations, type AttentionItem } from '../model/attention';
+import { clockAngles } from '../model/clock';
 import type { SummaryCount } from '../model/summary-count';
 import { AttentionRow } from '../ui/attention-row';
 
@@ -68,21 +69,37 @@ function exactHint(
   return texts.normal;
 }
 
+/** Cada cuánto se vuelve a leer la hora: con medio minuto el minutero nunca va atrasado un minuto entero. */
+const CLOCK_TICK_MS = 30_000;
+
 /**
- * Brújula decorativa del encabezado, como el inicio de main (ADR 0049): aguja norte en el acento.
- * Es adorno puro, oculta para lectores de pantalla, y solo usa tokens vía `currentColor`.
+ * Reloj analógico decorativo del encabezado, con el trazo de la brújula de main (ADR 0049): marcas
+ * de minutos y horas, horario en el color del texto y minutero en el acento («la aguja»). Marca la
+ * hora de la zona del perfil. Es adorno: la fecha ya va escrita junto al saludo, así que se oculta
+ * a los lectores de pantalla. Solo usa tokens vía `currentColor` y `fill-accent`.
  */
-function CompassArt() {
+function CompassClock({ timeZone }: { timeZone?: string | undefined }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, CLOCK_TICK_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+  const angles = clockAngles(now, timeZone);
   return (
     <svg
       viewBox="0 0 160 160"
-      width="96"
-      height="96"
+      width="136"
+      height="136"
       aria-hidden="true"
       focusable="false"
-      className="hidden text-text-muted sm:block"
+      className="hidden shrink-0 text-text-muted sm:block"
     >
       <circle cx="80" cy="80" r="74" fill="none" stroke="currentColor" opacity=".4" />
+      {/* 60 marcas de minuto: la circunferencia (2π·66 ≈ 414.69) entre 60 da 6.91 por marca. */}
       <circle
         cx="80"
         cy="80"
@@ -90,13 +107,28 @@ function CompassArt() {
         fill="none"
         stroke="currentColor"
         strokeWidth="5"
-        strokeDasharray="1 7.64"
-        opacity=".55"
+        strokeDasharray="1 5.9115"
+        strokeDashoffset="0.5"
+        opacity=".45"
       />
-      <circle cx="80" cy="80" r="46" fill="none" stroke="currentColor" opacity=".4" />
-      <g transform="rotate(38 80 80)">
-        <path d="M80 28l9 52H71z" className="fill-accent" />
-        <path d="M80 132l9-52H71z" fill="currentColor" opacity=".5" />
+      {/* 12 marcas de hora, más largas: 414.69 entre 12 da 34.56 por marca. */}
+      <circle
+        cx="80"
+        cy="80"
+        r="65"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="9"
+        strokeDasharray="2 32.5575"
+        strokeDashoffset="1"
+        opacity=".7"
+      />
+      <g transform={`rotate(${String(angles.hour)} 80 80)`}>
+        <path d="M80 40l6 40H74z" fill="currentColor" opacity=".75" />
+      </g>
+      <g transform={`rotate(${String(angles.minute)} 80 80)`}>
+        <path d="M80 22l7 58H73z" className="fill-accent" />
+        <path d="M80 98l4-18h-8z" fill="currentColor" opacity=".5" />
       </g>
       <circle cx="80" cy="80" r="4.5" className="fill-canvas" stroke="currentColor" />
     </svg>
@@ -285,7 +317,7 @@ export function HomePage() {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <p className="font-mono text-xs font-medium tracking-widest text-text-muted uppercase">
             {t('nav.group.workspace')}
@@ -304,13 +336,7 @@ export function HomePage() {
             </p>
           ) : null}
         </div>
-        <div className="flex items-center gap-6">
-          <Link to="/users" className={buttonVariants({ variant: 'primary' })}>
-            <Users aria-hidden="true" className="size-4" />
-            {t('home.goToUsers')}
-          </Link>
-          <CompassArt />
-        </div>
+        <CompassClock timeZone={timeZone} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

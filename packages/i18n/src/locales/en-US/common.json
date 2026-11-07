@@ -105,7 +105,6 @@
   "nav.security": "Security",
   "home.greeting": "Hi, {{name}}",
   "home.today": "{{date}} · {{rank}} rank",
-  "home.goToUsers": "View users",
   "home.stats.team": "People in your charge",
   "home.stats.teamHint": "Your team, direct and indirect",
   "home.stats.teamNone": "You have no one in your charge yet",
