@@ -75,10 +75,10 @@ const CLOCK_TICK_MS = 30_000;
 /**
  * Reloj analógico decorativo del encabezado, con el trazo de la brújula de main (ADR 0049): marcas
  * de minutos y horas, horario en el color del texto y minutero en el acento («la aguja»). Marca la
- * hora de la zona del perfil. Es adorno: la fecha ya va escrita junto al saludo, así que se oculta
- * a los lectores de pantalla. Solo usa tokens vía `currentColor` y `fill-accent`.
+ * hora del equipo (la del navegador), no la zona del perfil: es la que la persona tiene a la vista.
+ * Es adorno: la fecha ya va escrita junto al saludo, así que se oculta a los lectores de pantalla. Solo usa tokens vía `currentColor` y `fill-accent`.
  */
-function CompassClock({ timeZone }: { timeZone?: string | undefined }) {
+function CompassClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -88,7 +88,7 @@ function CompassClock({ timeZone }: { timeZone?: string | undefined }) {
       window.clearInterval(timer);
     };
   }, []);
-  const angles = clockAngles(now, timeZone);
+  const angles = clockAngles(now);
   return (
     <svg
       viewBox="0 0 160 160"
@@ -336,7 +336,7 @@ export function HomePage() {
             </p>
           ) : null}
         </div>
-        <CompassClock timeZone={timeZone} />
+        <CompassClock />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

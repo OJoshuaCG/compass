@@ -6,8 +6,8 @@ const DEGREES_PER_HOUR = 30;
 const HOURS_ON_DIAL = 12;
 
 /**
- * Hora y minuto de `date` en la zona horaria del perfil (o la del navegador si no hay), convertidos
- * a ángulos. La aguja de las horas avanza también con los minutos, como en un reloj de verdad.
+ * Hora y minuto de `date` en `timeZone` (sin ella, la hora del equipo, que es la del navegador),
+ * convertidos a ángulos. La aguja de las horas avanza también con los minutos, como en un reloj.
  */
 export function clockAngles(date: Date, timeZone?: string): ClockAngles {
   const parts = new Intl.DateTimeFormat('en-US', {
