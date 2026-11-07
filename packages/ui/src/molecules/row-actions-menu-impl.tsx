@@ -26,7 +26,7 @@ export function RowActionsMenuImpl({ label, items }: RowActionsMenuProps) {
         <DropdownMenu.Content
           align="end"
           sideOffset={4}
-          className="z-50 min-w-48 rounded-md border border-border-strong bg-overlay p-1 shadow-overlay"
+          className="z-50 min-w-48 glass rounded-md p-1"
         >
           {items.map((item, index) => (
             <Fragment key={item.id}>
@@ -37,7 +37,7 @@ export function RowActionsMenuImpl({ label, items }: RowActionsMenuProps) {
               <DropdownMenu.Item
                 onSelect={item.onSelect}
                 className={cn(
-                  'flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-sm px-3 text-sm outline-none',
+                  'flex min-h-10 cursor-pointer select-none items-center gap-2 rounded-sm px-3 text-sm outline-none',
                   'data-[highlighted]:bg-raised data-[highlighted]:outline data-[highlighted]:outline-2 data-[highlighted]:outline-focus',
                   item.tone === 'danger' ? 'text-danger' : 'text-text',
                 )}

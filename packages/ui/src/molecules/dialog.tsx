@@ -36,13 +36,14 @@ export function Dialog({
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         {/* z-50 > z-40 del aviso emergente: el aviso nunca tapa los botones de un diálogo abierto. */}
-        <RadixDialog.Overlay className="fixed inset-0 z-50 bg-text/40" />
+        <RadixDialog.Overlay className="fixed inset-0 z-50 scrim" />
         <RadixDialog.Content
           className={cn(
-            'fixed z-50 overflow-y-auto border-border-strong bg-overlay p-6 shadow-overlay',
+            // Cristal: es una capa flotante (ADR 0049); el panel lateral solo redondea su borde libre.
+            'fixed z-50 overflow-y-auto glass p-6',
             placement === 'side'
-              ? 'inset-y-0 end-0 w-full max-w-md border-s'
-              : 'inset-x-4 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 rounded-lg border',
+              ? 'inset-y-0 end-0 w-full max-w-md rounded-s-lg'
+              : 'inset-x-4 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 rounded-lg',
           )}
         >
           <RadixDialog.Title className="pe-8 font-heading text-lg break-words text-text">

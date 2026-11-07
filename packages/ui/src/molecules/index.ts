@@ -32,3 +32,4 @@ export {
   type NavGroupProps,
   type NavItemProps,
 } from './nav-item';
+export { Card, CardBody, CardHeader } from './card';

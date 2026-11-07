@@ -4,11 +4,11 @@ import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn';
 
 const nativeSelect = cva(
-  'rounded-md border bg-surface px-2 text-text transition-colors duration-fast hover:bg-raised disabled:cursor-not-allowed disabled:text-text-disabled',
+  'rounded-md border bg-raised px-2 text-text transition-colors duration-fast hover:border-text-muted disabled:cursor-not-allowed disabled:text-text-disabled',
   {
     variants: {
       size: { sm: 'h-8 text-sm', md: 'h-10 text-sm' },
-      invalid: { true: 'border-danger', false: 'border-border-input' },
+      invalid: { true: 'border-danger hover:border-danger', false: 'border-border-input' },
     },
     defaultVariants: { size: 'md', invalid: false },
   },

@@ -29,9 +29,9 @@ export function SortableHeader({
       type="button"
       onClick={onToggle}
       className={cn(
-        '-mx-2 inline-flex min-h-6 items-center gap-1 rounded-sm px-2 py-1 font-medium hover:bg-raised',
+        '-mx-2 inline-flex min-h-6 items-center gap-1 rounded-sm px-2 py-1 font-medium hover:bg-overlay',
         align === 'end' && 'flex-row-reverse',
-        direction === undefined ? 'text-text-secondary' : 'text-text',
+        direction === undefined ? 'text-text-muted hover:text-text' : 'text-text',
       )}
     >
       {label}

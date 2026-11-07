@@ -57,7 +57,7 @@ export function Pagination({
         className,
       )}
     >
-      <p>{rangeText}</p>
+      <p className="font-mono text-xs tabular-nums">{rangeText}</p>
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <label htmlFor={selectId}>{labels.rowsPerPage}</label>

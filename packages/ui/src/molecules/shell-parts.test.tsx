@@ -6,6 +6,7 @@ import { Avatar, initialsOf } from '../atoms/avatar';
 import { BrandMark } from '../atoms/brand-mark';
 import { axeViolations } from '../test/axe';
 
+import { Card, CardBody, CardHeader } from './card';
 import { NavGroup, NavItem } from './nav-item';
 import { UserMenu } from './user-menu';
 
@@ -81,6 +82,20 @@ describe('NavGroup and NavItem', () => {
       </nav>,
     );
     expect(await axeViolations(container)).toEqual([]);
+  });
+});
+
+describe('Card', () => {
+  it('renders header and body inside a section', () => {
+    render(
+      <Card aria-label="Summary">
+        <CardHeader>Head</CardHeader>
+        <CardBody>Body</CardBody>
+      </Card>,
+    );
+    const card = screen.getByRole('region', { name: 'Summary' });
+    expect(card).toHaveTextContent('Head');
+    expect(card).toHaveTextContent('Body');
   });
 });
 
