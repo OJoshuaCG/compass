@@ -56,7 +56,7 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
   const displayName = useWatch({ control, name: 'displayName' });
   const tags = useWatch({ control, name: 'tags' });
   // Sugerencias solo de las cuentas con acceso efectivo (lo decide el servidor, opción A).
-  const tagsQuery = useAccountTags('mine');
+  const tagsQuery = useAccountTags();
   const selectedPlatform = platforms.find((platform) => platform.id === platformId);
 
   async function submit(values: AccountFormValues) {

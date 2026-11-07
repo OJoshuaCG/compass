@@ -14,7 +14,6 @@ const MANAGED_ID = '22222222-2222-4222-8222-222222222221';
 const EDITABLE_ID = '22222222-2222-4222-8222-222222222222';
 const VIEWABLE_ID = '22222222-2222-4222-8222-222222222223';
 const NEW_ID = '22222222-2222-4222-8222-222222222224';
-const INVENTORY_ID = '22222222-2222-4222-8222-222222222225';
 
 const PLATFORMS: Platform[] = [
   {
@@ -65,12 +64,6 @@ const VIEWABLE = accountFixture({
   handle: null,
   tags: [],
   myLevel: 'VIEW',
-});
-const INVENTORY_ACCOUNT = accountFixture({
-  id: INVENTORY_ID,
-  displayName: 'Tesorería',
-  myLevel: null,
-  passwordAge: 'unknown',
 });
 
 const ALL_ACCOUNT_PERMISSIONS: Permission[] = [
@@ -199,45 +192,14 @@ describe('accounts table', () => {
   });
 });
 
-describe('inventory', () => {
-  it('hides the inventory tab without vault.inventory.read and never requests it', async () => {
-    const api = setup();
+describe('inventory view', () => {
+  it('is no longer offered, even with vault.inventory.read, and is never requested', async () => {
+    const api = setup({}, [...ALL_ACCOUNT_PERMISSIONS, 'vault.inventory.read']);
     renderApp('/accounts');
     await rowsLoaded();
-    expect(screen.queryByRole('tab', { name: es.accounts['tabs.inventory'] })).toBeNull();
+    expect(screen.queryByRole('tab')).toBeNull();
     expect(api.callsTo('GET', '/accounts/inventory')).toHaveLength(0);
-  });
-
-  it('shows the inventory with metadata only and no actions', async () => {
-    const user = userEvent.setup();
-    const api = setup({ 'GET /accounts/inventory': page([INVENTORY_ACCOUNT]) }, [
-      ...ALL_ACCOUNT_PERMISSIONS,
-      'vault.inventory.read',
-    ]);
-    const { container } = renderApp('/accounts');
-    await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    await screen.findByText('Tesorería');
-    const table = screen.getByRole('table', { name: es.accounts['inventory.caption'] });
-    const headers = within(table)
-      .getAllByRole('columnheader')
-      .map((header) => header.textContent);
-    expect(headers).not.toContain(es.accounts['col.level']);
-    expect(screen.queryByRole('button', { name: editLabel('Tesorería') })).toBeNull();
-    expect(screen.queryByRole('button', { name: archiveLabel('Tesorería') })).toBeNull();
-    expect(api.callsTo('GET', '/accounts/inventory')).toHaveLength(1);
-    expect(await axeViolations(container)).toEqual([]);
-  });
-
-  it('shows a permission-denied error from the server in the inventory', async () => {
-    const user = userEvent.setup();
-    setup({ 'GET /accounts/inventory': problem(403, 'AUTHZ.PERMISSION') }, [
-      'vault.inventory.read',
-    ]);
-    renderApp('/accounts');
-    await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.PERMISSION']);
+    expect(api.callsTo('GET', '/accounts/inventory/tags')).toHaveLength(0);
   });
 });
 
@@ -666,19 +628,6 @@ describe('password age indicator', () => {
     expect(screen.getByText(/hace 6 meses/)).toBeInTheDocument();
     expect(await axeViolations(container)).toEqual([]);
   });
-
-  it('shows "no data" in the inventory, which hides credential information', async () => {
-    const user = userEvent.setup();
-    setup({ 'GET /accounts/inventory': page([INVENTORY_ACCOUNT]) }, [
-      ...ALL_ACCOUNT_PERMISSIONS,
-      'vault.inventory.read',
-    ]);
-    renderApp('/accounts');
-    await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    await screen.findByText('Tesorería');
-    expect(screen.getByText(es.accounts['passwordAge.unknown'])).toBeInTheDocument();
-  });
 });
 
 describe('account search and quick filters', () => {
@@ -719,23 +668,6 @@ describe('account search and quick filters', () => {
     await waitFor(() => {
       expect(accountsCalls(api).at(-1)?.search.has('filter')).toBe(false);
     });
-  });
-
-  it('offers search but no quick filters in the inventory, and never sends a filter there', async () => {
-    const user = userEvent.setup();
-    const api = setup({ 'GET /accounts/inventory': page([INVENTORY_ACCOUNT]) }, [
-      ...ALL_ACCOUNT_PERMISSIONS,
-      'vault.inventory.read',
-    ]);
-    renderApp('/accounts');
-    await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    await screen.findByText('Tesorería');
-    expect(screen.getByRole('searchbox', { name: es.accounts['search.label'] })).toBeVisible();
-    expect(screen.queryByRole('group', { name: es.accounts['filter.label'] })).toBeNull();
-    for (const call of api.callsTo('GET', '/accounts/inventory')) {
-      expect(call.search.has('filter')).toBe(false);
-    }
   });
 });
 
@@ -783,26 +715,6 @@ describe('account tags', () => {
     renderApp('/accounts');
     await rowsLoaded();
     expect(screen.queryByRole('combobox', { name: es.accounts['filter.tagLabel'] })).toBeNull();
-  });
-
-  it('offers the inventory tags in the inventory and filters it by tag', async () => {
-    const user = userEvent.setup();
-    const api = setup(
-      {
-        'GET /accounts/inventory': page([INVENTORY_ACCOUNT]),
-        'GET /accounts/inventory/tags': jsonResponse({ data: ['tesoreria'] }),
-      },
-      [...ALL_ACCOUNT_PERMISSIONS, 'vault.inventory.read'],
-    );
-    renderApp('/accounts');
-    await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    await screen.findByText('Tesorería');
-    await within(tagFilter()).findByRole('option', { name: 'tesoreria' });
-    await user.selectOptions(tagFilter(), 'tesoreria');
-    await waitFor(() => {
-      expect(api.callsTo('GET', '/accounts/inventory').at(-1)?.search.get('tag')).toBe('tesoreria');
-    });
   });
 
   it('suggests existing tags while creating and adds the chosen one', async () => {

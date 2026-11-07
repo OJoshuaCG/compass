@@ -60,7 +60,7 @@ function EditAccountForm({ account, onCancel, onUpdated, onReload }: EditAccount
   const displayName = useWatch({ control, name: 'displayName' });
   const tags = useWatch({ control, name: 'tags' });
   // Sugerencias solo de las cuentas con acceso efectivo (lo decide el servidor, opción A).
-  const tagsQuery = useAccountTags('mine');
+  const tagsQuery = useAccountTags();
 
   async function submit(values: EditAccountFormValues) {
     // Sin cambios no hay nada que guardar (el servidor rechazaría un cuerpo vacío): se cierra.

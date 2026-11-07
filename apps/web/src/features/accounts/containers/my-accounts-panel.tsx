@@ -32,11 +32,10 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
     queryKey: accountsKeys.mine(),
     fetchPage: fetchAccountsPage,
   });
-  const tagsQuery = useAccountTags('mine');
+  const tagsQuery = useAccountTags();
 
   return (
     <AccountsTable
-      variant="mine"
       accounts={table.rows}
       platforms={platforms}
       status={table.status}
@@ -57,7 +56,6 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
           onSearchChange={table.setDraft}
           filter={toAccountListFilter(table.filter)}
           onFilterChange={table.onFilterChange}
-          showQuickFilters
           tags={tagsQuery.data ?? []}
           tag={table.tag}
           onTagChange={table.onTagChange}

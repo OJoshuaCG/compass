@@ -58,11 +58,6 @@ function AccountTags({ tags }: { tags: readonly string[] }) {
 }
 
 export type AccountsTableProps = {
-  /**
-   * `mine`: cuentas con acceso (muestra el nivel propio y las acciones). `inventory`: solo
-   * metadatos; el nivel siempre llega en `null`, así que ni se pinta ni se ofrecen acciones.
-   */
-  variant: 'mine' | 'inventory';
   accounts: AccountListItem[];
   platforms: readonly Platform[];
   status: 'loading' | 'success' | 'error';
@@ -90,7 +85,6 @@ export type AccountsTableProps = {
  * color) y las acciones aparecen solo cuando el container dice que la fila las admite.
  */
 export function AccountsTable({
-  variant,
   accounts,
   platforms,
   status,
@@ -132,17 +126,13 @@ export function AccountsTable({
               fallback={platform?.name ?? row.displayName}
             />
             <span className="flex min-w-0 flex-col">
-              {variant === 'mine' ? (
-                <Link
-                  to="/accounts/$accountId/credentials"
-                  params={{ accountId: row.id }}
-                  className="font-semibold text-text hover:text-accent hover:underline"
-                >
-                  {row.displayName}
-                </Link>
-              ) : (
-                <span className="font-semibold text-text">{row.displayName}</span>
-              )}
+              <Link
+                to="/accounts/$accountId/credentials"
+                params={{ accountId: row.id }}
+                className="font-semibold text-text hover:text-accent hover:underline"
+              >
+                {row.displayName}
+              </Link>
               {row.handle !== null ? (
                 <span className="truncate text-xs text-text-muted">{row.handle}</span>
               ) : null}
@@ -184,18 +174,12 @@ export function AccountsTable({
           <StatusBadge status="neutral" label={t('status.archived')} />
         ),
     };
-    return variant === 'mine'
-      ? [nameColumn, platformColumn, levelColumn, lastChangedColumn, statusColumn]
-      : [nameColumn, platformColumn, lastChangedColumn, statusColumn];
-  }, [platformsById, t, timeZone, variant]);
-
-  const emptyTitle = variant === 'mine' ? t('empty.title') : t('inventory.empty.title');
-  const emptyDescription =
-    variant === 'mine' ? t('empty.description') : t('inventory.empty.description');
+    return [nameColumn, platformColumn, levelColumn, lastChangedColumn, statusColumn];
+  }, [platformsById, t, timeZone]);
 
   return (
     <DataTable<AccountListItem>
-      caption={variant === 'mine' ? t('caption') : t('inventory.caption')}
+      caption={t('caption')}
       columns={columns}
       rows={accounts}
       getRowId={(row) => row.id}
@@ -209,122 +193,118 @@ export function AccountsTable({
       {...(onClearFilters === undefined ? {} : { onClearFilters })}
       {...(toolbar === undefined ? {} : { toolbar })}
       labels={labels}
-      emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
+      emptyState={<EmptyState title={t('empty.title')} description={t('empty.description')} />}
       errorState={{ message: errorMessage, onRetry }}
-      rowActions={
-        variant === 'mine'
-          ? (row) => {
-              const name = row.displayName;
-              // Escritorio: botones de solo ícono con su nombre al pasar el cursor. Móvil: un menú
-              // «⋯» para que la fila no se desborde. Se pinta uno u otro, nunca ambos, para no
-              // duplicar los nombres accesibles. Todas las filas de «Mis cuentas» tienen al menos
-              // USE; compartir no se oculta: el servidor decide y la pantalla explica la negativa.
-              if (!isDesktop) {
-                return (
-                  <RowActionsMenu
-                    label={t('action.menuLabel', { name })}
-                    items={[
+      rowActions={(row) => {
+        const name = row.displayName;
+        // Escritorio: botones de solo ícono con su nombre al pasar el cursor. Móvil: un menú
+        // «⋯» para que la fila no se desborde. Se pinta uno u otro, nunca ambos, para no
+        // duplicar los nombres accesibles. Todas las filas de «Mis cuentas» tienen al menos
+        // USE; compartir no se oculta: el servidor decide y la pantalla explica la negativa.
+        if (!isDesktop) {
+          return (
+            <RowActionsMenu
+              label={t('action.menuLabel', { name })}
+              items={[
+                {
+                  id: 'credentials',
+                  label: t('action.credentials'),
+                  icon: <KeyRound className="size-4" />,
+                  onSelect: () => {
+                    void navigate({
+                      to: '/accounts/$accountId/credentials',
+                      params: { accountId: row.id },
+                    });
+                  },
+                },
+                {
+                  id: 'share',
+                  label: t('action.share'),
+                  icon: <Share2 className="size-4" />,
+                  onSelect: () => {
+                    void navigate({
+                      to: '/accounts/$accountId/shares',
+                      params: { accountId: row.id },
+                    });
+                  },
+                },
+                ...(canEdit(row)
+                  ? [
                       {
-                        id: 'credentials',
-                        label: t('action.credentials'),
-                        icon: <KeyRound className="size-4" />,
+                        id: 'edit',
+                        label: t('action.edit'),
+                        icon: <SquarePen className="size-4" />,
                         onSelect: () => {
-                          void navigate({
-                            to: '/accounts/$accountId/credentials',
-                            params: { accountId: row.id },
-                          });
+                          onEdit(row);
                         },
                       },
+                    ]
+                  : []),
+                ...(canArchive(row)
+                  ? [
                       {
-                        id: 'share',
-                        label: t('action.share'),
-                        icon: <Share2 className="size-4" />,
+                        id: 'archive',
+                        label: t('action.archive'),
+                        tone: 'danger' as const,
+                        icon: <Archive className="size-4" />,
                         onSelect: () => {
-                          void navigate({
-                            to: '/accounts/$accountId/shares',
-                            params: { accountId: row.id },
-                          });
+                          onArchive(row);
                         },
                       },
-                      ...(canEdit(row)
-                        ? [
-                            {
-                              id: 'edit',
-                              label: t('action.edit'),
-                              icon: <SquarePen className="size-4" />,
-                              onSelect: () => {
-                                onEdit(row);
-                              },
-                            },
-                          ]
-                        : []),
-                      ...(canArchive(row)
-                        ? [
-                            {
-                              id: 'archive',
-                              label: t('action.archive'),
-                              tone: 'danger' as const,
-                              icon: <Archive className="size-4" />,
-                              onSelect: () => {
-                                onArchive(row);
-                              },
-                            },
-                          ]
-                        : []),
-                    ]}
-                  />
-                );
-              }
-              return (
-                <span className="flex justify-end gap-1.5">
-                  {/* Navegación, no acción: enlaces con aspecto de botón de ícono. */}
-                  <Link
-                    to="/accounts/$accountId/credentials"
-                    params={{ accountId: row.id }}
-                    className={iconLinkClass}
-                    aria-label={t('action.credentialsLabel', { name })}
-                    title={t('action.credentials')}
-                  >
-                    <KeyRound aria-hidden="true" className="size-4" />
-                  </Link>
-                  <Link
-                    to="/accounts/$accountId/shares"
-                    params={{ accountId: row.id }}
-                    className={iconLinkClass}
-                    aria-label={t('action.shareLabel', { name })}
-                    title={t('action.share')}
-                  >
-                    <Share2 aria-hidden="true" className="size-4" />
-                  </Link>
-                  {canEdit(row) ? (
-                    <IconButton
-                      variant="secondary"
-                      size="sm"
-                      label={t('action.editLabel', { name })}
-                      title={t('action.edit')}
-                      icon={<SquarePen className="size-4" />}
-                      onClick={() => {
-                        onEdit(row);
-                      }}
-                    />
-                  ) : null}
-                  {canArchive(row) ? (
-                    <IconButton
-                      variant="secondary"
-                      size="sm"
-                      label={t('action.archiveLabel', { name })}
-                      title={t('action.archive')}
-                      icon={<Archive className="size-4" />}
-                      onClick={() => {
-                        onArchive(row);
-                      }}
-                    />
-                  ) : null}
-                </span>
-              );
-            }
-          : undefined
-      }
+                    ]
+                  : []),
+              ]}
+            />
+          );
+        }
+        return (
+          <span className="flex justify-end gap-1.5">
+            {/* Navegación, no acción: enlaces con aspecto de botón de ícono. */}
+            <Link
+              to="/accounts/$accountId/credentials"
+              params={{ accountId: row.id }}
+              className={iconLinkClass}
+              aria-label={t('action.credentialsLabel', { name })}
+              title={t('action.credentials')}
+            >
+              <KeyRound aria-hidden="true" className="size-4" />
+            </Link>
+            <Link
+              to="/accounts/$accountId/shares"
+              params={{ accountId: row.id }}
+              className={iconLinkClass}
+              aria-label={t('action.shareLabel', { name })}
+              title={t('action.share')}
+            >
+              <Share2 aria-hidden="true" className="size-4" />
+            </Link>
+            {canEdit(row) ? (
+              <IconButton
+                variant="secondary"
+                size="sm"
+                label={t('action.editLabel', { name })}
+                title={t('action.edit')}
+                icon={<SquarePen className="size-4" />}
+                onClick={() => {
+                  onEdit(row);
+                }}
+              />
+            ) : null}
+            {canArchive(row) ? (
+              <IconButton
+                variant="secondary"
+                size="sm"
+                label={t('action.archiveLabel', { name })}
+                title={t('action.archive')}
+                icon={<Archive className="size-4" />}
+                onClick={() => {
+                  onArchive(row);
+                }}
+              />
+            ) : null}
+          </span>
+        );
+      }}
     />
   );
 }

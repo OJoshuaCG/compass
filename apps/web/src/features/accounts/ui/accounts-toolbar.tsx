@@ -9,8 +9,6 @@ export type AccountsToolbarProps = {
   /** Filtro rápido activo; `undefined` = todas. */
   filter: AccountListFilter | undefined;
   onFilterChange: (filter: AccountListFilter | undefined) => void;
-  /** El inventario no ofrece filtros rápidos: revelarían datos de credenciales que no puede ver. */
-  showQuickFilters: boolean;
   /** Etiquetas que ofrece el filtro, ya ordenadas por el servidor. */
   tags: readonly string[];
   /** Etiqueta activa; `undefined` = todas. */
@@ -27,7 +25,6 @@ export function AccountsToolbar({
   onSearchChange,
   filter,
   onFilterChange,
-  showQuickFilters,
   tags,
   tag,
   onTagChange,
@@ -69,26 +66,24 @@ export function AccountsToolbar({
           ))}
         </NativeSelect>
       ) : null}
-      {showQuickFilters ? (
-        <div role="group" aria-label={t('filter.label', { ns: 'accounts' })} className="flex gap-2">
-          {chips.map((chip) => {
-            const isActive = chip.value === filter;
-            return (
-              <Button
-                key={chip.label}
-                size="sm"
-                variant={isActive ? 'primary' : 'secondary'}
-                aria-pressed={isActive}
-                onClick={() => {
-                  onFilterChange(chip.value);
-                }}
-              >
-                {chip.label}
-              </Button>
-            );
-          })}
-        </div>
-      ) : null}
+      <div role="group" aria-label={t('filter.label', { ns: 'accounts' })} className="flex gap-2">
+        {chips.map((chip) => {
+          const isActive = chip.value === filter;
+          return (
+            <Button
+              key={chip.label}
+              size="sm"
+              variant={isActive ? 'primary' : 'secondary'}
+              aria-pressed={isActive}
+              onClick={() => {
+                onFilterChange(chip.value);
+              }}
+            >
+              {chip.label}
+            </Button>
+          );
+        })}
+      </div>
     </div>
   );
 }

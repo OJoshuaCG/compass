@@ -13,18 +13,13 @@ import { apiClient, createListFetcher, noContentSchema, type ApiClient } from '.
 /** Fábrica de claves de las cuentas (docs/frontend.md §7.3). */
 export const accountsKeys = {
   all: ['accounts'] as const,
-  /** Prefijo de los dos listados: una mutación invalida ambos de una vez. */
+  /** Prefijo de los listados: una mutación los invalida de una vez. */
   lists: () => [...accountsKeys.all, 'list'] as const,
   mine: () => [...accountsKeys.lists(), 'mine'] as const,
-  inventory: () => [...accountsKeys.lists(), 'inventory'] as const,
   platforms: () => [...accountsKeys.all, 'platforms'] as const,
   /** Etiquetas en uso: cambian con cada alta, edición o archivo, igual que los listados. */
-  allTags: () => [...accountsKeys.all, 'tags'] as const,
-  tags: (scope: AccountTagsScope) => [...accountsKeys.allTags(), scope] as const,
+  tags: () => [...accountsKeys.all, 'tags'] as const,
 };
-
-/** `mine`: de las cuentas con acceso efectivo. `inventory`: de todo el inventario (exige su permiso). */
-export type AccountTagsScope = 'mine' | 'inventory';
 
 /**
  * `GET /accounts?cursor=&limit=&q=&filter=&tag=`: las cuentas a las que quien consulta accede, cada una con
@@ -33,26 +28,11 @@ export type AccountTagsScope = 'mine' | 'inventory';
 export const fetchAccountsPage = createListFetcher(apiClient, '/accounts', accountListItemSchema);
 
 /**
- * `GET /accounts/inventory?cursor=&limit=&q=&tag=` (exige `vault.inventory.read`): solo metadatos, con
- * `myLevel` en `null` y la antigüedad en `unknown`. Sin filtros rápidos: el servidor los rechaza.
+ * `GET /accounts/tags`: etiquetas distintas en uso, ya ordenadas. Salen solo de cuentas con acceso
+ * efectivo: nunca revelan etiquetas de cuentas ajenas.
  */
-export const fetchInventoryPage = createListFetcher(
-  apiClient,
-  '/accounts/inventory',
-  accountListItemSchema,
-);
-
-/**
- * `GET /accounts/tags` o `GET /accounts/inventory/tags`: etiquetas distintas en uso, ya ordenadas. Las
- * de `mine` salen solo de cuentas con acceso efectivo: nunca revelan etiquetas de cuentas ajenas.
- */
-export async function fetchAccountTags(
-  scope: AccountTagsScope,
-  signal?: AbortSignal,
-  client: ApiClient = apiClient,
-) {
-  const path = scope === 'mine' ? '/accounts/tags' : '/accounts/inventory/tags';
-  const response = await client.get(path, accountTagsResponseSchema, {
+export async function fetchAccountTags(signal?: AbortSignal, client: ApiClient = apiClient) {
+  const response = await client.get('/accounts/tags', accountTagsResponseSchema, {
     ...(signal === undefined ? {} : { signal }),
   });
   return response.data;
