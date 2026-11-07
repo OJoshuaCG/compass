@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useLogout, useMe, usePermission } from '../shared/auth';
 import { LanguageSwitcher } from '../shared/i18n';
 import { useSidebarVisibility } from '../shared/layout';
+import { ThemeSwitcher } from '../shared/theme';
 
 import { SectionNav, type SectionLink } from './section-nav';
 
@@ -160,7 +161,10 @@ export function AppLayout() {
               <SectionNav label={section.label} links={section.links} />
             ) : null}
           </div>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <ThemeSwitcher />
+          </div>
         </div>
       }
       sidebar={

@@ -6,20 +6,23 @@ import { useTranslation } from 'react-i18next';
 const YEAR = new Date().getFullYear();
 
 import { LanguageSwitcher } from '../shared/i18n';
+import { ThemeSwitcher } from '../shared/theme';
 
 /**
- * Marco de las pantallas previas a la sesión (login, MFA, enrolamiento, invitación) como el diseño
- * de Compass: fondo azul marino con degradado y el formulario directo sobre él, sin tarjeta. La clase
- * `theme-auth` redefine los tokens de color solo aquí (ver tokens.css).
+ * Marco de las pantallas previas a la sesión (login, MFA, enrolamiento, invitación) con el tema
+ * activo (ADR 0049): el formulario va directo sobre el fondo y la barra ofrece idioma y tema.
  */
 export function PublicLayout() {
   const { t } = useTranslation('common');
   return (
-    <div className="theme-auth flex min-h-dvh flex-col bg-linear-to-br from-nav to-canvas text-text">
+    <div className="flex min-h-dvh flex-col text-text">
       <SkipLink label={t('nav.skipToContent')} />
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4">
         <Brand name={t('app.name')} />
-        <LanguageSwitcher inverse />
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <ThemeSwitcher />
+        </div>
       </header>
       <main
         id={MAIN_CONTENT_ID}

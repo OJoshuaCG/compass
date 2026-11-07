@@ -9,14 +9,47 @@ const css = readFileSync(
   'utf8',
 );
 
-function readTokens(source: string): Record<string, string> {
-  const root = /:root\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
+type ThemeName = 'dark' | 'light';
+
+// El tema oscuro es el valor por defecto de :root; el claro se activa con data-theme.
+const THEME_BLOCKS: Record<ThemeName, RegExp> = {
+  dark: /:root,\s*:root\[data-theme='dark'\]\s*\{([^}]*)\}/,
+  light: /:root\[data-theme='light'\]\s*\{([^}]*)\}/,
+};
+
+function readTokens(source: string, theme: ThemeName): Record<string, string> {
+  const block = THEME_BLOCKS[theme].exec(source)?.[1] ?? '';
   const tokens: Record<string, string> = {};
-  for (const match of root.matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)) {
+  for (const match of block.matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)) {
     const [, name, value] = match;
     if (name !== undefined && value !== undefined) tokens[name] = value;
   }
   return tokens;
+}
+
+/** Lee un token suave `rgb(r g b / alfa)`: devuelve el color base y su opacidad. */
+function readSoftToken(
+  source: string,
+  theme: ThemeName,
+  name: string,
+): { base: string; alpha: number } {
+  const block = THEME_BLOCKS[theme].exec(source)?.[1] ?? '';
+  const match = new RegExp(
+    `--color-${name}-soft:\\s*rgb\\((\\d+) (\\d+) (\\d+) / ([\\d.]+)\\)`,
+  ).exec(block);
+  if (match === null) throw new Error(`Missing token --color-${name}-soft in ${theme}`);
+  const [, red, green, blue, alpha] = match;
+  const toHex = (value: string | undefined) => Number(value).toString(16).padStart(2, '0');
+  return { base: `#${toHex(red)}${toHex(green)}${toHex(blue)}`, alpha: Number(alpha) };
+}
+
+/** Color que se ve al poner `foreground` con opacidad `alpha` sobre `background`. */
+function composite(foreground: string, alpha: number, background: string): string {
+  const parse = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+  const front = parse(foreground);
+  const back = parse(background);
+  const mixed = front.map((value, i) => Math.round(value * alpha + (back[i] ?? 0) * (1 - alpha)));
+  return `#${mixed.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function channel(value: number): number {
@@ -37,162 +70,133 @@ function contrast(a: string, b: string): number {
   return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
 }
 
-const tokens = readTokens(css);
-function token(name: string): string {
-  const value = tokens[name];
-  if (value === undefined) throw new Error(`Missing token --color-${name}`);
-  return value;
-}
-
 const SURFACES = ['canvas', 'surface', 'raised'] as const;
+const THEMES: readonly ThemeName[] = ['dark', 'light'];
+
+const REQUIRED_TOKENS = [
+  'canvas',
+  'sidebar',
+  'surface',
+  'raised',
+  'overlay',
+  'text',
+  'text-secondary',
+  'text-muted',
+  'text-disabled',
+  'border',
+  'border-strong',
+  'border-input',
+  'accent',
+  'accent-solid',
+  'accent-solid-hover',
+  'on-accent',
+  'success',
+  'warning',
+  'danger',
+  'danger-solid',
+  'on-danger',
+  'info',
+  'focus',
+];
 
 describe('design tokens', () => {
-  it('declares light color-scheme and the heading font in the base layer', () => {
+  it('declares both color schemes, the heading font in the base layer and the theme block', () => {
+    expect(css).toMatch(/color-scheme:\s*dark/);
     expect(css).toMatch(/color-scheme:\s*light/);
     expect(css).toMatch(/h1,[\s\S]*h4\s*\{[^}]*@apply font-heading/);
     expect(css).toMatch(/@theme inline/);
   });
 
-  it('reads every token of docs/frontend.md §4.1 as a 6-digit hex', () => {
-    for (const name of [
-      'canvas',
-      'surface',
-      'raised',
-      'overlay',
-      'text',
-      'text-secondary',
-      'text-muted',
-      'text-disabled',
-      'border',
-      'border-strong',
-      'border-input',
-      'accent',
-      'accent-solid',
-      'accent-solid-hover',
-      'on-accent',
-      'success',
-      'warning',
-      'danger',
-      'danger-solid',
-      'focus',
-      'nav',
-      'nav-raised',
-      'nav-text',
-      'nav-text-muted',
-      'nav-focus',
-    ]) {
-      expect(tokens, name).toHaveProperty(name);
-    }
+  it('keeps glass as a utility for floating layers only', () => {
+    expect(css).toMatch(/@utility glass\s*\{/);
+    expect(css).toMatch(/@utility scrim\s*\{/);
   });
 
-  describe.each(SURFACES)('on %s', (surface) => {
-    it.each([
-      'text',
-      'text-secondary',
-      'text-muted',
-      'accent',
-      'success',
-      'warning',
-      'danger',
-      'focus',
-    ])('text token %s reaches 4.5:1', (name) => {
-      expect(contrast(token(name), token(surface))).toBeGreaterThanOrEqual(4.5);
+  describe.each(THEMES)('%s theme', (theme) => {
+    const tokens = readTokens(css, theme);
+    const token = (name: string): string => {
+      const value = tokens[name];
+      if (value === undefined) throw new Error(`Missing token --color-${name} in ${theme}`);
+      return value;
+    };
+
+    it('reads every token of docs/frontend.md §4.1 as a 6-digit hex', () => {
+      for (const name of REQUIRED_TOKENS) {
+        expect(tokens, name).toHaveProperty(name);
+      }
     });
 
-    it('border-input reaches 3:1 (WCAG 1.4.11)', () => {
-      expect(contrast(token('border-input'), token(surface))).toBeGreaterThanOrEqual(3);
+    describe.each(SURFACES)('on %s', (surface) => {
+      it.each([
+        'text',
+        'text-secondary',
+        'text-muted',
+        'accent',
+        'success',
+        'warning',
+        'danger',
+        'info',
+        'focus',
+      ])('text token %s reaches 4.5:1', (name) => {
+        expect(contrast(token(name), token(surface))).toBeGreaterThanOrEqual(4.5);
+      });
+
+      it('border-input reaches 3:1 (WCAG 1.4.11)', () => {
+        expect(contrast(token('border-input'), token(surface))).toBeGreaterThanOrEqual(3);
+      });
+
+      it('text-disabled stays at or above 3:1 (inactive controls only)', () => {
+        expect(contrast(token('text-disabled'), token(surface))).toBeGreaterThanOrEqual(3);
+      });
     });
 
-    it('text-disabled stays at or above 3:1 (inactive controls only)', () => {
-      expect(contrast(token('text-disabled'), token(surface))).toBeGreaterThanOrEqual(3);
+    it('keeps primary text readable on the overlay surface used by dialogs and neutral chips', () => {
+      expect(contrast(token('text'), token('overlay'))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token('text-secondary'), token('overlay'))).toBeGreaterThanOrEqual(4.5);
     });
-  });
 
-  it('keeps primary text readable on the overlay surface used by dialogs', () => {
-    expect(contrast(token('text'), token('overlay'))).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token('text-secondary'), token('overlay'))).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it('solid buttons keep 4.5:1 for their label', () => {
-    expect(contrast(token('on-accent'), token('accent-solid'))).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token('on-accent'), token('accent-solid-hover'))).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token('on-accent'), token('danger-solid'))).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it.each([
-    ['success', 'success-soft'],
-    ['warning', 'warning-soft'],
-    ['danger', 'danger-soft'],
-  ])('status color %s stays readable on its soft background %s', (fg, bg) => {
-    expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
-  });
-
-  describe.each(['nav', 'nav-raised'] as const)('on the %s navigation background', (background) => {
-    it.each(['nav-text', 'nav-text-muted', 'nav-focus'])('%s reaches 4.5:1', (name) => {
-      expect(contrast(token(name), token(background))).toBeGreaterThanOrEqual(4.5);
+    it('keeps text readable on the sidebar surface', () => {
+      expect(contrast(token('text'), token('sidebar'))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token('text-secondary'), token('sidebar'))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token('accent'), token('sidebar'))).toBeGreaterThanOrEqual(4.5);
     });
-  });
 
-  it('strong borders of tables and cards stay distinguishable from surfaces (decorative border excluded)', () => {
-    expect(contrast(token('border-strong'), token('surface'))).toBeGreaterThan(1.5);
+    it('keeps muted text and input borders readable on the overlay and sidebar surfaces', () => {
+      for (const surface of ['overlay', 'sidebar']) {
+        expect(contrast(token('text-muted'), token(surface)), surface).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(token('border-input'), token(surface)), surface).toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    it.each(['accent', 'success', 'warning', 'danger', 'info'])(
+      'text %s stays at 4.5:1 on its own soft background (chips and alerts)',
+      (name) => {
+        const soft = readSoftToken(css, theme, name);
+        for (const surface of ['canvas', 'surface', 'raised', 'overlay']) {
+          const background = composite(soft.base, soft.alpha, token(surface));
+          expect(contrast(token(name), background), `${name} on ${surface}`).toBeGreaterThanOrEqual(
+            4.5,
+          );
+        }
+      },
+    );
+
+    it('keeps warning visibly apart from the accent: they never share a value', () => {
+      expect(token('warning')).not.toBe(token('accent'));
+    });
+
+    it('solid buttons keep 4.5:1 for their label', () => {
+      expect(contrast(token('on-accent'), token('accent-solid'))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token('on-accent'), token('accent-solid-hover'))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token('on-danger'), token('danger-solid'))).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('strong borders of tables and cards stay distinguishable from surfaces (decorative border excluded)', () => {
+      expect(contrast(token('border-strong'), token('surface'))).toBeGreaterThan(1.5);
+    });
   });
 
   it('computes WCAG ratios correctly (sanity: black on white = 21)', () => {
     expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 5);
-  });
-});
-
-// Tema de las pantallas de acceso: el mismo juego de reglas sobre sus propias superficies oscuras.
-describe('auth screens theme (.theme-auth)', () => {
-  const block = /\.theme-auth\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
-  const scoped: Record<string, string> = {};
-  for (const match of block.matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)) {
-    const [, name, value] = match;
-    if (name !== undefined && value !== undefined) scoped[name] = value;
-  }
-  // Lo que el tema no redefine se hereda del raíz (por ejemplo el botón sólido).
-  const auth = (name: string): string => scoped[name] ?? token(name);
-
-  it('declares a dark color-scheme and redefines the surfaces and text', () => {
-    expect(block).toMatch(/color-scheme:\s*dark/);
-    for (const name of ['canvas', 'surface', 'raised', 'text', 'border-input', 'focus']) {
-      expect(scoped, name).toHaveProperty(name);
-    }
-  });
-
-  describe.each(SURFACES)('on %s', (surface) => {
-    it.each([
-      'text',
-      'text-secondary',
-      'text-muted',
-      'accent',
-      'success',
-      'warning',
-      'danger',
-      'focus',
-    ])('text token %s reaches 4.5:1', (name) => {
-      expect(contrast(auth(name), auth(surface))).toBeGreaterThanOrEqual(4.5);
-    });
-
-    it('border-input reaches 3:1 (WCAG 1.4.11)', () => {
-      expect(contrast(auth('border-input'), auth(surface))).toBeGreaterThanOrEqual(3);
-    });
-
-    it('text-disabled stays at or above 3:1 (inactive controls only)', () => {
-      expect(contrast(auth('text-disabled'), auth(surface))).toBeGreaterThanOrEqual(3);
-    });
-  });
-
-  it.each([
-    ['success', 'success-soft'],
-    ['warning', 'warning-soft'],
-    ['danger', 'danger-soft'],
-  ])('status color %s stays readable on its soft background %s', (fg, bg) => {
-    expect(contrast(auth(fg), auth(bg))).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it('solid buttons keep 4.5:1 for their label', () => {
-    expect(contrast(auth('on-accent'), auth('accent-solid'))).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(auth('on-accent'), auth('danger-solid'))).toBeGreaterThanOrEqual(4.5);
   });
 });

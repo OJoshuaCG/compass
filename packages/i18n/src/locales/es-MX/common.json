@@ -1,6 +1,8 @@
 {
   "app.name": "Compass",
   "nav.label": "Navegación principal",
+  "theme.switchToLight": "Cambiar al tema claro",
+  "theme.switchToDark": "Cambiar al tema oscuro",
   "nav.home": "Inicio",
   "nav.vault": "Bóveda",
   "nav.people": "Personas",

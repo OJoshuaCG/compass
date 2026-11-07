@@ -1,6 +1,8 @@
 {
   "app.name": "Compass",
   "nav.label": "Main navigation",
+  "theme.switchToLight": "Switch to light theme",
+  "theme.switchToDark": "Switch to dark theme",
   "nav.home": "Home",
   "nav.vault": "Vault",
   "nav.people": "People",

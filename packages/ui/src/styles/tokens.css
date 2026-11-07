@@ -1,94 +1,135 @@
 @import 'tailwindcss';
 
 /*
- * Tokens globales del tema claro "Compass" sobre la paleta azul de CIROX (docs/frontend.md §4.1).
+ * Tokens globales de los dos temas de Compass (docs/frontend.md §4.1, ADR 0049).
  * Único punto de verdad de colores, formas y movimiento: los componentes solo usan
- * utilidades semánticas. Al añadir un color se mide su contraste y se actualiza §4.2.
+ * utilidades semánticas. Al añadir un color se agrega en LOS DOS temas, se mide su
+ * contraste y se actualiza §4.2.
+ *
+ * El tema oscuro es el valor por defecto de :root; el claro se activa con
+ * data-theme="light" en el elemento raíz (lo fija el arranque de la aplicación).
  */
-:root {
-  color-scheme: light;
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
 
-  /* Superficies: fondo de página, tarjetas, realce (hover, fila activa) y capas */
-  --color-canvas: #f2f5fb;
-  --color-surface: #ffffff;
-  --color-raised: #e8f0fa;
-  --color-overlay: #ffffff;
+  /* Superficies (de más profundo a más elevado) */
+  --color-canvas: #0b0f13;
+  --color-sidebar: #0e1318;
+  --color-surface: #131920;
+  --color-raised: #19212a;
+  --color-overlay: #212b36;
 
   /* Texto */
-  --color-text: #0f1f3d;
-  --color-text-secondary: #374151;
-  --color-text-muted: #5a6475;
-  --color-text-disabled: #7c8594;
+  --color-text: #e9eef3;
+  --color-text-secondary: #a6b2bf;
+  --color-text-muted: #8592a0;
+  --color-text-disabled: #6a7683;
 
   /* Bordes */
-  --color-border: #e5e7eb; /* separadores decorativos */
-  --color-border-strong: #c3ccd9; /* tarjetas, tablas */
-  --color-border-input: #6b7280; /* controles interactivos (>=3:1) */
+  --color-border: #1c242d; /* separadores decorativos */
+  --color-border-strong: #34404d; /* tarjetas, tablas */
+  --color-border-input: #6b7785; /* controles interactivos (>=3:1) */
 
-  /* Marca y estados */
-  --color-accent: #1956b0;
-  --color-accent-solid: #2d6bcb;
-  --color-accent-solid-hover: #1956b0;
-  --color-on-accent: #ffffff;
-  --color-success: #137238;
-  --color-warning: #a14a0b;
-  --color-danger: #b91c1c;
-  --color-danger-solid: #c62f3a;
-  --color-focus: #1956b0;
+  /* Acento (la aguja de latón) y estados */
+  --color-accent: #ecc272;
+  --color-accent-solid: #e6b45b;
+  --color-accent-solid-hover: #f0c06a;
+  --color-on-accent: #1b1407;
+  --color-success: #5fd8a4;
+  --color-warning: #ff9f5a;
+  --color-danger: #ff948f;
+  --color-danger-solid: #c93843;
+  --color-on-danger: #ffffff;
+  --color-info: #7fbcff;
+  --color-focus: #ecc272;
 
-  /* Fondos suaves de estado (círculos de íconos); el color del estado sobre ellos >=4.5:1 */
-  --color-success-soft: #e1f3e7;
-  --color-warning-soft: #fdf1dc;
-  --color-danger-soft: #fde8e8;
+  /* Variantes suaves: fondo de chips y avisos; su texto usa el token pleno */
+  --color-accent-soft: rgb(230 180 91 / 0.13);
+  --color-success-soft: rgb(95 216 164 / 0.12);
+  --color-warning-soft: rgb(255 159 90 / 0.13);
+  --color-danger-soft: rgb(255 148 143 / 0.13);
+  --color-info-soft: rgb(127 188 255 / 0.13);
 
-  /* Navegación y pantallas de acceso: azul marino de la marca con texto claro */
-  --color-nav: #0c3572;
-  --color-nav-raised: #1e4a8a; /* elemento activo o con hover */
-  --color-nav-text: #ffffff;
-  --color-nav-text-muted: #c8def5;
-  --color-nav-focus: #a3c6ee;
+  /* Capas flotantes (cristal) */
+  --color-glass: rgb(19 25 32 / 0.64);
+  --color-glass-border: rgb(255 255 255 / 0.13);
+  --color-scrim: rgb(4 7 10 / 0.52);
 
-  /* Forma y movimiento */
+  /* Ambiente de fondo, apenas perceptible */
+  --ambient-a: rgb(230 180 91 / 0.075);
+  --ambient-b: rgb(92 150 214 / 0.09);
+
+  --shadow-overlay: 0 28px 70px -24px rgb(0 0 0 / 0.75), inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-canvas: #f2f4f6;
+  --color-sidebar: #eaeef1;
+  --color-surface: #ffffff;
+  --color-raised: #f6f8fa;
+  --color-overlay: #ebeff2;
+
+  --color-text: #0d1620;
+  --color-text-secondary: #435061;
+  --color-text-muted: #5a6878;
+  --color-text-disabled: #7a8592;
+
+  --color-border: #dde2e7;
+  --color-border-strong: #c3cbd3;
+  --color-border-input: #7d8896;
+
+  --color-accent: #7a5000;
+  --color-accent-solid: #dca235;
+  --color-accent-solid-hover: #cf942a;
+  --color-on-accent: #1b1407;
+  --color-success: #0d7048;
+  --color-warning: #8f3d00;
+  --color-danger: #b02b27;
+  --color-danger-solid: #b02b27;
+  --color-on-danger: #ffffff;
+  --color-info: #1a58ad;
+  --color-focus: #7a5000;
+
+  --color-accent-soft: rgb(220 162 53 / 0.17);
+  --color-success-soft: rgb(13 112 72 / 0.1);
+  --color-warning-soft: rgb(143 61 0 / 0.1);
+  --color-danger-soft: rgb(176 43 39 / 0.09);
+  --color-info-soft: rgb(26 88 173 / 0.09);
+
+  --color-glass: rgb(255 255 255 / 0.66);
+  --color-glass-border: rgb(255 255 255 / 0.85);
+  --color-scrim: rgb(226 232 238 / 0.55);
+
+  --ambient-a: rgb(220 162 53 / 0.14);
+  --ambient-b: rgb(92 150 214 / 0.12);
+
+  --shadow-overlay: 0 28px 60px -26px rgb(20 34 50 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+/* Forma y movimiento: iguales en los dos temas. */
+:root {
   --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --shadow-card: 0 4px 16px rgb(15 31 61 / 0.08);
-  --shadow-overlay: 0 8px 32px rgb(15 31 61 / 0.16);
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
   --duration-fast: 120ms;
   --duration-base: 200ms;
 }
 
 /*
- * Pantallas de acceso (login, MFA, alta, invitación): fondo azul marino sin tarjeta, como el diseño
- * de Compass. Redefine los mismos tokens solo dentro del contenedor con esta clase, así que campos,
- * botones y avisos se adaptan sin variantes propias. Los contrastes se miden en tokens.test.ts.
+ * Transición desde el diseño azul de dev: el menú lateral marino (`nav-*`) y la sombra de las
+ * tarjetas (`shadow-card`) se resuelven con los tokens del tema activo. Se retiran cuando el marco
+ * y las pantallas adopten los componentes de ADR 0049 (odd/tasks/adopt-main-ui.md).
  */
-.theme-auth {
-  color-scheme: dark;
-
-  --color-canvas: #0d1b38;
-  --color-surface: #172a4f;
-  --color-raised: #223a66;
-  --color-overlay: #172a4f;
-
-  --color-text: #ffffff;
-  --color-text-secondary: #c8def5;
-  --color-text-muted: #a9c3e3;
-  --color-text-disabled: #7d91b3;
-
-  --color-border: #22375f;
-  --color-border-strong: #31497a;
-  --color-border-input: #7891bf;
-
-  --color-accent: #8ab8e8;
-  --color-success: #74d99f;
-  --color-warning: #f5b971;
-  --color-danger: #f8a5a5;
-  --color-focus: #a3c6ee;
-
-  --color-success-soft: #123a2a;
-  --color-warning-soft: #3b2a12;
-  --color-danger-soft: #3e1d25;
+:root {
+  --color-nav: var(--color-sidebar);
+  --color-nav-raised: var(--color-raised);
+  --color-nav-text: var(--color-text);
+  --color-nav-text-muted: var(--color-text-secondary);
+  --color-nav-focus: var(--color-focus);
+  --shadow-card: none;
 }
 
 /* Descarta la paleta por defecto de Tailwind: solo existen los colores de los tokens. */
@@ -98,6 +139,7 @@
 
 @theme inline {
   --color-canvas: var(--color-canvas);
+  --color-sidebar: var(--color-sidebar);
   --color-surface: var(--color-surface);
   --color-raised: var(--color-raised);
   --color-overlay: var(--color-overlay);
@@ -113,40 +155,111 @@
   --color-accent-solid-hover: var(--color-accent-solid-hover);
   --color-on-accent: var(--color-on-accent);
   --color-success: var(--color-success);
-  --color-success-soft: var(--color-success-soft);
-  --color-warning-soft: var(--color-warning-soft);
-  --color-danger-soft: var(--color-danger-soft);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
   --color-danger-solid: var(--color-danger-solid);
+  --color-on-danger: var(--color-on-danger);
+  --color-info: var(--color-info);
   --color-focus: var(--color-focus);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-success-soft: var(--color-success-soft);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-info-soft: var(--color-info-soft);
+  --color-glass: var(--color-glass);
+  --color-glass-border: var(--color-glass-border);
+  --color-scrim: var(--color-scrim);
   --color-nav: var(--color-nav);
   --color-nav-raised: var(--color-nav-raised);
   --color-nav-text: var(--color-nav-text);
   --color-nav-text-muted: var(--color-nav-text-muted);
   --color-nav-focus: var(--color-nav-focus);
+  --shadow-card: var(--shadow-card);
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-heading: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Space Grotesk Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
-  --shadow-card: var(--shadow-card);
   --shadow-overlay: var(--shadow-overlay);
+}
+
+/*
+ * Cristal: solo para capas flotantes (barra superior, ventanas modales y menús).
+ * Nunca en tarjetas ni tablas: el contenido debe seguir opaco y legible.
+ */
+@utility glass {
+  background-color: var(--color-glass);
+  border: 1px solid var(--color-glass-border);
+  box-shadow: var(--shadow-overlay);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+
+/* Barra superior: cristal sin sombra ni borde lateral, pegada al borde de arriba. */
+@utility glass-bar {
+  background-color: var(--color-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+/*
+ * Respaldo opaco: sin desenfoque (navegador sin soporte o transparencia reducida) el texto de
+ * abajo se mezclaría con la capa, así que el cristal pasa a fondo sólido de la superficie elevada.
+ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-bar {
+    background-color: var(--color-overlay);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-bar {
+    background-color: var(--color-overlay);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Fondo detrás de una ventana modal. */
+@utility scrim {
+  background-color: var(--color-scrim);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
 }
 
 @layer base {
   html {
     @apply bg-canvas font-sans text-text;
+    /* La barra superior es fija: sin este margen el foco por teclado queda tapado (WCAG 2.4.11). */
+    scroll-padding-top: 5rem;
   }
 
-  /* Encabezados en negrita y con interletrado cerrado; los componentes no repiten la clase. */
+  /* Ambiente: dos degradados muy tenues que solo dan profundidad detrás del cristal. */
+  body {
+    background-image:
+      radial-gradient(820px 460px at 88% -8%, var(--ambient-a), transparent 62%),
+      radial-gradient(700px 520px at -4% 104%, var(--ambient-b), transparent 62%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Los encabezados usan Space Grotesk; los componentes no repiten la clase. */
   h1,
   h2,
   h3,
   h4 {
-    @apply font-heading font-bold tracking-tight;
+    @apply font-heading;
     line-height: 1.25;
+  }
+
+  /* El cero con barra distingue 0 de O en códigos y claves. */
+  .font-mono,
+  code,
+  kbd {
+    font-feature-settings: 'zero' 1;
   }
 
   /* Foco visible por defecto en todo control interactivo (WCAG 2.4.7 / 2.4.11). */
@@ -163,5 +276,17 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+/*
+ * Colores forzados (Windows alto contraste): el estado activo del menú se marca con un anillo
+ * (sombra), y el sistema elimina las sombras. El contorno sí se conserva y mantiene la señal
+ * sin depender del color.
+ */
+@media (forced-colors: active) {
+  [aria-current='page'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
 }
