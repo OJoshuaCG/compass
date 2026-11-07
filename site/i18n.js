@@ -19,7 +19,7 @@
     "Estado": "Status",
     "Cambiar el idioma a inglés": "Switch language to Spanish",
     "Cambiar tema claro u oscuro": "Switch between light and dark theme",
-    "Ver el proyecto": "View the project",
+    "Ver en GitHub": "View on GitHub",
     "Plataforma interna": "Internal platform",
     "Quién entra a qué,": "Who gets in where,",
     "bajo control": "under control",
@@ -107,10 +107,8 @@
     "Inicio de sesión único, SAML y SCIM, SMS, extensión de navegador y broker de sesiones.": "Single sign-on, SAML and SCIM, SMS, browser extension and session broker.",
     "Conoce el diseño completo": "Explore the full design",
     "El producto, sus reglas, las decisiones de arquitectura y el modelo de amenazas están documentados en el repositorio.": "The product, its rules, the architecture decisions and the threat model are documented in the repository.",
-    "Ir al repositorio": "Go to the repository",
-    "Leer el README": "Read the README",
+    "Leer la documentación": "Read the documentation",
     "© 2026 Compass · Creado por": "© 2026 Compass · Created by",
-    "Portafolio": "Portfolio",
     "Código fuente en GitHub": "Source code on GitHub"
   };
   // DICT-END
