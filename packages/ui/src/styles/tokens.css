@@ -137,6 +137,54 @@
   --color-*: initial;
 }
 
+/*
+ * Aguja de la brújula del Inicio: oscila al aparecer hasta asentarse en 38° (amortiguada, como una
+ * brújula real) y luego deriva despacio unos grados. Con «reducir movimiento» la capa base deja las
+ * animaciones en su último cuadro, así que la aguja queda quieta en 38°.
+ */
+@theme {
+  --animate-compass-needle:
+    compass-settle 2.4s cubic-bezier(0.2, 0.7, 0.3, 1) both,
+    compass-drift 7s ease-in-out 2.4s infinite;
+
+  @keyframes compass-settle {
+    0% {
+      transform: rotate(-70deg);
+    }
+    30% {
+      transform: rotate(62deg);
+    }
+    50% {
+      transform: rotate(24deg);
+    }
+    66% {
+      transform: rotate(46deg);
+    }
+    80% {
+      transform: rotate(34deg);
+    }
+    90% {
+      transform: rotate(40deg);
+    }
+    100% {
+      transform: rotate(38deg);
+    }
+  }
+
+  @keyframes compass-drift {
+    0%,
+    100% {
+      transform: rotate(38deg);
+    }
+    35% {
+      transform: rotate(42deg);
+    }
+    70% {
+      transform: rotate(35deg);
+    }
+  }
+}
+
 @theme inline {
   --color-canvas: var(--color-canvas);
   --color-sidebar: var(--color-sidebar);

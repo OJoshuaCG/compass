@@ -20,7 +20,7 @@ import {
 } from '@iam/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useMe, usePermission } from '../../../shared/auth';
@@ -30,7 +30,6 @@ import { fetchMyPasskeysPage, passkeysKeys } from '../../security';
 import { fetchMySessionsPage, sessionsKeys } from '../../sessions';
 import { fetchInventoryCount, fetchManagedCount, homeKeys } from '../api/home-api';
 import { buildAttention, countInvitations, type AttentionItem } from '../model/attention';
-import { clockAngles } from '../model/clock';
 import type { SummaryCount } from '../model/summary-count';
 import { AttentionRow } from '../ui/attention-row';
 
@@ -69,26 +68,13 @@ function exactHint(
   return texts.normal;
 }
 
-/** Cada cuánto se vuelve a leer la hora: con medio minuto el minutero nunca va atrasado un minuto entero. */
-const CLOCK_TICK_MS = 30_000;
-
 /**
- * Reloj analógico decorativo del encabezado, con el trazo de la brújula de main (ADR 0049): marcas
- * de minutos y horas, horario en el color del texto y minutero en el acento («la aguja»). Marca la
- * hora del equipo (la del navegador), no la zona del perfil: es la que la persona tiene a la vista.
- * Es adorno: la fecha ya va escrita junto al saludo, así que se oculta a los lectores de pantalla. Solo usa tokens vía `currentColor` y `fill-accent`.
+ * Brújula decorativa del encabezado, la de main (ADR 0049): aguja norte en el acento. La aguja
+ * oscila al abrir el Inicio hasta asentarse y luego deriva unos grados, como una brújula de verdad
+ * (`animate-compass-needle` en tokens.css; queda quieta con «reducir movimiento»). Es adorno puro:
+ * oculta para lectores de pantalla y solo usa tokens vía `currentColor`.
  */
-function CompassClock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNow(new Date());
-    }, CLOCK_TICK_MS);
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, []);
-  const angles = clockAngles(now);
+function CompassArt() {
   return (
     <svg
       viewBox="0 0 160 160"
@@ -99,7 +85,6 @@ function CompassClock() {
       className="hidden shrink-0 text-text-muted sm:block"
     >
       <circle cx="80" cy="80" r="74" fill="none" stroke="currentColor" opacity=".4" />
-      {/* 60 marcas de minuto: la circunferencia (2π·66 ≈ 414.69) entre 60 da 6.91 por marca. */}
       <circle
         cx="80"
         cy="80"
@@ -107,28 +92,14 @@ function CompassClock() {
         fill="none"
         stroke="currentColor"
         strokeWidth="5"
-        strokeDasharray="1 5.9115"
-        strokeDashoffset="0.5"
-        opacity=".45"
+        strokeDasharray="1 7.64"
+        opacity=".55"
       />
-      {/* 12 marcas de hora, más largas: 414.69 entre 12 da 34.56 por marca. */}
-      <circle
-        cx="80"
-        cy="80"
-        r="65"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="9"
-        strokeDasharray="2 32.5575"
-        strokeDashoffset="1"
-        opacity=".7"
-      />
-      <g transform={`rotate(${String(angles.hour)} 80 80)`}>
-        <path d="M80 40l6 40H74z" fill="currentColor" opacity=".75" />
-      </g>
-      <g transform={`rotate(${String(angles.minute)} 80 80)`}>
-        <path d="M80 22l7 58H73z" className="fill-accent" />
-        <path d="M80 98l4-18h-8z" fill="currentColor" opacity=".5" />
+      <circle cx="80" cy="80" r="46" fill="none" stroke="currentColor" opacity=".4" />
+      {/* El giro lo da la animación (termina en 38°): por eso no lleva `transform` propio. */}
+      <g className="animate-compass-needle origin-center transform-view">
+        <path d="M80 28l9 52H71z" className="fill-accent" />
+        <path d="M80 132l9-52H71z" fill="currentColor" opacity=".5" />
       </g>
       <circle cx="80" cy="80" r="4.5" className="fill-canvas" stroke="currentColor" />
     </svg>
@@ -336,7 +307,7 @@ export function HomePage() {
             </p>
           ) : null}
         </div>
-        <CompassClock />
+        <CompassArt />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
