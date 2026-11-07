@@ -54,6 +54,7 @@ export interface ManageAccountsDeps {
 export interface AccountSearch {
   readonly text?: string | undefined;
   readonly filter?: AccountListFilter | undefined;
+  readonly tag?: string | undefined;
 }
 
 /** Una cuenta de un listado con su semáforo de antigüedad de contraseña ya calculado. */
@@ -110,16 +111,34 @@ export class ManageAccounts {
     });
   }
 
+  /** Etiquetas en uso en las cuentas a las que la persona accede (sugerencias y filtro). */
+  listMyTags(): Promise<readonly string[]> {
+    const { uow, authorizer, accounts } = this.deps;
+    return uow.run(async () => {
+      const actor = await authorizer.requireActiveMember();
+      return accounts.listVisibleTags(actor.id);
+    });
+  }
+
+  /** Etiquetas en uso en el inventario; exige el mismo permiso que el inventario. */
+  listInventoryTags(): Promise<readonly string[]> {
+    const { uow, authorizer, accounts } = this.deps;
+    return uow.run(async () => {
+      await authorizer.require({ permission: 'vault.inventory.read' });
+      return accounts.listInventoryTags();
+    });
+  }
+
   /** Metadatos de todas las cuentas activas; no concede acceso a ninguna (ver las invariantes). */
   listInventory(
     page: KeysetRequest,
-    search: { readonly text?: string | undefined } = {},
+    search: { readonly text?: string | undefined; readonly tag?: string | undefined } = {},
   ): Promise<KeysetPage<AccountListSummary>> {
     const { uow, authorizer, accounts, clock } = this.deps;
     return uow.run(async () => {
       await authorizer.require({ permission: 'vault.inventory.read' });
       // Sin filtros rápidos y sin antigüedad: son datos de credenciales de cuentas a las que no se accede.
-      const filters = this.toFilters({ text: search.text }, clock.now());
+      const filters = this.toFilters({ text: search.text, tag: search.tag }, clock.now());
       const result = await accounts.listInventoryPage(page, filters);
       return {
         nextCursor: result.nextCursor,
@@ -133,6 +152,7 @@ export class ManageAccounts {
     return {
       text: text === '' ? null : text,
       quickFilter: search.filter ?? null,
+      tag: search.tag ?? null,
       agingCutoff: passwordAgeCutoff(now, PASSWORD_AGING_AFTER_DAYS),
     };
   }

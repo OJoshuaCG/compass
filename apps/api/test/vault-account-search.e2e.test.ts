@@ -291,6 +291,75 @@ describe('inventory', () => {
   });
 });
 
+describe('tags', () => {
+  const tagsOf = async (session: EnrolledSession, path = '/accounts/tags'): Promise<string[]> => {
+    const response = await session.client.get<{ data: string[] }>(path);
+    expect(response.status).toBe(200);
+    return response.body.data;
+  };
+
+  it('filters by the exact tag, not by a fragment or another case', async () => {
+    await createAccount(operator, 'Tag Probe One', { tags: ['Brand MX', 'ads'] });
+    await createAccount(operator, 'Tag Probe Two', { tags: ['brand mx'] });
+    await createAccount(operator, 'Tag Probe Three', { tags: ['Brand MX Extra'] });
+
+    expect(names(await search(operator, { tag: 'Brand MX' }))).toEqual(['Tag Probe One']);
+    expect(names(await search(operator, { tag: 'brand mx' }))).toEqual(['Tag Probe Two']);
+    expect(names(await search(operator, { tag: 'Brand' }))).toEqual([]);
+    expect(names(await search(operator, { tag: 'Brand MX', q: 'Two' }))).toEqual([]);
+  });
+
+  it('lists distinct tags only from the accounts the person can access', async () => {
+    await createAccount(operator, 'Tag Private', { tags: ['only-operator', 'ads'] });
+
+    const operatorTags = await tagsOf(operator);
+    expect(operatorTags).toContain('only-operator');
+    expect(operatorTags.filter((tag) => tag === 'ads')).toHaveLength(1);
+    // Orden sin distinguir mayúsculas: «ads» va antes que «Brand MX» aunque en ASCII «B» < «a».
+    expect(operatorTags.indexOf('ads')).toBeLessThan(operatorTags.indexOf('Brand MX'));
+    expect(operatorTags.indexOf('Brand MX')).toBeLessThan(operatorTags.indexOf('only-operator'));
+
+    expect(await tagsOf(outsider)).not.toContain('only-operator');
+    expect(names(await search(outsider, { tag: 'only-operator' }))).toEqual([]);
+  });
+
+  it('drops the tags of an account once the share is revoked or the account is archived', async () => {
+    const shared = await createAccount(operator, 'Tag Shared', { tags: ['shared-tag'] });
+    const granted = await operator.client.post<{ id: string }>(`/accounts/${shared.id}/shares`, {
+      granteeType: 'user',
+      granteeId: await userId('outsider@search.test'),
+      level: 'USE',
+    });
+    expect(granted.status).toBe(201);
+    expect(await tagsOf(outsider)).toContain('shared-tag');
+
+    await operator.client.post(`/accounts/${shared.id}/shares/${granted.body.id}/revoke`);
+    expect(await tagsOf(outsider)).not.toContain('shared-tag');
+
+    const archived = await createAccount(operator, 'Tag Archived', { tags: ['archived-tag'] });
+    expect(await tagsOf(operator)).toContain('archived-tag');
+    expect((await operator.client.post(`/accounts/${archived.id}/archive`)).status).toBe(204);
+    expect(await tagsOf(operator)).not.toContain('archived-tag');
+  });
+
+  it('gives the inventory tags of every active account, behind the inventory permission', async () => {
+    await createAccount(operator, 'Tag Inventory', { tags: ['inventory-tag'] });
+
+    expect(await tagsOf(admin, '/accounts/inventory/tags')).toContain('inventory-tag');
+    expect(names(await search(admin, { tag: 'inventory-tag' }, '/accounts/inventory'))).toEqual([
+      'Tag Inventory',
+    ]);
+    const denied = await operator.client.get<ProblemDetails>('/accounts/inventory/tags');
+    expect(denied.status).toBe(403);
+  });
+
+  it('rejects an empty or over-long tag filter', async () => {
+    expect((await operator.client.get(`/accounts?tag=`)).status).toBe(422);
+    expect((await operator.client.get(`/accounts?tag=${'a'.repeat(51)}`)).status).toBe(422);
+    expect((await admin.client.get(`/accounts/inventory?tag=${'a'.repeat(51)}`)).status).toBe(422);
+  });
+});
+
 describe('access boundary with mixed accounts', () => {
   it('returns only the accounts shared with the person, and none after the share is revoked', async () => {
     const shared = await createAccount(operator, 'Boundary Shared');

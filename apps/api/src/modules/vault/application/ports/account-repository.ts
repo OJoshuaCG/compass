@@ -44,6 +44,8 @@ export interface AccountListFilters {
   /** Texto libre: nombre visible, handle, plataforma, etiquetas y grupo. `null` = sin búsqueda. */
   readonly text: string | null;
   readonly quickFilter: AccountListFilter | null;
+  /** Etiqueta exacta (distingue mayúsculas, como se guardó). `null` = sin filtro de etiqueta. */
+  readonly tag: string | null;
   /** Fecha anterior a la cual una credencial ya pasó el umbral de «por revisar» (amarillo o rojo). */
   readonly agingCutoff: Date;
 }
@@ -113,6 +115,13 @@ export interface AccountRepository {
     userId: UserId,
     displayNames: readonly string[],
   ): Promise<readonly ExistingAccountKey[]>;
+  /**
+   * Etiquetas distintas de las cuentas activas a las que la persona accede. Solo acceso efectivo: una
+   * etiqueta de una cuenta ajena no debe revelarse ni como sugerencia.
+   */
+  listVisibleTags(userId: UserId): Promise<readonly string[]>;
+  /** Etiquetas distintas de todas las cuentas activas de la organización (las del inventario). */
+  listInventoryTags(): Promise<readonly string[]>;
   /** Todas las cuentas activas de la organización (solo metadatos), por nombre. */
   listInventoryPage(
     page: KeysetRequest,

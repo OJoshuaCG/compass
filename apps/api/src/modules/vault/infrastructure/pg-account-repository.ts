@@ -243,6 +243,37 @@ export class PgAccountRepository implements AccountRepository {
     }));
   }
 
+  async listVisibleTags(userId: UserId): Promise<readonly string[]> {
+    // Misma unión con el acceso efectivo que el listado: una cuenta ajena no aporta etiquetas.
+    return this.listTags(
+      `join effective_access ea
+          on ea.organization_id = a.organization_id
+         and ea.resource_type = 'account'
+         and ea.resource_id = a.id
+         and ea.user_id = $1`,
+      [userId],
+    );
+  }
+
+  async listInventoryTags(): Promise<readonly string[]> {
+    return this.listTags('', []);
+  }
+
+  /** Etiquetas distintas de las cuentas activas que deja pasar `accessJoin`, con un tope de seguridad. */
+  private async listTags(accessJoin: string, params: unknown[]): Promise<readonly string[]> {
+    const result = await this.transactions.current().query<{ tag: string }>(
+      `select tag
+         from (select distinct unnest(a.tags) as tag
+                 from accounts a
+                 ${accessJoin}
+                where a.status = 'active') tags
+        order by lower(tag), tag
+        limit ${String(MAX_LISTED_TAGS)}`,
+      params,
+    );
+    return result.rows.map((row) => row.tag);
+  }
+
   async listInventoryPage(
     page: KeysetRequest,
     filters: AccountListFilters,
@@ -299,6 +330,9 @@ export class PgAccountRepository implements AccountRepository {
                         and g.name ilike ${pattern} escape '\\'))`,
       );
     }
+    if (filters.tag !== null) {
+      clauses.push(`${bind(filters.tag)}::text = any(a.tags)`);
+    }
     if (filters.quickFilter !== null && !base.includeCredentialPosture) {
       // Defensa en profundidad: la capa de aplicación ya no pasa filtros rápidos al inventario.
       throw new Error('Quick filters need credential data, which this listing must not read');
@@ -346,6 +380,9 @@ export class PgAccountRepository implements AccountRepository {
     return { rows: keyset.rows.map(toListEntry), nextCursor: keyset.nextCursor };
   }
 }
+
+/** Tope de etiquetas sugeridas: evita respuestas enormes si una organización abusa de ellas. */
+const MAX_LISTED_TAGS = 500;
 
 /** Escapa los comodines de `LIKE` para que el texto buscado se compare tal cual, sin patrones. */
 function escapeLikePattern(text: string): string {
