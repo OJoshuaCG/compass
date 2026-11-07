@@ -2,6 +2,7 @@ export {
   AppShell,
   MAIN_CONTENT_CLASS,
   MAIN_CONTENT_ID,
+  SIDEBAR_ID,
   SkipLink,
   type AppShellProps,
 } from './app-shell';

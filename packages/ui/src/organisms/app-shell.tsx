@@ -15,7 +15,18 @@ export type AppShellProps = {
   skipLinkLabel: string;
   children: ReactNode;
   className?: string;
+  /**
+   * Oculta el menú lateral y deja el contenido con todo el ancho. Por defecto es visible, así que
+   * quien no lo pasa conserva el comportamiento anterior.
+   */
+  sidebarHidden?: boolean;
 };
+
+/**
+ * Identificador del menú lateral: el botón que lo oculta lo referencia con `aria-controls`.
+ * Sigue en el DOM aun oculto (atributo `hidden`), por lo que la referencia nunca queda rota.
+ */
+export const SIDEBAR_ID = 'app-sidebar';
 
 /** Identificador del `<main>`: destino del enlace de salto. */
 export const MAIN_CONTENT_ID = 'main-content';
@@ -48,12 +59,19 @@ export function AppShell({
   skipLinkLabel,
   children,
   className,
+  sidebarHidden = false,
 }: AppShellProps) {
   return (
     <div className={cn('flex min-h-screen flex-col bg-canvas text-text md:flex-row', className)}>
       <SkipLink label={skipLinkLabel} />
       {/* El foco por defecto (azul) no contrasta con el fondo marino: se usa el de navegación. */}
-      <aside className="flex flex-col gap-6 bg-nav p-4 text-nav-text md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:overflow-y-auto [&_:focus-visible]:outline-nav-focus">
+      <aside
+        id={SIDEBAR_ID}
+        // `hidden` lo saca del árbol de accesibilidad y del orden de tabulación, no solo de la
+        // vista; la regla de Tailwind para `[hidden]` gana a `flex` porque es `!important`.
+        hidden={sidebarHidden}
+        className="flex flex-col gap-6 bg-nav p-4 text-nav-text md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:overflow-y-auto [&_:focus-visible]:outline-nav-focus"
+      >
         {brand !== undefined ? <div className="px-2 py-1">{brand}</div> : null}
         {sidebar}
         {sidebarFooter !== undefined ? <div className="md:mt-auto">{sidebarFooter}</div> : null}

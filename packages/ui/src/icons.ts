@@ -24,6 +24,8 @@ export {
   Mail,
   Monitor,
   MonitorSmartphone,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   RefreshCw,
   Settings,

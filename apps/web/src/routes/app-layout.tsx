@@ -8,7 +8,10 @@ import {
   Lock,
   LogOut,
   Mail,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
+  SIDEBAR_ID,
   Users,
   type LucideIcon,
 } from '@iam/ui';
@@ -18,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useLogout, useMe, usePermission } from '../shared/auth';
 import { LanguageSwitcher } from '../shared/i18n';
+import { useSidebarVisibility } from '../shared/layout';
 
 import { SectionNav, type SectionLink } from './section-nav';
 
@@ -92,6 +96,8 @@ export function AppLayout() {
   // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
   const canManageInfraAlerts = usePermission('alerts.infra.manage');
   const { logout, pending } = useLogout();
+  const sidebarState = useSidebarVisibility(me?.user.id);
+  const sidebarVisible: boolean = sidebarState.visible;
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   // Pestañas de cada sección, como en el diseño: Personas (usuarios y roles) y Configuración
@@ -132,14 +138,28 @@ export function AppLayout() {
   return (
     <AppShell
       skipLinkLabel={t('nav.skipToContent')}
+      sidebarHidden={!sidebarVisible}
       brand={<Brand name={t('app.name')} />}
       header={
         <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
-          {section !== undefined && section.links.length > 1 ? (
-            <SectionNav label={section.label} links={section.links} />
-          ) : (
-            <span />
-          )}
+          <div className="flex min-w-0 items-center gap-2">
+            <IconButton
+              label={sidebarVisible ? t('nav.hideMenu') : t('nav.showMenu')}
+              icon={
+                sidebarVisible ? (
+                  <PanelLeftClose className="size-5" />
+                ) : (
+                  <PanelLeftOpen className="size-5" />
+                )
+              }
+              aria-expanded={sidebarVisible}
+              aria-controls={SIDEBAR_ID}
+              onClick={sidebarState.toggle}
+            />
+            {section !== undefined && section.links.length > 1 ? (
+              <SectionNav label={section.label} links={section.links} />
+            ) : null}
+          </div>
           <LanguageSwitcher />
         </div>
       }
