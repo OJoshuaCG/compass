@@ -8,6 +8,7 @@ import { AccountsTable } from '../ui/accounts-table';
 import { AccountsToolbar } from '../ui/accounts-toolbar';
 
 import { useAccountListTable } from './use-account-list-table';
+import { useAccountTags } from './use-account-tags';
 
 export type MyAccountsPanelProps = {
   platforms: readonly Platform[];
@@ -31,6 +32,7 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
     queryKey: accountsKeys.mine(),
     fetchPage: fetchAccountsPage,
   });
+  const tagsQuery = useAccountTags('mine');
 
   return (
     <AccountsTable
@@ -56,6 +58,9 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
           filter={toAccountListFilter(table.filter)}
           onFilterChange={table.onFilterChange}
           showQuickFilters
+          tags={tagsQuery.data ?? []}
+          tag={table.tag}
+          onTagChange={table.onTagChange}
         />
       }
     />

@@ -50,6 +50,7 @@ export function AccountsPage() {
   };
   const reload = () => {
     void queryClient.invalidateQueries({ queryKey: accountsKeys.lists() });
+    void queryClient.invalidateQueries({ queryKey: accountsKeys.allTags() });
   };
   const done = (message: string) => {
     toast.show(message, 'success');

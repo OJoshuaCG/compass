@@ -1,6 +1,7 @@
 import {
   accountListItemSchema,
   accountSchema,
+  accountTagsResponseSchema,
   platformSchema,
   type CreateAccountRequest,
   type UpdateAccountRequest,
@@ -17,16 +18,22 @@ export const accountsKeys = {
   mine: () => [...accountsKeys.lists(), 'mine'] as const,
   inventory: () => [...accountsKeys.lists(), 'inventory'] as const,
   platforms: () => [...accountsKeys.all, 'platforms'] as const,
+  /** Etiquetas en uso: cambian con cada alta, edición o archivo, igual que los listados. */
+  allTags: () => [...accountsKeys.all, 'tags'] as const,
+  tags: (scope: AccountTagsScope) => [...accountsKeys.allTags(), scope] as const,
 };
 
+/** `mine`: de las cuentas con acceso efectivo. `inventory`: de todo el inventario (exige su permiso). */
+export type AccountTagsScope = 'mine' | 'inventory';
+
 /**
- * `GET /accounts?cursor=&limit=&q=&filter=`: las cuentas a las que quien consulta accede, cada una con
+ * `GET /accounts?cursor=&limit=&q=&filter=&tag=`: las cuentas a las que quien consulta accede, cada una con
  * `myLevel` y el semáforo de antigüedad de su contraseña.
  */
 export const fetchAccountsPage = createListFetcher(apiClient, '/accounts', accountListItemSchema);
 
 /**
- * `GET /accounts/inventory?cursor=&limit=&q=` (exige `vault.inventory.read`): solo metadatos, con
+ * `GET /accounts/inventory?cursor=&limit=&q=&tag=` (exige `vault.inventory.read`): solo metadatos, con
  * `myLevel` en `null` y la antigüedad en `unknown`. Sin filtros rápidos: el servidor los rechaza.
  */
 export const fetchInventoryPage = createListFetcher(
@@ -34,6 +41,22 @@ export const fetchInventoryPage = createListFetcher(
   '/accounts/inventory',
   accountListItemSchema,
 );
+
+/**
+ * `GET /accounts/tags` o `GET /accounts/inventory/tags`: etiquetas distintas en uso, ya ordenadas. Las
+ * de `mine` salen solo de cuentas con acceso efectivo: nunca revelan etiquetas de cuentas ajenas.
+ */
+export async function fetchAccountTags(
+  scope: AccountTagsScope,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+) {
+  const path = scope === 'mine' ? '/accounts/tags' : '/accounts/inventory/tags';
+  const response = await client.get(path, accountTagsResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+  return response.data;
+}
 
 const platformsResponseSchema = z.object({ data: z.array(platformSchema) });
 

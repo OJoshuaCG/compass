@@ -13,8 +13,16 @@ import {
 } from '../../../shared/api';
 import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
 import { accountsKeys, createAccount } from '../api/accounts-api';
-import { accountFormSchema, buildCreateBody, type AccountFormValues } from '../model/account-form';
+import {
+  accountFormSchema,
+  addSuggestedTag,
+  buildCreateBody,
+  suggestTags,
+  type AccountFormValues,
+} from '../model/account-form';
+import { TagSuggestions } from '../ui/tag-suggestions';
 
+import { useAccountTags } from './use-account-tags';
 import { usePlatforms } from './use-platforms';
 
 type CreateAccountFormProps = {
@@ -37,6 +45,7 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
     register,
     handleSubmit,
     setError,
+    setValue,
     control,
     formState: { errors },
   } = useForm<AccountFormValues>({
@@ -45,6 +54,9 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
   });
   const platformId = useWatch({ control, name: 'platformId' });
   const displayName = useWatch({ control, name: 'displayName' });
+  const tags = useWatch({ control, name: 'tags' });
+  // Sugerencias solo de las cuentas con acceso efectivo (lo decide el servidor, opción A).
+  const tagsQuery = useAccountTags('mine');
   const selectedPlatform = platforms.find((platform) => platform.id === platformId);
 
   async function submit(values: AccountFormValues) {
@@ -168,6 +180,15 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
           />
         )}
       </FormField>
+      <TagSuggestions
+        suggestions={suggestTags(tagsQuery.data ?? [], tags)}
+        onPick={(tag) => {
+          setValue('tags', addSuggestedTag(tags, tag, tagsQuery.data ?? []), {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+        }}
+      />
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}

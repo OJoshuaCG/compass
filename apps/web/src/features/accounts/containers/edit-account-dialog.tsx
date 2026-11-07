@@ -13,12 +13,17 @@ import {
 import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
 import { updateAccount } from '../api/accounts-api';
 import {
+  addSuggestedTag,
   buildUpdateBody,
   editAccountFormSchema,
   isEmptyUpdate,
+  suggestTags,
   tagsToText,
   type EditAccountFormValues,
 } from '../model/account-form';
+import { TagSuggestions } from '../ui/tag-suggestions';
+
+import { useAccountTags } from './use-account-tags';
 
 type EditAccountFormProps = {
   account: Account;
@@ -41,6 +46,7 @@ function EditAccountForm({ account, onCancel, onUpdated, onReload }: EditAccount
     register,
     handleSubmit,
     setError,
+    setValue,
     control,
     formState: { errors },
   } = useForm<EditAccountFormValues>({
@@ -52,6 +58,9 @@ function EditAccountForm({ account, onCancel, onUpdated, onReload }: EditAccount
     },
   });
   const displayName = useWatch({ control, name: 'displayName' });
+  const tags = useWatch({ control, name: 'tags' });
+  // Sugerencias solo de las cuentas con acceso efectivo (lo decide el servidor, opción A).
+  const tagsQuery = useAccountTags('mine');
 
   async function submit(values: EditAccountFormValues) {
     // Sin cambios no hay nada que guardar (el servidor rechazaría un cuerpo vacío): se cierra.
@@ -143,6 +152,15 @@ function EditAccountForm({ account, onCancel, onUpdated, onReload }: EditAccount
           />
         )}
       </FormField>
+      <TagSuggestions
+        suggestions={suggestTags(tagsQuery.data ?? [], tags)}
+        onPick={(tag) => {
+          setValue('tags', addSuggestedTag(tags, tag, tagsQuery.data ?? []), {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+        }}
+      />
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}

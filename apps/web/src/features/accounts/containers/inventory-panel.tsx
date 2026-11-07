@@ -8,6 +8,7 @@ import { AccountsTable } from '../ui/accounts-table';
 import { AccountsToolbar } from '../ui/accounts-toolbar';
 
 import { useAccountListTable } from './use-account-list-table';
+import { useAccountTags } from './use-account-tags';
 
 export type InventoryPanelProps = {
   platforms: readonly Platform[];
@@ -24,6 +25,7 @@ export function InventoryPanel({ platforms }: InventoryPanelProps) {
     queryKey: accountsKeys.inventory(),
     fetchPage: fetchInventoryPage,
   });
+  const tagsQuery = useAccountTags('inventory');
 
   return (
     <div className="flex flex-col gap-4">
@@ -51,6 +53,9 @@ export function InventoryPanel({ platforms }: InventoryPanelProps) {
             filter={undefined}
             onFilterChange={table.onFilterChange}
             showQuickFilters={false}
+            tags={tagsQuery.data ?? []}
+            tag={table.tag}
+            onTagChange={table.onTagChange}
           />
         }
       />

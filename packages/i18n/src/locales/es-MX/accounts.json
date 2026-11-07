@@ -64,5 +64,11 @@
   "filter.label": "Filtrar cuentas",
   "filter.all": "Todas",
   "filter.review": "Por revisar",
-  "filter.no2fa": "Sin 2FA"
+  "filter.no2fa": "Sin 2FA",
+  "filter.tagLabel": "Filtrar por etiqueta",
+  "filter.tagAll": "Todas las etiquetas",
+  "form.tagsSuggestions": "Sugerencias",
+  "form.tagsSuggestionAdd": "Agregar la etiqueta {{tag}}",
+  "tags.more": "+{{count}}",
+  "tags.moreLabel": "{{count}} etiquetas más: {{tags}}"
 }

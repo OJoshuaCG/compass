@@ -18,6 +18,35 @@ import { useDataTableLabels } from '../../../shared/i18n';
 
 import { PasswordAgeIndicator } from './password-age-indicator';
 
+/** Etiquetas visibles por fila: más alargarían la tabla; el resto se resume en «+N». */
+const VISIBLE_TAGS = 3;
+
+/** Etiquetas de una cuenta como fichas; las que no caben se nombran para lectores de pantalla. */
+function AccountTags({ tags }: { tags: readonly string[] }) {
+  const { t } = useTranslation('accounts');
+  const hidden = tags.slice(VISIBLE_TAGS);
+  return (
+    <ul className="mt-1 flex flex-wrap gap-1">
+      {tags.slice(0, VISIBLE_TAGS).map((tag) => (
+        <li key={tag}>
+          <Badge>{tag}</Badge>
+        </li>
+      ))}
+      {hidden.length > 0 ? (
+        <li>
+          {/* «+N» es solo visual; el lector de pantalla oye cuáles son las etiquetas ocultas. */}
+          <Badge title={hidden.join(', ')}>
+            <span aria-hidden="true">{t('tags.more', { count: hidden.length })}</span>
+            <span className="sr-only">
+              {t('tags.moreLabel', { count: hidden.length, tags: hidden.join(', ') })}
+            </span>
+          </Badge>
+        </li>
+      ) : null}
+    </ul>
+  );
+}
+
 export type AccountsTableProps = {
   /**
    * `mine`: cuentas con acceso (muestra el nivel propio y las acciones). `inventory`: solo
@@ -105,6 +134,7 @@ export function AccountsTable({
               {row.handle !== null ? (
                 <span className="truncate text-xs text-text-muted">{row.handle}</span>
               ) : null}
+              {row.tags.length > 0 ? <AccountTags tags={row.tags} /> : null}
             </span>
           </span>
         );

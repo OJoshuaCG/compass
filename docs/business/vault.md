@@ -157,6 +157,8 @@ Está integrado en la interfaz y en la API.
 ## 10. Búsqueda y organización
 
 - Se busca por nombre visible, nombre público, plataforma, etiquetas y grupo.
+- Las etiquetas se ven en la lista de cuentas y se puede filtrar por una etiqueta exacta.
+- Al escribir etiquetas, el sistema sugiere las que ya existen para no duplicar variantes como «Marca MX» y «marca mx». Solo sugiere etiquetas de cuentas a las que la persona tiene acceso: nadie descubre etiquetas de cuentas que no puede ver. En el inventario se ofrecen las de todas las cuentas, porque ese permiso ya permite verlas.
 - La búsqueda **siempre** muestra solo lo que la persona puede ver según su acceso efectivo; nunca se cargan registros ajenos para descartarlos después.
 - Se puede buscar por usuario exacto de la plataforma sin que el sistema guarde el usuario en claro.
 - Cada persona puede guardar vistas propias. El plan menciona de ejemplo "Mis cuentas", "Sin 2FA" y "Por rotar".

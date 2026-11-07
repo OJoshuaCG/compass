@@ -13,7 +13,7 @@ Objetivo: que la sección Cuentas muestre las etiquetas, permita filtrar por una
 | ID | Specs | Ruta | Estado | Commit |
 | --- | --- | --- | --- | --- |
 | T1 API: contrato (`tag` en los listados, respuesta de etiquetas), repositorio, caso de uso, controlador, pruebas de integración y matriz | S2, S3 | inline | hecho salvo correr la suite de integración (L3, L4) | ver `git log` |
-| T2 Web: etiquetas en la tabla, filtro por etiqueta, sugerencias en crear y editar, textos en ambos idiomas | S2, S3 | inline | pendiente | — |
+| T2 Web: etiquetas en la tabla, filtro por etiqueta, sugerencias en crear y editar, textos en ambos idiomas | S2, S3 | inline | hecho: 934 pruebas web verdes, tipos y lint limpios; al quitar el filtro de la petición o pedir sugerencias al inventario fallan las pruebas | ver `git log` |
 
 ## Log
 
@@ -21,3 +21,4 @@ Objetivo: que la sección Cuentas muestre las etiquetas, permita filtrar por una
 - L2 (2026-11-07): las entradas nuevas de la matriz de autorización (`GET /accounts/tags`, `GET /accounts/inventory/tags`) requieren revisión humana (CLAUDE.md, rutas protegidas).
 - L3 (2026-11-07): T1 implementada; tipos, lint y compilación de la API en verde. La suite de integración no arranca: `@swc/core` 1.16.18 rechaza cargar su binario porque `C:\` concede permisos de modificación a «Usuarios autentificados» (falla del entorno, no del código). Se comprobaron las consultas nuevas a mano contra el PostgreSQL local dentro de una transacción revertida: etiquetas distintas, orden sin distinguir mayúsculas, filtro exacto y exclusión de cuentas sin acceso efectivo. `GET /accounts/tags` sin sesión responde 401. Detenido por la regla de fallas del entorno, a la espera de la persona.
 - L4 (2026-11-07, usuario): «si» a seguir con la web y dejar la suite de integración sin correr por ahora. Pendiente: correr `vault-account-search` y `authorization-matrix` en un equipo con Docker o Podman antes de llevar el cambio a `main`.
+- L5 (2026-11-07): si lo último escrito en el campo ya es una etiqueta existente, cuenta como terminada (al editar, «rh» no se reemplaza al elegir una sugerencia). La lista de etiquetas de cada fila no lleva nombre accesible propio: «Etiquetas de…» chocaba con el campo «Etiquetas» al buscarlo por su etiqueta. Sin e2e de navegador.

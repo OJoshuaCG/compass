@@ -739,6 +739,126 @@ describe('account search and quick filters', () => {
   });
 });
 
+describe('account tags', () => {
+  const TAGS = jsonResponse({ data: ['finanzas', 'Marca MX', 'rh'] });
+  const tagFilter = () => screen.getByRole('combobox', { name: es.accounts['filter.tagLabel'] });
+  const addTagLabel = (tag: string) =>
+    es.accounts['form.tagsSuggestionAdd'].replace('{{tag}}', tag);
+
+  it('shows the tags of each account and summarizes the ones that do not fit', async () => {
+    setup({
+      'GET /accounts': page([
+        MANAGED,
+        { ...EDITABLE, tags: ['uno', 'dos', 'tres', 'cuatro', 'cinco'] },
+      ]),
+    });
+    renderApp('/accounts');
+    await rowsLoaded();
+    const managedRow = screen.getByRole('row', { name: /Nómina/ });
+    expect(within(managedRow).getByText('rh')).toBeInTheDocument();
+    const crowdedRow = screen.getByRole('row', { name: /Marketing/ });
+    expect(within(crowdedRow).getByText('tres')).toBeInTheDocument();
+    expect(within(crowdedRow).queryByText('cuatro')).toBeNull();
+    expect(within(crowdedRow).getByText('+2')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('filters by an existing tag and goes back to all tags', async () => {
+    const user = userEvent.setup();
+    const api = setup({ 'GET /accounts/tags': TAGS });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await within(tagFilter()).findByRole('option', { name: 'Marca MX' });
+    await user.selectOptions(tagFilter(), 'Marca MX');
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.get('tag')).toBe('Marca MX');
+    });
+    await user.selectOptions(tagFilter(), es.accounts['filter.tagAll']);
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.has('tag')).toBe(false);
+    });
+  });
+
+  it('hides the tag filter while no account has tags', async () => {
+    setup({ 'GET /accounts/tags': jsonResponse({ data: [] }) });
+    renderApp('/accounts');
+    await rowsLoaded();
+    expect(screen.queryByRole('combobox', { name: es.accounts['filter.tagLabel'] })).toBeNull();
+  });
+
+  it('offers the inventory tags in the inventory and filters it by tag', async () => {
+    const user = userEvent.setup();
+    const api = setup(
+      {
+        'GET /accounts/inventory': page([INVENTORY_ACCOUNT]),
+        'GET /accounts/inventory/tags': jsonResponse({ data: ['tesoreria'] }),
+      },
+      [...ALL_ACCOUNT_PERMISSIONS, 'vault.inventory.read'],
+    );
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
+    await screen.findByText('Tesorería');
+    await within(tagFilter()).findByRole('option', { name: 'tesoreria' });
+    await user.selectOptions(tagFilter(), 'tesoreria');
+    await waitFor(() => {
+      expect(api.callsTo('GET', '/accounts/inventory').at(-1)?.search.get('tag')).toBe('tesoreria');
+    });
+  });
+
+  it('suggests existing tags while creating and adds the chosen one', async () => {
+    const user = userEvent.setup();
+    setup({ 'GET /accounts/tags': TAGS });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: es.accounts['create.open'] }));
+    const dialog = await screen.findByRole('dialog', { name: es.accounts['create.title'] });
+    await within(dialog).findByRole('button', { name: addTagLabel('Marca MX') });
+
+    await user.type(field(es.accounts['form.tags']), 'marca');
+    expect(within(dialog).queryByRole('button', { name: addTagLabel('rh') })).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: addTagLabel('Marca MX') }));
+    expect(field(es.accounts['form.tags'])).toHaveValue('Marca MX, ');
+    // Una etiqueta ya elegida deja de sugerirse.
+    expect(within(dialog).queryByRole('button', { name: addTagLabel('Marca MX') })).toBeNull();
+    expect(await axeViolations(dialog)).toEqual([]);
+  });
+
+  it('does not suggest a tag the account already has while editing', async () => {
+    const user = userEvent.setup();
+    setup({ 'GET /accounts/tags': TAGS });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: editLabel('Nómina') }));
+    const dialog = await screen.findByRole('dialog', {
+      name: withName(es.accounts['edit.title'], 'Nómina'),
+    });
+    await within(dialog).findByRole('button', { name: addTagLabel('finanzas') });
+    expect(within(dialog).queryByRole('button', { name: addTagLabel('rh') })).toBeNull();
+  });
+
+  it('reloads the tags after creating an account', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      'GET /accounts/tags': TAGS,
+      'POST /accounts': jsonResponse(accountFixture({ id: NEW_ID, displayName: 'Nueva' }), 201),
+    });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await waitFor(() => {
+      expect(api.callsTo('GET', '/accounts/tags')).toHaveLength(1);
+    });
+    await user.click(screen.getByRole('button', { name: es.accounts['create.open'] }));
+    const dialog = await screen.findByRole('dialog', { name: es.accounts['create.title'] });
+    await within(dialog).findByRole('option', { name: 'GitHub' });
+    await user.selectOptions(field(es.accounts['create.platform']), PLATFORM_ID);
+    await user.type(field(es.accounts['form.name']), 'Nueva');
+    await user.click(within(dialog).getByRole('button', { name: es.accounts['create.submit'] }));
+    await waitFor(() => {
+      expect(api.callsTo('GET', '/accounts/tags').length).toBeGreaterThan(1);
+    });
+  });
+});
+
 describe('accounts screen in English', () => {
   it('renders in English too', async () => {
     const { loadAccountsCatalog } = await import('@iam/i18n');

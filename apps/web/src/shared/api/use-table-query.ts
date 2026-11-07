@@ -15,9 +15,11 @@ export type TableSearch = {
   q?: string | undefined;
   /** Filtro rápido del listado (un valor del catálogo del servidor); `undefined` = sin filtro. */
   filter?: string | undefined;
+  /** Etiqueta exacta del listado (hoy, solo cuentas); `undefined` = sin filtro de etiqueta. */
+  tag?: string | undefined;
 };
 
-export type PageParams = Pick<TableSearch, 'sort' | 'dir' | 'limit' | 'q' | 'filter'> & {
+export type PageParams = Pick<TableSearch, 'sort' | 'dir' | 'limit' | 'q' | 'filter' | 'tag'> & {
   cursor?: string | undefined;
 };
 
@@ -45,6 +47,7 @@ export function createListFetcher<S extends z.ZodType>(
         dir: params.dir,
         q: params.q,
         filter: params.filter,
+        tag: params.tag,
       },
     });
   };
@@ -81,6 +84,7 @@ export function useTableQuery<T>({
     search.limit,
     search.q,
     search.filter,
+    search.tag,
   ]);
   const [stack, setStack] = useState<{ signature: string; cursors: string[] }>({
     signature,
@@ -111,7 +115,9 @@ export function useTableQuery<T>({
       ? { key: search.sort, dir: search.dir }
       : undefined;
   const hasActiveFilters =
-    (search.q !== undefined && search.q !== '') || search.filter !== undefined;
+    (search.q !== undefined && search.q !== '') ||
+    search.filter !== undefined ||
+    search.tag !== undefined;
 
   return {
     rows: query.data?.data ?? [],
@@ -161,9 +167,13 @@ export function useTableQuery<T>({
     onFilterChange: (filter: string | undefined) => {
       onSearchChange({ filter });
     },
+    tag: search.tag,
+    onTagChange: (tag: string | undefined) => {
+      onSearchChange({ tag });
+    },
     hasActiveFilters,
     clearFilters: () => {
-      onSearchChange({ q: undefined, filter: undefined });
+      onSearchChange({ q: undefined, filter: undefined, tag: undefined });
     },
   };
 }

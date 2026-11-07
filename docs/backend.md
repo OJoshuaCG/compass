@@ -148,7 +148,9 @@ Decisión del dueño (2026-10-27): solo quienes custodian los códigos pueden re
 | ---------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `GET /platforms`             | Persona activa                                                                                          | —                                                              |
 | `GET /accounts`              | Persona activa; solo cuentas con acceso efectivo                                                        | —                                                              |
+| `GET /accounts/tags`         | Persona activa; etiquetas distintas solo de las cuentas con acceso efectivo                             | —                                                              |
 | `GET /accounts/inventory`    | `vault.inventory.read`; solo metadatos, no concede acceso                                               | —                                                              |
+| `GET /accounts/inventory/tags` | `vault.inventory.read`; etiquetas distintas de todas las cuentas activas                            | —                                                              |
 | `GET /accounts/:id`          | Cualquier nivel                                                                                         | —                                                              |
 | `POST /accounts`             | `account.create`; quien crea recibe MANAGE directo en la misma transacción                              | `account.created`                                              |
 | `PATCH /accounts/:id`        | `account.update` y EDIT                                                                                 | `account.updated` (solo nombres de campos)                     |

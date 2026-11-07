@@ -64,5 +64,11 @@
   "filter.label": "Filter accounts",
   "filter.all": "All",
   "filter.review": "To review",
-  "filter.no2fa": "No 2FA"
+  "filter.no2fa": "No 2FA",
+  "filter.tagLabel": "Filter by tag",
+  "filter.tagAll": "All tags",
+  "form.tagsSuggestions": "Suggestions",
+  "form.tagsSuggestionAdd": "Add the tag {{tag}}",
+  "tags.more": "+{{count}}",
+  "tags.moreLabel": "{{count}} more tags: {{tags}}"
 }
