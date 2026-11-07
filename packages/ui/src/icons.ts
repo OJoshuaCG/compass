@@ -8,6 +8,7 @@ export {
   Archive,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock,
   Compass,

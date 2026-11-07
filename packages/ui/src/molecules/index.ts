@@ -1,5 +1,4 @@
 export { Alert, type AlertProps } from './alert';
-export { Brand, type BrandProps } from './brand';
 export { CodeInput, type CodeInputProps } from './code-input';
 export { CopyButton, type CopyButtonProps } from './copy-button';
 export { Dialog, type DialogProps } from './dialog';
@@ -24,3 +23,12 @@ export { ToastViewport, type ToastItem, type ToastViewportProps } from './toast'
 export { RadioGroup, type RadioGroupProps, type RadioOption } from './radio-group';
 export { RowActionsMenu, type RowActionItem, type RowActionsMenuProps } from './row-actions-menu';
 export { Tabs, type TabItem, type TabsProps } from './tabs';
+export { UserMenu, type UserMenuAction, type UserMenuProps } from './user-menu';
+export {
+  NavGroup,
+  NavItem,
+  navItemClass,
+  navItemIconClass,
+  type NavGroupProps,
+  type NavItemProps,
+} from './nav-item';

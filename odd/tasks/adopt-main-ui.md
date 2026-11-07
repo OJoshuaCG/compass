@@ -13,10 +13,11 @@ Objetivo: llevar a `dev` el sistema visual de `main` (latón, temas oscuro y cla
 | ID | Specs | Ruta | Estado | Commit |
 | --- | --- | --- | --- | --- |
 | T1 Colores y temas: `tokens.css` y `tokens.test.ts` de main, módulo de tema y selector, fuente Space Grotesk, pantallas de acceso con el tema activo | S2 | inline | hecho: 953 pruebas web y 78 de ui verdes, tipos y lint limpios; capturas de la pantalla de acceso en los dos temas revisadas | ver `git log` |
-| T2 Marco: barra superior de cristal con marca, idioma, tema y menú de usuario; menú lateral por grupos; sin tokens `nav-*` | S2 | inline | pendiente | — |
+| T2 Marco: barra superior de cristal con marca, idioma, tema y menú de usuario; menú lateral por grupos; pestañas por sección sobre el contenido | S2 | inline | hecho: 957 pruebas web y 90 de ui verdes (barra superior, menú de usuario, grupos, AppShell), tipos y lint limpios; captura de acceso revisada; la pantalla autenticada no se pudo capturar (la Raíz local tiene TOTP propio) | ver `git log` |
 
 ## Log
 
 - L1 (2026-11-07): la persona no contestó si el azul se conserva como opción. Opción conservadora: se reemplaza por los dos temas de main; los nombres de token son los mismos, así que un selector con el azul sigue siendo barato (tema pendiente del selector de diseño).
 - L2 (2026-11-07): para no romper nada en T1, los tokens del menú marino (`nav-*`) y `shadow-card` quedan como alias de los tokens del tema activo en `tokens.css`. Se retiran en T2 y en el paso 3.
 - L3 (2026-11-07): la clase `theme-auth` desaparece: las pantallas de acceso usan el tema activo y ofrecen el selector de tema, como en main. El selector de idioma de dev (píldora ES | EN) se conserva sin su variante `inverse`.
+- L4 (2026-11-07): menú lateral con los grupos de main («Espacio de trabajo», «Bóveda», «Acceso») y las entradas de dev (Inicio y Personas; Bóveda y Códigos; Configuración y Catálogo). Las pestañas de sección pasan de la barra superior (ahora global) a la parte alta del contenido. «Cerrar sesión» vive en el menú de usuario, así que ya no desaparece al ocultar el menú lateral. Se retira el componente `Brand`; la marca es `BrandMark`. Los alias `nav-*` siguen porque la vista previa de auditoría los usa (paso 4).

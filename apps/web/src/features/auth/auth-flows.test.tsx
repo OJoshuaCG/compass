@@ -6,6 +6,10 @@ import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, noContent, problem, stubApi } from '../../test/fake-api';
 import { es, expectNoSecretsStored, field } from '../../test/helpers';
 import { renderApp } from '../../test/render-app';
+import { openUserMenu } from '../../test/user-menu';
+
+/** Nombre de `meFixture()`: el botón del menú de la persona se llama como ella. */
+const ME_DISPLAY_NAME = meFixture().user.displayName;
 
 type Stage = 'anonymous' | 'mfa' | 'enrollment' | 'full';
 
@@ -553,7 +557,8 @@ describe('session expiry and logout', () => {
     });
     const { router, queryClient } = renderApp('/');
     await screen.findByRole('heading', { level: 1, name: es.common['home.title'] });
-    await user.click(screen.getByRole('button', { name: es.common['actions.logout'] }));
+    await openUserMenu(user, ME_DISPLAY_NAME);
+    await user.click(await screen.findByRole('menuitem', { name: es.common['actions.logout'] }));
     await screen.findByRole('heading', { level: 1, name: es.auth['login.title'] });
     expect(api.callsTo('POST', '/auth/logout')).toHaveLength(1);
     expect(router.state.location.pathname).toBe('/login');
@@ -571,7 +576,8 @@ describe('session expiry and logout', () => {
     stubApi({ ...handlers, 'POST /auth/logout': problem(500, 'INTERNAL') });
     const { router } = renderApp('/');
     await screen.findByRole('heading', { level: 1, name: es.common['home.title'] });
-    await user.click(screen.getByRole('button', { name: es.common['actions.logout'] }));
+    await openUserMenu(user, ME_DISPLAY_NAME);
+    await user.click(await screen.findByRole('menuitem', { name: es.common['actions.logout'] }));
     expect(await screen.findByText(es.common['actions.logoutFailed'])).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
   });

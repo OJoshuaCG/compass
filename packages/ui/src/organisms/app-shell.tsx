@@ -3,13 +3,9 @@ import type { ReactNode } from 'react';
 import { cn } from '../lib/cn';
 
 export type AppShellProps = {
-  /** Marca en la parte superior de la barra lateral. */
-  brand?: ReactNode;
   /** Contenido de la barra lateral (normalmente un <nav> con enlaces). */
   sidebar: ReactNode;
-  /** Pie de la barra lateral (persona en sesión, cierre de sesión). */
-  sidebarFooter?: ReactNode;
-  /** Barra superior del contenido (selector de idioma, acciones globales). */
+  /** Contenido de la cabecera (marca, selector de idioma, menú de usuario). */
   header: ReactNode;
   /** Texto del enlace "saltar al contenido", ya traducido. */
   skipLinkLabel: string;
@@ -37,9 +33,10 @@ export const MAIN_CONTENT_CLASS = 'outline-none';
 /** Enlace de salto al `<main>`: solo visible al recibir foco (WCAG 2.4.1). */
 export function SkipLink({ label }: { label: string }) {
   return (
+    // z-50 por encima de la barra superior fija (z-30), que de otro modo taparía el enlace.
     <a
       href={`#${MAIN_CONTENT_ID}`}
-      className="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-10 focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2 focus:text-text"
+      className="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-overlay focus:px-3 focus:py-2"
     >
       {label}
     </a>
@@ -47,14 +44,12 @@ export function SkipLink({ label }: { label: string }) {
 }
 
 /**
- * Estructura base: enlace de salto, barra lateral azul marino (marca, navegación y pie),
- * barra superior clara y contenido principal con ancho máximo. En pantallas angostas la barra
- * lateral queda arriba. Los landmarks (`complementary`, `banner`, `main`) los aportan las etiquetas.
+ * Estructura base (docs/frontend.md §4.1): enlace de salto, barra superior fija de cristal,
+ * menú lateral y contenido principal con ancho máximo. Los landmarks (`banner`,
+ * `complementary`, `main`) los aportan las etiquetas.
  */
 export function AppShell({
-  brand,
   sidebar,
-  sidebarFooter,
   header,
   skipLinkLabel,
   children,
@@ -62,30 +57,28 @@ export function AppShell({
   sidebarHidden = false,
 }: AppShellProps) {
   return (
-    <div className={cn('flex min-h-screen flex-col bg-canvas text-text md:flex-row', className)}>
+    <div className={cn('flex min-h-screen flex-col text-text', className)}>
       <SkipLink label={skipLinkLabel} />
-      {/* El foco por defecto (azul) no contrasta con el fondo marino: se usa el de navegación. */}
-      <aside
-        id={SIDEBAR_ID}
-        // `hidden` lo saca del árbol de accesibilidad y del orden de tabulación, no solo de la
-        // vista; la regla de Tailwind para `[hidden]` gana a `flex` porque es `!important`.
-        hidden={sidebarHidden}
-        className="flex flex-col gap-6 bg-nav p-4 text-nav-text md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:overflow-y-auto [&_:focus-visible]:outline-nav-focus"
-      >
-        {brand !== undefined ? <div className="px-2 py-1">{brand}</div> : null}
-        {sidebar}
-        {sidebarFooter !== undefined ? <div className="md:mt-auto">{sidebarFooter}</div> : null}
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-end gap-4 border-b border-border bg-surface px-4 py-3 md:px-6">
-          {header}
-        </header>
+      <header className="glass-bar sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-4 py-2 md:px-5">
+        {header}
+      </header>
+      <div className="flex flex-1 flex-col md:flex-row">
+        {/* w-62 = 248 px, el ancho del menú del diseño (ADR 0049): cabe la etiqueta más larga
+            («Alertas de infraestructura») sin cortarla. En pantallas estrechas ocupa todo el ancho. */}
+        <aside
+          id={SIDEBAR_ID}
+          // `hidden` lo saca del árbol de accesibilidad y del orden de tabulación, no solo de la vista.
+          hidden={sidebarHidden}
+          className="border-b border-border bg-sidebar px-3 pt-4 pb-6 md:w-62 md:shrink-0 md:border-e md:border-b-0"
+        >
+          {sidebar}
+        </aside>
         <main
           id={MAIN_CONTENT_ID}
           tabIndex={-1}
-          className={cn(MAIN_CONTENT_CLASS, 'min-w-0 flex-1 p-4 md:p-8')}
+          className={cn(MAIN_CONTENT_CLASS, 'min-w-0 flex-1 px-4 py-8 md:px-10 md:py-10')}
         >
-          <div className="mx-auto flex max-w-6xl flex-col gap-6">{children}</div>
+          <div className="mx-auto flex max-w-6xl flex-col gap-7">{children}</div>
         </main>
       </div>
     </div>

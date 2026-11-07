@@ -88,119 +88,134 @@ Se verifica con `eslint-plugin-boundaries` y dependency-cruiser en CI, igual que
 
 ## 4. Sistema de diseño
 
-### 4.1 Tokens
+### 4.1 Identidad visual y tokens
 
-Todos los tokens viven en el archivo de tokens de `packages/ui` (ver nota de §3.1). Los componentes usan **solo** utilidades semánticas (superficie, texto secundario), nunca un color literal ni la paleta por defecto de Tailwind.
+Origen: el lienzo de diseño «Compass — Propuesta de diseño» (ADR [0049](adr/0049-compass-visual-system.md)). Este apartado es la fuente de verdad: si el lienzo y este documento difieren, manda este documento.
 
-Paleta "Compass": tema claro sobre la escala azul de CIROX (sistema de diseño de INBTEL). Fondo gris azulado, tarjetas blancas, texto azul marino y la navegación en azul marino profundo. Los contrastes están medidos con la fórmula WCAG 2.x. Tailwind consume cada token mediante el bloque de tema del CSS; las familias tipográficas, los radios y las sombras también se publican como tokens.
+La idea en una frase: instrumentos silenciosos y una sola aguja de latón. La interfaz es calmada y precisa, con superficies frías y neutras, un único acento que sirve para orientarse y cristal solo donde algo flota sobre el trabajo.
 
-**Superficies**
+Todos los tokens viven en el archivo de tokens de `packages/ui` (ver nota de §3.1). Los componentes usan **solo** utilidades semánticas (superficie, texto secundario), nunca un color literal ni la paleta por defecto de Tailwind. Hay **dos temas**, oscuro y claro, con los mismos nombres de token y valores distintos. El tema se elige con el atributo `data-theme` del elemento raíz del documento.
 
-| Token | Valor | Uso |
-| --- | --- | --- |
-| canvas | `#f2f5fb` | Fondo de página |
-| surface | `#ffffff` | Tarjetas, tablas, barra superior |
-| raised | `#e8f0fa` | Hover, fila o elemento activo |
-| overlay | `#ffffff` | Diálogos y menús (se separan con sombra) |
+**Superficies** (de más profundo a más elevado)
+
+| Token | Oscuro | Claro | Uso |
+| --- | --- | --- | --- |
+| canvas | `#0b0f13` | `#f2f4f6` | Fondo de la página |
+| sidebar | `#0e1318` | `#eaeef1` | Menú lateral |
+| surface | `#131920` | `#ffffff` | Tarjetas y tablas |
+| raised | `#19212a` | `#f6f8fa` | Controles, cabeceras de tabla, fila al pasar el cursor |
+| overlay | `#212b36` | `#ebeff2` | Chips neutros, segmento activo, avatares |
 
 **Texto**
 
-| Token | Valor |
-| --- | --- |
-| text | `#0f1f3d` |
-| text-secondary | `#374151` |
-| text-muted | `#5a6475` |
-| text-disabled | `#7c8594` |
+| Token | Oscuro | Claro |
+| --- | --- | --- |
+| text | `#e9eef3` | `#0d1620` |
+| text-secondary | `#a6b2bf` | `#435061` |
+| text-muted | `#8592a0` | `#5a6878` |
+| text-disabled | `#6a7683` | `#7a8592` |
 
 **Bordes**
 
-| Token | Valor | Uso |
+| Token | Oscuro | Claro | Uso |
+| --- | --- | --- | --- |
+| border | `#1c242d` | `#dde2e7` | Separadores decorativos |
+| border-strong | `#34404d` | `#c3cbd3` | Tarjetas y tablas |
+| border-input | `#6b7785` | `#7d8896` | Controles interactivos (contraste mínimo de 3:1) |
+
+**Acento y estados**
+
+| Token | Oscuro | Claro | Uso |
+| --- | --- | --- | --- |
+| accent | `#ecc272` | `#7a5000` | Texto y detalles de acento: enlace activo, foco, valor revelado |
+| accent-solid | `#e6b45b` | `#dca235` | Relleno del botón principal y de la barra de progreso |
+| accent-solid-hover | `#f0c06a` | `#cf942a` | Botón principal al pasar el cursor |
+| on-accent | `#1b1407` | `#1b1407` | Texto sobre accent-solid |
+| success | `#5fd8a4` | `#0d7048` | Permitido, verificado |
+| warning | `#ff9f5a` | `#8f3d00` | Atención, rotación pendiente (naranja: distinto del latón del acento) |
+| danger | `#ff948f` | `#b02b27` | Negado, error |
+| danger-solid | `#c93843` | `#b02b27` | Relleno de acciones destructivas |
+| on-danger | `#ffffff` | `#ffffff` | Texto sobre danger-solid |
+| info | `#7fbcff` | `#1a58ad` | Informativo, invitaciones |
+| focus | `#ecc272` | `#7a5000` | Anillo de foco |
+
+Cada color de estado y de acento tiene una variante suave (`accent-soft`, `success-soft`, `warning-soft`, `danger-soft`, `info-soft`): el mismo color con 10 a 18 % de opacidad, para el fondo de chips y avisos. Su texto siempre usa el token pleno.
+
+**Capas flotantes (cristal)**
+
+| Token | Oscuro | Claro |
 | --- | --- | --- |
-| border | `#e5e7eb` | Separadores decorativos |
-| border-strong | `#c3ccd9` | Tarjetas y tablas |
-| border-input | `#6b7280` | Controles interactivos (contraste mínimo de 3:1) |
-
-**Marca y estados**
-
-| Token | Valor |
-| --- | --- |
-| accent | `#1956b0` |
-| accent-solid | `#2d6bcb` |
-| accent-solid-hover | `#1956b0` |
-| on-accent | `#ffffff` |
-| success | `#137238` |
-| warning | `#a14a0b` |
-| danger | `#b91c1c` |
-| danger-solid | `#c62f3a` |
-| focus | `#1956b0` |
-
-**Fondos suaves de estado** (círculos de íconos; el color del estado sobre ellos llega a 4.5:1)
-
-| Token | Valor | Contraste del estado encima |
-| --- | --- | --- |
-| success-soft | `#e1f3e7` | success 5.2 |
-| warning-soft | `#fdf1dc` | warning 5.4 |
-| danger-soft | `#fde8e8` | danger 5.5 |
-
-**Navegación** (barra lateral y pantallas de acceso)
-
-| Token | Valor | Uso |
-| --- | --- | --- |
-| nav | `#0c3572` | Fondo de la barra lateral y de las pantallas de acceso |
-| nav-raised | `#1e4a8a` | Elemento activo o con hover, avatar |
-| nav-text | `#ffffff` | Texto principal sobre nav |
-| nav-text-muted | `#c8def5` | Enlaces inactivos y etiquetas sobre nav |
-| nav-focus | `#a3c6ee` | Contorno de foco dentro de la navegación |
+| glass | `rgba(19,25,32,.64)` | `rgba(255,255,255,.66)` |
+| glass-border | `rgba(255,255,255,.13)` | `rgba(255,255,255,.85)` |
+| scrim | `rgba(4,7,10,.52)` | `rgba(226,232,238,.55)` |
 
 **Forma y movimiento**
 
 | Token | Valor |
 | --- | --- |
-| radio pequeño / medio / grande | 0.375 rem / 0.5 rem / 0.75 rem |
-| sombra de tarjeta | desplazamiento vertical de 4 px, desenfoque de 16 px, azul marino con 8 % de opacidad |
-| sombra de capas superpuestas | desplazamiento vertical de 8 px, desenfoque de 32 px, azul marino con 16 % de opacidad |
+| radio pequeño / medio / grande | 0.375 rem / 0.625 rem / 0.875 rem (6, 10 y 14 px) |
+| botones, campos y elementos de menú | 9 px de radio y 40 px de alto |
+| sombra de capas superpuestas | oscuro: desplazamiento vertical de 28 px, desenfoque de 70 px; claro: 28 px y 60 px, más un filo interior |
 | duración rápida / base | 120 ms / 200 ms |
-| esquema de color del navegador | claro |
+| esquema de color del navegador | el del tema activo |
 
-Reglas:
+**Reglas que se respetan siempre**
 
-- **Un solo juego de valores claros.** La decisión original del plan era un tema oscuro único; se cambió por el tema claro del diseño de Compass (prototipo en Claude Design con el sistema CIROX). Sigue sin haber variantes por modo; las variables permiten cambiar la paleta en un solo archivo.
-- La navegación es la única zona oscura: dentro de ella el foco usa nav-focus, porque el foco general (azul) no contrasta con el fondo marino.
-- **Pantallas de acceso** (login, MFA, alta, invitación): usan la clase `theme-auth`, que redefine los mismos tokens de color con valores oscuros solo dentro de ese contenedor; así campos, botones y avisos se adaptan sin variantes propias. Sus contrastes se miden en la misma prueba que el tema claro. El acceso es en dos pasos (correo y luego contraseña), con una sola petición al servidor.
-- **Referencia de diseño:** el prototipo `Compass Prototype.html` (fuera del repositorio, en la carpeta local `design/`). Lo que el prototipo propone sin regla de negocio (ajustes de la bóveda, notificaciones, usuarios conectados, recuperación de contraseña) se propone antes de implementarlo.
-- Para añadir un color nuevo: se agrega el token, se mide el contraste y se documenta aquí.
-- Valores arbitrarios de Tailwind (anchos o tamaños sueltos) prohibidos salvo justificación en un comentario. Lint con `eslint-plugin-tailwindcss` (aprobación pendiente).
+1. **Un solo acento.** El latón sirve para orientarse: página activa del menú, botón principal, foco, valor revelado, progreso y el chip de rango de la Raíz. No decora y no significa estado.
+2. **El cristal es solo para capas flotantes:** ventanas modales, barra superior y menús. Nunca en tarjetas ni tablas: el contenido es opaco y legible.
+3. **El estado nunca se comunica solo con color.** Todo chip de estado lleva texto, y el punto de color es refuerzo.
+4. **Lo que una máquina produce o una persona debe leer exacto va en la fuente monoespaciada:** códigos TOTP, hashes, marcas de tiempo, identificadores y rangos de acceso.
+5. **El ambiente de fondo** (dos degradados radiales muy tenues) solo da profundidad detrás del cristal. No se usa para decorar contenido.
+6. **Dos temas completos.** Toda pantalla y todo componente se ve bien y cumple contraste en oscuro y en claro. Sin colores por tema escritos a mano: se cambia el valor del token.
+7. **El selector de tema** está en la barra superior. Sin preferencia guardada se sigue la del sistema operativo. Cambiar de tema nunca recarga la página.
+8. **Valores arbitrarios de Tailwind** (anchos o tamaños sueltos) prohibidos salvo justificación en un comentario.
+9. Para añadir un color nuevo: se agrega el token **en los dos temas**, se mide el contraste y se documenta aquí.
+10. **El cristal tiene respaldo opaco.** Sin `backdrop-filter` en el navegador, o con la preferencia de transparencia reducida, las capas de cristal usan el fondo opaco `overlay`. Todo componente nuevo con cristal reutiliza las clases `glass` y `glass-bar`, no su propio desenfoque.
 
-### 4.2 Contraste medido (razón sobre canvas / surface / raised)
+**Transición en `dev` (odd/tasks/adopt-main-ui.md):** ya están los dos temas, el selector de tema, la barra superior de cristal, el menú de usuario y el menú lateral por grupos. `dev` conserva sus pestañas por sección (sobre el contenido) y su menú ocultable. Siguen pendientes los componentes compartidos del paso 3 (`Card`, `PageHeader` con `eyebrow`, insignias con punto) y el estilo de cada pantalla (paso 4). Mientras tanto, los tokens del antiguo menú marino (`nav-*`) y `shadow-card` son alias del tema activo en `tokens.css`; no se usan en código nuevo.
 
-| Token | canvas | surface | raised | Uso |
-| --- | --- | --- | --- | --- |
-| text | 15.0 | 16.4 | 14.2 | Texto principal |
-| text-secondary | 9.4 | 10.3 | 9.0 | Texto de apoyo |
-| text-muted | 5.5 | 6.0 | 5.2 | Metadatos, placeholders |
-| accent | 6.4 | 7.0 | 6.1 | Enlaces, foco |
-| success / warning / danger | ≥5.2 / ≥5.2 / ≥5.6 | | | Texto de estado |
-| border-input | 4.4 | 4.8 | 4.2 | Bordes de controles (WCAG 1.4.11, ≥3:1) |
-| text-disabled | 3.4 | 3.7 | 3.2 | Solo controles inactivos |
+**Marco de la aplicación**
 
-- Botón sólido: blanco sobre accent-solid = 5.2; sobre danger-solid = 5.4.
-- Navegación (sobre nav / nav-raised): nav-text 11.9 / 8.7; nav-text-muted 8.6 / 6.3; nav-focus 6.7 / 4.9.
+- **Barra superior fija:** marca (brújula y nombre), selector de idioma, selector de tema, persona con chip de su rango, y cerrar sesión. Usa cristal.
+- **Menú lateral de 248 px** con tres grupos de navegación: Espacio de trabajo (inicio, usuarios, mis sesiones, seguridad), Bóveda (cuentas, códigos de acceso, fuentes de códigos, vistas de códigos) y Acceso (roles). En teléfono pasa a ocupar todo el ancho sobre el contenido.
+- **Contenido** con ancho máximo de 1120 px, separación de 28 px entre bloques y encabezado de página: etiqueta pequeña, título de pantalla, texto de apoyo y, a la derecha, las acciones de la página.
+
+### 4.2 Contraste medido (razón sobre canvas / surface / raised / overlay)
+
+Valores calculados con la fórmula WCAG 2.x sobre los tokens de §4.1.
+
+| Token | Tema | canvas | surface | raised | overlay |
+| --- | --- | --- | --- | --- | --- |
+| text | oscuro / claro | 16.5 / 16.5 | 15.1 / 18.2 | 13.9 / 17.1 | 12.3 / 15.8 |
+| text-secondary | oscuro / claro | 8.9 / 7.4 | 8.2 / 8.2 | 7.5 / 7.7 | 6.7 / 7.1 |
+| text-muted | oscuro / claro | 6.1 / 5.2 | 5.6 / 5.7 | 5.1 / 5.4 | 4.5 / 4.9 |
+| accent | oscuro / claro | 11.5 / 6.4 | 10.5 / 7.1 | 9.7 / 6.6 | 8.6 / 6.1 |
+| success | oscuro / claro | 10.8 / 5.6 | 10.0 / 6.1 | 9.2 / 5.8 | 8.1 / 5.3 |
+| warning | oscuro / claro | 9.5 / 6.7 | 8.7 / 7.4 | 8.0 / 7.0 | 7.1 / 6.4 |
+| danger | oscuro / claro | 9.1 / 5.9 | 8.3 / 6.5 | 7.6 / 6.1 | 6.8 / 5.6 |
+| info | oscuro / claro | 9.7 / 6.3 | 8.9 / 6.9 | 8.2 / 6.5 | 7.2 / 6.0 |
+| border-input | oscuro / claro | 4.2 / 3.3 | 3.9 / 3.6 | 3.6 / 3.4 | 3.1 / 3.1 |
+| text-disabled | oscuro / claro | 4.2 / 3.4 | 3.8 / 3.8 | 3.5 / 3.5 | 3.1 / 3.2 |
+
+- Botón principal: `on-accent` sobre `accent-solid` = 9.6 (oscuro) y 8.1 (claro). Botón destructivo: `on-danger` sobre `danger-solid` = 5.1 (oscuro) y 6.5 (claro).
 - **Decisión documentada:** text-disabled queda por debajo de 4.5 porque WCAG exime a los controles inactivos, y bajar el contraste es lo que los hace verse deshabilitados. Nunca se usa para información que el usuario deba leer; el estado se refuerza con los atributos de accesibilidad de deshabilitado, el cursor y, si hace falta, texto.
-- Una prueba automática recorre los pares anteriores y falla si alguno baja del umbral (ver sección 11).
+- Los textos pequeños en gris (11 a 12 px) deben usar text-muted o más oscuro; 4.3 sigue sin pasar.
+- Una prueba automática recorre los pares anteriores **en los dos temas** y falla si alguno baja del umbral (ver sección 11).
 
 ### 4.3 Tipografía
 
-Dos familias de Google Fonts, cada una con un papel fijo:
+Tres familias de Google Fonts, cada una con un papel fijo:
 
 | Papel | Fuente | Dónde se usa |
 | --- | --- | --- |
-| Principal y encabezados | **Inter** | Cuerpo, formularios, tablas, botones; títulos de nivel 1 a 4 en negrita con interletrado cerrado |
+| Principal | **Inter** | Cuerpo, formularios, tablas, botones |
+| Encabezados | **Space Grotesk** | Títulos de nivel 1 a 4, títulos de página y de tarjeta, cifras destacadas |
 | Monoespaciada | **JetBrains Mono** | Códigos TOTP, claves, identificadores, identificador de petición, fragmentos de auditoría |
 
-Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene cifras tabulares; en negrita cubre los encabezados con el mismo tono que el diseño de Compass (que usa DM Sans, muy parecida; se mantuvo Inter para no añadir dependencias). JetBrains Mono distingue bien caracteres ambiguos (0/O, 1/l), clave para leer secretos y códigos. El token de fuente de encabezados se conserva y hoy apunta a Inter.
+Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene cifras tabulares; Space Grotesk aporta el toque tecnológico solo donde se ve poco texto (encabezados), sin cansar en párrafos; JetBrains Mono distingue bien caracteres ambiguos (0/O, 1/l), clave para leer secretos y códigos.
 
 - **Se sirven desde nuestro origen, no desde los servidores de Google.** Son las mismas fuentes de Google, empaquetadas con `@fontsource-variable/*`. Cargarlas desde el CDN de Google exigiría abrir las políticas de estilos y fuentes a terceros y filtraría la IP de cada usuario, lo que choca con la CSP estricta del plan (fuentes solo del propio origen).
-- Los títulos de nivel 1 a 4 usan la fuente y el peso de encabezados desde los estilos base; los componentes no lo repiten en cada uso. El resto del texto hereda la fuente principal.
+- Los títulos de nivel 1 a 4 usan la fuente de encabezados desde los estilos base; los componentes no lo repiten en cada uso. El resto del texto hereda la fuente principal.
 - Fuentes variables (un archivo `woff2` por familia). Se muestra texto alternativo mientras carga; precarga solo de Inter, que es la que pinta el primer contenido.
 - Se importa solo el subconjunto latino (cubre español e inglés) para reducir peso.
 - Cifras alineadas en tablas y códigos TOTP: cifras tabulares.
@@ -212,7 +227,6 @@ Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene ci
 - Escala de 4 px de Tailwind (la unidad 1 equivale a 4 px). Prohibidos valores fuera de escala.
 - Mobile-first; puntos de quiebre estándar. La app es interna de escritorio, pero `mobile-handoff` y las pantallas de login deben funcionar en teléfono.
 - Contenedor de contenido con ancho máximo; las tablas ocupan el ancho disponible con scroll horizontal contenido (no de la página).
-- Menú principal según el prototipo de Compass: Inicio, Bóveda, Personas y Configuración. Personas agrupa Usuarios y Roles (Roles solo con permiso para administrarlos); Configuración agrupa Seguridad, Mis sesiones y Auditoría (esta solo con permiso para leer la auditoría). Cada pantalla conserva su propia dirección; las de una misma sección se alternan con pestañas en la barra superior, que son enlaces de navegación y no pestañas de contenido. La entrada de la sección queda marcada en cualquiera de sus pantallas. Auditoría es, por ahora, una vista previa con eventos ficticios solo en desarrollo (`/audit`, como `/vault`): no existe la lectura de auditoría en la API (tarea R1, ruta protegida). La vista previa de la bóveda no tiene entrada propia.
 
 ## 5. Componentes
 
