@@ -27,6 +27,40 @@ const users = (count: number, nextCursor: string | null = null) =>
     page: { nextCursor, limit: 100 },
   });
 
+/** Personas a cargo (`GET /users/managed`), con la forma completa de su contrato. */
+const managed = (count: number) =>
+  onePage(
+    Array.from({ length: count }, (_, i) => ({
+      id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      displayName: `Persona ${String(i)}`,
+      email: `p${String(i)}@example.com`,
+      rank: 3,
+      status: 'active',
+      managedBy: null,
+      managerName: null,
+      roleNames: null,
+    })),
+  );
+
+/** Cuentas del inventario con la forma de su contrato; `nextCursor` simula que hay más páginas. */
+const inventoryPage = (count: number, nextCursor: string | null) =>
+  jsonResponse({
+    data: Array.from({ length: count }, (_, i) => ({
+      id: crypto.randomUUID(),
+      platformId: crypto.randomUUID(),
+      displayName: `Cuenta ${String(i)}`,
+      handle: null,
+      ownerGroupId: null,
+      tags: [],
+      status: 'active',
+      myLevel: null,
+      createdAt: '2030-01-01T10:00:00.000Z',
+      lastChangedAt: null,
+      passwordAge: 'unknown',
+    })),
+    page: { nextCursor, limit: 100 },
+  });
+
 /** Una sola página, con la forma paginada que devuelven ahora todas las listas. */
 const onePage = (data: unknown[]) => jsonResponse({ data, page: { nextCursor: null, limit: 100 } });
 
@@ -107,5 +141,43 @@ describe('home screen', () => {
     renderApp('/');
     const people = await screen.findByRole('region', { name: c['home.stats.people'] });
     expect(await within(people).findByText('100+')).toBeInTheDocument();
+  });
+
+  it('adds the team and inventory counts from main, exact or explicitly unavailable', async () => {
+    stubApi({
+      'GET /me': jsonResponse(meFixture({ permissions: ['vault.inventory.read'] })),
+      'GET /users': users(3),
+      'GET /users/managed': managed(2),
+      'GET /accounts/inventory': inventoryPage(100, 'next'),
+      'GET /me/sessions': onePage([]),
+      'GET /me/passkeys': onePage([]),
+    });
+    const { container } = renderApp('/');
+    const team = await screen.findByRole('region', { name: c['home.stats.team'] });
+    expect(await within(team).findByText('2')).toBeInTheDocument();
+    expect(within(team).getByText(c['home.stats.teamHint'])).toBeInTheDocument();
+    // Más filas de las que caben en una consulta: nunca se inventa un total.
+    const inventory = screen.getByRole('region', { name: c['home.stats.inventory'] });
+    expect(await within(inventory).findByText(c['home.stats.unavailableHint'])).toBeInTheDocument();
+    expect(within(inventory).queryByText('100+')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: new RegExp(c['home.shortcuts.accounts']) }),
+    ).toHaveAttribute('href', '/accounts');
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  it('hides the inventory count without the inventory permission and never asks for it', async () => {
+    const api = stubApi({
+      'GET /me': jsonResponse(meFixture()),
+      'GET /users': users(3),
+      'GET /users/managed': onePage([]),
+      'GET /me/sessions': onePage([]),
+      'GET /me/passkeys': onePage([]),
+    });
+    renderApp('/');
+    const team = await screen.findByRole('region', { name: c['home.stats.team'] });
+    expect(await within(team).findByText(c['home.stats.teamNone'])).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: c['home.stats.inventory'] })).toBeNull();
+    expect(api.callsTo('GET', '/accounts/inventory')).toHaveLength(0);
   });
 });

@@ -8,6 +8,7 @@ import {
   EmptyState,
   IconBubble,
   KeyRound,
+  Lock,
   Mail,
   MonitorSmartphone,
   Panel,
@@ -27,7 +28,9 @@ import { formatDateTime, formatLongDate } from '../../../shared/lib';
 import { directoryKeys, fetchPendingInvitationsPage, fetchUsersPage } from '../../directory';
 import { fetchMyPasskeysPage, passkeysKeys } from '../../security';
 import { fetchMySessionsPage, sessionsKeys } from '../../sessions';
+import { fetchInventoryCount, fetchManagedCount, homeKeys } from '../api/home-api';
 import { buildAttention, countInvitations, type AttentionItem } from '../model/attention';
+import type { SummaryCount } from '../model/summary-count';
 import { AttentionRow } from '../ui/attention-row';
 
 /** Cada resumen se acota a una página (el máximo del servidor); en personas, más allá se muestra "100+". */
@@ -41,13 +44,72 @@ function statValue(status: 'pending' | 'error' | 'success', value: string): stri
   return status === 'error' ? '—' : value;
 }
 
+/**
+ * Cifra exacta de un conteo (regla de main: nunca una aproximación). Si hay más filas de las que
+ * caben en una consulta, se muestra guion y la pista lo explica.
+ */
+function exactValue(
+  status: 'pending' | 'error' | 'success',
+  count: SummaryCount | undefined,
+  locale: string,
+): string | undefined {
+  if (status === 'pending') return undefined;
+  if (status === 'error' || count?.kind !== 'exact') return '—';
+  return new Intl.NumberFormat(locale).format(count.value);
+}
+
+/** Pista de una cifra exacta: vacía, no disponible o la descripción normal. */
+function exactHint(
+  count: SummaryCount | undefined,
+  texts: { normal: string; empty: string; unavailable: string },
+): string {
+  if (count?.kind === 'unavailable') return texts.unavailable;
+  if (count?.kind === 'exact' && count.value === 0) return texts.empty;
+  return texts.normal;
+}
+
+/**
+ * Brújula decorativa del encabezado, como el inicio de main (ADR 0049): aguja norte en el acento.
+ * Es adorno puro, oculta para lectores de pantalla, y solo usa tokens vía `currentColor`.
+ */
+function CompassArt() {
+  return (
+    <svg
+      viewBox="0 0 160 160"
+      width="96"
+      height="96"
+      aria-hidden="true"
+      focusable="false"
+      className="hidden text-text-muted sm:block"
+    >
+      <circle cx="80" cy="80" r="74" fill="none" stroke="currentColor" opacity=".4" />
+      <circle
+        cx="80"
+        cy="80"
+        r="66"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="5"
+        strokeDasharray="1 7.64"
+        opacity=".55"
+      />
+      <circle cx="80" cy="80" r="46" fill="none" stroke="currentColor" opacity=".4" />
+      <g transform="rotate(38 80 80)">
+        <path d="M80 28l9 52H71z" className="fill-accent" />
+        <path d="M80 132l9-52H71z" fill="currentColor" opacity=".5" />
+      </g>
+      <circle cx="80" cy="80" r="4.5" className="fill-canvas" stroke="currentColor" />
+    </svg>
+  );
+}
+
 function Shortcut({
   to,
   icon: Icon,
   title,
   description,
 }: {
-  to: '/users' | '/sessions' | '/security' | '/roles';
+  to: '/users' | '/sessions' | '/security' | '/roles' | '/accounts';
   icon: LucideIcon;
   title: string;
   description: string;
@@ -79,6 +141,8 @@ export function HomePage() {
   const me = useMe();
   const canInvite = usePermission('user.invite');
   const canManageRoles = usePermission('role.manage');
+  // Solo comodidad: la cifra del inventario se oculta sin su permiso; el servidor decide siempre.
+  const canReadInventory = usePermission('vault.inventory.read');
   const locale = i18n.language;
   const timeZone = me?.user.timezone;
 
@@ -98,6 +162,19 @@ export function HomePage() {
     queryKey: [...sessionsKeys.mine(), 'home'],
     queryFn: ({ signal }) => fetchMySessionsPage({ limit: SUMMARY_LIMIT }, signal),
     select: (page) => page.data,
+  });
+  // Cifras traídas de main: el equipo de quien consulta y el inventario. Cambian desde otros
+  // dispositivos, así que siempre se recargan.
+  const team = useQuery({
+    queryKey: homeKeys.managedCount(),
+    queryFn: ({ signal }) => fetchManagedCount(signal),
+    staleTime: 0,
+  });
+  const inventory = useQuery({
+    queryKey: homeKeys.inventoryCount(),
+    queryFn: ({ signal }) => fetchInventoryCount(signal),
+    staleTime: 0,
+    enabled: canReadInventory,
   });
   const passkeys = useQuery({
     queryKey: [...passkeysKeys.mine(), 'home'],
@@ -210,6 +287,9 @@ export function HomePage() {
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
+          <p className="font-mono text-xs font-medium tracking-widest text-text-muted uppercase">
+            {t('nav.group.workspace')}
+          </p>
           {/* El h1 nombra la pantalla (igual que el menú); el saludo es su presentación visual. */}
           <h1 className="sr-only">{t('home.title')}</h1>
           <p className="font-heading text-3xl font-bold tracking-tight text-text">
@@ -224,13 +304,38 @@ export function HomePage() {
             </p>
           ) : null}
         </div>
-        <Link to="/users" className={buttonVariants({ variant: 'primary' })}>
-          <Users aria-hidden="true" className="size-4" />
-          {t('home.goToUsers')}
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link to="/users" className={buttonVariants({ variant: 'primary' })}>
+            <Users aria-hidden="true" className="size-4" />
+            {t('home.goToUsers')}
+          </Link>
+          <CompassArt />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          label={t('home.stats.team')}
+          value={exactValue(team.status, team.data, locale)}
+          hint={exactHint(team.data, {
+            normal: t('home.stats.teamHint'),
+            empty: t('home.stats.teamNone'),
+            unavailable: t('home.stats.unavailableHint'),
+          })}
+          icon={<Users className="size-5" />}
+        />
+        {canReadInventory ? (
+          <StatCard
+            label={t('home.stats.inventory')}
+            value={exactValue(inventory.status, inventory.data, locale)}
+            hint={exactHint(inventory.data, {
+              normal: t('home.stats.inventoryHint'),
+              empty: t('home.stats.inventoryNone'),
+              unavailable: t('home.stats.unavailableHint'),
+            })}
+            icon={<Lock className="size-5" />}
+          />
+        ) : null}
         <StatCard
           label={t('home.stats.people')}
           value={statValue(people.status, peopleCount)}
@@ -299,6 +404,12 @@ export function HomePage() {
               icon={Users}
               title={t('home.shortcuts.users')}
               description={t('home.shortcuts.usersDescription')}
+            />
+            <Shortcut
+              to="/accounts"
+              icon={Lock}
+              title={t('home.shortcuts.accounts')}
+              description={t('home.shortcuts.accountsDescription')}
             />
             <Shortcut
               to="/sessions"
