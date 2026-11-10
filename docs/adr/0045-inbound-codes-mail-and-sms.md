@@ -349,3 +349,14 @@ El dueño respondió los pendientes de la sección «Decisiones abiertas»; esa 
 - Cómo se asigna hoy MANAGE al crear una cuenta (se propone lo mismo para fuentes y vistas).
 - No se leyó el código del guardia de autorización ni de `effective_access` más allá de `docs/database.md`: la compatibilidad de los tipos nuevos con ellos se infiere.
 - No se ejecutó ninguna prueba; este documento no cambia código.
+
+## Enmienda 2026-11-10: borrado de correo a petición
+
+Decisión del dueño, sin construir todavía.
+
+- **Lectura.** El sistema solo lee correo por IMAP y no guarda cuerpo ni asunto (comprobado en la migración 0024: no hay columna para ellos). Se guardan el código extraído, cifrado y con vigencia de 10 minutos, el historial de metadatos mínimos y la contraseña del buzón, cifrada.
+- **Borrado.** Debe poder borrarse un mensaje del buzón IMAP real, solo cuando una persona lo solicita; nunca de forma automática.
+- **Quién.** Solo el administrador del correo o quien dio de alta la fuente (`mail_sources.created_by`). Quien recibe la vista compartida no puede borrar.
+- **No existe hoy.** El catálogo de permisos solo tiene `inbound.read_codes`, `inbound.configure` e `inbound.reveal_reset`. Implementarlo exige un permiso nuevo, reautenticación, auditoría (también de las negaciones), que la cuenta IMAP tenga permiso de borrar en el servidor y actualizar el modelo de amenazas. Es ruta protegida: necesita encargo explícito.
+- **Por aclarar con el dueño.** (1) Quién es el «administrador del correo»: el rol Administrador de la organización o una persona de la fuente. (2) El dueño dijo «no tenemos que guardar códigos»: hoy el código extraído se guarda cifrado durante 10 minutos para que lo lea quien tenga la vista compartida; hay que confirmar si pide cambiar eso.
+- **No verificado.** Que el sondeo actual no marque ni borre mensajes en el buzón.
