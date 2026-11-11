@@ -36,6 +36,8 @@ export interface E2eEnvironment {
   readonly mailer: InMemoryMailer;
   readonly logger: Logger;
   readonly adminPool: Pool;
+  /** Misma gestión de claves que usa la API: para sembrar valores cifrados que la API pueda descifrar. */
+  readonly kms: LocalKeyManagement;
   bootstrapOrganization(input: {
     slug: string;
     rootEmail: string;
@@ -64,12 +66,13 @@ export async function startEnvironment(
     level: options.logDestination === undefined ? (process.env['E2E_LOG'] ?? 'silent') : 'trace',
     ...(options.logDestination === undefined ? {} : { destination: options.logDestination }),
   });
+  const kms = new LocalKeyManagement({ keyFilePath: join(kekDir, 'kek.key'), nodeEnv: 'test' });
   const container = buildContainer({
     pool: db.appPool,
     independentPool: db.independentPool,
     mailer,
     webauthn: { rpName: 'Compass test', rpId: new URL(APP_ORIGIN).hostname, origin: APP_ORIGIN },
-    kms: new LocalKeyManagement({ keyFilePath: join(kekDir, 'kek.key'), nodeEnv: 'test' }),
+    kms,
     logger,
     clock,
     // Costo mínimo de Argon2: las pruebas hacen decenas de inicios de sesión.
@@ -97,6 +100,7 @@ export async function startEnvironment(
     mailer,
     logger,
     adminPool,
+    kms,
     async bootstrapOrganization(input) {
       const result = await bootstrap.execute({
         name: `Org ${input.slug}`,
