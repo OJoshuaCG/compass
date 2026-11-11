@@ -116,7 +116,7 @@ Fases 2, 3, 5, 6 y 7 según `plan.md` (proveedor de inicio de sesión único, SA
 
 **Del equipo (bloquean o condicionan; ya estaban en el plan):** disponibilidad requerida (el proveedor de nube y la escala del primer año ya se decidieron: Dokploy en Linode con AWS KMS, y menos de 20 clientes); subdominio para los alias de cuentas; presupuesto de la prueba de penetración; política de retención; elegibilidad de Meta para la fase 3; identidad de las dos personas que custodian los códigos de emergencia. Exigir passkeys a Raíz y Administradores ya no está abierta como pregunta: se decidió que sean opcionales y la exigencia queda como futura configuración (ver abajo).
 
-**Códigos entrantes (fase 4, [ADR 0045](adr/0045-inbound-codes-mail-and-sms.md); bloquean IC-8):** ratificar el ADR 0045 (sigue en Propuesta); subdominio de los alias y sus registros SPF, DKIM y DMARC (TODO C10); proveedor real de SMS; retención legal de lo recibido (TODO C9 y A10). La vía de recepción ya está decidida: sondeo IMAP del servidor de correo propio.
+**Códigos entrantes (fase 4, [ADR 0045](adr/0045-inbound-codes-mail-and-sms.md); bloquean IC-8):** ratificar el ADR 0045 (sigue en Propuesta); proveedor real de SMS (movido a la v1.1). El subdominio y sus registros DNS (TODO C10) no aplican con IMAP, y la retención (TODO C9) ya está decidida (2026-11-10): el sistema no guarda el correo. La vía de recepción ya está decidida: sondeo IMAP del servidor de correo propio.
 
 **Decisiones del dueño (2026-11-04):** sustituyen lo que digan como abierto los párrafos anteriores de esta sección.
 
