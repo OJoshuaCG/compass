@@ -112,7 +112,7 @@ El dueño declaró la fase cerrada en lo funcional el 2026-11-04. Lo de esta tab
 | Límites de intentos compartidos | Los contadores viven en la memoria de cada instancia del servidor. Con más de una instancia, cada una cuenta por separado y un reinicio los borra. Falta el almacén compartido de contadores; no entró en esta entrega |
 | Dominio de envío del correo | Para que las invitaciones lleguen a la bandeja de entrada, el dominio de la organización necesita registros de autenticación del remitente (SPF, DKIM y DMARC) en su configuración de DNS. Es una tarea del equipo, fuera del sistema |
 | Limpieza de datos temporales vencidos | Las claves de la protección contra reintentos y los desafíos de passkeys vencidos aún no se borran (falta una tarea de limpieza). Además, un reintento dentro de las 24 horas no vuelve a comprobar los permisos de quien lo hace |
-| Transferencia de la Raíz | No existe. Las demás acciones de gestión de personas ya funcionan |
+| Transferencia de la Raíz | Funciona: la Raíz propone, el Administrador destinatario acepta y, tras 72 horas de espera, el cambio se completa. Hay una pantalla para proponer, aceptar y cancelar. Falta ensayar el procedimiento completo con los dos custodios |
 | Cierre automático de sesiones al cambiar roles y avisos por correo | La acción de cambiar roles aún no existe. Los avisos por correo son parciales: la persona ya recibe el de uso de un código de recuperación, el de alta o baja de una llave de acceso y el de baja de su aplicación autenticadora (cuando un código de emergencia restablece su segundo factor); no existen todavía, porque no hay el flujo que los origina, el de dispositivo nuevo y el de regeneración de códigos de recuperación (ver `odd/tasks/security-notices.md`) |
 | Reautenticación con código de recuperación | No está soportada; solo se acepta el código de la aplicación autenticadora |
 | Ejecución de las pruebas en la verificación automática (CI) de GitHub | Nunca se ha ejecutado. Las pruebas pasan en el entorno local. El dueño la despriorizó ("no es primordial ni la requerimos"); no está bloqueada, y el repositorio ya tiene remoto |
@@ -124,7 +124,7 @@ El dueño declaró la fase cerrada en lo funcional el 2026-11-04. Lo de esta tab
 | --- | --- | --- |
 | Invitación → contraseña → segundo factor obligatorio | Cumplido | De punta a punta con aplicación autenticadora; la passkey es una alternativa opcional, no obligatoria (ADR 0028) |
 | Entrada con passkey | Cumplido | Funciona de punta a punta, probada en un navegador real con un autenticador virtual. Es opcional para todas las personas |
-| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 34 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. Sigue pendiente la transferencia de la Raíz |
+| Matriz de jerarquía y permisos completa en verde | Cumplido | La matriz de creación, la regla de gestión y el catálogo de 34 permisos con techos están implementados y probados, y las acciones de gestión de personas ya los usan. La transferencia de la Raíz ya funciona; solo falta ensayarla con los dos custodios |
 | Reautenticación funcionando | Cumplido con aplicación autenticadora | Probada también en navegador real. Aún no admite passkey ni código de recuperación |
 | Verificación automática (CI) en verde | **No comprobado** | Definida, nunca ejecutada en GitHub; despriorizada por el dueño |
 

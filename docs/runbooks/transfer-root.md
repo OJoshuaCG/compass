@@ -1,6 +1,6 @@
 # Runbook: Transferir la Raíz
 
-> **Borrador, pendiente de ensayo antes de producción.** El flujo está construido en la API ([ADR 0048](../adr/0048-root-transfer-and-emergency-code-reissue.md)); **no hay pantalla web** para él todavía, así que hoy se usa por la API. Falta ensayarlo de punta a punta.
+> **Borrador, pendiente de ensayo antes de producción.** El flujo está construido en la API ([ADR 0048](../adr/0048-root-transfer-and-emergency-code-reissue.md)); la web tiene la pantalla «Transferencia de la Raíz» (ruta `/root-transfer`) para proponer, aceptar y cancelar. Falta ensayarlo de punta a punta.
 
 Referencias: [`plan.md`](../../plan.md) reglas 9 y 10 de jerarquía ("Transferencia de Raíz" y "Recuperación de la Raíz"), permiso `org.settings` y "Reautenticación (step-up)"; [ADR 0007](../adr/0007-four-actors.md).
 

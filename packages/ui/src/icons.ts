@@ -5,6 +5,7 @@
  */
 export {
   AlertTriangle,
+  ArrowRightLeft,
   Bell,
   Check,
   ChevronDown,

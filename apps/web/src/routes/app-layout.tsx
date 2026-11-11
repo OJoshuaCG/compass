@@ -1,5 +1,6 @@
 import {
   AppShell,
+  ArrowRightLeft,
   Bell,
   BrandMark,
   House,
@@ -56,6 +57,9 @@ function NavLink({ to, icon, label, exact = false }: NavLinkProps) {
   );
 }
 
+/** Rango máximo (número) que ve el enlace de la transferencia de la Raíz: la Raíz y los Administradores. */
+const MAX_RANK_TO_SEE_ROOT_TRANSFER = 1;
+
 /** Marco de la app autenticada: barra superior, navegación agrupada y contenido. */
 export function AppLayout() {
   const { t } = useTranslation('common');
@@ -67,12 +71,15 @@ export function AppLayout() {
   const canConfigureInbound = usePermission('inbound.configure');
   // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
   const canManageInfraAlerts = usePermission('alerts.infra.manage');
+  // Solo comodidad: la transferencia de la Raíz la ven la Raíz y los Administradores; el servidor decide.
+  const canSeeRootTransfer = me !== undefined && me.user.rank <= MAX_RANK_TO_SEE_ROOT_TRANSFER;
   const { logout, pending } = useLogout();
   const sidebarState = useSidebarVisibility(me?.user.id);
   const sidebarVisible: boolean = sidebarState.visible;
   const showCatalog: boolean = import.meta.env.DEV;
   // El grupo Acceso se oculta entero cuando ninguno de sus enlaces aplica a la persona.
-  const showAccessGroup: boolean = canManageRoles || canManageInfraAlerts || showCatalog;
+  const showAccessGroup: boolean =
+    canManageRoles || canManageInfraAlerts || canSeeRootTransfer || showCatalog;
   return (
     <AppShell
       skipLinkLabel={t('nav.skipToContent')}
@@ -178,6 +185,13 @@ export function AppLayout() {
               ) : null}
               {canManageInfraAlerts ? (
                 <NavLink to="/alerts" icon={<Bell className="size-5" />} label={t('nav.alerts')} />
+              ) : null}
+              {canSeeRootTransfer ? (
+                <NavLink
+                  to="/root-transfer"
+                  icon={<ArrowRightLeft className="size-5" />}
+                  label={t('nav.rootTransfer')}
+                />
               ) : null}
               {showCatalog ? (
                 <NavLink

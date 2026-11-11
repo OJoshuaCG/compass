@@ -7,3 +7,4 @@ export {
 } from './containers/users-page';
 export { creatableRanks } from './model/creatable-ranks';
 export { RankBadge, type RankBadgeProps } from './ui/rank-badge';
+export { RootTransferPage } from './containers/root-transfer-page';
