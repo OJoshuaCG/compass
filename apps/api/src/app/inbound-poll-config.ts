@@ -34,6 +34,8 @@ const envSchema = z
     INBOUND_POLL_MAX_SOURCES_PER_RUN: z.coerce.number().int().min(1).max(500).default(50),
     /** Tiempo total tras el cual no se empieza otra fuente. Debe quedar por debajo del periodo del cron. */
     INBOUND_POLL_RUN_BUDGET_SECONDS: z.coerce.number().int().min(10).max(3600).default(50),
+    /** Fallos seguidos de una fuente a partir de los cuales la pasada sale con código distinto de cero. */
+    INBOUND_POLL_FAILURE_EXIT_THRESHOLD: z.coerce.number().int().min(1).max(1000).default(5),
   })
   .superRefine((env, ctx) => {
     if (env.KMS_ADAPTER === 'aws') {

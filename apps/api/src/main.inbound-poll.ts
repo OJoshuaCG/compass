@@ -108,6 +108,7 @@ try {
     settings: {
       maxSourcesPerRun: config.INBOUND_POLL_MAX_SOURCES_PER_RUN,
       runBudgetMs: config.INBOUND_POLL_RUN_BUDGET_SECONDS * MILLISECONDS_PER_SECOND,
+      failureExitThreshold: config.INBOUND_POLL_FAILURE_EXIT_THRESHOLD,
     },
   }).execute();
 
@@ -119,6 +120,8 @@ try {
   }
   // Un defecto o el KMS caído afectan a todas las fuentes: se hacen visibles por el código de salida.
   if (summary.unexpected > 0) process.exitCode = 1;
+  // Una fuente que sigue fallando tras varios intentos no debe quedar solo en el retroceso: el cron la muestra.
+  if (summary.persistentlyFailing > 0) process.exitCode = 1;
 } catch (error) {
   // La validación de la configuración solo nombra claves y tipos de falla, nunca valores: es seguro mostrarla.
   // Cualquier otro mensaje podría arrastrar conexión, rutas o texto del servidor.

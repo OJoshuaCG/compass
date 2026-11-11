@@ -62,6 +62,8 @@ export type DkimKeyBitsPolicy = 'enforced' | 'not_available';
 export interface DkimSignatureEvidence {
   /** `d=`: dominio firmante. */
   readonly signingDomain: string;
+  /** `s=`: selector de la clave; solo informativo (registro por mensaje), la compuerta no lo usa. */
+  readonly selector?: string;
   /** Cuántas veces aparece cada cabecera en `h=`. */
   readonly signedHeaderCounts: HeaderCounts;
   /** `true` si la firma trae `l=` (permite añadir contenido sin invalidarla). */

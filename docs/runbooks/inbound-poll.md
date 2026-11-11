@@ -31,6 +31,7 @@ Un fallo de una fuente (buzón caído, contraseña mala) no detiene a las demás
 | `LOCAL_KMS_KEY_FILE`                    | Opcional, `.local-kms/kek.key` por defecto. Ruta de la KEK local; solo se usa con `KMS_ADAPTER=local`, que en producción se rechaza. |
 | `INBOUND_POLL_ALLOWED_PRIVATE_NETWORKS` | Opcional. IP o CIDR privados (coma) donde puede vivir el servidor de correo. Vacío: solo direcciones públicas. |
 | `INBOUND_POLL_MAX_SOURCES_PER_RUN`      | Opcional, 50 por defecto.                                                                                   |
+| `INBOUND_POLL_FAILURE_EXIT_THRESHOLD`   | Opcional, 5 por defecto (de 1 a 1000). Fallos seguidos de una misma fuente a partir de los cuales la pasada sale con código `1`. |
 | `INBOUND_POLL_RUN_BUDGET_SECONDS`       | Opcional, 50 por defecto. Solo impide **empezar** otra fuente pasado ese tiempo; una fuente en curso puede tardar hasta 60 s más (su propio presupuesto) y los tiempos de red. |
 
 - El servidor de correo propio debe **anteponer** su `Authentication-Results` (con el `authserv-id` que se registra en la conexión) y **eliminar** cualquier cabecera `Authentication-Results` que traiga el mensaje entrante. Sin esa limpieza, el remitente podría fabricar un veredicto. Verifícalo con un mensaje de prueba antes de activar una fuente.
@@ -47,14 +48,14 @@ Cada minuto, con el entorno propio del worker:
 
 ## Salida y alertas
 
-- Una línea JSON por mensaje (`event: inbound.message`): id de fuente, huella, resultado, motivo de cuarentena y veredictos `spf`, `dkim` y `dmarc`. **Nunca** asunto, cuerpo, direcciones, código ni enlace.
+- Una línea JSON por mensaje (`event: inbound.message`): id de fuente, huella, resultado, motivo de cuarentena, veredictos `spf`, `dkim` y `dmarc`, y de la firma DKIM que sostuvo el mensaje: `signingDomain` (`d=`), `selector` (`s=`), `aligned`, `bodyLengthLimit` (`l=`) y `signedHeaders` (conteo de `h=`). Todo es `null` si no hubo firma validada; el dominio y el selector solo se escriben si tienen forma de nombre DNS. **Nunca** asunto, cuerpo, direcciones, código ni enlace.
 - Una línea de resumen por pasada: fuentes listadas, intentadas, completas, con arrendamiento ajeno, fallidas, diferidas, códigos aceptados y en cuarentena.
 - Por stderr, un conteo de fallos por código acotado (`AUTH`, `TLS`, `TIMEOUT`, `NETWORK`, `HOST_REJECTED`, `MAILBOX_UNAVAILABLE`...). Nunca texto del servidor ni el host.
 
 Código de salida:
 
 - `0`: la pasada terminó. Algunas fuentes pueden haber fallado; su retroceso ya quedó anotado.
-- `1`: configuración inválida, la base no respondió, o alguna fuente falló por un motivo del sistema y no del buzón: `KMS_UNAVAILABLE` (el KMS no respondió o no hay llave activa) o `UNEXPECTED` (un defecto). Alerta al equipo de guardia si pasa en dos ejecuciones seguidas.
+- `1`: configuración inválida, la base no respondió, o alguna fuente falló por un motivo del sistema y no del buzón: `KMS_UNAVAILABLE` (el KMS no respondió o no hay llave activa) o `UNEXPECTED` (un defecto), o porque una fuente acumula `INBOUND_POLL_FAILURE_EXIT_THRESHOLD` fallos seguidos (el buzón sigue caído aunque su retroceso crezca; revisa la fuente en la pantalla de fuentes y su código de fallo por stderr). Alerta al equipo de guardia si pasa en dos ejecuciones seguidas.
 - Ausencia de salida durante más de 5 minutos: el cron dejó de correr. Alerta por ausencia.
 
 ## Si algo falla

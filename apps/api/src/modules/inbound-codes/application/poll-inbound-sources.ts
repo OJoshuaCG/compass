@@ -7,6 +7,8 @@
  *   con su backoff por `PollMailSource`.
  * - Una excepción que escapa de `PollMailSource` es un defecto, no un fallo del buzón: se cuenta aparte
  *   (`unexpected`) para que el proceso salga con código distinto de cero y alguien lo mire.
+ * - Una fuente con `failureExitThreshold` fallos seguidos o más se cuenta en `persistentlyFailing`: el buzón
+ *   sigue caído y el cron debe hacerlo visible con un código de salida distinto de cero, no solo con su retroceso.
  * - Pasado el presupuesto no se empieza ninguna fuente más; las que quedan se atienden en la siguiente pasada.
  */
 import type { Clock } from '../../../shared/kernel/index.js';
@@ -35,6 +37,8 @@ export interface PollInboundSourcesSettings {
   readonly maxSourcesPerRun: number;
   /** Tiempo total tras el cual no se empieza otra fuente. */
   readonly runBudgetMs: number;
+  /** Fallos seguidos de una misma fuente a partir de los cuales la pasada la reporta como persistente. */
+  readonly failureExitThreshold: number;
 }
 
 export interface PollInboundSourcesSummary {
@@ -46,6 +50,8 @@ export interface PollInboundSourcesSummary {
   readonly failedByCode: Readonly<Record<string, number>>;
   /** Fallos del sistema (defecto o KMS caído), sea por excepción o por código devuelto: no son del buzón. */
   readonly unexpected: number;
+  /** Fuentes que llevan al menos `failureExitThreshold` fallos seguidos (incluido el de esta pasada). */
+  readonly persistentlyFailing: number;
   readonly accepted: number;
   readonly quarantined: number;
   /** Listadas pero sin intentar por el tope de fuentes o por el presupuesto de tiempo. */
@@ -73,6 +79,7 @@ export class PollInboundSources {
     let skippedLeased = 0;
     let failed = 0;
     let unexpected = 0;
+    let persistentlyFailing = 0;
     let accepted = 0;
     let quarantined = 0;
 
@@ -101,6 +108,7 @@ export class PollInboundSources {
       } else if (result.status === 'failed') {
         countFailure(result.errorCode);
         if (SYSTEM_FAILURE_CODES.has(result.errorCode)) unexpected += 1;
+        if (result.consecutiveFailures >= settings.failureExitThreshold) persistentlyFailing += 1;
       } else {
         completed += 1;
         accepted += result.summary.accepted;
@@ -119,6 +127,7 @@ export class PollInboundSources {
       failed,
       failedByCode,
       unexpected,
+      persistentlyFailing,
       accepted,
       quarantined,
       deferred: sources.length - attempted,
