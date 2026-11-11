@@ -32,11 +32,11 @@ Limitaciones: la cuenta es por registro, no por persona; se pierde al reiniciar 
 | T5-1 | Constante, código de error, mapeo HTTP y textos es-MX y en-US | Hecha |
 | T5-2 | Puerto y almacén en memoria; cableado en el contenedor | Hecha |
 | T5-3 | Comprobación en `ManageTotp.confirm` | Hecha |
-| T5-4 | Pruebas unitarias (`manage-totp.confirm-limit.test.ts`, almacén) y e2e (`vault-totp.e2e.test.ts`) | Hecha: `manage-totp.confirm-limit.test.ts` y `vault-totp.e2e.test.ts` en verde (2026-11-11); las del almacén no se corrieron en esa pasada |
+| T5-4 | Pruebas unitarias (`manage-totp.confirm-limit.test.ts`, almacén) y e2e (`vault-totp.e2e.test.ts`) | Hecha: `manage-totp.confirm-limit.test.ts` y `vault-totp.e2e.test.ts` en verde (2026-11-11), y también las del almacén (`in-memory-totp-confirm-attempt-store.test.ts`) |
 | T5-5 | Documentación (`docs/business/two-factor.md`, `docs/backend.md`) | Hecha |
 | T5b-1 | Política escalonada pura (`totp-confirm-lock.ts`), puerto y almacén con estado, `ManageTotp.confirm` con `Clock`, constantes en contratos, textos es-MX/en-US, docs | Hecha |
 | T5b-2 | Pruebas: unitarias del caso de uso (escalonado, reloj, acierto, re-registro), de la política y del almacén; e2e con reloj avanzado | Escritas, sin ejecutar |
-| T5b-3 | Desbloqueo anticipado por un superior (`unlockConfirmation`, `POST /credentials/:id/totp/unlock`, `credential.totp_unlocked`, botón en el diálogo web) | Hecha; `manage-totp.unlock.test.ts` en verde (2026-11-11), las de la web no se corrieron en esa pasada |
+| T5b-3 | Desbloqueo anticipado por un superior (`unlockConfirmation`, `POST /credentials/:id/totp/unlock`, `credential.totp_unlocked`, botón en el diálogo web) | Hecha; `manage-totp.unlock.test.ts` en verde (2026-11-11); `totp.test.tsx` y `totp-model.test.ts` de la web también (la política, `totp-confirm-lock.test.ts`, igual) |
 | T5-6 | Revisión humana de las pruebas de bloqueo (marcadas `SENSIBLE`) y confirmación del número | Pendiente |
 
 ## Bitácora
