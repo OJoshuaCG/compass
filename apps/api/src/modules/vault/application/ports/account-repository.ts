@@ -46,6 +46,18 @@ export interface AccountListFilters {
   readonly quickFilter: AccountListFilter | null;
   /** Fecha anterior a la cual una credencial ya pasó el umbral de «por revisar» (amarillo o rojo). */
   readonly agingCutoff: Date;
+  /**
+   * Índices ciegos del texto buscado, uno por versión de DEK en uso: el índice depende de la clave,
+   * así que tras una rotación a medias conviven filas con versiones distintas. Vacío = sin búsqueda
+   * exacta de usuario. El inventario siempre lo recibe vacío: no puede leer credenciales.
+   */
+  readonly usernameIndexes: readonly UsernameBlindIndex[];
+}
+
+export interface UsernameBlindIndex {
+  readonly dekVersion: number;
+  /** HMAC-SHA256 en hexadecimal (64 caracteres), tal como lo guarda `credential_secrets.blind_index`. */
+  readonly indexHex: string;
 }
 
 export interface NewAccount {
@@ -113,6 +125,8 @@ export interface AccountRepository {
     userId: UserId,
     displayNames: readonly string[],
   ): Promise<readonly ExistingAccountKey[]>;
+  /** Versiones de DEK con las que están calculados los índices ciegos vigentes de usuario. */
+  listUsernameIndexDekVersions(): Promise<readonly number[]>;
   /** Todas las cuentas activas de la organización (solo metadatos), por nombre. */
   listInventoryPage(
     page: KeysetRequest,

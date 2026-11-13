@@ -545,6 +545,7 @@ export function buildContainer(options: ContainerOptions) {
       uow,
       authorizer,
       accounts: new PgAccountRepository(uow),
+      cipher,
       ids,
       audit,
       clock,

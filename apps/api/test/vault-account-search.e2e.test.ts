@@ -207,6 +207,80 @@ describe('text search', () => {
   });
 });
 
+describe('exact platform username search (blind index)', () => {
+  // El usuario de la plataforma no está en claro en ninguna columna: solo se encuentra con el índice ciego.
+  const PLATFORM_USERNAME = 'probe.user@acme.test';
+
+  const addUsernameCredential = async (accountId: string, username: string): Promise<void> => {
+    const response = await operator.client.post(`/accounts/${accountId}/credentials`, {
+      label: 'main',
+      username,
+      password: STRONG_PASSWORD,
+    });
+    expect(response.status).toBe(201);
+  };
+
+  it('finds the accounts whose credential uses that exact username', async () => {
+    const first = await createAccount(operator, 'Username Probe One');
+    const second = await createAccount(operator, 'Username Probe Two');
+    const other = await createAccount(operator, 'Username Probe Other');
+    await addUsernameCredential(first.id, PLATFORM_USERNAME);
+    await addUsernameCredential(second.id, PLATFORM_USERNAME);
+    await addUsernameCredential(other.id, 'someone.else@acme.test');
+
+    expect(names(await search(operator, { q: PLATFORM_USERNAME })).sort()).toEqual([
+      'Username Probe One',
+      'Username Probe Two',
+    ]);
+  });
+
+  it('matches the whole username only, with the same case it was saved with', async () => {
+    expect(names(await search(operator, { q: 'probe.user' }))).toEqual([]);
+    expect(names(await search(operator, { q: 'PROBE.USER@ACME.TEST' }))).toEqual([]);
+  });
+
+  it('never reveals, through the username, an account the person cannot access', async () => {
+    expect(names(await search(outsider, { q: PLATFORM_USERNAME }))).toEqual([]);
+  });
+
+  it('does not use the username in the inventory, which reads no credential data', async () => {
+    // La cuenta de control se llama igual que el usuario: el inventario sí la encuentra por nombre,
+    // pero no debe traer las cuentas cuya credencial usa ese usuario.
+    await createAccount(operator, PLATFORM_USERNAME);
+    expect(names(await search(admin, { q: PLATFORM_USERNAME }, '/accounts/inventory'))).toEqual([
+      PLATFORM_USERNAME,
+    ]);
+  });
+
+  it('ignores a replaced username, an archived credential and an archived account', async () => {
+    const replaced = await createAccount(operator, 'Username Replaced');
+    const archivedCredential = await createAccount(operator, 'Username Archived Credential');
+    const archivedAccount = await createAccount(operator, 'Username Archived Account');
+    const lookup = 'stale.user@acme.test';
+    await addUsernameCredential(replaced.id, lookup);
+    await addUsernameCredential(archivedCredential.id, lookup);
+    await addUsernameCredential(archivedAccount.id, lookup);
+    expect(names(await search(operator, { q: lookup })).length).toBe(3);
+
+    await env.db.admin.query(
+      `update credential_secrets s set is_current = false
+         from credentials c
+        where c.id = s.credential_id and c.organization_id = s.organization_id
+          and c.account_id = $1 and s.field = 'username'`,
+      [replaced.id],
+    );
+    await env.db.admin.query(`update credentials set archived_at = now() where account_id = $1`, [
+      archivedCredential.id,
+    ]);
+    await env.db.admin.query(
+      `update accounts set status = 'archived', archived_at = now() where id = $1`,
+      [archivedAccount.id],
+    );
+
+    expect(names(await search(operator, { q: lookup }))).toEqual([]);
+  });
+});
+
 describe('password age indicator', () => {
   it('classifies each account by its oldest credential and ignores archived ones', async () => {
     const fresh = await createAccount(operator, 'Age Fresh');
