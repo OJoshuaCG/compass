@@ -159,6 +159,10 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
     'reassignedReports',
     'emergencyCodesInvalidated',
   ],
+  // Grupos (permisos `group.create` y `group.manage_members`). Solo ids y el papel; nunca el nombre.
+  'group.created': [],
+  'group.member_added': ['userId', 'role'],
+  'group.member_removed': ['userId', 'role'],
   'auth.password_changed': [],
   'organization.provisioned': [],
   'auth.password_change_failed': [],

@@ -85,6 +85,24 @@ export {
   rootTransferSchema,
 } from './root-transfer.js';
 export type { ProposeRootTransferRequest, RootTransfer } from './root-transfer.js';
+export {
+  GROUP_DESCRIPTION_MAX_LENGTH,
+  GROUP_MEMBER_ROLES,
+  GROUP_NAME_MAX_LENGTH,
+  addGroupMemberRequestSchema,
+  createGroupRequestSchema,
+  groupMemberSchema,
+  groupSchema,
+  listGroupsQuerySchema,
+} from './groups.js';
+export type {
+  AddGroupMemberRequest,
+  CreateGroupRequest,
+  Group,
+  GroupMember,
+  GroupMemberRole,
+  ListGroupsQuery,
+} from './groups.js';
 
 export { sessionSummarySchema } from './sessions.js';
 export type { SessionSummary } from './sessions.js';
