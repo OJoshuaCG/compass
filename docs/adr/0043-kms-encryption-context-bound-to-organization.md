@@ -1,6 +1,6 @@
 # ADR 0043: Contexto de cifrado del KMS ligado a la organización y control de usos anómalos
 
-- **Estado**: Aceptada (2026-11-13). Borrador de Ingeniería para `TODO.md` F5; el dueño ratificó el uso de AWS KMS y la opción A («0043, utilizar aws para kms, es correcto»). La pregunta abierta 1 (lista cerrada de organizaciones en la política o solo alertas) no se respondió y sigue pendiente; mientras tanto rigen las alertas de CloudTrail sin lista cerrada.
+- **Estado**: Aceptada (2026-11-13). Borrador de Ingeniería para `TODO.md` F5; el dueño ratificó el uso de AWS KMS y la opción A («0043, utilizar aws para kms, es correcto»). Sin lista cerrada de organizaciones y sin trabajo de CloudTrail por ahora (ver «Decisión»).
 - **Fecha**: 2026-10-29
 - **Referencias**: [ADR 0004](0004-server-side-encryption-kms-per-org-dek.md); [ADR 0005](0005-in-memory-dek-cache.md) (caché de DEK); [ADR 0020](0020-reference-cloud-aws.md) (adenda del adaptador de AWS); [ADR 0040](0040-dek-rotation-and-cache-coherence.md) (rotación); `apps/api/src/modules/crypto/infrastructure/aws-key-management.ts`; `apps/api/src/modules/crypto/application/ports/key-management-port.ts`; `db/migrations/0003_crypto_infra.sql`; `TODO.md` F5 y L1.
 
@@ -89,7 +89,9 @@ Interacciones:
 
 ## Decisión (2026-11-13)
 
-El dueño respondió: «0043, utilizar aws para kms, es correcto». Se acepta la **opción A**: AWS KMS como servicio de claves, contexto de cifrado `{ organization_id }` sin cambios, y control en la política de la clave (exigir la clave de contexto, rol limitado a `GenerateDataKey` y `Decrypt` sobre esa clave) y en las alertas de CloudTrail. Las opciones B y C quedan descartadas por ahora.
+El dueño respondió: «0043, utilizar aws para kms, es correcto», y después: «La lista cerrada, solo alertas» y «Cloudtrail, [...] ignoralo un poco de verdad, solo de aws requerimos su módulo kms si requieres encriptar información y ya».
 
-- **Sin decidir**: la variante de lista cerrada de organizaciones (pregunta 1). Mientras no se responda, no se exige en la política; es un paso manual más en `provision-organization.md` y se decide aparte.
-- **Pendiente de operación, no de código**: configurar la política de la clave y las alertas de CloudTrail, y la prueba contra AWS real (L1).
+- De AWS solo se usa **KMS**, para cifrar. El contexto de cifrado `{ organization_id }` no cambia (opción A) y las opciones B y C quedan descartadas.
+- **Sin lista cerrada** de organizaciones en la política de la clave (pregunta 1 resuelta: solo alertas, no se exige nada más al dar de alta una organización).
+- **CloudTrail y sus alertas no son trabajo de esta fase**: lo escrito arriba sobre ellos es contexto del borrador, no un requisito. No se configura ni se espera.
+- Queda pendiente solo lo que ya existía: la prueba contra AWS real (L1).

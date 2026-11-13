@@ -17,7 +17,7 @@ Ruta protegida (acceso y auditoría), encargada por el dueño el 2026-11-13: "Ad
 | G3 | Pruebas: dominio/caso de uso (`manage-groups.test.ts`), integración con PostgreSQL (`groups.integration.test.ts`), matriz de autorización | Hecha: `manage-groups.test.ts`, matriz de autorización e integración con PostgreSQL (4 de 4) en verde el 2026-11-13 |
 | G4 | Pantalla web de grupos y selector de grupo al compartir | Hecha: `groups.test.tsx`, `groups-model.test.ts`, `shares.test.tsx` e `inbound-view-shares.test.tsx` en verde (78 de 78, 2026-11-13) |
 | G5 | Revisión ciega (`jd-judge-a`, `jd-judge-b`) y regla rota a propósito | Hecha: un defecto confirmado por ambos, corregido; mutación en `canManageGroupMembers` detectada por `manage-groups.test.ts` y restaurada |
-| G7 | Decisiones del dueño: rotación al quitar miembro, rango del gestor, carrera con la baja | Pendiente |
+| G7 | Decisiones del dueño: rotación al quitar miembro (decidido: sin tareas de rotación y sin bloquear), rango del gestor, carrera con la baja | Parcial |
 | G6 | Revisión humana de las pruebas marcadas `SENSIBLE` | Pendiente |
 
 ## Bitácora
@@ -29,3 +29,4 @@ Ruta protegida (acceso y auditoría), encargada por el dueño el 2026-11-13: "Ad
   - Solo el juez B, sin verificar: ver todos los grupos con solo tener un permiso de grupos; descripción solo con espacios queda como cadena vacía; Unicode NFC/NFD en el nombre.
   - Huecos de prueba señalados: la integración solo prueba `PgGroupStore`.
 - 2026-11-13 (web): `frontend-developer` construyó la pantalla `/groups` y el modo Grupo al compartir. En las pruebas, un stub de 500 debía fallar hasta pulsar «Reintentar» porque el cliente de consultas reintenta los 5xx; y el fixture de `shares.test.tsx` «is reachable from the accounts screen» estaba desactualizado respecto al contrato `AccountListItem` desde `92be743` (fallo previo a este lote).
+- 2026-11-13 (decisión del dueño sobre la rotación): al quitar un miembro de un grupo «Crear tareas de rotacion, igual, solo alertas, no bloquearle». No se crean tareas de rotación y la baja del miembro nunca se bloquea; solo se avisa. Queda como está: `removeMember` corta el acceso y escribe su auditoría. Pendientes: rango del gestor y carrera con la baja.
