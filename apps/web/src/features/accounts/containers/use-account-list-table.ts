@@ -36,5 +36,11 @@ export function useAccountListTable({ queryKey, fetchPage }: UseAccountListTable
 
   const [draft, setDraft] = useDebouncedCommit(table.q, table.onQueryChange);
 
-  return { ...table, draft, setDraft };
+  /** Aplica texto y filtro rápido juntos (una vista guardada): una sola búsqueda, no dos. */
+  const applyCriteria = (criteria: { q: string | undefined; filter: string | undefined }) => {
+    setText(criteria.q);
+    setFilter(criteria.filter);
+  };
+
+  return { ...table, draft, setDraft, applyCriteria };
 }

@@ -64,5 +64,19 @@
   "filter.label": "Filter accounts",
   "filter.all": "All",
   "filter.review": "To review",
-  "filter.no2fa": "No 2FA"
+  "filter.no2fa": "No 2FA",
+  "views.label": "View",
+  "views.none": "No view",
+  "views.save": "Save view",
+  "views.delete": "Delete view",
+  "views.deleteLabel": "Delete the view {{name}}",
+  "views.saveTitle": "Save view",
+  "views.saveDescription": "Saves the search and filter you have applied so you can reuse them in one click.",
+  "views.name": "View name",
+  "views.saveSubmit": "Save view",
+  "views.saveToast": "The view {{name}} was saved.",
+  "views.deleteTitle": "Delete the view {{name}}?",
+  "views.deleteDescription": "Only the saved view is deleted. Your accounts and access do not change.",
+  "views.deleteConfirm": "Delete view",
+  "views.deleteToast": "The view {{name}} was deleted."
 }

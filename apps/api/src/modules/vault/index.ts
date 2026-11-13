@@ -11,6 +11,11 @@ export {
   ROTATION_TASK_DUE_DAYS,
 } from './application/manage-shares.js';
 export type { ManageSharesDeps } from './application/manage-shares.js';
+export { ManageSavedViews } from './application/manage-saved-views.js';
+export type {
+  CreateSavedViewInput,
+  ManageSavedViewsDeps,
+} from './application/manage-saved-views.js';
 export { ManageCredentials } from './application/manage-credentials.js';
 export type {
   CreateCredentialInput,
@@ -91,6 +96,7 @@ export type {
 } from './application/ports/share-repository.js';
 export { canGrant, levelSatisfies } from './domain/share-level.js';
 export { PgAccountRepository } from './infrastructure/pg-account-repository.js';
+export { PgSavedViewRepository } from './infrastructure/pg-saved-view-repository.js';
 export { PgVaultCredentialRepository } from './infrastructure/pg-credential-repository.js';
 export { PgOffboardingAccountStore } from './infrastructure/pg-offboarding-account-store.js';
 export { PgOffboardingAccessCleanup } from './infrastructure/pg-offboarding-access-cleanup.js';

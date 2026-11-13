@@ -104,6 +104,15 @@ export type {
   ListGroupsQuery,
 } from './groups.js';
 
+export {
+  MAX_SAVED_VIEWS,
+  SAVED_VIEW_NAME_MAX_LENGTH,
+  SAVED_VIEW_SEARCH_MAX_LENGTH,
+  createSavedAccountViewRequestSchema,
+  savedAccountViewSchema,
+} from './saved-account-views.js';
+export type { CreateSavedAccountViewRequest, SavedAccountView } from './saved-account-views.js';
+
 export { sessionSummarySchema } from './sessions.js';
 export type { SessionSummary } from './sessions.js';
 

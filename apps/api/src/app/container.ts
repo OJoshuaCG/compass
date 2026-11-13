@@ -105,6 +105,7 @@ import {
 import type { Mailer } from '../modules/notification/index.js';
 import {
   ManageAccounts,
+  ManageSavedViews,
   ManageShares,
   ManageCredentials,
   EnqueuePendingTotpNotices,
@@ -120,6 +121,7 @@ import {
   PgOffboardingAccountStore,
   PgOffboardingRotationStore,
   PgPendingTotpNoticeStore,
+  PgSavedViewRepository,
   PgTotpRepository,
   PgShareRepository,
   PgVaultCredentialRepository,
@@ -549,6 +551,12 @@ export function buildContainer(options: ContainerOptions) {
       ids,
       audit,
       clock,
+    }),
+    manageSavedViews: new ManageSavedViews({
+      uow,
+      authorizer,
+      savedViews: new PgSavedViewRepository(uow),
+      ids,
     }),
     manageShares: new ManageShares({
       context: requestContext,

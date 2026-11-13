@@ -40,6 +40,7 @@ import { FirstRootSetup } from '../modules/provisioning/index.js';
 import { InvitationsController } from '../modules/identity/interface/invitations.controller.js';
 import {
   ManageAccounts,
+  ManageSavedViews,
   ManageCredentials,
   ManageShares,
   ImportCredentials,
@@ -49,6 +50,7 @@ import {
   AccountsController,
   PlatformsController,
 } from '../modules/vault/interface/accounts.controller.js';
+import { SavedViewsController } from '../modules/vault/interface/saved-views.controller.js';
 import { AccountSharesController } from '../modules/vault/interface/shares.controller.js';
 import {
   AccountCredentialsController,
@@ -122,6 +124,7 @@ export class AppModule {
       { provide: ManagePersonRoles, useValue: container.managePersonRoles },
       { provide: RotateDataKey, useValue: container.rotateDataKey },
       { provide: ManageAccounts, useValue: container.manageAccounts },
+      { provide: ManageSavedViews, useValue: container.manageSavedViews },
       { provide: ManageCredentials, useValue: container.manageCredentials },
       { provide: ManageShares, useValue: container.manageShares },
       { provide: ImportCredentials, useValue: container.importCredentials },
@@ -157,6 +160,7 @@ export class AppModule {
         GroupsController,
         PlatformsController,
         AccountsController,
+        SavedViewsController,
         AccountCredentialsController,
         AccountSharesController,
         CredentialsController,

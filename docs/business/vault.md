@@ -196,7 +196,7 @@ Está integrado en la interfaz y en la API.
 | 3 | Cuánto dura el bloqueo cuando alguien supera el límite de revelaciones, y quién lo levanta | El plan dice que se bloquea y se alerta, sin indicar duración |
 | 4 | Qué reglas exactas definen una contraseña "antigua" para la salud de la credencial | El plan habla de una política de la organización sin dar el valor |
 | 5 | Qué restricciones de contraseña concretas trae cada plataforma del catálogo | El plan prevé el dato pero no los valores |
-| 6 | Qué ocurre con las vistas guardadas de una persona dada de baja | El plan no lo menciona |
+| 6 | Qué ocurre con las vistas guardadas de una persona dada de baja | El plan no lo menciona. Hoy las filas se conservan; solo su dueña activa las lista, así que nadie más las ve |
 
 ## 14. Códigos que llegan por correo y SMS
 

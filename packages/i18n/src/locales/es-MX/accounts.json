@@ -64,5 +64,19 @@
   "filter.label": "Filtrar cuentas",
   "filter.all": "Todas",
   "filter.review": "Por revisar",
-  "filter.no2fa": "Sin 2FA"
+  "filter.no2fa": "Sin 2FA",
+  "views.label": "Vista",
+  "views.none": "Sin vista",
+  "views.save": "Guardar vista",
+  "views.delete": "Borrar vista",
+  "views.deleteLabel": "Borrar la vista {{name}}",
+  "views.saveTitle": "Guardar vista",
+  "views.saveDescription": "Guarda la búsqueda y el filtro que tienes aplicados para volver a usarlos con un clic.",
+  "views.name": "Nombre de la vista",
+  "views.saveSubmit": "Guardar vista",
+  "views.saveToast": "Se guardó la vista {{name}}.",
+  "views.deleteTitle": "¿Borrar la vista {{name}}?",
+  "views.deleteDescription": "Solo se borra la vista guardada. Tus cuentas y accesos no cambian.",
+  "views.deleteConfirm": "Borrar vista",
+  "views.deleteToast": "Se borró la vista {{name}}."
 }

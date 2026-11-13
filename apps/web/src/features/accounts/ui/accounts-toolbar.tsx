@@ -1,5 +1,6 @@
 import type { AccountListFilter } from '@iam/contracts';
 import { Button, SearchInput } from '@iam/ui';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export type AccountsToolbarProps = {
@@ -11,6 +12,8 @@ export type AccountsToolbarProps = {
   onFilterChange: (filter: AccountListFilter | undefined) => void;
   /** El inventario no ofrece filtros rápidos: revelarían datos de credenciales que no puede ver. */
   showQuickFilters: boolean;
+  /** Controles adicionales al final de la barra (p. ej. las vistas guardadas). */
+  children?: ReactNode;
 };
 
 /** Búsqueda y fichas de filtro rápido de los listados de cuentas. Presentacional. */
@@ -20,6 +23,7 @@ export function AccountsToolbar({
   filter,
   onFilterChange,
   showQuickFilters,
+  children,
 }: AccountsToolbarProps) {
   const { t } = useTranslation(['accounts', 'common']);
 
@@ -59,6 +63,7 @@ export function AccountsToolbar({
           })}
         </div>
       ) : null}
+      {children}
     </div>
   );
 }
