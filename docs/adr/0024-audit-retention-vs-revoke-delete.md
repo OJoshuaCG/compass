@@ -1,6 +1,6 @@
 # ADR 0024: Retención de auditoría frente a `REVOKE DELETE`
 
-- **Estado**: Aceptada en su dirección (2026-11-04): particionado mensual con retiro de particiones (opción 1). Siguen abiertos los puntos de la sección «Decisión del dueño (2026-11-04)».
+- **Estado**: Aceptada (2026-11-13): particionado mensual con retiro de particiones (opción 1). El dueño aceptó el ADR el 2026-11-13; el camino de migración y la aceptación de que `seq` deje de ser único en la base se resuelven al implementar el particionado, con revisión humana.
 - **Fecha**: 2026-10-26
 - **Referencias**: [`plan.md`](../../plan.md) sección "Auditoría" (append-only, retención de 2 años en línea, exportación a almacenamiento inmutable) y "Decisiones pendientes del equipo" (política de retención); [`docs/backend.md`](../backend.md) §6.1 y §16; [ADR 0016](0016-append-only-audit-hash-chain.md).
 

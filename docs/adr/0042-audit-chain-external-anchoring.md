@@ -1,6 +1,6 @@
 # ADR 0042: Anclaje externo periódico de la cadena de auditoría
 
-- **Estado**: Propuesta, con la opción B decidida por el dueño e implementada (2026-11-04). Pasa a «Aceptada» cuando Ops verifique en el bucket real los puntos pendientes de [`docs/runbooks/anchor-audit.md`](../runbooks/anchor-audit.md).
+- **Estado**: Aceptada (2026-11-13): opción B decidida por el dueño e implementada (2026-11-04); el dueño aceptó el ADR el 2026-11-13. La verificación de Ops del bucket real (puntos de [`docs/runbooks/anchor-audit.md`](../runbooks/anchor-audit.md)) sigue pendiente como tarea de operación, no como condición de la decisión.
 - **Fecha**: 2026-10-29
 - **Referencias**: [ADR 0016](0016-append-only-audit-hash-chain.md) (cadena de hashes); [ADR 0023](0023-audit-advisory-lock-and-long-transactions.md) (lock y tiempos); [ADR 0024](0024-audit-retention-vs-revoke-delete.md) (retención y archivo inmutable); [ADR 0020](0020-reference-cloud-aws.md) (AWS solo para el KMS); [ADR 0038](0038-purge-expired-ephemeral-rows.md) (trabajos programados); [ADR 0039](0039-single-instance-until-redis.md) (instancia única); [`docs/database.md`](../database.md) §8.2 y §8.5; [`docs/threat-model.md`](../threat-model.md) (fila "Reescritura de la historia"); `TODO.md` F2, H1 y R1.
 
