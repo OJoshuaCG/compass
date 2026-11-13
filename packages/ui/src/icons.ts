@@ -33,6 +33,7 @@ export {
   UserCog,
   UserPlus,
   Users,
+  UsersRound,
   X,
   XCircle,
   type LucideIcon,

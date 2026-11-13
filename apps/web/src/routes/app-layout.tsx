@@ -22,6 +22,7 @@ import {
   UserCog,
   UserMenu,
   Users,
+  UsersRound,
 } from '@iam/ui';
 import { Link, Outlet } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
@@ -137,6 +138,12 @@ export function AppLayout() {
           <NavGroup label={t('nav.group.workspace')}>
             <NavLink to="/" exact icon={<House className="size-5" />} label={t('nav.home')} />
             <NavLink to="/users" icon={<Users className="size-5" />} label={t('nav.users')} />
+            {/* Sin permiso previo: la lista ya llega acotada por el servidor a lo que la persona ve. */}
+            <NavLink
+              to="/groups"
+              icon={<UsersRound className="size-5" />}
+              label={t('nav.groups')}
+            />
             <NavLink
               to="/sessions"
               icon={<Monitor className="size-5" />}

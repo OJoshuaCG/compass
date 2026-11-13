@@ -8,3 +8,4 @@ export {
 export { creatableRanks } from './model/creatable-ranks';
 export { RankBadge, type RankBadgeProps } from './ui/rank-badge';
 export { RootTransferPage } from './containers/root-transfer-page';
+export { GroupsPage } from './containers/groups-page';

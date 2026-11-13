@@ -9,13 +9,13 @@ export type ShareAccountDialogProps = {
   accountId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Éxito: recibe el nombre de la persona; el padre avisa y recarga. */
+  /** Éxito: recibe el nombre de la persona o del grupo; el padre avisa y recarga. */
   onShared: (granteeName: string) => void;
 };
 
 /**
- * Diálogo "Compartir": busca una persona en el directorio, elige el nivel y una caducidad
- * opcional. Solo comparte con personas: aún no existe un listado de grupos en la API.
+ * Diálogo "Compartir": elige una persona del directorio o un grupo que se gestiona, el nivel y una
+ * caducidad opcional.
  */
 export function ShareAccountDialog({
   accountId,

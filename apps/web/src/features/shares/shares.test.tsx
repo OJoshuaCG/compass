@@ -1,4 +1,4 @@
-import type { Account, DirectoryUser, Permission, Share, ShareLevel } from '@iam/contracts';
+import type { Account, DirectoryUser, Group, Permission, Share, ShareLevel } from '@iam/contracts';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -53,6 +53,22 @@ const GROUP_SHARE: Share = {
   expiresAt: '2030-06-01T12:00:00.000Z',
   grantedBy: SELF_ID,
   createdAt: '2026-02-02T12:00:00.000Z',
+};
+
+const MANAGED_GROUP: Group = {
+  id: '88888888-8888-4888-8888-888888888881',
+  name: 'Finanzas',
+  description: 'Equipo de finanzas',
+  memberCount: 4,
+  myRole: 'manager',
+  canManageMembers: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+const OTHER_MANAGED_GROUP: Group = {
+  ...MANAGED_GROUP,
+  id: '88888888-8888-4888-8888-888888888882',
+  name: 'Soporte',
+  description: null,
 };
 
 const CANDIDATE: DirectoryUser = {
@@ -174,7 +190,9 @@ describe('shares list', () => {
     setup({
       extra: {
         'GET /accounts': jsonResponse({
-          data: [accountFixture('MANAGE')],
+          // El listado devuelve `AccountListItem`: además de la cuenta lleva el resumen de
+          // antigüedad de la contraseña; sin él la respuesta no pasa la validación del contrato.
+          data: [{ ...accountFixture('MANAGE'), lastChangedAt: null, passwordAge: 'none' }],
           page: { nextCursor: null, limit: 25 },
         }),
         'GET /platforms': jsonResponse({ data: [] }),
@@ -219,7 +237,7 @@ describe('action gating by level and permission', () => {
 });
 
 describe('share dialog', () => {
-  it('offers people but not the current user, and explains the groups limitation, without violations', async () => {
+  it('offers people but not the current user, and explains who it can be shared with, without violations', async () => {
     const user = userEvent.setup();
     setup();
     renderApp(PAGE);
@@ -420,6 +438,137 @@ describe('share dialog', () => {
       expect(screen.getByRole('dialog', { name: es.shares['share.title'] })).toBeInTheDocument();
     },
   );
+});
+
+describe('share dialog in group mode', () => {
+  const GROUPS_PATH = '/groups';
+  const groupsApi = (groups: Group[] = [MANAGED_GROUP, OTHER_MANAGED_GROUP]) =>
+    setup({
+      extra: {
+        [`GET ${GROUPS_PATH}`]: jsonResponse({ data: groups }),
+        [`POST ${SHARES_PATH}`]: jsonResponse(
+          { ...GROUP_SHARE, granteeName: MANAGED_GROUP.name },
+          201,
+        ),
+      },
+    });
+
+  async function switchToGroups(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement) {
+    await user.click(within(dialog).getByRole('radio', { name: es.shares['granteeType.group'] }));
+  }
+
+  it('starts in person mode and does not ask for groups until the mode changes', async () => {
+    const user = userEvent.setup();
+    const api = groupsApi();
+    renderApp(PAGE);
+    const dialog = await openShareDialog(user);
+
+    expect(
+      within(dialog).getByRole('radio', { name: es.shares['granteeType.user'] }),
+    ).toBeChecked();
+    await within(dialog).findByRole('radio', { name: new RegExp(CANDIDATE.displayName) });
+    expect(api.callsTo('GET', GROUPS_PATH)).toHaveLength(0);
+  });
+
+  it('lists only the groups the person manages, as radios with their description, without violations', async () => {
+    const user = userEvent.setup();
+    const api = groupsApi();
+    renderApp(PAGE);
+    const dialog = await openShareDialog(user);
+    await switchToGroups(user, dialog);
+
+    expect(
+      await within(dialog).findByRole('radio', { name: new RegExp(MANAGED_GROUP.name) }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole('radio', { name: new RegExp(OTHER_MANAGED_GROUP.name) }),
+    ).toBeVisible();
+    expect(within(dialog).getByText('Equipo de finanzas')).toBeVisible();
+    expect(
+      within(dialog).queryByRole('radio', { name: new RegExp(CANDIDATE.displayName) }),
+    ).toBeNull();
+    expect(within(dialog).queryByRole('searchbox')).toBeNull();
+    expect(api.callsTo('GET', GROUPS_PATH)[0]?.search.get('managedByMe')).toBe('true');
+    expect(await axeViolations(dialog)).toEqual([]);
+  });
+
+  it('keeps the submit button disabled with a group hint until a group is chosen', async () => {
+    const user = userEvent.setup();
+    groupsApi();
+    renderApp(PAGE);
+    const dialog = await openShareDialog(user);
+    await switchToGroups(user, dialog);
+
+    const submit = within(dialog).getByRole('button', { name: es.shares['share.submit'] });
+    expect(submit).toBeDisabled();
+    expect(within(dialog).getByText(es.shares['share.submitHintGroup'])).toBeVisible();
+    expect(submit).toHaveAccessibleDescription(es.shares['share.submitHintGroup']);
+    await user.click(
+      await within(dialog).findByRole('radio', { name: new RegExp(MANAGED_GROUP.name) }),
+    );
+    expect(submit).toBeEnabled();
+  });
+
+  it('explains there is nothing to choose when the person manages no group', async () => {
+    const user = userEvent.setup();
+    groupsApi([]);
+    renderApp(PAGE);
+    const dialog = await openShareDialog(user);
+    await switchToGroups(user, dialog);
+
+    expect(await within(dialog).findByText(es.shares['share.groupsEmpty'])).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: es.shares['share.submit'] })).toBeDisabled();
+  });
+
+  it('shows a translated error with retry when the groups cannot be loaded', async () => {
+    const user = userEvent.setup();
+    setup({ extra: { [`GET ${GROUPS_PATH}`]: problem(500, 'INTERNAL') } });
+    renderApp(PAGE);
+    const dialog = await openShareDialog(user);
+    await switchToGroups(user, dialog);
+
+    expect(await within(dialog).findByRole('alert')).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: es.common['actions.retry'] })).toBeVisible();
+  });
+
+  it('shares with the chosen group using granteeType group, shows a toast and reloads the list', async () => {
+    const user = userEvent.setup();
+    const api = groupsApi();
+    renderApp(PAGE);
+    const dialog = await openShareDialog(user);
+    await switchToGroups(user, dialog);
+    await user.click(
+      await within(dialog).findByRole('radio', { name: new RegExp(MANAGED_GROUP.name) }),
+    );
+    await user.selectOptions(field(es.shares['share.level']), 'EDIT');
+    await user.click(within(dialog).getByRole('button', { name: es.shares['share.submit'] }));
+
+    expect(
+      await screen.findByText(fill(es.shares['share.toast'], { name: MANAGED_GROUP.name })),
+    ).toBeInTheDocument();
+    const posts = api.callsTo('POST', SHARES_PATH);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]?.body).toEqual({
+      granteeType: 'group',
+      granteeId: MANAGED_GROUP.id,
+      level: 'EDIT',
+    });
+    await waitFor(() => {
+      expect(api.callsTo('GET', SHARES_PATH).length).toBeGreaterThan(1);
+    });
+  });
+
+  it('does not send a chosen person when the mode is switched to group before submitting', async () => {
+    const user = userEvent.setup();
+    const api = groupsApi();
+    renderApp(PAGE);
+    const dialog = await openShareDialog(user);
+    await pickCandidate(user, dialog);
+    await switchToGroups(user, dialog);
+
+    expect(within(dialog).getByRole('button', { name: es.shares['share.submit'] })).toBeDisabled();
+    expect(api.callsTo('POST', SHARES_PATH)).toHaveLength(0);
+  });
 });
 
 describe('revoke', () => {
