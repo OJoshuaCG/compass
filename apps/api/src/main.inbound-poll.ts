@@ -25,10 +25,12 @@ import {
   LogPollObserver,
   ChildProcessMimeParser,
   ExecuteMailDeleteRequests,
+  ExecuteMailPreviewRequests,
   NetworkGuard,
   PgInboundRecorder,
   PgMailConnectionLoader,
   PgMailDeleteWorkStore,
+  PgMailPreviewWorkStore,
   PgPollableSourceLister,
   PgPollStateStore,
   PgSourceTemplateStore,
@@ -36,6 +38,7 @@ import {
   PollMailSource,
   ReadOnlyDataKeyRepository,
   RunMailDeleteRequests,
+  RunMailPreviewRequests,
   Sha256MessageFingerprinter,
 } from './modules/inbound-codes/index.js';
 import { PgTenantScope, PgUnitOfWork } from './modules/organization/index.js';
@@ -136,6 +139,25 @@ try {
     `Borrados de correo: fuentes ${String(deletions.sources)}; borrados ${String(deletions.deleted)}; no borrados ${String(deletions.failed)}\n`,
   );
   if (deletions.unexpected > 0) process.exitCode = 1;
+
+  // Vistas previas pedidas por personas (ya autorizadas y auditadas por la API): purgan lo vencido y traen el
+  // asunto o cuerpo pedido, cifrado y de vida corta. Solo leen el buzón.
+  const mailPreviewWork = new PgMailPreviewWorkStore(pool, scope, uow, cipher, ids);
+  const previews = await new RunMailPreviewRequests({
+    work: mailPreviewWork,
+    executor: new ExecuteMailPreviewRequests({
+      work: mailPreviewWork,
+      connections,
+      mailbox,
+      mime: new ChildProcessMimeParser(),
+      clock,
+    }),
+    clock,
+  }).execute();
+  process.stdout.write(
+    `Vistas previas de correo: fuentes ${String(previews.sources)}; listas ${String(previews.ready)}; fallidas ${String(previews.failed)}; purgadas ${String(previews.purged)}\n`,
+  );
+  if (previews.unexpected > 0) process.exitCode = 1;
 
   // Un defecto o el KMS caído afectan a todas las fuentes: se hacen visibles por el código de salida.
   if (summary.unexpected > 0) process.exitCode = 1;

@@ -226,9 +226,10 @@ describe('mail_preview_requests: isolation and privileges', () => {
     const receiptId = await newId();
     expect(await insertRequest(b, sourceBId, receiptId)).toBe(NO_FAILURE);
     await inOrg(app, a.orgId, () => app.query('delete from mail_preview_requests'));
-    const { rows } = await admin.query('select 1 from mail_preview_requests where receipt_id = $1', [
-      receiptId,
-    ]);
+    const { rows } = await admin.query(
+      'select 1 from mail_preview_requests where receipt_id = $1',
+      [receiptId],
+    );
     expect(rows).toHaveLength(1);
   });
 

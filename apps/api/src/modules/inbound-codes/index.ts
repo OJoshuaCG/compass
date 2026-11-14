@@ -106,6 +106,10 @@ export { ExecuteMailDeleteRequests } from './application/execute-mail-delete-req
 export { RunMailDeleteRequests } from './application/run-mail-delete-requests.js';
 export type { RunMailDeleteRequestsSummary } from './application/run-mail-delete-requests.js';
 export { PgMailDeleteWorkStore } from './infrastructure/pg-mail-delete-work-store.js';
+export { ExecuteMailPreviewRequests } from './application/execute-mail-preview-requests.js';
+export { RunMailPreviewRequests } from './application/run-mail-preview-requests.js';
+export type { RunMailPreviewRequestsSummary } from './application/run-mail-preview-requests.js';
+export { PgMailPreviewWorkStore } from './infrastructure/pg-mail-preview-work-store.js';
 export { LogPollObserver } from './infrastructure/log-poll-observer.js';
 export { AuthenticationResultsVerifier } from './infrastructure/authentication-results-verifier.js';
 export { ImapFlowMailboxConnector } from './infrastructure/imapflow-mailbox-connector.js';
