@@ -288,3 +288,87 @@ describe('auth.list_sources_with_pending_mail_deletes', () => {
     expect(await sourcesWithPendingDeletes()).not.toContain(suspendedId);
   });
 });
+
+describe('auth.list_sources_with_stale_mail_deletes (0039)', () => {
+  const HOURS_AGO_30 = "now() - interval '30 hours'";
+
+  async function staleSources(cutoffSql: string): Promise<string[]> {
+    const { rows } = await worker.query<{ source_id: string }>(
+      `select source_id from auth.list_sources_with_stale_mail_deletes(${cutoffSql})`,
+    );
+    return rows.map((row) => row.source_id);
+  }
+
+  it('is executable by the worker only and returns exactly organization and source', async () => {
+    const { fields } = await worker.query(
+      "select * from auth.list_sources_with_stale_mail_deletes(now() - interval '24 hours')",
+    );
+    expect(fields.map((field) => field.name)).toEqual(['organization_id', 'source_id']);
+    expect(
+      await sqlState(
+        app,
+        "select * from auth.list_sources_with_stale_mail_deletes(now() - interval '24 hours')",
+      ),
+    ).toBe(NO_PRIVILEGE);
+  });
+
+  it('lists a source with an old pending request even when the source is suspended', async () => {
+    await admin.query(
+      "update mail_delete_requests set status = 'failed', result_code = 'NOT_FOUND', completed_at = now() where status = 'pending'",
+    );
+    const suspendedId = await insertSource(a, 'stale-suspended@inbound.example.test');
+    const receiptId = await newReceiptId();
+    expect(await insertRequest(a, suspendedId, receiptId)).toBe(NO_FAILURE);
+    await admin.query('update mail_sources set status = $2 where id = $1', [
+      suspendedId,
+      'suspended',
+    ]);
+    await admin.query(
+      `update mail_delete_requests set requested_at = ${HOURS_AGO_30} where receipt_id = $1`,
+      [receiptId],
+    );
+
+    expect(await staleSources("now() - interval '24 hours'")).toContain(suspendedId);
+    expect(await sourcesWithPendingDeletes()).not.toContain(suspendedId);
+  });
+
+  it('does not list a recent request, nor one already closed', async () => {
+    await admin.query(
+      "update mail_delete_requests set status = 'failed', result_code = 'NOT_FOUND', completed_at = now() where status = 'pending'",
+    );
+    expect(await insertRequest(a, sourceAId, await newReceiptId())).toBe(NO_FAILURE);
+    expect(await staleSources("now() - interval '24 hours'")).toEqual([]);
+  });
+
+  it('lets the worker read requested_at and close an old request as EXPIRED, but not a recent one by age', async () => {
+    await admin.query(
+      "update mail_delete_requests set status = 'failed', result_code = 'NOT_FOUND', completed_at = now() where status = 'pending'",
+    );
+    const oldReceipt = await newReceiptId();
+    const recentReceipt = await newReceiptId();
+    expect(await insertRequest(a, sourceAId, oldReceipt)).toBe(NO_FAILURE);
+    expect(await insertRequest(a, sourceAId, recentReceipt)).toBe(NO_FAILURE);
+    await admin.query(
+      `update mail_delete_requests set requested_at = ${HOURS_AGO_30} where receipt_id = $1`,
+      [oldReceipt],
+    );
+
+    const { rowCount } = await inOrg(worker, a.orgId, () =>
+      worker.query(
+        `update mail_delete_requests
+            set status = 'failed', result_code = 'EXPIRED', completed_at = now()
+          where organization_id = $1 and source_id = $2 and status = 'pending'
+            and requested_at < now() - interval '24 hours'`,
+        [a.orgId, sourceAId],
+      ),
+    );
+
+    expect(rowCount).toBe(1);
+    const { rows } = await admin.query<{ receipt_id: string; status: string }>(
+      'select receipt_id, status from mail_delete_requests where receipt_id = any($1)',
+      [[oldReceipt, recentReceipt]],
+    );
+    const statusByReceipt = Object.fromEntries(rows.map((row) => [row.receipt_id, row.status]));
+    expect(statusByReceipt).toEqual({ [oldReceipt]: 'failed', [recentReceipt]: 'pending' });
+  });
+});

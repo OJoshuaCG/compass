@@ -196,5 +196,6 @@
   "mailDelete.result.UNSUPPORTED": "The mail server does not allow a safe deletion. Tell Operations.",
   "mailDelete.result.CONNECTION": "Could not connect to the mailbox. Try again in a few minutes.",
   "mailDelete.result.CONNECTION_MISSING": "The source has no mailbox connection configured. Ask for it to be reviewed and try again.",
-  "mailDelete.result.UNEXPECTED": "An internal error occurred. Try again; if it repeats, tell Operations."
+  "mailDelete.result.UNEXPECTED": "An internal error occurred. Try again; if it repeats, tell Operations.",
+  "mailDelete.result.EXPIRED": "The request waited more than 24 hours without running and was cancelled. If it is still needed, ask for the deletion again."
 }

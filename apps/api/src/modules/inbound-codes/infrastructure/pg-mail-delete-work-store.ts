@@ -5,7 +5,7 @@
  * - Leer y cerrar corren en una transacción corta con la organización de la fuente fijada; nunca queda una
  *   transacción abierta durante la red.
  * - Solo escribe `status`, `result_code` y `completed_at` (los únicos permisos de columna del worker) y solo
- *   sobre una fila todavía pendiente.
+ *   sobre una fila todavía pendiente. Lee `requested_at` únicamente para aplicar la caducidad (0039).
  */
 import type { Pool } from 'pg';
 
@@ -48,7 +48,22 @@ export class PgMailDeleteWorkStore implements MailDeleteWorkStore {
     }));
   }
 
-  listPending(source: SourceRef, limit: number): Promise<readonly PendingMailDelete[]> {
+  async listSourcesWithStale(cutoff: Date): Promise<readonly SourceRef[]> {
+    const result = await this.pool.query<SourceRow>(
+      'select organization_id, source_id from auth.list_sources_with_stale_mail_deletes($1)',
+      [cutoff],
+    );
+    return result.rows.map((row) => ({
+      organizationId: asOrganizationId(row.organization_id),
+      sourceId: row.source_id,
+    }));
+  }
+
+  listPending(
+    source: SourceRef,
+    limit: number,
+    notBefore: Date,
+  ): Promise<readonly PendingMailDelete[]> {
     return this.inSource(source, async () => {
       const result = await this.transactions.current().query<PendingRow>(
         `select id, mailbox_uid_validity, mailbox_uid
@@ -56,11 +71,11 @@ export class PgMailDeleteWorkStore implements MailDeleteWorkStore {
           where organization_id = $1
             and source_id = $2
             and status = 'pending'
-          order by id
+            and requested_at >= $4
+          order by requested_at, id
           limit $3`,
-        [source.organizationId, source.sourceId, limit],
+        [source.organizationId, source.sourceId, limit, notBefore],
       );
-      // `id` es UUID v7: ordenar por él equivale a ordenar por antigüedad sin leer `requested_at`.
       return result.rows.map((row) => ({
         requestId: row.id,
         mailboxUidValidity: Number(row.mailbox_uid_validity),
@@ -90,6 +105,21 @@ export class PgMailDeleteWorkStore implements MailDeleteWorkStore {
           now,
         ],
       );
+    });
+  }
+
+  expireStale(source: SourceRef, cutoff: Date, now: Date): Promise<number> {
+    return this.inSource(source, async () => {
+      const result = await this.transactions.current().query(
+        `update mail_delete_requests
+            set status = 'failed', result_code = 'EXPIRED', completed_at = $4
+          where organization_id = $1
+            and source_id = $2
+            and status = 'pending'
+            and requested_at < $3`,
+        [source.organizationId, source.sourceId, cutoff, now],
+      );
+      return result.rowCount ?? 0;
     });
   }
 

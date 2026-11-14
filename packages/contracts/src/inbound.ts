@@ -67,6 +67,7 @@ export const INBOUND_MAIL_DELETE_RESULT_CODES = [
   'CONNECTION',
   'CONNECTION_MISSING',
   'UNEXPECTED',
+  'EXPIRED',
 ] as const;
 
 /** Estado de la petición de borrado más reciente de un recibo; `data` es `null` si nunca se pidió. */

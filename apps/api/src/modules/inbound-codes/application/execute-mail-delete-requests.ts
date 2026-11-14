@@ -10,15 +10,18 @@
  *   él borraría todo lo marcado como eliminado en el buzón.
  * - Solo `DELETED` cuando el servidor confirmó el borrado. Cualquier otra cosa cierra con un código acotado;
  *   la persona puede volver a pedirlo. Nunca se guarda texto del servidor ni se registra la contraseña.
+ * - Una petición con más de 24 horas no se ejecuta (la persona debe volver a pedirla): ver
+ *   `MAIL_DELETE_REQUEST_TTL_MS` y `RunMailDeleteRequests`, que la cierra como `EXPIRED`.
  * - Si dos pasadas coinciden, la segunda recibe `NOT_FOUND` del servidor y su cierre no pisa el resultado de
  *   la primera (el cierre solo actúa sobre una fila pendiente).
  */
 import type { Clock } from '../../../shared/kernel/index.js';
 import type { MailConnectionLoader } from './ports/mail-connection-loader.js';
-import type {
-  MailDeleteResultCode,
-  MailDeleteWorkStore,
-  PendingMailDelete,
+import {
+  MAIL_DELETE_REQUEST_TTL_MS,
+  type MailDeleteResultCode,
+  type MailDeleteWorkStore,
+  type PendingMailDelete,
 } from './ports/mail-delete-work-store.js';
 import { MailboxConnectionError, MailboxDeleteUnsupportedError } from './ports/mailbox.js';
 import type { MailboxWriteConnector, MailboxWriteSession } from './ports/mailbox.js';
@@ -48,7 +51,9 @@ export class ExecuteMailDeleteRequests {
 
   async execute(source: SourceRef): Promise<MailDeleteSummary> {
     const { work, connections, mailbox } = this.deps;
-    const pending = await work.listPending(source, MAX_MAIL_DELETES_PER_SOURCE);
+    // Una petición más vieja que el límite no se ejecuta aunque `expireStale` aún no la haya cerrado.
+    const notBefore = new Date(this.deps.clock.now().getTime() - MAIL_DELETE_REQUEST_TTL_MS);
+    const pending = await work.listPending(source, MAX_MAIL_DELETES_PER_SOURCE, notBefore);
     if (pending.length === 0) return EMPTY_SUMMARY;
 
     const loaded = await connections.load(source);

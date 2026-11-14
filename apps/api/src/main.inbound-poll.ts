@@ -130,6 +130,7 @@ try {
   const deletions = await new RunMailDeleteRequests({
     work: mailDeleteWork,
     executor: new ExecuteMailDeleteRequests({ work: mailDeleteWork, connections, mailbox, clock }),
+    clock,
   }).execute();
   process.stdout.write(
     `Borrados de correo: fuentes ${String(deletions.sources)}; borrados ${String(deletions.deleted)}; no borrados ${String(deletions.failed)}\n`,

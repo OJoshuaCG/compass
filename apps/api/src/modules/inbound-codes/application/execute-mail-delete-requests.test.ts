@@ -6,7 +6,11 @@ import {
   MAX_MAIL_DELETES_PER_SOURCE,
 } from './execute-mail-delete-requests.js';
 import type { MailConnectionLoadResult } from './ports/mail-connection-loader.js';
-import type { MailDeleteResultCode, PendingMailDelete } from './ports/mail-delete-work-store.js';
+import {
+  MAIL_DELETE_REQUEST_TTL_MS,
+  type MailDeleteResultCode,
+  type PendingMailDelete,
+} from './ports/mail-delete-work-store.js';
 import { MailboxConnectionError, MailboxDeleteUnsupportedError } from './ports/mailbox.js';
 import type { MailboxDeleteOutcome } from './ports/mailbox.js';
 import { RunMailDeleteRequests } from './run-mail-delete-requests.js';
@@ -73,7 +77,13 @@ function buildHarness(options: HarnessOptions = {}) {
       : Promise.reject(options.openError),
   );
   const useCase = new ExecuteMailDeleteRequests({
-    work: { listSourcesWithPending: vi.fn(), listPending, close },
+    work: {
+      listSourcesWithPending: vi.fn(),
+      listSourcesWithStale: vi.fn(),
+      expireStale: vi.fn(),
+      listPending,
+      close,
+    },
     connections: { load },
     mailbox: { openForWrite },
     clock: { now: () => NOW },
@@ -97,7 +107,17 @@ describe('ExecuteMailDeleteRequests', () => {
 
     await useCase.execute(SOURCE);
 
-    expect(listPending).toHaveBeenCalledWith(SOURCE, MAX_MAIL_DELETES_PER_SOURCE);
+    expect(listPending).toHaveBeenCalledWith(SOURCE, MAX_MAIL_DELETES_PER_SOURCE, expect.any(Date));
+  });
+
+  it('solo pide las peticiones de las últimas 24 horas', async () => {
+    const { useCase, listPending } = buildHarness();
+
+    await useCase.execute(SOURCE);
+
+    const notBefore = (listPending.mock.calls[0] as unknown as [unknown, number, Date])[2];
+    expect(notBefore.getTime()).toBe(NOW.getTime() - MAIL_DELETE_REQUEST_TTL_MS);
+    expect(MAIL_DELETE_REQUEST_TTL_MS).toBe(24 * 60 * 60 * 1000);
   });
 
   it('borra por UID y cierra con DELETED solo cuando el servidor lo confirmó', async () => {
@@ -217,8 +237,14 @@ describe('ExecuteMailDeleteRequests', () => {
 });
 
 describe('RunMailDeleteRequests', () => {
-  const listSourcesWith = (sources: readonly (typeof SOURCE)[]) => ({
+  const listSourcesWith = (
+    sources: readonly (typeof SOURCE)[],
+    stale: readonly (typeof SOURCE)[] = [],
+    expireStale = vi.fn(() => Promise.resolve(0)),
+  ) => ({
     listSourcesWithPending: () => Promise.resolve(sources),
+    listSourcesWithStale: vi.fn(() => Promise.resolve(stale)),
+    expireStale,
   });
 
   it('suma los resultados de cada fuente', async () => {
@@ -228,6 +254,7 @@ describe('RunMailDeleteRequests', () => {
     const runner = new RunMailDeleteRequests({
       work: listSourcesWith([SOURCE, { ...SOURCE, sourceId: 's2' }]),
       executor,
+      clock: { now: () => NOW },
     });
 
     expect(await runner.execute()).toEqual({ sources: 2, deleted: 4, failed: 2, unexpected: 0 });
@@ -243,8 +270,27 @@ describe('RunMailDeleteRequests', () => {
     const runner = new RunMailDeleteRequests({
       work: listSourcesWith([SOURCE, { ...SOURCE, sourceId: 's2' }]),
       executor,
+      clock: { now: () => NOW },
     });
 
     expect(await runner.execute()).toEqual({ sources: 2, deleted: 1, failed: 0, unexpected: 1 });
+  });
+
+  it('cierra como vencidas las peticiones de una fuente aunque no esté entre las activas, sin abrir el buzón', async () => {
+    const suspended = { ...SOURCE, sourceId: 'suspended' };
+    const expireStale = vi.fn(() => Promise.resolve(3));
+    const executor = { execute: vi.fn() };
+    const runner = new RunMailDeleteRequests({
+      work: listSourcesWith([], [suspended], expireStale),
+      executor,
+      clock: { now: () => NOW },
+    });
+
+    const summary = await runner.execute();
+
+    const cutoff = new Date(NOW.getTime() - MAIL_DELETE_REQUEST_TTL_MS);
+    expect(expireStale).toHaveBeenCalledWith(suspended, cutoff, NOW);
+    expect(executor.execute).not.toHaveBeenCalled();
+    expect(summary).toEqual({ sources: 0, deleted: 0, failed: 3, unexpected: 0 });
   });
 });

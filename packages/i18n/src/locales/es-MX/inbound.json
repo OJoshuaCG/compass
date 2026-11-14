@@ -196,5 +196,6 @@
   "mailDelete.result.UNSUPPORTED": "El servidor de correo no permite un borrado seguro. Avisa a Operaciones.",
   "mailDelete.result.CONNECTION": "No se pudo conectar al buzón. Intenta de nuevo en unos minutos.",
   "mailDelete.result.CONNECTION_MISSING": "La fuente no tiene una conexión configurada al buzón. Pide que la revisen e intenta de nuevo.",
-  "mailDelete.result.UNEXPECTED": "Ocurrió un error interno. Intenta de nuevo; si se repite, avisa a Operaciones."
+  "mailDelete.result.UNEXPECTED": "Ocurrió un error interno. Intenta de nuevo; si se repite, avisa a Operaciones.",
+  "mailDelete.result.EXPIRED": "La petición esperó más de 24 horas sin ejecutarse y se canceló. Si aún hace falta, vuelve a pedir el borrado."
 }
