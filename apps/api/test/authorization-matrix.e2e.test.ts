@@ -68,6 +68,11 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'POST /root-transfer': 'full-session',
   'POST /root-transfer/accept': 'full-session',
   'DELETE /root-transfer': 'full-session',
+  'GET /groups': 'full-session',
+  'POST /groups': 'full-session',
+  'GET /groups/:groupId/members': 'full-session',
+  'POST /groups/:groupId/members': 'full-session',
+  'DELETE /groups/:groupId/members/:userId': 'full-session',
   'POST /users/:id/sessions/revoke': 'full-session',
   'POST /users/:id/rank': 'full-session',
   'POST /users/:id/manager': 'full-session',
@@ -136,6 +141,16 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'POST /invitations/:id/resend-with-link': 'full-session',
   'POST /invitations/preview': 'public',
   'POST /invitations/accept': 'public',
+
+  'POST /setup': 'public',
+  'GET /integrations/alert-settings': 'full-session',
+  'PUT /integrations/alert-settings': 'full-session',
+  'GET /integrations/telegram': 'full-session',
+  'POST /integrations/telegram': 'full-session',
+  'DELETE /integrations/telegram/:integrationId': 'full-session',
+  'POST /integrations/telegram/:integrationId/test': 'full-session',
+  'PUT /integrations/telegram/:integrationId': 'full-session',
+  'PUT /integrations/telegram/:integrationId/bot-token': 'full-session',
 };
 
 interface DiscoveredRoute {

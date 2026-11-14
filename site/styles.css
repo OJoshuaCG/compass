@@ -602,11 +602,6 @@ footer .who img {
   width: 1.5rem;
   height: 1.5rem;
 }
-footer .links {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0 1.25rem;
-}
 /* Área táctil de al menos 44 px en los enlaces del pie. */
 footer a {
   color: var(--text-secondary);
@@ -666,13 +661,6 @@ footer a:hover {
   }
   section {
     padding: 5.5rem 0;
-  }
-}
-
-/* En pantallas muy angostas el botón de GitHub de la barra cede su lugar al logo. */
-@media (max-width: 420px) {
-  .topbar .btn-primary {
-    display: none;
   }
 }
 

@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 
 export type SectionPath =
   | '/users'
+  | '/groups'
   | '/roles'
   | '/security'
   | '/sessions'

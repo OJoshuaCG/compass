@@ -56,12 +56,46 @@ function build(options: {
       },
     },
     clock: new SteppingClock(options.clockStepMs ?? 0),
-    settings: { maxSourcesPerRun: 50, runBudgetMs: 50 * ONE_SECOND_MS, ...options.settings },
+    settings: {
+      maxSourcesPerRun: 50,
+      runBudgetMs: 50 * ONE_SECOND_MS,
+      failureExitThreshold: 5,
+      ...options.settings,
+    },
   });
   return { useCase, polled };
 }
 
 describe('PollInboundSources', () => {
+  it('reports a source as persistently failing once it reaches the consecutive-failure threshold', async () => {
+    const { useCase } = build({
+      sources: [source(1), source(2), source(3)],
+      results: (polledSource) => {
+        if (polledSource.sourceId === 'source-1')
+          return { status: 'failed', errorCode: 'AUTH', consecutiveFailures: 5 };
+        if (polledSource.sourceId === 'source-2')
+          return { status: 'failed', errorCode: 'AUTH', consecutiveFailures: 4 };
+        return COMPLETED;
+      },
+    });
+
+    const summary = await useCase.execute();
+
+    expect(summary).toMatchObject({ failed: 2, persistentlyFailing: 1, unexpected: 0 });
+  });
+
+  it('does not report persistent failures when every source stays under the threshold', async () => {
+    const { useCase } = build({
+      sources: [source(1)],
+      results: () => ({ status: 'failed', errorCode: 'TIMEOUT', consecutiveFailures: 1 }),
+      settings: { failureExitThreshold: 2 },
+    });
+
+    const summary = await useCase.execute();
+
+    expect(summary.persistentlyFailing).toBe(0);
+  });
+
   it('polls every listed source and adds up accepted and quarantined messages', async () => {
     const { useCase, polled } = build({
       sources: [source(1), source(2)],
@@ -87,8 +121,10 @@ describe('PollInboundSources', () => {
     const { useCase, polled } = build({
       sources: [source(1), source(2), source(3), source(4)],
       results: (polledSource) => {
-        if (polledSource.sourceId === 'source-1') return { status: 'failed', errorCode: 'AUTH' };
-        if (polledSource.sourceId === 'source-2') return { status: 'failed', errorCode: 'AUTH' };
+        if (polledSource.sourceId === 'source-1')
+          return { status: 'failed', errorCode: 'AUTH', consecutiveFailures: 1 };
+        if (polledSource.sourceId === 'source-2')
+          return { status: 'failed', errorCode: 'AUTH', consecutiveFailures: 1 };
         if (polledSource.sourceId === 'source-3') return { status: 'skipped_leased' };
         return COMPLETED;
       },
@@ -128,7 +164,9 @@ describe('PollInboundSources', () => {
       const { useCase } = build({
         sources: [source(1), source(2)],
         results: (polledSource) =>
-          polledSource.sourceId === 'source-1' ? { status: 'failed', errorCode } : COMPLETED,
+          polledSource.sourceId === 'source-1'
+            ? { status: 'failed', errorCode, consecutiveFailures: 1 }
+            : COMPLETED,
       });
 
       const summary = await useCase.execute();
@@ -142,7 +180,7 @@ describe('PollInboundSources', () => {
     async (errorCode) => {
       const { useCase } = build({
         sources: [source(1)],
-        results: () => ({ status: 'failed', errorCode }),
+        results: () => ({ status: 'failed', errorCode, consecutiveFailures: 1 }),
       });
 
       expect(await useCase.execute()).toMatchObject({ failed: 1, unexpected: 0 });

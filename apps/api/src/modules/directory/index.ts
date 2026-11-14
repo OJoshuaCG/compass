@@ -131,3 +131,8 @@ export {
   RootTransferNoticeDeliveryError,
   RootTransferNoticePayloadError,
 } from './domain/root-transfer-notice.js';
+
+export { ManageGroups } from './application/manage-groups.js';
+export type { GroupView, ManageGroupsDeps } from './application/manage-groups.js';
+export type { GroupStore } from './application/ports/group-store.js';
+export { PgGroupStore } from './infrastructure/pg-group-store.js';

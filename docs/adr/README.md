@@ -59,8 +59,8 @@ Plantilla: [`template.md`](template.md).
 | [0023](0023-audit-advisory-lock-and-long-transactions.md) | Advisory lock de auditoría y transacciones largas | Aceptada (2026-10-27; `lock_timeout` implementado; p95 medido el 2026-10-28; falta medir con transacciones largas) | Fase 1b (primeras acciones sensibles concurrentes) |
 | [0024](0024-audit-retention-vs-revoke-delete.md) | Retención de auditoría frente a `REVOKE DELETE` | Propuesta | Fase 1c (auditoría con retención) |
 | [0042](0042-audit-chain-external-anchoring.md) | Anclaje externo periódico de la cadena de auditoría (`TODO.md` F2) | Propuesta, con la opción B decidida por el dueño e implementada (2026-11-04); pasa a «Aceptada» cuando Ops verifique en el bucket real los puntos pendientes del runbook | Puerta de producción (verificación diaria y R1) |
-| [0043](0043-kms-encryption-context-bound-to-organization.md) | Contexto de cifrado del KMS ligado a la organización y control de usos anómalos (`TODO.md` F5) | Propuesta (borrador, falta la decisión) | Puerta de producción (política de la clave y alertas) |
-| [0044](0044-identities-and-memberships-model.md) | Modelo de `identities` y `memberships` (`TODO.md` C5) | Propuesta (borrador; no bloquea la fase 1) | Cuando una persona deba entrar a varias organizaciones |
+| [0043](0043-kms-encryption-context-bound-to-organization.md) | Contexto de cifrado del KMS ligado a la organización y control de usos anómalos (`TODO.md` F5) | Aceptada (2026-11-13; AWS KMS, opción A) | Prueba contra AWS real (L1) |
+| [0044](0044-identities-and-memberships-model.md) | Modelo de `identities` y `memberships` (`TODO.md` C5) | Aceptada (2026-11-13; una persona, una organización) | Sin disparador: la separación queda descartada por decisión de producto |
 | [0045](0045-inbound-codes-mail-and-sms.md) | Lectura de códigos entrantes por correo y SMS, compartida por vistas filtradas (encargo del dueño, 2026-10-30; `TODO.md` épica T) | Propuesta (implementada de IC-1 a IC-6d-5; vía de recepción decidida: IMAP; siguen abiertos el subdominio, la retención legal y la ratificación) | Ratificación del dueño antes de IC-8 (adaptadores reales y operación) |
 | [0046](0046-first-root-one-time-setup.md) | Alta de la primera organización y su Raíz por un enlace de un solo uso, sin rol privilegiado (encargo del dueño, 2026-11-02) | Aceptada | Al desplegar un entorno nuevo |
 | [0047](0047-user-configured-integrations.md) | Integraciones configurables por la persona administradora: alertas de infraestructura por correo y/o Telegram (Raíz) y recepción de SMS por API genérica de consulta (encargo del dueño, 2026-11-03) | Aceptada | Al construir las integraciones |
@@ -71,7 +71,7 @@ Las fases indicadas son una recomendación de este registro, no una decisión de
 
 ## ADR futuro ya anunciado en el plan
 
-La tabla `identities` separada de `memberships` (una persona en varias organizaciones) queda registrada como ADR futuro en la sección "Identidad y organizaciones" del plan. Hay un borrador propuesto en el [ADR 0044](0044-identities-and-memberships-model.md); no se implementa hasta que se necesite.
+La tabla `identities` separada de `memberships` (una persona en varias organizaciones) quedó descartada: el [ADR 0044](0044-identities-and-memberships-model.md) fija que una persona pertenece a una sola organización. La nota de ADR futuro de la sección "Identidad y organizaciones" del plan queda superada.
 
 ## Cómo añadir un ADR
 

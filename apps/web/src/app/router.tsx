@@ -124,6 +124,18 @@ const alertsRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/alerts-route'), 'AlertsRoute'),
 });
 
+const groupsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/groups',
+  component: lazyRouteComponent(() => import('../routes/groups-route'), 'GroupsRoute'),
+});
+
+const rootTransferRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/root-transfer',
+  component: lazyRouteComponent(() => import('../routes/root-transfer-route'), 'RootTransferRoute'),
+});
+
 const rolesRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/roles',
@@ -277,6 +289,8 @@ const routeTree = rootRoute.addChildren([
     sessionsRoute,
     securityRoute,
     alertsRoute,
+    rootTransferRoute,
+    groupsRoute,
     rolesRoute,
     newRoleRoute,
     roleRoute,

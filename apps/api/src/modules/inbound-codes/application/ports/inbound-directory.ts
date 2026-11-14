@@ -60,10 +60,7 @@ export interface InboundDirectory {
    * nivel, con sus plantillas ordenadas por identificador, ordenadas por nombre e identificador. Devuelve
    * hasta `limit` filas.
    */
-  listConfigurableViews(
-    userId: UserId,
-    limit: number,
-  ): Promise<readonly ConfigurableViewSummary[]>;
+  listConfigurableViews(userId: UserId, limit: number): Promise<readonly ConfigurableViewSummary[]>;
 
   /** Plantillas vigentes (no archivadas) de la organización, ordenadas por nombre e identificador. */
   listLiveTemplates(limit: number): Promise<readonly TemplateSummary[]>;

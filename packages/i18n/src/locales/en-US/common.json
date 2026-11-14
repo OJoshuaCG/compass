@@ -75,6 +75,7 @@
   "catalog.table.col.status": "Status",
   "catalog.table.col.id": "Identifier",
   "nav.users": "Users",
+  "nav.groups": "Groups",
   "nav.sessions": "My sessions",
   "actions.logout": "Sign out",
   "password.show": "Show password",
@@ -252,5 +253,6 @@
   "nav.inbound": "Access codes",
   "nav.inboundSources": "Code sources",
   "nav.inboundViewSettings": "Code views",
-  "nav.alerts": "Infrastructure alerts"
+  "nav.alerts": "Infrastructure alerts",
+  "nav.rootTransfer": "Root transfer"
 }

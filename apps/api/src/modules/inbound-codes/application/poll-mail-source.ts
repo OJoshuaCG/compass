@@ -1,5 +1,6 @@
 import type { Clock } from '../../../shared/kernel/index.js';
 import { evaluateInboundMail } from '../domain/inbound-evaluation.js';
+import type { DkimSignatureEvidence, HeaderCounts } from '../domain/dkim-gate.js';
 import type { InboundMailMessage, QuarantineReason } from '../domain/inbound-evaluation.js';
 import { normalizeEmailAddress } from '../domain/mail-address.js';
 import {
@@ -42,12 +43,24 @@ class PollFailure extends Error {
  * Línea del registro por mensaje (ADR 0045, "Registro para validar DKIM en la fase 2"). NUNCA lleva asunto,
  * cuerpo, direcciones, código ni enlace.
  */
+/**
+ * Lo que se sabe de la firma DKIM que sostuvo el mensaje. Solo existe cuando el verificador entregó una firma
+ * validada y alineada con el `From` (alineación estricta, ADR 0045): sin ella el registro lleva `null`.
+ */
+export interface PollSignatureRecord {
+  readonly signingDomain: string;
+  readonly selector: string | null;
+  readonly hasBodyLengthLimit: boolean;
+  readonly signedHeaderCounts: HeaderCounts;
+}
+
 export interface PollMessageRecord {
   readonly sourceId: string;
   readonly fingerprint: string | null;
   readonly outcome: 'accepted' | 'quarantined' | 'duplicate' | 'skipped_by_prefilter';
   readonly reason: QuarantineReason | null;
   readonly verdicts: AuthenticityVerdicts | null;
+  readonly signature: PollSignatureRecord | null;
 }
 
 export interface PollObserver {
@@ -68,7 +81,12 @@ export interface PollSummary {
 
 export type PollSourceResult =
   | { readonly status: 'skipped_leased' }
-  | { readonly status: 'failed'; readonly errorCode: string }
+  | {
+      readonly status: 'failed';
+      readonly errorCode: string;
+      /** Fallos seguidos de esta fuente contando el de esta pasada (ADR 0045, punto 16). */
+      readonly consecutiveFailures: number;
+    }
   | { readonly status: 'completed'; readonly summary: PollSummary };
 
 interface Dependencies {
@@ -135,13 +153,14 @@ export class PollMailSource {
     } catch (error) {
       const errorCode = toErrorCode(error);
       const failedAt = clock.now();
-      const backoffMs = computeBackoffMs(cursor.consecutiveFailures + 1);
+      const consecutiveFailures = cursor.consecutiveFailures + 1;
+      const backoffMs = computeBackoffMs(consecutiveFailures);
       await state.releaseAfterFailure(
         source,
         { errorCode, nextAttemptAt: new Date(failedAt.getTime() + backoffMs) },
         failedAt,
       );
-      return { status: 'failed', errorCode };
+      return { status: 'failed', errorCode, consecutiveFailures };
     }
     await state.releaseAfterSuccess(source, clock.now());
     return { status: 'completed', summary };
@@ -324,10 +343,12 @@ export class PollMailSource {
         receivedAt,
         evaluation.reason,
         assessment.verdicts,
+        toSignatureRecord(assessment.validatedSignatures),
       );
       return;
     }
 
+    const signature = toSignatureRecord(assessment.validatedSignatures);
     const outcome = await recorder.recordAccepted(source, {
       fingerprint,
       receivedAt,
@@ -341,11 +362,11 @@ export class PollMailSource {
     });
     if (outcome === 'duplicate') {
       tally.duplicates += 1;
-      this.observe(source, fingerprint, 'duplicate', null, assessment.verdicts);
+      this.observe(source, fingerprint, 'duplicate', null, assessment.verdicts, signature);
       return;
     }
     tally.accepted += 1;
-    this.observe(source, fingerprint, 'accepted', null, assessment.verdicts);
+    this.observe(source, fingerprint, 'accepted', null, assessment.verdicts, signature);
   }
 
   private async quarantine(
@@ -355,6 +376,7 @@ export class PollMailSource {
     receivedAt: Date,
     reason: QuarantineReason,
     verdicts: AuthenticityVerdicts | null,
+    signature: PollSignatureRecord | null = null,
   ): Promise<void> {
     const outcome = await this.deps.recorder.recordQuarantine(source, {
       fingerprint,
@@ -363,11 +385,11 @@ export class PollMailSource {
     });
     if (outcome === 'duplicate') {
       tally.duplicates += 1;
-      this.observe(source, fingerprint, 'duplicate', null, verdicts);
+      this.observe(source, fingerprint, 'duplicate', null, verdicts, signature);
       return;
     }
     tally.quarantinedByReason[reason] = (tally.quarantinedByReason[reason] ?? 0) + 1;
-    this.observe(source, fingerprint, 'quarantined', reason, verdicts);
+    this.observe(source, fingerprint, 'quarantined', reason, verdicts, signature);
   }
 
   private observe(
@@ -376,6 +398,7 @@ export class PollMailSource {
     outcome: PollMessageRecord['outcome'],
     reason: QuarantineReason | null,
     verdicts: AuthenticityVerdicts | null,
+    signature: PollSignatureRecord | null = null,
   ): void {
     this.deps.observer.messageHandled({
       sourceId: source.sourceId,
@@ -383,8 +406,23 @@ export class PollMailSource {
       outcome,
       reason,
       verdicts,
+      signature,
     });
   }
+}
+
+/** El verificador entrega a lo sumo una firma (la única candidata); si no hay, el registro lleva `null`. */
+function toSignatureRecord(
+  signatures: readonly DkimSignatureEvidence[],
+): PollSignatureRecord | null {
+  const [signature] = signatures;
+  if (signature === undefined) return null;
+  return {
+    signingDomain: signature.signingDomain,
+    selector: signature.selector ?? null,
+    hasBodyLengthLimit: signature.hasBodyLengthLimit,
+    signedHeaderCounts: signature.signedHeaderCounts,
+  };
 }
 
 function createTally(): Tally {

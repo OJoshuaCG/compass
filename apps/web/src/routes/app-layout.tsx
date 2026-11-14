@@ -1,5 +1,6 @@
 import {
   AppShell,
+  ArrowRightLeft,
   BrandMark,
   House,
   IconButton,
@@ -46,7 +47,15 @@ function NavLink({
   exact,
   children,
 }: {
-  to: '/' | '/users' | '/security' | '/accounts' | '/catalog' | '/inbound' | '/inbound/sources';
+  to:
+    | '/'
+    | '/users'
+    | '/security'
+    | '/accounts'
+    | '/catalog'
+    | '/inbound'
+    | '/inbound/sources'
+    | '/root-transfer';
   paths?: readonly string[];
   icon: LucideIcon;
   exact?: boolean;
@@ -67,9 +76,12 @@ function NavLink({
 }
 
 const VAULT_PATHS = ['/accounts', '/vault'] as const;
-const PEOPLE_PATHS = ['/users', '/roles'] as const;
+const PEOPLE_PATHS = ['/users', '/groups', '/roles'] as const;
 const SETTINGS_PATHS = ['/security', '/sessions', '/audit', '/alerts'] as const;
 const INBOUND_PATHS = ['/inbound'] as const;
+
+/** Rango máximo (número) que ve el enlace de la transferencia de la Raíz: la Raíz y los Administradores. */
+const MAX_RANK_TO_SEE_ROOT_TRANSFER = 1;
 
 /** Marco de la app autenticada (ADR 0049): barra superior de cristal y menú lateral por grupos. */
 export function AppLayout() {
@@ -85,6 +97,8 @@ export function AppLayout() {
   const canConfigureInbound = usePermission('inbound.configure');
   // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
   const canManageInfraAlerts = usePermission('alerts.infra.manage');
+  // Solo comodidad: la transferencia de la Raíz la ven la Raíz y los Administradores; el servidor decide.
+  const canSeeRootTransfer = me !== undefined && me.user.rank <= MAX_RANK_TO_SEE_ROOT_TRANSFER;
   const { logout, pending } = useLogout();
   const sidebarState = useSidebarVisibility(me?.user.id);
   const sidebarVisible: boolean = sidebarState.visible;
@@ -94,6 +108,8 @@ export function AppLayout() {
   // (seguridad y sesiones). Una sección con una sola pantalla no muestra pestañas.
   const peopleLinks: SectionLink[] = [
     { to: '/users', label: t('nav.users') },
+    // Sin permiso previo: la lista ya llega acotada por el servidor a lo que la persona ve.
+    { to: '/groups', label: t('nav.groups') },
     ...(canManageRoles ? [{ to: '/roles' as const, label: t('nav.roles') }] : []),
   ];
   const settingsLinks: SectionLink[] = [
@@ -206,6 +222,11 @@ export function AppLayout() {
             <NavLink to="/security" paths={SETTINGS_PATHS} icon={Settings}>
               {t('nav.settings')}
             </NavLink>
+            {canSeeRootTransfer ? (
+              <NavLink to="/root-transfer" icon={ArrowRightLeft}>
+                {t('nav.rootTransfer')}
+              </NavLink>
+            ) : null}
             {import.meta.env.DEV ? (
               <NavLink to="/catalog" icon={LayoutGrid}>
                 {t('nav.catalog')}

@@ -75,6 +75,7 @@
   "catalog.table.col.status": "Estado",
   "catalog.table.col.id": "Identificador",
   "nav.users": "Usuarios",
+  "nav.groups": "Grupos",
   "nav.sessions": "Mis sesiones",
   "actions.logout": "Cerrar sesión",
   "password.show": "Mostrar contraseña",
@@ -252,5 +253,6 @@
   "nav.inbound": "Códigos de acceso",
   "nav.inboundSources": "Fuentes de códigos",
   "nav.inboundViewSettings": "Vistas de códigos",
-  "nav.alerts": "Alertas de infraestructura"
+  "nav.alerts": "Alertas de infraestructura",
+  "nav.rootTransfer": "Transferencia de la Raíz"
 }

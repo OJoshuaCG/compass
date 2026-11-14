@@ -1,6 +1,6 @@
 # ADR 0045: Lectura de códigos entrantes por correo y SMS, compartida por vistas filtradas
 
-- **Estado**: Propuesta. Borrador de Ingeniería por **encargo del dueño (2026-10-30)**, que adelanta antes de la prueba de intrusión la lectura de códigos por correo (fase 4 del plan) y por SMS (fase 5). Todo lo que aquí no viene del encargo es **propuesta mía** y está marcado así. No es una decisión hasta que una persona la ratifique. Revisado por dos jueces ciegos el 2026-10-30 (ver "Revisión por jueces 2026-10-30"). **Implementada de IC-1 a IC-6d-5 (2026-11-03) sin cambiar de estado:** falta que el dueño ratifique el documento y cierre las decisiones abiertas (ver "Estado de implementación 2026-11-03").
+- **Estado**: Aceptada (2026-11-13): el dueño ratificó el documento completo el 2026-11-13 (camino B por IMAP, borrado por quien dio de alta la fuente o por un Administrador). La revisión de privacidad con legal (A10) y la revisión humana de las pruebas `SENSIBLE` siguen como tareas aparte.
 - **Fecha**: 2026-10-30
 - **Referencias**: [`plan.md`](../../plan.md) "Preparación para lectura de correos y SMS" (líneas 773 a 801); [ADR 0004](0004-server-side-encryption-kms-per-org-dek.md) (AAD); [ADR 0015](0015-mandatory-mfa-passkeys-preferred.md) (sin SMS ni correo como segundo factor del sistema); [ADR 0021](0021-pre-authentication-access-with-rls.md); [ADR 0035](0035-transactional-outbox-for-events.md); [ADR 0038](0038-purge-expired-ephemeral-rows.md); [ADR 0036](0036-effective-access-computed-on-the-fly.md); [ADR 0039](0039-single-instance-until-redis.md); [`docs/database.md`](../database.md) líneas 656 y 680 a 682 (tablas y función previstas); migraciones `0005_vault.sql` (`shares`, trigger `shares_check_refs`) y `0021_credential_restore_version_permission.sql` (molde de permisos); `odd/tasks/inbound-codes.md`; `TODO.md` filas T y S2.
 
@@ -349,3 +349,14 @@ El dueño respondió los pendientes de la sección «Decisiones abiertas»; esa 
 - Cómo se asigna hoy MANAGE al crear una cuenta (se propone lo mismo para fuentes y vistas).
 - No se leyó el código del guardia de autorización ni de `effective_access` más allá de `docs/database.md`: la compatibilidad de los tipos nuevos con ellos se infiere.
 - No se ejecutó ninguna prueba; este documento no cambia código.
+
+## Enmienda 2026-11-10: borrado de correo a petición
+
+Decisión del dueño, sin construir todavía.
+
+- **Lectura.** El sistema solo lee correo por IMAP y no guarda cuerpo ni asunto (comprobado en la migración 0024: no hay columna para ellos). Se guardan el código extraído, cifrado y con vigencia de 10 minutos, el historial de metadatos mínimos y la contraseña del buzón, cifrada.
+- **Borrado.** Debe poder borrarse un mensaje del buzón IMAP real, solo cuando una persona lo solicita; nunca de forma automática.
+- **Quién.** Solo quien dio de alta la fuente (`mail_sources.created_by`) o un Administrador de la organización. Quien recibe la vista compartida no puede borrar.
+- **No existe hoy.** El catálogo de permisos solo tiene `inbound.read_codes`, `inbound.configure` e `inbound.reveal_reset`. Implementarlo exige un permiso nuevo, reautenticación, auditoría (también de las negaciones), que la cuenta IMAP tenga permiso de borrar en el servidor y actualizar el modelo de amenazas. Es ruta protegida: necesita encargo explícito.
+- **Aclaraciones del dueño.** (1) Resuelto (2026-11-10): el «administrador del correo» es el rol Administrador de la organización; además puede borrar quien dio de alta la fuente. Se prefirió esta opción sobre «solo quien la dio de alta» para que haya respaldo si esa persona no está. (2) Resuelto (2026-11-10): el dueño delegó la elección a Ingeniería. El código extraído se sigue guardando cifrado y con vigencia de 10 minutos, porque la vista compartida lo necesita; no se guarda ningún correo. Si más adelante se quiere leer sin guardar nada, la vista compartida dejaría de funcionar para quien no esté presente al llegar el correo.
+- **No verificado.** Que el sondeo actual no marque ni borre mensajes en el buzón.

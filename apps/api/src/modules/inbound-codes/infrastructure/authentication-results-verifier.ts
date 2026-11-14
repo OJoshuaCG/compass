@@ -223,7 +223,7 @@ function pickSingleSignature(
       tags.get('d')?.toLowerCase() === fromDomain &&
       tags.get('s')?.toLowerCase() === selector &&
       (tags.get('b') ?? '').startsWith(signaturePrefix);
-    if (matchesVerdict) matches.push(buildEvidence(tags, fromDomain));
+    if (matchesVerdict) matches.push(buildEvidence(tags, fromDomain, selector));
   }
   const [onlyMatch] = matches;
   return matches.length === 1 && onlyMatch !== undefined ? onlyMatch : null;
@@ -266,9 +266,11 @@ function countSignedHeaders(headerList: string | undefined): HeaderCounts {
 function buildEvidence(
   tags: ReadonlyMap<string, string>,
   signingDomain: string,
+  selector: string,
 ): DkimSignatureEvidence {
   return {
     signingDomain,
+    selector,
     signedHeaderCounts: countSignedHeaders(tags.get('h')),
     hasBodyLengthLimit: tags.has('l'),
     // `x=` ilegible queda en la época, es decir, ya vencida: nunca se lee como "sin expiración".

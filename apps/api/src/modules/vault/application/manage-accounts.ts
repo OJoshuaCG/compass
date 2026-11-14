@@ -24,6 +24,7 @@ import type {
   UserId,
 } from '../../../shared/kernel/index.js';
 import type { Authorizer } from '../../access/index.js';
+import type { SecretCipher } from '../../crypto/index.js';
 import type { AuditLog } from '../../audit/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
 import {
@@ -39,6 +40,7 @@ import type {
   AccountRepository,
   AccountView,
   PlatformRecord,
+  UsernameBlindIndex,
 } from './ports/account-repository.js';
 
 export interface ManageAccountsDeps {
@@ -46,6 +48,8 @@ export interface ManageAccountsDeps {
   readonly uow: UnitOfWork;
   readonly authorizer: Authorizer;
   readonly accounts: AccountRepository;
+  /** Solo para calcular el índice ciego del texto buscado; nunca descifra. */
+  readonly cipher: SecretCipher;
   readonly ids: IdGenerator;
   readonly audit: AuditLog;
   readonly clock: Clock;
@@ -77,6 +81,9 @@ export interface UpdateAccountInput {
   readonly tags?: readonly string[] | undefined;
 }
 
+/** Mismo propósito con el que se calcula el índice al guardar el usuario de la plataforma. */
+const USERNAME_BLIND_INDEX_PURPOSE = 'platform-username' as const;
+
 const notFound = (): DomainError => new DomainError('NOT_FOUND', 'Account not found');
 
 /** Los tags se guardan sin repetidos y en el orden en que llegaron. */
@@ -106,7 +113,8 @@ export class ManageAccounts {
       const actor = await authorizer.requireActiveMember();
       // Un solo instante para el corte del filtro y para el semáforo: no pueden discrepar entre sí.
       const now = clock.now();
-      const result = await accounts.listVisiblePage(actor.id, page, this.toFilters(search, now));
+      const filters = await this.toVisibleFilters(search, now);
+      const result = await accounts.listVisiblePage(actor.id, page, filters);
       return this.withPasswordAge(result, now);
     });
   }
@@ -138,6 +146,7 @@ export class ManageAccounts {
     return uow.run(async () => {
       await authorizer.require({ permission: 'vault.inventory.read' });
       // Sin filtros rápidos y sin antigüedad: son datos de credenciales de cuentas a las que no se accede.
+      // Sin búsqueda exacta de usuario: eso consulta credenciales y el inventario no las lee.
       const filters = this.toFilters({ text: search.text, tag: search.tag }, clock.now());
       const result = await accounts.listInventoryPage(page, filters);
       return {
@@ -154,7 +163,35 @@ export class ManageAccounts {
       quickFilter: search.filter ?? null,
       tag: search.tag ?? null,
       agingCutoff: passwordAgeCutoff(now, PASSWORD_AGING_AFTER_DAYS),
+      usernameIndexes: [],
     };
+  }
+
+  /**
+   * Filtros del listado propio: además del texto libre, el texto buscado se prueba como usuario exacto
+   * de la plataforma con el índice ciego (coincidencia completa y sensible a mayúsculas, igual que al
+   * guardarlo). El resultado sigue acotado por el acceso efectivo en SQL.
+   */
+  private async toVisibleFilters(search: AccountSearch, now: Date): Promise<AccountListFilters> {
+    const filters = this.toFilters(search, now);
+    if (filters.text === null) return filters;
+    const { accounts, cipher, context } = this.deps;
+    const organizationId = context.current().organizationId;
+    const dekVersions = await accounts.listUsernameIndexDekVersions();
+    const usernameIndexes: UsernameBlindIndex[] = [];
+    for (const dekVersion of dekVersions) {
+      const blind = await cipher.blindIndex(
+        organizationId,
+        USERNAME_BLIND_INDEX_PURPOSE,
+        filters.text,
+        dekVersion,
+      );
+      // Falla cerrada: sin la clave de esa versión la búsqueda por usuario quedaría incompleta y la persona
+      // no distinguiría «no hay coincidencias» de «no se pudo buscar». El error de dominio no incluye el texto.
+      if (!blind.ok) throw blind.error;
+      usernameIndexes.push({ dekVersion, indexHex: blind.value.index });
+    }
+    return { ...filters, usernameIndexes };
   }
 
   private withPasswordAge(

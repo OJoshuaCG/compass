@@ -109,7 +109,7 @@ describe('PollMailSource', () => {
 
       const result = await buildUseCase().execute(POLL_SOURCE);
 
-      expect(result).toEqual({ status: 'failed', errorCode: 'AUTH' });
+      expect(result).toEqual({ status: 'failed', errorCode: 'AUTH', consecutiveFailures: 1 });
       expect(state.savedCursors).toEqual([]);
       expect(state.successReleases).toBe(0);
       expect(state.failureReleases).toHaveLength(1);
@@ -140,7 +140,11 @@ describe('PollMailSource', () => {
 
       const result = await buildUseCase().execute(POLL_SOURCE);
 
-      expect(result).toEqual({ status: 'failed', errorCode: 'KMS_UNAVAILABLE' });
+      expect(result).toEqual({
+        status: 'failed',
+        errorCode: 'KMS_UNAVAILABLE',
+        consecutiveFailures: 1,
+      });
       expect(connector.openCalls).toBe(0);
       expect(state.failureReleases[0]?.errorCode).toBe('KMS_UNAVAILABLE');
     });
@@ -151,7 +155,7 @@ describe('PollMailSource', () => {
 
       const result = await buildUseCase().execute(POLL_SOURCE);
 
-      expect(result).toEqual({ status: 'failed', errorCode: 'NETWORK' });
+      expect(result).toEqual({ status: 'failed', errorCode: 'NETWORK', consecutiveFailures: 1 });
       // Lo ya registrado queda (es idempotente); el cursor no se mueve.
       expect(recorder.accepted).toHaveLength(1);
       expect(state.savedCursors).toEqual([]);
@@ -164,7 +168,7 @@ describe('PollMailSource', () => {
 
       const result = await buildUseCase().execute(POLL_SOURCE);
 
-      expect(result).toEqual({ status: 'failed', errorCode: 'UNEXPECTED' });
+      expect(result).toEqual({ status: 'failed', errorCode: 'UNEXPECTED', consecutiveFailures: 1 });
       expect(JSON.stringify(result)).not.toContain('detalle interno');
       expect(state.failureReleases).toHaveLength(1);
       expect(state.savedCursors).toEqual([]);
@@ -210,6 +214,12 @@ describe('PollMailSource', () => {
           outcome: 'accepted',
           reason: null,
           verdicts: { spf: 'pass', dkim: 'pass', dmarc: 'pass' },
+          signature: {
+            signingDomain: 'facebook.com',
+            selector: null,
+            hasBodyLengthLimit: false,
+            signedHeaderCounts: { from: 2, to: 1, subject: 2, date: 1 },
+          },
         },
       ]);
       expect(JSON.stringify(observer.records)).not.toContain(FIXTURE_CODE);

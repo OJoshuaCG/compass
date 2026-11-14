@@ -37,6 +37,7 @@ describe('AuthenticationResultsVerifier', () => {
     expect(result.validatedSignatures).toEqual([
       {
         signingDomain: 'facebook.com',
+        selector: 's1',
         signedHeaderCounts: { from: 2, to: 1, subject: 2, date: 1 },
         hasBodyLengthLimit: false,
         signedAt: new Date(1793361570 * 1000),

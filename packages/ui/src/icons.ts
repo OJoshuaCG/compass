@@ -6,6 +6,8 @@
 export {
   AlertTriangle,
   Archive,
+  ArrowRightLeft,
+  Bell,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -39,6 +41,7 @@ export {
   Trash2,
   UserPlus,
   Users,
+  UsersRound,
   X,
   XCircle,
   type LucideIcon,

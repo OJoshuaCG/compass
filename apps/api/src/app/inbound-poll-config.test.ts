@@ -68,4 +68,11 @@ describe('loadInboundPollConfig', () => {
       loadInboundPollConfig({ ...VALID, INBOUND_POLL_RUN_BUDGET_SECONDS: '5000' }),
     ).toThrow();
   });
+
+  it('defaults the consecutive-failure exit threshold to 5 and bounds it', () => {
+    expect(loadInboundPollConfig(VALID).INBOUND_POLL_FAILURE_EXIT_THRESHOLD).toBe(5);
+    expect(() =>
+      loadInboundPollConfig({ ...VALID, INBOUND_POLL_FAILURE_EXIT_THRESHOLD: '0' }),
+    ).toThrow();
+  });
 });

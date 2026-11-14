@@ -19,6 +19,7 @@ import type {
   AccountEdit,
   AccountListEntry,
   AccountListFilters,
+  UsernameBlindIndex,
   AccountRecord,
   AccountRepository,
   ExistingAccountKey,
@@ -274,6 +275,17 @@ export class PgAccountRepository implements AccountRepository {
     return result.rows.map((row) => row.tag);
   }
 
+  async listUsernameIndexDekVersions(): Promise<readonly number[]> {
+    // Aislado por organización mediante RLS; solo versiones vigentes: las antiguas no se buscan.
+    const result = await this.transactions.current().query<{ dek_version: number }>(
+      `select distinct dek_version
+           from credential_secrets
+          where field = 'username' and is_current and blind_index is not null
+          order by dek_version`,
+    );
+    return result.rows.map((row) => row.dek_version);
+  }
+
   async listInventoryPage(
     page: KeysetRequest,
     filters: AccountListFilters,
@@ -285,6 +297,30 @@ export class PgAccountRepository implements AccountRepository {
       page,
       filters,
     );
+  }
+
+  /**
+   * Rama de búsqueda exacta por usuario de la plataforma. Compara el índice ciego con la versión de DEK
+   * con que se calculó cada fila; los valores viajan como parámetros y el usuario nunca está en claro.
+   */
+  private usernameMatchClause(
+    indexes: readonly UsernameBlindIndex[],
+    bind: (value: unknown) => string,
+  ): string {
+    if (indexes.length === 0) return '';
+    const versions = bind(indexes.map((entry) => entry.dekVersion));
+    const hexValues = bind(indexes.map((entry) => entry.indexHex));
+    return `
+          or exists (select 1
+                       from credentials c
+                       join credential_secrets s
+                         on s.credential_id = c.id and s.organization_id = c.organization_id
+                      where c.account_id = a.id and c.archived_at is null
+                        and s.field = 'username' and s.is_current
+                        and exists (select 1
+                                      from unnest(${versions}::int[], ${hexValues}::text[]) as wanted(dek_version, index_hex)
+                                     where wanted.dek_version = s.dek_version
+                                       and s.blind_index = decode(wanted.index_hex, 'hex')))`;
   }
 
   /**
@@ -317,8 +353,14 @@ export class PgAccountRepository implements AccountRepository {
         `(lower(a.display_name), a.id) > (${namePlaceholder}::text, ${idPlaceholder}::uuid)`,
       );
     }
+    if (filters.usernameIndexes.length > 0 && !base.includeCredentialPosture) {
+      // Defensa en profundidad: el inventario no concede acceso, y acertar un usuario revelaría qué
+      // cuenta lo usa.
+      throw new Error('Username search reads credentials, which this listing must not read');
+    }
     if (filters.text !== null) {
       const pattern = bind(`%${escapeLikePattern(filters.text)}%`);
+      const usernameMatch = this.usernameMatchClause(filters.usernameIndexes, bind);
       clauses.push(
         `(a.display_name ilike ${pattern} escape '\\'
           or a.handle ilike ${pattern} escape '\\'
@@ -327,7 +369,7 @@ export class PgAccountRepository implements AccountRepository {
           or exists (select 1 from unnest(a.tags) as tag where tag ilike ${pattern} escape '\\')
           or exists (select 1 from groups g
                       where g.id = a.owner_group_id and g.archived_at is null
-                        and g.name ilike ${pattern} escape '\\'))`,
+                        and g.name ilike ${pattern} escape '\\')${usernameMatch})`,
       );
     }
     if (filters.tag !== null) {

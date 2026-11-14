@@ -12,7 +12,7 @@ Las tres decisiones las tomó el panel de dos jueces (`jd-judge-a` y `jd-judge-b
 
 - [x] T-D4: SMTP 5 s + 5 s + 10 s = 20 s (antes 10 + 10 + 20 = 40 s); plazo del manejador 30 s a 45 s; parada 35 s a 60 s. Constantes `SMTP_*_TIMEOUT_MS`, `SMTP_WORST_CASE_ATTEMPT_MS`. Prueba `apps/api/src/app/outbox-timeouts.test.ts`.
 - [x] T-T9: `isNonRetryableError` (`retry-policy.ts`); el trabajador manda a cuarentena un error con `retryable = false`. Los tres errores de payload inválido (`RankChangeNoticePayloadError`, `RevealLimitNoticePayloadError`, `PendingTotpNoticePayloadError`) lo declaran. Pruebas unitarias del trabajador y caso de integración en `outbox.integration.test.ts`.
-- [x] T-D6: hecha (2026-10-30, encargo expreso del dueño; pruebas escritas sin ejecutar). Retención a 7 días en `purge-expired`: ver «T-D6: implementación».
+- [x] T-D6: hecha (2026-10-30, encargo expreso del dueño; pruebas `purge-expired-ephemeral.test.ts` y `purge-expired.integration.test.ts` en verde el 2026-11-11). Retención a 7 días en `purge-expired`: ver «T-D6: implementación».
 - [x] Documentación: `docs/backend.md` §6.5, ADR 0035 (adenda D6), ADR 0038, `docs/database.md`, `docs/threat-model.md`, `docs/runbooks/purge-expired.md`, `TODO.md`.
 
 ## Decisiones de diseño

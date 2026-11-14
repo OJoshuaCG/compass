@@ -1,6 +1,7 @@
 import {
   accountSchema,
   directoryUserSchema,
+  groupSchema,
   shareSchema,
   type CreateShareRequest,
 } from '@iam/contracts';
@@ -14,9 +15,11 @@ export const sharesKeys = {
   account: (accountId: string) => [...sharesKeys.all, 'account', accountId] as const,
   list: (accountId: string) => [...sharesKeys.all, 'list', accountId] as const,
   candidates: (query: string) => [...sharesKeys.all, 'candidates', query] as const,
+  managedGroups: () => [...sharesKeys.all, 'managed-groups'] as const,
 };
 
 const sharesResponseSchema = z.object({ data: z.array(shareSchema) });
+const groupsResponseSchema = z.object({ data: z.array(groupSchema) });
 
 /** Cuántas personas candidatas se piden por búsqueda; el selector no pagina, se afina escribiendo. */
 const CANDIDATES_LIMIT = 25;
@@ -73,4 +76,17 @@ export function fetchShareCandidates(query: string, signal: AbortSignal) {
     { q: query, limit: CANDIDATES_LIMIT, sort: 'displayName', dir: 'asc' },
     signal,
   );
+}
+
+/**
+ * Grupos que quien comparte gestiona (`GET /groups?managedByMe=true`): son los únicos con los que
+ * puede compartir. Como con las personas, se llama al endpoint en lugar de importar el feature
+ * `directory`, que es quien lo muestra en su pantalla de grupos (docs/frontend.md §3.2).
+ */
+export async function fetchManagedGroups(signal?: AbortSignal, client: ApiClient = apiClient) {
+  const response = await client.get('/groups', groupsResponseSchema, {
+    query: { managedByMe: 'true' },
+    ...(signal === undefined ? {} : { signal }),
+  });
+  return response.data;
 }

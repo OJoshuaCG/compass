@@ -1,6 +1,6 @@
 # ADR 0044: Modelo de identidades y pertenencias (`identities` y `memberships`)
 
-- **Estado**: Propuesta. Borrador de Ingeniería para `TODO.md` C5. **No bloquea la fase 1**: la decisión vigente sigue siendo el [ADR 0041](0041-global-unique-email-across-organizations.md) hasta que una persona decida lo contrario.
+- **Estado**: Aceptada (2026-11-13): una persona pertenece a una sola organización. Borrador de Ingeniería para `TODO.md` C5; el dueño decidió «no puede haber una persona en varias organizaciones». Rige el [ADR 0041](0041-global-unique-email-across-organizations.md).
 - **Fecha**: 2026-10-29
 - **Referencias**: [`plan.md`](../../plan.md) sección "Identidad y organizaciones" (línea 192); [ADR 0006](0006-multitenancy-ready-rls.md); [ADR 0021](0021-pre-authentication-access-with-rls.md); [ADR 0004](0004-server-side-encryption-kms-per-org-dek.md); [ADR 0041](0041-global-unique-email-across-organizations.md); [`docs/database.md`](../database.md) §9; `db/migrations/0002_organizations_identity.sql` y `0008_auth_functions.sql`; `apps/api/src/modules/identity/application/login.ts`; `TODO.md` C5.
 
@@ -75,3 +75,12 @@ Opción C. No es urgente ni bloquea la fase 1; por la misma razón no debe adela
 - El conteo de claves foráneas es de líneas que contienen `references users (organization_id, id)`; no se revisó una por una cuáles son tablas de dominio.
 - Que el dominio de correo de la empresa admita alias que lleguen al mismo buzón.
 - Cómo se comporta el guardia de sesión de la interfaz web ante un cambio de organización (no se leyó el código de la web).
+
+## Decisión (2026-11-13)
+
+El dueño respondió: «0044, no puede haber una persona en varias organizaciones». Se mantiene la **opción A** (una fila de `users` por organización, correo único global, ADR 0041) y **no se separan `identities` y `memberships`**. Las opciones B y C quedan descartadas: el disparador de la opción C («una persona que debe entrar a más de una organización») queda cerrado por decisión de producto, no por falta de caso.
+
+- Responde la pregunta 1 (no hay ni habrá una persona en varias organizaciones) y vuelve innecesarias las preguntas 2 a 5.
+- El alias de correo por organización **no** es una solución provisional válida: la regla es de producto, no una carencia técnica.
+- Si algún día cambia la regla, este ADR se reemplaza por otro; el diseño objetivo de la opción B se conserva arriba solo como referencia histórica.
+- `plan.md` (línea 192) conserva su nota de «ADR futuro»; queda superada por esta decisión y no se edita aquí por ser el documento de diseño.

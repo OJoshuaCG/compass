@@ -11,9 +11,11 @@ import { IdempotencyInterceptor, IdempotencyService } from '../modules/idempoten
 import {
   ListDirectory,
   ListManaged,
+  ManageGroups,
   ManageRootTransfer,
   ManageUsers,
 } from '../modules/directory/index.js';
+import { GroupsController } from '../modules/directory/interface/groups.controller.js';
 import { RootTransferController } from '../modules/directory/interface/root-transfer.controller.js';
 import { UsersController } from '../modules/directory/interface/users.controller.js';
 import {
@@ -107,6 +109,7 @@ export class AppModule {
       { provide: ListDirectory, useValue: container.listDirectory },
       { provide: ListManaged, useValue: container.listManaged },
       { provide: ManageUsers, useValue: container.manageUsers },
+      { provide: ManageGroups, useValue: container.manageGroups },
       { provide: ManageRootTransfer, useValue: container.manageRootTransfer },
       { provide: REQUEST_CONTEXT_RUNNER, useValue: container.requestContext },
       { provide: APP_GUARD, useClass: RateLimitGuard },
@@ -151,6 +154,7 @@ export class AppModule {
         DataKeyController,
         UsersController,
         RootTransferController,
+        GroupsController,
         PlatformsController,
         AccountsController,
         AccountCredentialsController,

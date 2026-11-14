@@ -3,8 +3,15 @@ import type { CreateShareRequest, ShareLevel } from '@iam/contracts';
 /** Nivel con el que arranca el formulario: el menor privilegio, para no conceder de más por descuido. */
 export const DEFAULT_SHARE_LEVEL: ShareLevel = 'USE';
 
+/** A quién se comparte: una persona del directorio o un grupo que quien comparte gestiona. */
+export type ShareGranteeType = CreateShareRequest['granteeType'];
+
+/** Con quién se comparte al abrir el formulario: el caso habitual y el que ya existía. */
+export const DEFAULT_GRANTEE_TYPE: ShareGranteeType = 'user';
+
 export type ShareFormValues = {
-  /** Persona elegida en la búsqueda; `undefined` mientras no se elige. */
+  granteeType: ShareGranteeType;
+  /** Persona o grupo elegido (según `granteeType`); `undefined` mientras no se elige. */
   granteeId: string | undefined;
   level: ShareLevel;
   /** Valor de un campo `datetime-local` ("2030-01-31T18:30", sin zona); vacío si no caduca. */
@@ -27,7 +34,7 @@ export function buildShareRequest(values: ShareFormValues, now: Date): ShareForm
   }
 
   const baseRequest: CreateShareRequest = {
-    granteeType: 'user',
+    granteeType: values.granteeType,
     granteeId: values.granteeId,
     level: values.level,
   };
