@@ -53,6 +53,8 @@ const PHASE1_TENANT_TABLES = [
   'saved_account_views',
   // SENSIBLE (revisión humana): peticiones de borrado de correo del buzón real (migración 0038).
   'mail_delete_requests',
+  // SENSIBLE (revisión humana): vista previa transitoria y cifrada de un correo del buzón (migración 0040).
+  'mail_preview_requests',
 ];
 
 let adminUrl = '';
