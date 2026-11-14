@@ -1,28 +1,44 @@
-import { useId, useMemo } from 'react';
+import type { InboundReceipt } from '@iam/contracts';
+import { useCallback, useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useFixedOrderTable } from '../../../shared/api';
 import { useMe } from '../../../shared/auth';
 import { useErrorMessage } from '../../../shared/i18n';
 import { createInboundHistoryFetcher, inboundKeys } from '../api/inbound-api';
+import { formatDateTime } from '../../../shared/lib';
 import { InboundHistoryTable } from '../ui/inbound-history-table';
+
+import { InboundMailDeleteCell } from './inbound-mail-delete-cell';
 
 export type InboundHistoryPanelProps = {
   viewId: string;
+  /** Ofrece «Borrar correo del buzón» por fila. Solo comodidad: el servidor decide. */
+  canDeleteMail?: boolean;
 };
 
 /**
  * Historial de recepciones de la vista con paginación por cursor. No contiene secretos (solo
  * fecha, dominio y tipo), así que pasa por Query como cualquier otro listado.
  */
-export function InboundHistoryPanel({ viewId }: InboundHistoryPanelProps) {
-  const { t } = useTranslation('inbound');
+export function InboundHistoryPanel({ viewId, canDeleteMail = false }: InboundHistoryPanelProps) {
+  const { t, i18n } = useTranslation('inbound');
   const headingId = useId();
   const errorMessage = useErrorMessage();
   const timeZone = useMe()?.user.timezone;
   const fetchPage = useMemo(() => createInboundHistoryFetcher(viewId), [viewId]);
 
   const table = useFixedOrderTable({ queryKey: inboundKeys.history(viewId), fetchPage });
+
+  const renderRowActions = useCallback(
+    (receipt: InboundReceipt) => (
+      <InboundMailDeleteCell
+        receiptId={receipt.id}
+        receivedAtLabel={formatDateTime(receipt.receivedAt, i18n.language, timeZone)}
+      />
+    ),
+    [i18n.language, timeZone],
+  );
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-4">
@@ -38,6 +54,7 @@ export function InboundHistoryPanel({ viewId }: InboundHistoryPanelProps) {
         refreshing={table.refreshing}
         paging={table}
         timeZone={timeZone}
+        renderRowActions={canDeleteMail ? renderRowActions : undefined}
       />
     </section>
   );

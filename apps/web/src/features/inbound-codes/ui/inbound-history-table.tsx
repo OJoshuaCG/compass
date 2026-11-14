@@ -1,6 +1,6 @@
 import type { InboundReceipt } from '@iam/contracts';
 import { Badge, DataTable, EmptyState, type Column } from '@iam/ui';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { TablePaging } from '../../../shared/api';
@@ -20,6 +20,8 @@ export type InboundHistoryTableProps = {
   paging: TablePaging;
   /** Zona horaria del perfil para mostrar la fecha de recepción. */
   timeZone: string | undefined;
+  /** Acción por fila (borrar el correo del buzón); sin ella la tabla no lleva columna de acciones. */
+  renderRowActions?: ((receipt: InboundReceipt) => ReactNode) | undefined;
 };
 
 /**
@@ -34,6 +36,7 @@ export function InboundHistoryTable({
   refreshing,
   paging,
   timeZone,
+  renderRowActions,
 }: InboundHistoryTableProps) {
   const { t, i18n } = useTranslation('inbound');
   const labels = useDataTableLabels();
@@ -86,6 +89,7 @@ export function InboundHistoryTable({
         <EmptyState title={t('history.empty.title')} description={t('history.empty.description')} />
       }
       errorState={{ message: errorMessage, onRetry }}
+      rowActions={renderRowActions}
     />
   );
 }

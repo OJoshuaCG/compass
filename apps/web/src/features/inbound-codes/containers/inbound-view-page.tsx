@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { usePermission } from '../../../shared/auth';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { fetchInboundViews, inboundKeys } from '../api/inbound-api';
+import { canOfferMailDelete } from '../model/inbound-mail-delete-policy';
 
 import { InboundCodesPanel } from './inbound-codes-panel';
 import { InboundHistoryPanel } from './inbound-history-panel';
@@ -24,6 +25,7 @@ export function InboundViewPage({ viewId }: InboundViewPageProps) {
   const catalogReady = useLazyCatalog('inbound');
   const { t } = useTranslation(['inbound', 'common']);
   const hasRevealResetPermission = usePermission('inbound.reveal_reset');
+  const hasDeleteMailPermission = usePermission('inbound.delete_mail');
 
   const viewsQuery = useQuery({
     queryKey: inboundKeys.views(),
@@ -36,6 +38,8 @@ export function InboundViewPage({ viewId }: InboundViewPageProps) {
   const view = viewsQuery.data?.find((candidate) => candidate.id === viewId);
   // Solo comodidad: el servidor vuelve a exigir el permiso, MANAGE sobre la vista y reautenticación.
   const canRevealResets = hasRevealResetPermission && view?.level === 'MANAGE';
+
+  const canDeleteMail = canOfferMailDelete(hasDeleteMailPermission, view?.level);
 
   return (
     <>
@@ -58,7 +62,11 @@ export function InboundViewPage({ viewId }: InboundViewPageProps) {
       {canRevealResets ? (
         <InboundResetRevealPanel key={`resets-${viewId}`} viewId={viewId} />
       ) : null}
-      <InboundHistoryPanel key={`history-${viewId}`} viewId={viewId} />
+      <InboundHistoryPanel
+        key={`history-${viewId}`}
+        viewId={viewId}
+        canDeleteMail={canDeleteMail}
+      />
     </>
   );
 }

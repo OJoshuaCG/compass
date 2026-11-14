@@ -6,6 +6,8 @@ import {
   inboundSourceConnectionSchema,
   inboundSourceSchema,
   inboundSourcesResponseSchema,
+  inboundMailDeleteRequestedSchema,
+  inboundMailDeleteStatusResponseSchema,
   inboundReceiptSchema,
   inboundResetsResponseSchema,
   inboundViewShareSchema,
@@ -21,6 +23,8 @@ import {
   type InboundSource,
   type InboundSourceConnection,
   type InboundSourceSummary,
+  type InboundMailDeleteRequested,
+  type InboundMailDeleteStatusResponse,
   type InboundResetsResponse,
   type InboundReceipt,
   type InboundViewShare,
@@ -50,6 +54,7 @@ export const inboundKeys = {
   sources: () => [...inboundKeys.all, 'sources'] as const,
   connection: (sourceId: string) => [...inboundKeys.all, 'connection', sourceId] as const,
   history: (viewId: string) => [...inboundKeys.all, 'history', viewId] as const,
+  mailDelete: (receiptId: string) => [...inboundKeys.all, 'mail-delete', receiptId] as const,
   viewShares: (viewId: string) => [...inboundKeys.all, 'view-shares', viewId] as const,
 };
 
@@ -81,6 +86,34 @@ export function createInboundHistoryFetcher(
   client: ApiClient = apiClient,
 ): FetchPage<InboundReceipt> {
   return createListFetcher(client, `/inbound/views/${viewId}/history`, inboundReceiptSchema);
+}
+
+/**
+ * `POST /inbound/receipts/:receiptId/mail-delete` (202; permiso `inbound.delete_mail`, Administrador o quien
+ * dio de alta la fuente, y reautenticación reciente, que abre el cliente): pide borrar el mensaje del
+ * buzón real. No borra en el acto: lo ejecuta el worker en su siguiente pasada. Es idempotente.
+ */
+export function requestInboundMailDelete(
+  receiptId: string,
+  client: ApiClient = apiClient,
+): Promise<InboundMailDeleteRequested> {
+  return client.post(
+    `/inbound/receipts/${receiptId}/mail-delete`,
+    inboundMailDeleteRequestedSchema,
+  );
+}
+
+/** `GET /inbound/receipts/:receiptId/mail-delete`: estado de la petición más reciente (`data: null` si nunca se pidió). Solo ids y estados. */
+export function fetchInboundMailDeleteStatus(
+  receiptId: string,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<InboundMailDeleteStatusResponse> {
+  return client.get(
+    `/inbound/receipts/${receiptId}/mail-delete`,
+    inboundMailDeleteStatusResponseSchema,
+    { ...(signal === undefined ? {} : { signal }) },
+  );
 }
 
 /**
