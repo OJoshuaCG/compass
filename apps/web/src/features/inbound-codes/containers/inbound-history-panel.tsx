@@ -10,18 +10,28 @@ import { formatDateTime } from '../../../shared/lib';
 import { InboundHistoryTable } from '../ui/inbound-history-table';
 
 import { InboundMailDeleteCell } from './inbound-mail-delete-cell';
+import { InboundMailPreviewCell } from './inbound-mail-preview-cell';
 
 export type InboundHistoryPanelProps = {
   viewId: string;
   /** Ofrece «Borrar correo del buzón» por fila. Solo comodidad: el servidor decide. */
   canDeleteMail?: boolean;
+  /** Ofrece «Ver correo» (asunto) por fila. Solo comodidad: el servidor decide. */
+  canPreviewMail?: boolean;
+  /** Ofrece además el cuerpo completo dentro de «Ver correo» (permiso `inbound.reveal_reset`). */
+  canPreviewMailBody?: boolean;
 };
 
 /**
  * Historial de recepciones de la vista con paginación por cursor. No contiene secretos (solo
  * fecha, dominio y tipo), así que pasa por Query como cualquier otro listado.
  */
-export function InboundHistoryPanel({ viewId, canDeleteMail = false }: InboundHistoryPanelProps) {
+export function InboundHistoryPanel({
+  viewId,
+  canDeleteMail = false,
+  canPreviewMail = false,
+  canPreviewMailBody = false,
+}: InboundHistoryPanelProps) {
   const { t, i18n } = useTranslation('inbound');
   const headingId = useId();
   const errorMessage = useErrorMessage();
@@ -31,13 +41,24 @@ export function InboundHistoryPanel({ viewId, canDeleteMail = false }: InboundHi
   const table = useFixedOrderTable({ queryKey: inboundKeys.history(viewId), fetchPage });
 
   const renderRowActions = useCallback(
-    (receipt: InboundReceipt) => (
-      <InboundMailDeleteCell
-        receiptId={receipt.id}
-        receivedAtLabel={formatDateTime(receipt.receivedAt, i18n.language, timeZone)}
-      />
-    ),
-    [i18n.language, timeZone],
+    (receipt: InboundReceipt) => {
+      const receivedAtLabel = formatDateTime(receipt.receivedAt, i18n.language, timeZone);
+      return (
+        <div className="flex items-start justify-end gap-2">
+          {canPreviewMail ? (
+            <InboundMailPreviewCell
+              receiptId={receipt.id}
+              receivedAtLabel={receivedAtLabel}
+              canViewBody={canPreviewMailBody}
+            />
+          ) : null}
+          {canDeleteMail ? (
+            <InboundMailDeleteCell receiptId={receipt.id} receivedAtLabel={receivedAtLabel} />
+          ) : null}
+        </div>
+      );
+    },
+    [canDeleteMail, canPreviewMail, canPreviewMailBody, i18n.language, timeZone],
   );
 
   return (
@@ -54,7 +75,7 @@ export function InboundHistoryPanel({ viewId, canDeleteMail = false }: InboundHi
         refreshing={table.refreshing}
         paging={table}
         timeZone={timeZone}
-        renderRowActions={canDeleteMail ? renderRowActions : undefined}
+        renderRowActions={canDeleteMail || canPreviewMail ? renderRowActions : undefined}
       />
     </section>
   );

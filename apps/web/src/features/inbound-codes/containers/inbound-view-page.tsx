@@ -7,6 +7,7 @@ import { usePermission } from '../../../shared/auth';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { fetchInboundViews, inboundKeys } from '../api/inbound-api';
 import { canOfferMailDelete } from '../model/inbound-mail-delete-policy';
+import { canOfferMailBodyPreview, canOfferMailPreview } from '../model/inbound-mail-preview-policy';
 
 import { InboundCodesPanel } from './inbound-codes-panel';
 import { InboundHistoryPanel } from './inbound-history-panel';
@@ -40,6 +41,9 @@ export function InboundViewPage({ viewId }: InboundViewPageProps) {
   const canRevealResets = hasRevealResetPermission && view?.level === 'MANAGE';
 
   const canDeleteMail = canOfferMailDelete(hasDeleteMailPermission, view?.level);
+  // Ver el correo sigue la regla del borrado; el cuerpo exige además `inbound.reveal_reset`.
+  const canPreviewMail = canOfferMailPreview(hasDeleteMailPermission, view?.level);
+  const canPreviewMailBody = canOfferMailBodyPreview(canPreviewMail, hasRevealResetPermission);
 
   return (
     <>
@@ -66,6 +70,8 @@ export function InboundViewPage({ viewId }: InboundViewPageProps) {
         key={`history-${viewId}`}
         viewId={viewId}
         canDeleteMail={canDeleteMail}
+        canPreviewMail={canPreviewMail}
+        canPreviewMailBody={canPreviewMailBody}
       />
     </>
   );

@@ -32,7 +32,7 @@ Ruta protegida (acceso, auditoría, migración con aislamiento, revelación): en
 | D6a | Migración 0040: tabla transitoria cifrada de vistas previas (aislamiento, permisos mínimos, descubrimiento y purga) | inline | Hecho, `3eacbc9`; 30/30 pruebas de BD (nueva + RLS) |
 | D6b | Worker: trae asunto o cuerpo por UID (UIDVALIDITY primero), limpia, cifra, vida de 15 min y purga de vencidos | inline | Hecho (commit al cerrar); 27/27 pruebas unitarias, typecheck/lint limpios. Falta integración del adaptador Pg (en D8) |
 | D6c | API: casos de uso, permisos y auditoría, controlador, contratos, textos | inline | Hecho (commit al cerrar); 17/17 pruebas unitarias, typecheck/lint limpios. Falta integración del adaptador Pg y del controlador (D8) |
-| D6d | Web: ver asunto y cuerpo (solo en el estado del componente) | `frontend-developer` | Pendiente |
+| D6d | Web: ver asunto y cuerpo (solo en el estado del componente) | `frontend-developer` | Hecho (commit al cerrar); 32/32 pruebas del componente + 154 vecinas e i18n; typecheck/lint limpios. Un defecto real corregido en el ciclo 2 (foco no volvía al botón). Sin revisión visual en ambos temas ni e2e |
 | D10 | Caducidad de peticiones a las 24 h (0039, worker, `EXPIRED`) | inline | Hecho (commit al cerrar); 69/69 pruebas dirigidas |
 | D7 | Web: acción de borrar y diálogo | `frontend-developer` | Hecho (commit al cerrar); typecheck/prettier/eslint limpios, pruebas de la función y de catálogo en verde tras 1 ciclo de corrección |
 | D8 | Pruebas, modelo de amenazas, ADR 0045, docs | inline | Docs hechos, `3904869`. Pendiente: pruebas de integración de los adaptadores Pg (necesitan Podman o Docker) |
