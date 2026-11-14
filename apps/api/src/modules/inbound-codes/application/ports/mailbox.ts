@@ -52,6 +52,41 @@ export interface MailboxSession {
   close(): Promise<void>;
 }
 
+/** Resultado de pedir el borrado de un mensaje. */
+export type MailboxDeleteOutcome =
+  /** El servidor confirmó el borrado definitivo del mensaje. */
+  | 'deleted'
+  /** El servidor no encontró el UID o rechazó el comando; no se afirma nada más. */
+  | 'not_deleted';
+
+/**
+ * El servidor no ofrece `UIDPLUS` (RFC 4315). Sin él, el único modo de expulsar un mensaje es un
+ * `EXPUNGE` que borra TODOS los mensajes marcados como eliminados del buzón, incluidos los que una persona
+ * marcó por su cuenta. Por eso no se intenta: el borrado falla cerrado.
+ */
+export class MailboxDeleteUnsupportedError extends Error {
+  constructor() {
+    super('DELETE_UNSUPPORTED');
+    this.name = 'MailboxDeleteUnsupportedError';
+  }
+}
+
+/**
+ * Sesión abierta con permiso de escritura (`SELECT`). Existe aparte de `MailboxSession` para que el sondeo
+ * automático siga siendo de solo lectura: solo el caso de uso de borrado a petición la abre.
+ */
+export interface MailboxWriteSession {
+  readonly uidValidity: number;
+  /** Borra definitivamente UN mensaje por su UID; nunca otro. */
+  deleteMessage(uid: number): Promise<MailboxDeleteOutcome>;
+  close(): Promise<void>;
+}
+
+/** Abre el buzón con escritura: misma guardia de red y TLS que `MailboxConnector`. */
+export interface MailboxWriteConnector {
+  openForWrite(connection: MailConnection): Promise<MailboxWriteSession>;
+}
+
 /**
  * Abre el buzón: aplica la guardia de red, TLS obligatorio y `EXAMINE`. Lanza `MailboxConnectionError`
  * con un código acotado; el texto del servidor nunca sale del adaptador.

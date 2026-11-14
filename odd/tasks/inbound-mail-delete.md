@@ -22,9 +22,9 @@ Ruta protegida (acceso, auditoría, migración con aislamiento, revelación): en
 
 | ID | Tarea | Ruta | Estado |
 | --- | --- | --- | --- |
-| D1 | Migración 0037: columnas de UID en `inbound_receipts`, permiso nuevo en `permission_rank_ceiling()` | inline | Escrita (sin probar contra la base) |
-| D2 | Registrar el UID al procesar cada mensaje (recorder y sondeo) | inline | Escrito, typecheck verde; pruebas por correr |
-| D3 | Puerto y adaptador IMAP de borrado (bloqueo de escritura) | inline | Pendiente |
+| D1 | Migración 0037: columnas de UID en `inbound_receipts`, permiso nuevo en `permission_rank_ceiling()` | inline | Hecho, `98d68cc` (pruebas de la migración y techos en verde) |
+| D2 | Registrar el UID al procesar cada mensaje (recorder y sondeo) | inline | Hecho, `98d68cc` |
+| D3 | Puerto y adaptador IMAP de borrado (bloqueo de escritura) | inline | Hecho (commit al cerrar); 98/98 pruebas del adaptador y el sondeo |
 | D4 | Caso de uso `DeleteInboundMail`, permiso, reautenticación, auditoría y negaciones | inline | Pendiente |
 | D5 | Controlador, contratos, textos de error | inline | Pendiente |
 | D6 | Vista previa del correo (asunto, y cuerpo bajo `reveal_reset`) | inline | Pendiente |
@@ -35,3 +35,4 @@ Ruta protegida (acceso, auditoría, migración con aislamiento, revelación): en
 ## Bitácora
 
 - L1 (2026-11-14): decisión del dueño, texto en S5 a S7.
+- L2 (2026-11-14): D3 exige UIDPLUS en el servidor. Sin él, `EXPUNGE` borraría todos los mensajes marcados `\\Deleted` del buzón, no solo el pedido; el adaptador falla cerrado (`MailboxDeleteUnsupportedError`) antes de marcar nada. Consecuencia para operación: la cuenta IMAP debe estar en un servidor con UIDPLUS (verificar en el servidor real).

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { MailConnection } from '../application/ports/mail-connection-loader.js';
-import { MailboxConnectionError, MessageFetchError } from '../application/ports/mailbox.js';
+import {
+  MailboxConnectionError,
+  MailboxDeleteUnsupportedError,
+  MessageFetchError,
+} from '../application/ports/mailbox.js';
 import {
   ImapFlowMailboxConnector,
   classifyImapError,
@@ -32,6 +36,10 @@ interface FakeClientBehavior {
   source?: Uint8Array | false | undefined;
   fetchOneError?: unknown;
   logoutError?: unknown;
+  /** Extensiones que anuncia el servidor; por defecto ofrece UIDPLUS. */
+  capabilities?: string[];
+  deleteResult?: boolean;
+  deleteError?: unknown;
 }
 
 /** La biblioteca real rechaza con objetos que no son `Error`; la prueba reproduce esa forma. */
@@ -51,6 +59,7 @@ function fakeEnvironment(
     searchQuery: null as { uid: string; since: Date } | null,
     fetchRange: null as string | null,
     fetchOneQuery: null as { source: { maxLength: number } } | null,
+    deleteCalls: [] as { range: string; options: { uid: true } }[],
   };
   const client: ImapClient = {
     on: () => {
@@ -90,6 +99,14 @@ function fakeEnvironment(
       const source = 'source' in behavior ? behavior.source : new Uint8Array([1, 2, 3]);
       return Promise.resolve(source === false || source === undefined ? false : { source });
     },
+    messageDelete: (range, options) => {
+      state.deleteCalls.push({ range, options });
+      if (behavior.deleteError !== undefined) return rejectWith(behavior.deleteError);
+      return Promise.resolve(behavior.deleteResult ?? true);
+    },
+    capabilities: new Map<string, boolean | number>(
+      (behavior.capabilities ?? ['UIDPLUS']).map((name) => [name, true]),
+    ),
     logout: () => {
       calls.push('logout');
       return behavior.logoutError === undefined
@@ -417,6 +434,103 @@ describe('ImapFlowMailboxSession.close', () => {
 
     await expect(session.close()).resolves.toBeUndefined();
     expect(calls.at(-1)).toBe('close');
+  });
+});
+
+describe('ImapFlowMailboxConnector.openForWrite', () => {
+  it('opens the mailbox with write access, unlike the polling session', async () => {
+    const { connector, state } = fakeEnvironment();
+
+    const session = await connector.openForWrite(CONNECTION);
+
+    expect(state.lockOptions).toEqual({ readOnly: false });
+    expect(session.uidValidity).toBe(7);
+  });
+
+  it('keeps the polling session read-only', async () => {
+    const { connector, state } = fakeEnvironment();
+
+    await connector.open(CONNECTION);
+
+    expect(state.lockOptions).toEqual({ readOnly: true });
+  });
+
+  it('refuses a server without UIDPLUS before touching any message, releasing the lock and the socket', async () => {
+    const { connector, calls, state } = fakeEnvironment({ capabilities: ['IDLE'] });
+
+    await expect(connector.openForWrite(CONNECTION)).rejects.toBeInstanceOf(
+      MailboxDeleteUnsupportedError,
+    );
+
+    expect(state.deleteCalls).toEqual([]);
+    expect(calls).toEqual(['connect', 'lock', 'release', 'close']);
+  });
+
+  it('applies the same network guard as the polling session', async () => {
+    const { connector } = fakeEnvironment({}, ['10.0.0.5']);
+
+    expect(await codeOf(connector.openForWrite(CONNECTION))).toBe('HOST_REJECTED');
+  });
+
+  it('reports an unreachable mailbox with a bounded code', async () => {
+    const { connector } = fakeEnvironment({ lockError: new Error('NO [CANNOT] secreto') });
+
+    expect(await codeOf(connector.openForWrite(CONNECTION))).toBe('MAILBOX_UNAVAILABLE');
+  });
+});
+
+describe('ImapFlowMailboxWriteSession', () => {
+  it('deletes exactly the UID asked for, by UID and never by sequence number', async () => {
+    const { connector, state } = fakeEnvironment();
+    const session = await connector.openForWrite(CONNECTION);
+
+    const outcome = await session.deleteMessage(42);
+
+    expect(outcome).toBe('deleted');
+    expect(state.deleteCalls).toEqual([{ range: '42', options: { uid: true } }]);
+  });
+
+  it('reports not_deleted when the server does not confirm the deletion', async () => {
+    const { connector } = fakeEnvironment({ deleteResult: false });
+    const session = await connector.openForWrite(CONNECTION);
+
+    expect(await session.deleteMessage(42)).toBe('not_deleted');
+  });
+
+  it('treats a protocol error on that message as not_deleted without leaking server text', async () => {
+    const { connector } = fakeEnvironment({
+      deleteError: Object.assign(new Error('NO secreto del servidor'), { code: 'CommandFailed' }),
+    });
+    const session = await connector.openForWrite(CONNECTION);
+
+    expect(await session.deleteMessage(42)).toBe('not_deleted');
+  });
+
+  it('treats a dropped connection as a connection failure, not as a missing message', async () => {
+    const { connector } = fakeEnvironment({
+      deleteError: Object.assign(new Error('reset'), { code: 'ECONNRESET' }),
+    });
+    const session = await connector.openForWrite(CONNECTION);
+
+    expect(await codeOf(session.deleteMessage(42))).toBe('NETWORK');
+  });
+
+  it('releases the lock and logs out on close', async () => {
+    const { connector, calls } = fakeEnvironment();
+    const session = await connector.openForWrite(CONNECTION);
+
+    await session.close();
+
+    expect(calls.slice(-2)).toEqual(['release', 'logout']);
+  });
+
+  it('closes the socket when logout fails instead of throwing', async () => {
+    const { connector, calls } = fakeEnvironment({ logoutError: new Error('caído') });
+    const session = await connector.openForWrite(CONNECTION);
+
+    await session.close();
+
+    expect(calls).toContain('close');
   });
 });
 
