@@ -142,6 +142,8 @@ import {
   NetworkGuard,
   NotifyResetRevealed,
   PgInboundResetStore,
+  PgMailDeleteRequestStore,
+  RequestInboundMailDelete,
   ReadInboundCodes,
   RevealInboundResets,
   RESET_REVEAL_NOTICE_EVENT_TYPE,
@@ -630,6 +632,14 @@ export function buildContainer(options: ContainerOptions) {
       cipher,
       audit,
       clock,
+    }),
+    requestInboundMailDelete: new RequestInboundMailDelete({
+      context: requestContext,
+      uow,
+      authorizer,
+      directory,
+      requests: new PgMailDeleteRequestStore(uow),
+      audit,
     }),
     manageInboundConfiguration: new ManageInboundConfiguration({
       context: requestContext,

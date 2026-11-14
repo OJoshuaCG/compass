@@ -170,3 +170,5 @@ export type {
   LiveResetRecord,
 } from './application/ports/inbound-reset-store.js';
 export { PgInboundResetStore } from './infrastructure/pg-inbound-reset-store.js';
+export { RequestInboundMailDelete } from './application/request-inbound-mail-delete.js';
+export { PgMailDeleteRequestStore } from './infrastructure/pg-mail-delete-request-store.js';

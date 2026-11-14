@@ -48,6 +48,40 @@ export type InboundReset = z.infer<typeof inboundResetSchema>;
 export const inboundResetsResponseSchema = z.object({ data: z.array(inboundResetSchema) });
 export type InboundResetsResponse = z.infer<typeof inboundResetsResponseSchema>;
 
+/**
+ * Petición de borrar un correo del buzón real. La API solo la registra; el worker la ejecuta en su siguiente
+ * pasada, así que la respuesta es siempre `pending`. `alreadyPending` indica que ya había una sin terminar.
+ */
+export const inboundMailDeleteRequestedSchema = z.object({
+  status: z.literal('pending'),
+  alreadyPending: z.boolean(),
+});
+export type InboundMailDeleteRequested = z.infer<typeof inboundMailDeleteRequestedSchema>;
+
+/** Resultado acotado que deja el worker; nunca texto del servidor de correo. */
+export const INBOUND_MAIL_DELETE_RESULT_CODES = [
+  'DELETED',
+  'NOT_FOUND',
+  'POSITION_CHANGED',
+  'UNSUPPORTED',
+  'CONNECTION',
+  'CONNECTION_MISSING',
+  'UNEXPECTED',
+] as const;
+
+/** Estado de la petición de borrado más reciente de un recibo; `data` es `null` si nunca se pidió. */
+export const inboundMailDeleteStatusResponseSchema = z.object({
+  data: z
+    .object({
+      status: z.enum(['pending', 'done', 'failed']),
+      resultCode: z.enum(INBOUND_MAIL_DELETE_RESULT_CODES).nullable(),
+      requestedAt: z.iso.datetime(),
+      completedAt: z.iso.datetime().nullable(),
+    })
+    .nullable(),
+});
+export type InboundMailDeleteStatusResponse = z.infer<typeof inboundMailDeleteStatusResponseSchema>;
+
 /** Recepción aceptada que casó con la vista: sin asunto, remitente ni valores. */
 export const inboundReceiptSchema = z.object({
   id: z.uuid(),
