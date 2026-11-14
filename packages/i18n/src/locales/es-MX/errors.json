@@ -31,6 +31,7 @@
   "INBOUND.TEMPLATE_INVALID": "Alguna plantilla no existe o está archivada.",
   "INBOUND.ACCOUNT_INVALID": "La cuenta no existe, está archivada o no tienes acceso para usarla.",
   "INBOUND.MAIL_NOT_DELETABLE": "Este mensaje no se puede borrar desde Compass: no se guardó su posición en el buzón.",
+  "INBOUND.MAIL_NOT_PREVIEWABLE": "Este mensaje no se puede ver desde Compass: no se guardó su posición en el buzón.",
   "INBOUND.RECIPIENT_NOT_ALLOWED": "Un destinatario aceptado no es válido: no puede ser el correo de una persona de la plataforma.",
   "INTEGRATIONS.CHANNEL_ALREADY_ACTIVE": "Ya hay un canal activo de este tipo. Archívalo antes de crear otro.",
   "INTEGRATIONS.ARCHIVED": "La integración está archivada y ya no se puede modificar.",

@@ -65,6 +65,7 @@ import {
   ManageInboundViewShares,
   ReadInboundCodes,
   RevealInboundResets,
+  PreviewInboundMail,
   RequestInboundMailDelete,
 } from '../modules/inbound-codes/index.js';
 import { InboundConfigurationController } from '../modules/inbound-codes/interface/inbound-configuration.controller.js';
@@ -72,6 +73,7 @@ import { InboundSourceConnectionController } from '../modules/inbound-codes/inte
 import { InboundCodesController } from '../modules/inbound-codes/interface/inbound-codes.controller.js';
 import { InboundDirectoryController } from '../modules/inbound-codes/interface/inbound-directory.controller.js';
 import { InboundMailDeleteController } from '../modules/inbound-codes/interface/inbound-mail-delete.controller.js';
+import { InboundMailPreviewController } from '../modules/inbound-codes/interface/inbound-mail-preview.controller.js';
 import { InboundResetsController } from '../modules/inbound-codes/interface/inbound-resets.controller.js';
 import { InboundViewSharesController } from '../modules/inbound-codes/interface/inbound-view-shares.controller.js';
 import { ManageAlertSettings, ManageTelegramIntegrations } from '../modules/integrations/index.js';
@@ -135,6 +137,7 @@ export class AppModule {
       { provide: ReadInboundCodes, useValue: container.readInboundCodes },
       { provide: RevealInboundResets, useValue: container.revealInboundResets },
       { provide: RequestInboundMailDelete, useValue: container.requestInboundMailDelete },
+      { provide: PreviewInboundMail, useValue: container.previewInboundMail },
       { provide: ManageInboundConfiguration, useValue: container.manageInboundConfiguration },
       {
         provide: ManageInboundSourceConnection,
@@ -173,6 +176,7 @@ export class AppModule {
         InboundDirectoryController,
         InboundResetsController,
         InboundMailDeleteController,
+        InboundMailPreviewController,
         InboundViewSharesController,
         InboundConfigurationController,
         InboundSourceConnectionController,

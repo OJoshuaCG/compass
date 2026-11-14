@@ -117,6 +117,9 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   // fuente: nunca el asunto, el remitente, el cuerpo ni el UID. El motivo solo acompaña a la vista del cuerpo.
   'inbound.mail_deleted': ['sourceId'],
   'inbound.mail_body_viewed': ['sourceId', 'reason'],
+  // Pedir la vista previa y ver el asunto (el cuerpo se audita con `mail_body_viewed`). Nunca el contenido.
+  'inbound.mail_preview_requested': ['sourceId', 'kind'],
+  'inbound.mail_subject_viewed': ['sourceId'],
   // Integraciones configurables (ADR 0047). Solo el tipo, nombres de campo y conteos: nunca tokens, llaves,
   // identificadores de chat ni el contenido de la configuración. `changedFields` son nombres de campo.
   'integration.created': ['kind'],
