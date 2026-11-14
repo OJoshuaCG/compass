@@ -25,7 +25,9 @@ Ruta protegida (acceso, auditoría, migración con aislamiento, revelación): en
 | D1 | Migración 0037: columnas de UID en `inbound_receipts`, permiso nuevo en `permission_rank_ceiling()` | inline | Hecho, `98d68cc` (pruebas de la migración y techos en verde) |
 | D2 | Registrar el UID al procesar cada mensaje (recorder y sondeo) | inline | Hecho, `98d68cc` |
 | D3 | Puerto y adaptador IMAP de borrado (bloqueo de escritura) | inline | Hecho (commit al cerrar); 98/98 pruebas del adaptador y el sondeo |
-| D4 | Caso de uso `DeleteInboundMail`, permiso, reautenticación, auditoría y negaciones | inline | Pendiente |
+| D4a | Migración 0038: tabla de peticiones de borrado (organización, índice, aislamiento, permisos de columna del worker) | inline | Hecho (commit al cerrar); 29/29 pruebas de BD (nueva + RLS) |
+| D4b | API: caso de uso `RequestInboundMailDelete` (permiso, rango o creador, reautenticación, auditoría y negaciones) | inline | Pendiente |
+| D4c | Worker: ejecuta las peticiones pendientes (UIDVALIDITY, `deleteMessage`, resultado) | inline | Pendiente |
 | D5 | Controlador, contratos, textos de error | inline | Pendiente |
 | D6 | Vista previa del correo (asunto, y cuerpo bajo `reveal_reset`) | inline | Pendiente |
 | D7 | Web: acción de borrar y diálogo | `frontend-developer` | Pendiente |
@@ -36,3 +38,4 @@ Ruta protegida (acceso, auditoría, migración con aislamiento, revelación): en
 
 - L1 (2026-11-14): decisión del dueño, texto en S5 a S7.
 - L2 (2026-11-14): D3 exige UIDPLUS en el servidor. Sin él, `EXPUNGE` borraría todos los mensajes marcados `\\Deleted` del buzón, no solo el pedido; el adaptador falla cerrado (`MailboxDeleteUnsupportedError`) antes de marcar nada. Consecuencia para operación: la cuenta IMAP debe estar en un servidor con UIDPLUS (verificar en el servidor real).
+- L3 (2026-11-14): decisión del dueño: «Opcion A, la verdad, si no hay worker aun, podemos ir por la opcion A. Pero si ya hay worker, vamos con la opcion B». El worker existe (`main.inbound-poll.ts`, rol `iam_inbound_worker`), así que va la B: la API solo registra la petición y el worker la ejecuta; la API nunca descifra la contraseña del buzón. Suposición mía: «ya hay worker» = existe en el código, no que esté desplegado.

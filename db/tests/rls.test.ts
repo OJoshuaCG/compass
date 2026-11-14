@@ -48,6 +48,11 @@ const PHASE1_TENANT_TABLES = [
   'audit_anchors',
   // SENSIBLE (revisión humana): canales de alerta de la Raíz (migración 0034).
   'alert_settings',
+  // SENSIBLE (revisión humana): traspaso de la Raíz (0035) y vistas guardadas de «Mis cuentas» (0036); faltaban aquí.
+  'root_transfers',
+  'saved_account_views',
+  // SENSIBLE (revisión humana): peticiones de borrado de correo del buzón real (migración 0038).
+  'mail_delete_requests',
 ];
 
 let adminUrl = '';
