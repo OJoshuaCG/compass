@@ -30,6 +30,7 @@
   "INBOUND.VIEW_NAME_TAKEN": "A view with that name already exists on this source.",
   "INBOUND.TEMPLATE_INVALID": "Some template does not exist or is archived.",
   "INBOUND.ACCOUNT_INVALID": "The account does not exist, is archived, or you do not have access to use it.",
+  "INBOUND.MAIL_NOT_DELETABLE": "This message cannot be deleted from Compass: its position in the mailbox was not recorded.",
   "INBOUND.RECIPIENT_NOT_ALLOWED": "An accepted recipient is not allowed: it cannot be the email of a platform user.",
   "INTEGRATIONS.CHANNEL_ALREADY_ACTIVE": "There is already an active channel of this type. Archive it before creating another.",
   "INTEGRATIONS.ARCHIVED": "The integration is archived and can no longer be changed.",

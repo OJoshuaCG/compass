@@ -26,7 +26,7 @@ Ruta protegida (acceso, auditoría, migración con aislamiento, revelación): en
 | D2 | Registrar el UID al procesar cada mensaje (recorder y sondeo) | inline | Hecho, `98d68cc` |
 | D3 | Puerto y adaptador IMAP de borrado (bloqueo de escritura) | inline | Hecho (commit al cerrar); 98/98 pruebas del adaptador y el sondeo |
 | D4a | Migración 0038: tabla de peticiones de borrado (organización, índice, aislamiento, permisos de columna del worker) | inline | Hecho (commit al cerrar); 29/29 pruebas de BD (nueva + RLS) |
-| D4b | API: caso de uso `RequestInboundMailDelete` (permiso, rango o creador, reautenticación, auditoría y negaciones) | inline | Pendiente |
+| D4b | API: caso de uso `RequestInboundMailDelete` (permiso, rango o creador, reautenticación, auditoría y negaciones) | inline | Hecho (commit al cerrar); 11 pruebas unitarias en verde, typecheck/lint/format limpios. Falta prueba de integración del adaptador Pg (en D8) |
 | D4c | Worker: ejecuta las peticiones pendientes (UIDVALIDITY, `deleteMessage`, resultado) | inline | Pendiente |
 | D5 | Controlador, contratos, textos de error | inline | Pendiente |
 | D6 | Vista previa del correo (asunto, y cuerpo bajo `reveal_reset`) | inline | Pendiente |
@@ -39,3 +39,4 @@ Ruta protegida (acceso, auditoría, migración con aislamiento, revelación): en
 - L1 (2026-11-14): decisión del dueño, texto en S5 a S7.
 - L2 (2026-11-14): D3 exige UIDPLUS en el servidor. Sin él, `EXPUNGE` borraría todos los mensajes marcados `\\Deleted` del buzón, no solo el pedido; el adaptador falla cerrado (`MailboxDeleteUnsupportedError`) antes de marcar nada. Consecuencia para operación: la cuenta IMAP debe estar en un servidor con UIDPLUS (verificar en el servidor real).
 - L3 (2026-11-14): decisión del dueño: «Opcion A, la verdad, si no hay worker aun, podemos ir por la opcion A. Pero si ya hay worker, vamos con la opcion B». El worker existe (`main.inbound-poll.ts`, rol `iam_inbound_worker`), así que va la B: la API solo registra la petición y el worker la ejecuta; la API nunca descifra la contraseña del buzón. Suposición mía: «ya hay worker» = existe en el código, no que esté desplegado.
+- L4 (2026-11-14): D4b. Quien no es Administrador ni creador de la fuente recibe `NOT_FOUND` (no se revela si el recibo existe) y la negación se audita con la fuente. Un recibo sin posición responde `INBOUND.MAIL_NOT_DELETABLE` (código nuevo, 422) sin auditar (no hay cambio de estado). Una petición ya pendiente responde igual sin auditar de nuevo. El SQL `on conflict … where status = 'pending'` del adaptador aún no se ejercita contra una base real: pendiente en D8.
