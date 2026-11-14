@@ -228,5 +228,6 @@
   "mailPreview.result.CONNECTION_MISSING": "La fuente no tiene una conexión configurada al buzón. Pide que la revisen e intenta de nuevo.",
   "mailPreview.result.TOO_LARGE": "El contenido es demasiado grande para mostrarse en Compass.",
   "mailPreview.result.EMPTY": "El mensaje no tiene contenido que mostrar.",
+  "mailPreview.result.UNREADABLE": "No se pudo leer el mensaje: su formato está dañado o no es válido.",
   "mailPreview.result.UNEXPECTED": "Ocurrió un error interno. Intenta de nuevo; si se repite, avisa a Operaciones."
 }

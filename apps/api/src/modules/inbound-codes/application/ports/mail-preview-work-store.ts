@@ -18,6 +18,7 @@ export const MAIL_PREVIEW_RESULT_CODES = [
   'CONNECTION_MISSING',
   'TOO_LARGE',
   'EMPTY',
+  'UNREADABLE',
   'UNEXPECTED',
 ] as const;
 export type MailPreviewResultCode = (typeof MAIL_PREVIEW_RESULT_CODES)[number];
@@ -41,7 +42,8 @@ export interface MailPreviewWorkStore {
 
   /**
    * Cifra `content` y lo deja en la petición como `READY`; reinicia su vencimiento a `expiresAt`. Solo actúa sobre
-   * una fila todavía pendiente. Pone a cero la copia en claro que el adaptador haya creado.
+   * una fila todavía pendiente y no vencida. Pone a cero la copia en claro que el adaptador haya creado.
+   * Devuelve `false` si no guardó nada (otra pasada ya la cerró o la fila venció): nunca revive una fila.
    */
   complete(
     source: SourceRef,
@@ -49,7 +51,7 @@ export interface MailPreviewWorkStore {
     content: string,
     expiresAt: Date,
     now: Date,
-  ): Promise<void>;
+  ): Promise<boolean>;
 
   /** Cierra la petición como fallida con un código acotado. Solo actúa sobre una fila todavía pendiente. */
   fail(

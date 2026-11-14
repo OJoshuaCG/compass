@@ -129,35 +129,52 @@ try {
 
   // Borrados pedidos por personas (ya autorizados y auditados por la API). Van después del sondeo y no
   // comparten su presupuesto: son pocos y cada uno es una orden puntual al buzón.
-  const mailDeleteWork = new PgMailDeleteWorkStore(pool, scope, uow, ids);
-  const deletions = await new RunMailDeleteRequests({
-    work: mailDeleteWork,
-    executor: new ExecuteMailDeleteRequests({ work: mailDeleteWork, connections, mailbox, clock }),
-    clock,
-  }).execute();
-  process.stdout.write(
-    `Borrados de correo: fuentes ${String(deletions.sources)}; borrados ${String(deletions.deleted)}; no borrados ${String(deletions.failed)}\n`,
-  );
-  if (deletions.unexpected > 0) process.exitCode = 1;
+  try {
+    const mailDeleteWork = new PgMailDeleteWorkStore(pool, scope, uow, ids);
+    const deletions = await new RunMailDeleteRequests({
+      work: mailDeleteWork,
+      executor: new ExecuteMailDeleteRequests({
+        work: mailDeleteWork,
+        connections,
+        mailbox,
+        clock,
+      }),
+      clock,
+    }).execute();
+    process.stdout.write(
+      `Borrados de correo: fuentes ${String(deletions.sources)}; borrados ${String(deletions.deleted)}; no borrados ${String(deletions.failed)}\n`,
+    );
+    if (deletions.unexpected > 0) process.exitCode = 1;
+  } catch {
+    // Un fallo de este paso no debe saltarse los demás: se hace visible por el código de salida.
+    process.stderr.write('Los borrados de correo fallaron antes de terminar la pasada\n');
+    process.exitCode = 1;
+  }
 
   // Vistas previas pedidas por personas (ya autorizadas y auditadas por la API): purgan lo vencido y traen el
   // asunto o cuerpo pedido, cifrado y de vida corta. Solo leen el buzón.
-  const mailPreviewWork = new PgMailPreviewWorkStore(pool, scope, uow, cipher, ids);
-  const previews = await new RunMailPreviewRequests({
-    work: mailPreviewWork,
-    executor: new ExecuteMailPreviewRequests({
+  try {
+    const mailPreviewWork = new PgMailPreviewWorkStore(pool, scope, uow, cipher, ids);
+    const previews = await new RunMailPreviewRequests({
       work: mailPreviewWork,
-      connections,
-      mailbox,
-      mime: new ChildProcessMimeParser(),
+      executor: new ExecuteMailPreviewRequests({
+        work: mailPreviewWork,
+        connections,
+        mailbox,
+        mime: new ChildProcessMimeParser(),
+        clock,
+      }),
       clock,
-    }),
-    clock,
-  }).execute();
-  process.stdout.write(
-    `Vistas previas de correo: fuentes ${String(previews.sources)}; listas ${String(previews.ready)}; fallidas ${String(previews.failed)}; purgadas ${String(previews.purged)}\n`,
-  );
-  if (previews.unexpected > 0) process.exitCode = 1;
+    }).execute();
+    process.stdout.write(
+      `Vistas previas de correo: fuentes ${String(previews.sources)}; listas ${String(previews.ready)}; fallidas ${String(previews.failed)}; purgadas ${String(previews.purged)}\n`,
+    );
+    if (previews.unexpected > 0) process.exitCode = 1;
+  } catch {
+    // Un fallo de este paso no debe saltarse los demás: se hace visible por el código de salida.
+    process.stderr.write('Las vistas previas de correo fallaron antes de terminar la pasada\n');
+    process.exitCode = 1;
+  }
 
   // Un defecto o el KMS caído afectan a todas las fuentes: se hacen visibles por el código de salida.
   if (summary.unexpected > 0) process.exitCode = 1;

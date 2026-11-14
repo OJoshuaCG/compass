@@ -67,7 +67,8 @@ Cada petición queda cerrada con un código acotado; nunca se guarda texto del s
 | `CONNECTION` | Fallo de conexión, de autenticación, del KMS o de la contraseña al abrir el buzón | No se reintenta solo: la persona puede volver a pedirlo. Revisa la fuente como en «Si algo falla» |
 | `CONNECTION_MISSING` | La fuente no tiene conexión o contraseña guardada | Configura la conexión de la fuente y pide la vista previa de nuevo |
 | `TOO_LARGE` | El mensaje no cabe en el tope de descarga, o el asunto o cuerpo supera el tope de caracteres o de 200 KiB | No se trunca (cortaría un código a la mitad). Léelo en el buzón |
-| `EMPTY` | El asunto o el cuerpo quedó vacío, o el mensaje no se pudo analizar | Nada que mostrar |
+| `EMPTY` | El asunto o el cuerpo quedó vacío | Nada que mostrar |
+| `UNREADABLE` | El mensaje está dañado o su formato no se pudo analizar | Léelo en el buzón; no es un fallo del sistema |
 | `UNEXPECTED` | Defecto de la aplicación | La pasada sale con código `1`; lo demás de esa fuente queda pendiente |
 
 Un fallo del KMS o de la llave al **cifrar** el contenido no cierra la petición: la excepción sube, la pasada lo cuenta como defecto (salida `1`) y la petición sigue pendiente hasta que venza.
@@ -126,7 +127,7 @@ Código de salida:
 | Salida `1` con `UNEXPECTED`                          | Defecto de la aplicación: conserva el registro y abre un incidente. No reintentes a ciegas.                  |
 | Peticiones de borrado cerradas con `UNSUPPORTED`     | El servidor no ofrece `UIDPLUS`. Ver «Borrado de correo a petición».                                         |
 | Una vista previa se queda «pendiente» y luego desaparece | El worker no la atendió en 15 minutos (vence y se purga). Revisa en orden: (1) que el cron corra (hay salida de la pasada en los últimos 5 minutos); (2) que la fuente esté **activa** y con conexión y contraseña (una fuente suspendida no se atiende); (3) que la pasada no termine antes de llegar a esta etapa (las vistas previas van después del sondeo y de los borrados) y que no salga con `1` por un defecto o por el KMS; (4) la línea `Vistas previas de correo`: `fuentes 0` con una petición viva apunta a la fuente o al cron. La persona puede volver a pedirla |
-| Una vista previa se cierra `failed` con `POSITION_CHANGED`, `NOT_FOUND`, `TOO_LARGE` o `EMPTY` | Ver la tabla de «Vista previa de correo a petición»: no es un fallo del sistema |
+| Una vista previa se cierra `failed` con `POSITION_CHANGED`, `NOT_FOUND`, `TOO_LARGE`, `EMPTY` o `UNREADABLE` | Ver la tabla de «Vista previa de correo a petición»: no es un fallo del sistema |
 
 ## Riesgo residual (declarado)
 

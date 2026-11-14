@@ -110,8 +110,15 @@ export class ExecuteMailPreviewRequests {
       if (outcome.ok) {
         // La vida de 15 minutos cuenta desde que el contenido existe, no desde que se pidió.
         const expiresAt = new Date(now.getTime() + MAIL_PREVIEW_TTL_MS);
-        await this.deps.work.complete(source, request.requestId, outcome.content, expiresAt, now);
-        summary = { ...summary, ready: summary.ready + 1 };
+        const stored = await this.deps.work.complete(
+          source,
+          request.requestId,
+          outcome.content,
+          expiresAt,
+          now,
+        );
+        // Si la fila ya se cerró o venció mientras se descargaba, no se revive ni se cuenta como lista.
+        if (stored) summary = { ...summary, ready: summary.ready + 1 };
         continue;
       }
       await this.deps.work.fail(source, request.requestId, outcome.code, now);
@@ -174,7 +181,7 @@ export class ExecuteMailPreviewRequests {
 
 function failureCodeOf(error: unknown): MailPreviewFailureCode {
   if (error instanceof MessageFetchError) return 'NOT_FOUND';
-  if (error instanceof MimeParseError) return 'EMPTY';
+  if (error instanceof MimeParseError) return 'UNREADABLE';
   if (error instanceof MailboxConnectionError) return 'CONNECTION';
   return 'UNEXPECTED';
 }

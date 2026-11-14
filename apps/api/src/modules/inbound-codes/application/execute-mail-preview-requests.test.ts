@@ -70,6 +70,8 @@ interface HarnessOptions {
   readonly sessionUidValidity?: number;
   readonly raw?: RawMessage | Error;
   readonly parsed?: ParsedMail | Error;
+  /** Lo que responde `complete`: `false` simula una fila ya cerrada o vencida. */
+  readonly completeStored?: boolean;
 }
 
 function buildHarness(options: HarnessOptions = {}) {
@@ -78,7 +80,7 @@ function buildHarness(options: HarnessOptions = {}) {
   const listPending = vi.fn(() => Promise.resolve(options.pending ?? []));
   const complete = vi.fn((_source: unknown, id: string, content: string, expiresAt: Date) => {
     completed.push({ id, content, expiresAt });
-    return Promise.resolve();
+    return Promise.resolve(options.completeStored ?? true);
   });
   const fail = vi.fn((_source: unknown, id: string, code: MailPreviewFailureCode) => {
     failed.push({ id, code });
@@ -160,6 +162,18 @@ describe('ExecuteMailPreviewRequests', () => {
     expect(summary).toEqual({ ready: 1, failed: 0, unexpected: 0 });
   });
 
+  it('si la fila ya se cerró o venció mientras se descargaba, no cuenta la vista previa como lista', async () => {
+    const { useCase } = buildHarness({
+      pending: [pendingRequest('r1', 10, 'subject')],
+      parsed: parsedMail({ subject: 'Tu código' }),
+      completeStored: false,
+    });
+
+    const summary = await useCase.execute(SOURCE);
+
+    expect(summary).toEqual({ ready: 0, failed: 0, unexpected: 0 });
+  });
+
   it('entrega el cuerpo en texto plano conservando los saltos de línea', async () => {
     const { useCase, completed } = buildHarness({
       pending: [pendingRequest('r1', 10, 'body')],
@@ -230,7 +244,7 @@ describe('ExecuteMailPreviewRequests', () => {
 
   it.each([
     ['un UID que el servidor no entrega', new MessageFetchError(), 'NOT_FOUND'],
-    ['un mensaje que no se puede analizar', new MimeParseError(), 'EMPTY'],
+    ['un mensaje que no se puede analizar', new MimeParseError(), 'UNREADABLE'],
     ['un fallo de conexión al descargar', new MailboxConnectionError('TIMEOUT'), 'CONNECTION'],
   ] as const)('%s cierra como %s y sigue con el siguiente', async (_label, error, expected) => {
     const { useCase, failed, completed } = buildHarness({

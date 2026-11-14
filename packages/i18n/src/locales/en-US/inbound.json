@@ -228,5 +228,6 @@
   "mailPreview.result.CONNECTION_MISSING": "The source has no mailbox connection configured. Ask for it to be reviewed and try again.",
   "mailPreview.result.TOO_LARGE": "The content is too large to be shown in Compass.",
   "mailPreview.result.EMPTY": "The message has no content to show.",
+  "mailPreview.result.UNREADABLE": "The message could not be read: its format is damaged or invalid.",
   "mailPreview.result.UNEXPECTED": "An internal error occurred. Try again; if it repeats, tell Operations."
 }

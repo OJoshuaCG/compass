@@ -90,7 +90,7 @@ export class PgMailPreviewWorkStore implements MailPreviewWorkStore {
     content: string,
     expiresAt: Date,
     now: Date,
-  ): Promise<void> {
+  ): Promise<boolean> {
     return this.inSource(source, async () => {
       const plaintext = new TextEncoder().encode(content);
       try {
@@ -101,13 +101,14 @@ export class PgMailPreviewWorkStore implements MailPreviewWorkStore {
         // Un fallo del KMS o de la llave no es un mensaje malo: se propaga y la petición sigue pendiente.
         if (!sealed.ok) throw sealed.error;
 
-        await this.transactions.current().query(
+        const updated = await this.transactions.current().query(
           `update mail_preview_requests
               set status = 'ready', result_code = 'READY', completed_at = $3,
                   ciphertext = $4, nonce = $5, dek_version = $6, expires_at = $7
             where organization_id = $1
               and id = $2
-              and status = 'pending'`,
+              and status = 'pending'
+              and expires_at > $3`,
           [
             source.organizationId,
             requestId,
@@ -118,6 +119,8 @@ export class PgMailPreviewWorkStore implements MailPreviewWorkStore {
             expiresAt,
           ],
         );
+        // Una petición que venció mientras se descargaba el mensaje no se revive: la purga la borrará.
+        return (updated.rowCount ?? 0) > 0;
       } finally {
         plaintext.fill(0);
       }
