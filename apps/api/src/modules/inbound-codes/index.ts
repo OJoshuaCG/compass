@@ -102,6 +102,10 @@ export type {
 } from './application/poll-inbound-sources.js';
 export type { PollableSourceLister } from './application/ports/pollable-source-lister.js';
 export { PgPollableSourceLister } from './infrastructure/pg-pollable-source-lister.js';
+export { ExecuteMailDeleteRequests } from './application/execute-mail-delete-requests.js';
+export { RunMailDeleteRequests } from './application/run-mail-delete-requests.js';
+export type { RunMailDeleteRequestsSummary } from './application/run-mail-delete-requests.js';
+export { PgMailDeleteWorkStore } from './infrastructure/pg-mail-delete-work-store.js';
 export { LogPollObserver } from './infrastructure/log-poll-observer.js';
 export { AuthenticationResultsVerifier } from './infrastructure/authentication-results-verifier.js';
 export { ImapFlowMailboxConnector } from './infrastructure/imapflow-mailbox-connector.js';
