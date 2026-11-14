@@ -35,21 +35,28 @@ export interface ReadyMailPreview {
  */
 export interface MailPreviewRequestStore {
   /**
-   * Crea la petición. `already_pending` si ya hay una viva (pendiente o lista) para ese recibo y clase. Antes
-   * limpia las filas vencidas del mismo recibo y clase, para que una fila muerta no bloquee volver a pedir.
+   * Crea la petición. `already_pending` si esa misma persona ya tiene una viva (pendiente o lista) para ese
+   * recibo y clase; la de otra persona no cuenta. Antes limpia las filas vencidas de esa persona para el mismo
+   * recibo y clase, para que una fila muerta no bloquee volver a pedir.
    */
   insertPending(request: NewMailPreviewRequest, now: Date): Promise<'created' | 'already_pending'>;
 
-  /** La petición vigente más reciente del recibo y clase, o `null` si no hay ninguna que no haya vencido. */
+  /** La petición vigente más reciente de esa persona para el recibo y clase, o `null` si no hay ninguna. */
   findLatest(
     receiptId: string,
     kind: MailPreviewKind,
+    requestedBy: UserId,
     now: Date,
   ): Promise<MailPreviewRequestStatus | null>;
 
   /**
-   * Toma el contenido listo y no vencido y borra su fila en el mismo paso: el contenido se entrega una sola vez.
-   * `null` si no hay nada listo.
+   * Toma el contenido listo y no vencido que pidió esa persona y borra su fila en el mismo paso: el contenido se
+   * entrega una sola vez y nunca a otra persona. `null` si no hay nada listo.
    */
-  takeReady(receiptId: string, kind: MailPreviewKind, now: Date): Promise<ReadyMailPreview | null>;
+  takeReady(
+    receiptId: string,
+    kind: MailPreviewKind,
+    requestedBy: UserId,
+    now: Date,
+  ): Promise<ReadyMailPreview | null>;
 }

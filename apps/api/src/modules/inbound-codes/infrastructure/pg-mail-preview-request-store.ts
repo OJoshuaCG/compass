@@ -2,9 +2,12 @@
  * Invariantes de seguridad
  * - Corre en la transacción del llamador, con la organización fijada por RLS; la organización del INSERT sale
  *   de `app.org_id`, nunca de un parámetro.
+ * - Cada petición es de quien la pidió: consultar y entregar siempre filtran por `requested_by`, así una persona
+ *   nunca consume ni ve el estado de lo que pidió otra.
  * - Esta clase no descifra: entrega el texto cifrado al caso de uso, que lo abre con el módulo de criptografía.
  * - Nada de lo que se consulta aquí se registra: ni el texto cifrado ni el estado se escriben en logs.
  */
+import type { UserId } from '../../../shared/kernel/index.js';
 import type { TransactionProvider } from '../../organization/index.js';
 import type { MailPreviewKind } from '../domain/mail-preview.js';
 import type {
@@ -38,15 +41,15 @@ export class PgMailPreviewRequestStore implements MailPreviewRequestStore {
     // Una fila viva pero vencida (el worker aún no la purgó) no debe bloquear una petición nueva.
     await executor.query(
       `delete from mail_preview_requests
-        where receipt_id = $1 and kind = $2 and expires_at <= $3`,
-      [request.receiptId, request.kind, now],
+        where receipt_id = $1 and kind = $2 and requested_by = $4 and expires_at <= $3`,
+      [request.receiptId, request.kind, now, request.requestedBy],
     );
     const result = await executor.query(
       `insert into mail_preview_requests
          (organization_id, source_id, receipt_id, mailbox_uid_validity, mailbox_uid, kind,
           requested_by, requested_at, expires_at)
        values (nullif(current_setting('app.org_id', true), '')::uuid, $1, $2, $3, $4, $5, $6, $7, $8)
-       on conflict (organization_id, receipt_id, kind) where status <> 'failed' do nothing
+       on conflict (organization_id, receipt_id, kind, requested_by) where status <> 'failed' do nothing
        returning id`,
       [
         request.sourceId,
@@ -65,15 +68,16 @@ export class PgMailPreviewRequestStore implements MailPreviewRequestStore {
   async findLatest(
     receiptId: string,
     kind: MailPreviewKind,
+    requestedBy: UserId,
     now: Date,
   ): Promise<MailPreviewRequestStatus | null> {
     const result = await this.transactions.current().query<StatusRow>(
       `select status, result_code, requested_at
          from mail_preview_requests
-        where receipt_id = $1 and kind = $2 and expires_at > $3
+        where receipt_id = $1 and kind = $2 and requested_by = $4 and expires_at > $3
         order by requested_at desc, id desc
         limit 1`,
-      [receiptId, kind, now],
+      [receiptId, kind, now, requestedBy],
     );
     const row = result.rows[0];
     if (row === undefined) return null;
@@ -83,6 +87,7 @@ export class PgMailPreviewRequestStore implements MailPreviewRequestStore {
   async takeReady(
     receiptId: string,
     kind: MailPreviewKind,
+    requestedBy: UserId,
     now: Date,
   ): Promise<ReadyMailPreview | null> {
     // Leer y borrar en una sola sentencia: dos lecturas simultáneas no entregan el mismo contenido dos veces
@@ -92,13 +97,14 @@ export class PgMailPreviewRequestStore implements MailPreviewRequestStore {
       `delete from mail_preview_requests
         where id = (
           select id from mail_preview_requests
-           where receipt_id = $1 and kind = $2 and status = 'ready' and expires_at > $3
+           where receipt_id = $1 and kind = $2 and requested_by = $4
+             and status = 'ready' and expires_at > $3
            order by requested_at desc, id desc
            limit 1
         )
           and status = 'ready'
        returning id, ciphertext, nonce, dek_version`,
-      [receiptId, kind, now],
+      [receiptId, kind, now, requestedBy],
     );
     const row = result.rows[0];
     if (row === undefined) return null;

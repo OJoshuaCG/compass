@@ -46,13 +46,14 @@ async function insertRequest(
   receiptId: string,
   kind: 'subject' | 'body' = 'subject',
   client: Client = app,
+  requestedBy: string = tenant.rootId,
 ): Promise<string> {
   return sqlState(
     client,
     `insert into mail_preview_requests
        (organization_id, source_id, receipt_id, mailbox_uid_validity, mailbox_uid, kind, requested_by, expires_at)
      values ($1, $2, $3, $4, $5, $6, $7, ${FIFTEEN_MINUTES_SQL})`,
-    [tenant.orgId, sourceId, receiptId, UID_VALIDITY, UID, kind, tenant.rootId],
+    [tenant.orgId, sourceId, receiptId, UID_VALIDITY, UID, kind, requestedBy],
     tenant.orgId,
   );
 }
@@ -147,6 +148,17 @@ describe('mail_preview_requests: structure', () => {
       [receiptId],
     );
     expect(await insertRequest(a, sourceAId, receiptId)).toBe(NO_FAILURE);
+  });
+
+  it('gives each person their own live request for the same receipt and kind', async () => {
+    const receiptId = await newId();
+    expect(await insertRequest(a, sourceAId, receiptId, 'subject', app, a.rootId)).toBe(NO_FAILURE);
+    expect(await insertRequest(a, sourceAId, receiptId, 'subject', app, a.adminId)).toBe(
+      NO_FAILURE,
+    );
+    expect(await insertRequest(a, sourceAId, receiptId, 'subject', app, a.adminId)).toBe(
+      UNIQUE_VIOLATION,
+    );
   });
 
   it('keeps content and state consistent: ready needs ciphertext, pending and failed carry none', async () => {

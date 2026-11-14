@@ -99,7 +99,16 @@ function buildHarness(options: HarnessOptions = {}) {
     audit: { record: auditRecord },
     clock: { now: () => NOW },
   });
-  return { useCase, require, auditDenial, auditRecord, insertPending, takeReady, decrypt };
+  return {
+    useCase,
+    require,
+    auditDenial,
+    auditRecord,
+    insertPending,
+    findLatest,
+    takeReady,
+    decrypt,
+  };
 }
 
 describe('PreviewInboundMail.request', () => {
@@ -262,6 +271,16 @@ describe('PreviewInboundMail.read', () => {
         metadata: { sourceId: SOURCE_ID, reason: VALID_REASON },
       }),
     );
+  });
+
+  it('el estado y la entrega consultan solo lo que pidió quien llama, nunca lo de otra persona', async () => {
+    const { useCase, findLatest, takeReady } = buildHarness();
+
+    await useCase.status(RECEIPT_ID, 'subject');
+    await useCase.read(RECEIPT_ID, 'subject', undefined);
+
+    expect(findLatest).toHaveBeenCalledWith(RECEIPT_ID, 'subject', ACTOR_ID, NOW);
+    expect(takeReady).toHaveBeenCalledWith(RECEIPT_ID, 'subject', ACTOR_ID, NOW);
   });
 
   it('el cuerpo sin motivo válido no toma ni descifra nada', async () => {

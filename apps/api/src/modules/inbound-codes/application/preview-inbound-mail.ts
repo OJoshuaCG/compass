@@ -132,7 +132,7 @@ export class PreviewInboundMail {
       // El estado no revela nada del mensaje: basta el permiso y la propiedad, sin pedir el motivo del cuerpo.
       const allowed = await this.authorize(receiptId, kind, undefined, { requireReason: false });
       if (!allowed.ok) return allowed;
-      return ok(await previews.findLatest(receiptId, kind, clock.now()));
+      return ok(await previews.findLatest(receiptId, kind, allowed.value.actorId, clock.now()));
     });
   }
 
@@ -149,7 +149,7 @@ export class PreviewInboundMail {
       const { actorId, target } = allowed.value;
 
       // Leer y borrar es un solo paso: aunque el descifrado falle, el contenido no queda disponible.
-      const ready = await previews.takeReady(receiptId, kind, clock.now());
+      const ready = await previews.takeReady(receiptId, kind, actorId, clock.now());
       if (ready === null) return err(new DomainError('NOT_FOUND', 'Mail preview not found'));
 
       const current = context.current();

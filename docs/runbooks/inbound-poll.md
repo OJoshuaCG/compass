@@ -21,7 +21,7 @@ Un fallo de una fuente (buzón caído, contraseña mala) no detiene a las demás
 
 Al terminar el sondeo, el mismo proceso ejecuta los borrados que una persona pidió desde la plataforma. La API solo registra la petición (ya autorizada, con reautenticación y auditada); el worker la ejecuta porque es el único que descifra la contraseña del buzón. El sondeo sigue en solo lectura: el borrado abre una sesión de escritura aparte.
 
-1. Lista las fuentes de correo activas con peticiones pendientes (una sola petición pendiente por recibo).
+1. Lista las fuentes de correo activas con peticiones pendientes (una sola petición pendiente por recibo; la vista previa, una por recibo, clase y persona).
 2. Por fuente, abre el buzón con escritura y borra por UID, un mensaje por vez, hasta 20 por fuente y pasada. Lo que no alcanza queda para la pasada siguiente.
 3. Antes de borrar compara el `UIDVALIDITY` guardado con el del buzón. Si cambió, no borra nada (`POSITION_CHANGED`).
 4. Cada petición queda cerrada con un código acotado; nunca se guarda texto del servidor.
@@ -76,7 +76,7 @@ Un fallo del KMS o de la llave al **cifrar** el contenido no cierra la petición
 ## Precondiciones
 
 - API compilada: `pnpm --filter @iam/api build` (genera `dist/main.inbound-poll.js`).
-- Migraciones al día (0029 en adelante; 0037 a 0039 para el borrado de correo y 0040 para la vista previa) y el rol `iam_inbound_worker` con inicio de sesión habilitado y contraseña propia (la custodia Ops).
+- Migraciones al día (0029 en adelante; 0037 a 0039 para el borrado de correo y 0040 y 0041 para la vista previa) y el rol `iam_inbound_worker` con inicio de sesión habilitado y contraseña propia (la custodia Ops).
 - Variables del proceso (archivo de entorno **propio**, distinto del de la API). `NODE_ENV` es obligatoria y sin valor por defecto: sin ella el proceso no arranca.
 
 | Variable                                | Para qué                                                                                                    |
