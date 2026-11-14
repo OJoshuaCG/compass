@@ -6,7 +6,8 @@
  *   (el worker no tiene DELETE sobre `inbound_items`, así que revertir es la única forma de limpiarlo).
  * - El valor se cifra con el módulo de criptografía dentro de la transacción; nunca se guarda ni se
  *   registra en claro. El id del elemento se genera antes porque forma parte del contexto de cifrado.
- * - El recibo no lleva asunto, remitente ni valores: solo huella, resultado, motivo y dominio firmante.
+ * - El recibo no lleva asunto, remitente ni valores: solo huella, resultado, motivo, dominio firmante y la
+ *   posición del mensaje en el buzón (UIDVALIDITY y UID), que sirve para borrarlo a petición.
  */
 import type { IdGenerator } from '../../../shared/kernel/index.js';
 import { err, ok } from '../../../shared/kernel/index.js';
@@ -81,8 +82,8 @@ export class PgInboundRecorder implements InboundRecorder {
         const receipt = await this.transactions.current().query(
           `insert into inbound_receipts
              (organization_id, source_id, message_fingerprint, outcome, signing_domain,
-              template_kind, template_id, item_id, received_at)
-           values ($1, $2, $3, 'accepted', $4, $5, $6, $7, $8)
+              template_kind, template_id, item_id, received_at, mailbox_uid_validity, mailbox_uid)
+           values ($1, $2, $3, 'accepted', $4, $5, $6, $7, $8, $9, $10)
            on conflict (organization_id, source_id, message_fingerprint) do nothing
            returning id`,
           [
@@ -94,6 +95,8 @@ export class PgInboundRecorder implements InboundRecorder {
             record.templateId,
             itemId,
             record.receivedAt,
+            record.mailboxPosition.uidValidity,
+            record.mailboxPosition.uid,
           ],
         );
         return receipt.rowCount === 1 ? ok('recorded' as const) : err('duplicate' as const);
@@ -106,8 +109,9 @@ export class PgInboundRecorder implements InboundRecorder {
     return this.inSource(source, async () => {
       const receipt = await this.transactions.current().query(
         `insert into inbound_receipts
-           (organization_id, source_id, message_fingerprint, outcome, reason, received_at)
-         values ($1, $2, $3, 'quarantined', $4, $5)
+           (organization_id, source_id, message_fingerprint, outcome, reason, received_at,
+            mailbox_uid_validity, mailbox_uid)
+         values ($1, $2, $3, 'quarantined', $4, $5, $6, $7)
          on conflict (organization_id, source_id, message_fingerprint) do nothing
          returning id`,
         [
@@ -116,6 +120,8 @@ export class PgInboundRecorder implements InboundRecorder {
           record.fingerprint,
           record.reason,
           record.receivedAt,
+          record.mailboxPosition.uidValidity,
+          record.mailboxPosition.uid,
         ],
       );
       return receipt.rowCount === 1 ? 'recorded' : 'duplicate';

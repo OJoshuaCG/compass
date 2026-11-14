@@ -7,10 +7,10 @@ import { PERMISSION_CEILING } from './permission-catalog.js';
 
 // Migración que tiene la ÚLTIMA definición de permission_rank_ceiling: 0015 la creó, 0021 la
 // redefinió al agregar credential.restore_version, 0023 al agregar los permisos de códigos entrantes, 0026 al agregar
-// user.invite_link y 0031 al agregar los permisos de alertas. Si otra migración la vuelve a redefinir, hay
+// user.invite_link, 0031 al agregar los permisos de alertas y 0037 al agregar inbound.delete_mail. Si otra migración la vuelve a redefinir, hay
 // que apuntar aquí a esa, o la prueba compararía contra una definición vieja.
 const MIGRATION_URL = new URL(
-  '../../../../../../db/migrations/0031_alerts_permissions.sql',
+  '../../../../../../db/migrations/0037_inbound_mail_delete.sql',
   import.meta.url,
 );
 

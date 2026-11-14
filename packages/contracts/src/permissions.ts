@@ -36,6 +36,7 @@ export const PERMISSIONS = [
   'inbound.read_codes',
   'inbound.configure',
   'inbound.reveal_reset',
+  'inbound.delete_mail',
   'alerts.infra.manage',
   'alerts.security.manage',
 ] as const;

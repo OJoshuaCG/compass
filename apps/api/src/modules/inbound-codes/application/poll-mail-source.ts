@@ -14,6 +14,7 @@ import {
 import type { InboundTemplate } from '../domain/inbound-template.js';
 import type {
   InboundRecorder,
+  MailboxPosition,
   MessageFingerprinter,
   SourceTemplateStore,
 } from './ports/inbound-recorder.js';
@@ -256,10 +257,12 @@ export class PollMailSource {
       message.uid,
     );
     const receivedAt = message.internalDate;
+    const position = { uidValidity: session.uidValidity, uid: message.uid };
 
     // `!(x <= tope)` también rechaza un tamaño anunciado no numérico.
     if (!(message.sizeBytes <= POLL_MAX_MESSAGE_BYTES)) {
       await this.quarantine(
+        position,
         source,
         tally,
         positionFingerprint,
@@ -275,13 +278,22 @@ export class PollMailSource {
       raw = await session.fetchRaw(message.uid, POLL_MAX_MESSAGE_BYTES);
     } catch (error) {
       if (error instanceof MessageFetchError) {
-        await this.quarantine(source, tally, positionFingerprint, receivedAt, 'FETCH_FAILED', null);
+        await this.quarantine(
+          position,
+          source,
+          tally,
+          positionFingerprint,
+          receivedAt,
+          'FETCH_FAILED',
+          null,
+        );
         return;
       }
       throw error;
     }
     if (raw.truncated) {
       await this.quarantine(
+        position,
         source,
         tally,
         positionFingerprint,
@@ -304,7 +316,15 @@ export class PollMailSource {
       parsed = await mime.parse(raw.bytes);
     } catch (error) {
       if (error instanceof MimeParseError) {
-        await this.quarantine(source, tally, fingerprint, receivedAt, 'PARSE_ERROR', null);
+        await this.quarantine(
+          position,
+          source,
+          tally,
+          fingerprint,
+          receivedAt,
+          'PARSE_ERROR',
+          null,
+        );
         return;
       }
       throw error;
@@ -315,7 +335,15 @@ export class PollMailSource {
       fromAddress: parsed.fromAddress,
     });
     if (!assessment.ok) {
-      await this.quarantine(source, tally, fingerprint, receivedAt, assessment.reason, null);
+      await this.quarantine(
+        position,
+        source,
+        tally,
+        fingerprint,
+        receivedAt,
+        assessment.reason,
+        null,
+      );
       return;
     }
 
@@ -337,6 +365,7 @@ export class PollMailSource {
 
     if (evaluation.outcome === 'quarantined') {
       await this.quarantine(
+        position,
         source,
         tally,
         fingerprint,
@@ -359,6 +388,7 @@ export class PollMailSource {
       value: evaluation.value.type === 'code' ? evaluation.value.code : evaluation.value.url,
       expiresAt: evaluation.expiresAt,
       signingDomain: evaluation.signingDomain,
+      mailboxPosition: position,
     });
     if (outcome === 'duplicate') {
       tally.duplicates += 1;
@@ -370,6 +400,7 @@ export class PollMailSource {
   }
 
   private async quarantine(
+    position: MailboxPosition,
     source: SourceRef,
     tally: Tally,
     fingerprint: string,
@@ -382,6 +413,7 @@ export class PollMailSource {
       fingerprint,
       receivedAt,
       reason,
+      mailboxPosition: position,
     });
     if (outcome === 'duplicate') {
       tally.duplicates += 1;

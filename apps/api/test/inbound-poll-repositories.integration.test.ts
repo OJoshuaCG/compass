@@ -233,6 +233,7 @@ function accepted(source: SeededSource, fingerprint: string, value = '123456'): 
     value,
     expiresAt: new Date('2026-11-02T12:10:00Z'),
     signingDomain: 'vendor.example',
+    mailboxPosition: { uidValidity: 777, uid: 42 },
   };
 }
 
@@ -487,6 +488,7 @@ describe('PgInboundRecorder', () => {
       fingerprint,
       receivedAt: new Date('2026-11-02T12:00:00Z'),
       reason: 'NO_MATCHING_TEMPLATE' as const,
+      mailboxPosition: { uidValidity: 777, uid: 43 },
     };
 
     expect(await recorder.recordQuarantine(source.ref, record)).toBe('recorded');
@@ -496,12 +498,22 @@ describe('PgInboundRecorder', () => {
       outcome: string;
       reason: string;
       item_id: string | null;
+      mailbox_uid_validity: string | null;
+      mailbox_uid: string | null;
     }>(
-      'select outcome, reason, item_id from inbound_receipts where organization_id = $1 and source_id = $2',
+      `select outcome, reason, item_id, mailbox_uid_validity, mailbox_uid
+         from inbound_receipts where organization_id = $1 and source_id = $2`,
       [source.organization, source.sourceId],
     );
+    // bigint llega como texto desde pg: la posición guardada es la del registro, sin tocar el contenido.
     expect(receipt.rows).toEqual([
-      { outcome: 'quarantined', reason: 'NO_MATCHING_TEMPLATE', item_id: null },
+      {
+        outcome: 'quarantined',
+        reason: 'NO_MATCHING_TEMPLATE',
+        item_id: null,
+        mailbox_uid_validity: '777',
+        mailbox_uid: '43',
+      },
     ]);
     expect(await count('inbound_items', source)).toBe(0);
   });

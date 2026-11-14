@@ -113,6 +113,10 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'inbound.code_read': ['sourceId', 'viewId'],
   // Revelar un restablecimiento (evento crítico): motivo escrito, nunca el valor.
   'inbound.reset_revealed': ['sourceId', 'viewId', 'reason'],
+  // Borrar un correo del buzón real (evento crítico) y ver su cuerpo para decidir si borrarlo. Solo el id de la
+  // fuente: nunca el asunto, el remitente, el cuerpo ni el UID. El motivo solo acompaña a la vista del cuerpo.
+  'inbound.mail_deleted': ['sourceId'],
+  'inbound.mail_body_viewed': ['sourceId', 'reason'],
   // Integraciones configurables (ADR 0047). Solo el tipo, nombres de campo y conteos: nunca tokens, llaves,
   // identificadores de chat ni el contenido de la configuración. `changedFields` son nombres de campo.
   'integration.created': ['kind'],
