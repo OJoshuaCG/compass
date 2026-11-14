@@ -4,7 +4,7 @@
 
 ## Objetivo
 
-Que `inbound-poll` revise cada minuto los buzones configurados, extraiga los códigos de acceso de los correos que cumplan una plantilla y los guarde cifrados para los usuarios con permiso de lectura.
+Que `inbound-poll` revise cada minuto los buzones configurados, extraiga los códigos de acceso de los correos que cumplan una plantilla y los guarde cifrados para los usuarios con permiso de lectura. También borra del buzón real los correos que una persona autorizada pidió borrar.
 
 Las fuentes y sus conexiones IMAP (servidor, puerto, modo TLS, usuario y contraseña) se configuran desde la plataforma, en `/inbound/sources`; este proceso solo las lee. Una fuente sin conexión o sin contraseña guardada no se sondea.
 
@@ -17,10 +17,36 @@ Las fuentes y sus conexiones IMAP (servidor, puerto, modo TLS, usuario y contras
 
 Un fallo de una fuente (buzón caído, contraseña mala) no detiene a las demás: queda anotado con retroceso exponencial (tope de 1 hora).
 
+## Borrado de correo a petición
+
+Al terminar el sondeo, el mismo proceso ejecuta los borrados que una persona pidió desde la plataforma. La API solo registra la petición (ya autorizada, con reautenticación y auditada); el worker la ejecuta porque es el único que descifra la contraseña del buzón. El sondeo sigue en solo lectura: el borrado abre una sesión de escritura aparte.
+
+1. Lista las fuentes de correo activas con peticiones pendientes (una sola petición pendiente por recibo).
+2. Por fuente, abre el buzón con escritura y borra por UID, un mensaje por vez, hasta 20 por fuente y pasada. Lo que no alcanza queda para la pasada siguiente.
+3. Antes de borrar compara el `UIDVALIDITY` guardado con el del buzón. Si cambió, no borra nada (`POSITION_CHANGED`).
+4. Cada petición queda cerrada con un código acotado; nunca se guarda texto del servidor.
+
+Requisitos de la cuenta y del servidor (**sin comprobar contra un servidor real**):
+
+- La cuenta IMAP del buzón necesita derecho de borrar mensajes (marcar y expulsar) además del de leer.
+- El servidor debe ofrecer la extensión `UIDPLUS`. Sin ella, expulsar borraría todos los mensajes marcados como eliminados del buzón, no solo el pedido; por eso Compass falla cerrado antes de marcar nada (`UNSUPPORTED`). Verifícalo con el servidor de correo de la organización antes de anunciar la función; está pendiente.
+
+Cómo leer el resultado de una petición (código de resultado):
+
+| Código | Qué significa | Qué hacer |
+| --- | --- | --- |
+| `DELETED` | El servidor confirmó el borrado | Nada |
+| `NOT_FOUND` | El mensaje ya no estaba (alguien lo borró, o dos pasadas coincidieron) | Nada: el objetivo ya se cumplió |
+| `POSITION_CHANGED` | El buzón se reindexó (`UIDVALIDITY` distinto) y el UID guardado ya no apunta a ese mensaje | No se borró nada. Borra el mensaje a mano en el buzón si hace falta |
+| `UNSUPPORTED` | El servidor no ofrece `UIDPLUS` | No se borró nada. Habilítalo o usa un servidor que lo ofrezca |
+| `CONNECTION` | Fallo de conexión, de autenticación, del KMS o de la contraseña | No se reintenta solo: la persona puede volver a pedirlo. Revisa la fuente como en «Si algo falla» |
+| `CONNECTION_MISSING` | La fuente no tiene conexión o contraseña guardada | Configura la conexión de la fuente y pide el borrado de nuevo |
+| `UNEXPECTED` | Defecto de la aplicación | La pasada sale con código `1`; lo demás queda pendiente |
+
 ## Precondiciones
 
 - API compilada: `pnpm --filter @iam/api build` (genera `dist/main.inbound-poll.js`).
-- Migraciones al día (0029 en adelante) y el rol `iam_inbound_worker` con inicio de sesión habilitado y contraseña propia (la custodia Ops).
+- Migraciones al día (0029 en adelante; 0037 y 0038 para el borrado de correo) y el rol `iam_inbound_worker` con inicio de sesión habilitado y contraseña propia (la custodia Ops).
 - Variables del proceso (archivo de entorno **propio**, distinto del de la API). `NODE_ENV` es obligatoria y sin valor por defecto: sin ella el proceso no arranca.
 
 | Variable                                | Para qué                                                                                                    |
@@ -50,12 +76,13 @@ Cada minuto, con el entorno propio del worker:
 
 - Una línea JSON por mensaje (`event: inbound.message`): id de fuente, huella, resultado, motivo de cuarentena, veredictos `spf`, `dkim` y `dmarc`, y de la firma DKIM que sostuvo el mensaje: `signingDomain` (`d=`), `selector` (`s=`), `aligned`, `bodyLengthLimit` (`l=`) y `signedHeaders` (conteo de `h=`). Todo es `null` si no hubo firma validada; el dominio y el selector solo se escriben si tienen forma de nombre DNS. **Nunca** asunto, cuerpo, direcciones, código ni enlace.
 - Una línea de resumen por pasada: fuentes listadas, intentadas, completas, con arrendamiento ajeno, fallidas, diferidas, códigos aceptados y en cuarentena.
+- Una línea de resumen de borrados después de la anterior: `Borrados de correo: fuentes N; borrados N; no borrados N`. No lleva identificadores ni contenido del correo; el detalle de cada petición vive en su fila (estado y código de resultado).
 - Por stderr, un conteo de fallos por código acotado (`AUTH`, `TLS`, `TIMEOUT`, `NETWORK`, `HOST_REJECTED`, `MAILBOX_UNAVAILABLE`...). Nunca texto del servidor ni el host.
 
 Código de salida:
 
 - `0`: la pasada terminó. Algunas fuentes pueden haber fallado; su retroceso ya quedó anotado.
-- `1`: configuración inválida, la base no respondió, o alguna fuente falló por un motivo del sistema y no del buzón: `KMS_UNAVAILABLE` (el KMS no respondió o no hay llave activa) o `UNEXPECTED` (un defecto), o porque una fuente acumula `INBOUND_POLL_FAILURE_EXIT_THRESHOLD` fallos seguidos (el buzón sigue caído aunque su retroceso crezca; revisa la fuente en la pantalla de fuentes y su código de fallo por stderr). Alerta al equipo de guardia si pasa en dos ejecuciones seguidas.
+- `1`: un borrado de correo cerró con `UNEXPECTED`, configuración inválida, la base no respondió, o alguna fuente falló por un motivo del sistema y no del buzón: `KMS_UNAVAILABLE` (el KMS no respondió o no hay llave activa) o `UNEXPECTED` (un defecto), o porque una fuente acumula `INBOUND_POLL_FAILURE_EXIT_THRESHOLD` fallos seguidos (el buzón sigue caído aunque su retroceso crezca; revisa la fuente en la pantalla de fuentes y su código de fallo por stderr). Alerta al equipo de guardia si pasa en dos ejecuciones seguidas.
 - Ausencia de salida durante más de 5 minutos: el cron dejó de correr. Alerta por ausencia.
 
 ## Si algo falla
@@ -67,6 +94,7 @@ Código de salida:
 | Fallos `AUTH` repetidos                              | La contraseña del buzón cambió. Actualiza la conexión desde la plataforma; el retroceso se reinicia al primer éxito. |
 | Muchos mensajes en cuarentena `AUTH_RESULTS_AMBIGUOUS` | El servidor propio no antepone una sola `Authentication-Results` con el `authserv-id` esperado. Revisa su configuración. |
 | Salida `1` con `UNEXPECTED`                          | Defecto de la aplicación: conserva el registro y abre un incidente. No reintentes a ciegas.                  |
+| Peticiones de borrado cerradas con `UNSUPPORTED`     | El servidor no ofrece `UIDPLUS`. Ver «Borrado de correo a petición».                                         |
 
 ## Riesgo residual (declarado)
 

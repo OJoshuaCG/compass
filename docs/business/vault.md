@@ -98,6 +98,7 @@ Cada acción exige a la vez un permiso y un nivel de compartición sobre la cuen
 | Compartir o revocar | Compartir y revocar | MANAGE | Si se revoca tras una revelación, se crea una tarea de rotación |
 | Ver el historial de versiones | (Ninguno adicional) | EDIT | Muestra versiones sin revelar su contenido; restaurar es una acción aparte |
 | Restaurar una versión anterior de la contraseña | Restaurar versiones de credenciales | EDIT | Crea una versión nueva y vigente con el contenido de la elegida; el historial no se borra ni se reescribe. Cambiar la contraseña no basta: el permiso es propio. Queda auditado, y también cada negación |
+| Borrar un correo del buzón (códigos entrantes, ver §14) | Borrar correo del buzón | (No depende de una compartición: solo un Administrador de la organización o quien dio de alta la fuente) | Exige reautenticación reciente. La plataforma registra la petición y borra el mensaje del buzón real en su siguiente revisión; nunca ocurre sola. Queda auditado como evento crítico, y también cada negación. Quien solo recibe la vista compartida no puede borrar |
 
 **Ejemplo.** Luis crea la cuenta de Instagram de una marca. Automáticamente recibe MANAGE. Agrega una credencial de tipo "contraseña y segundo factor" con el usuario y la contraseña, y registra el segundo factor (ver [`two-factor.md`](two-factor.md)). Después comparte la cuenta con el grupo "Redes Marca MX" a nivel USE.
 
@@ -275,6 +276,7 @@ Las marcadas como propuesta esperan la ratificación del ADR 0045.
 | BO-18 | Ver un restablecimiento (enlace o código) exige MANAGE, permiso específico, reautenticación y motivo, y es un evento crítico |
 | BO-19 (propuesta) | Revocar o archivar corta el acceso de inmediato |
 | BO-20 (propuesta) | El SMS no es segundo factor del sistema y su remitente se muestra como no verificado |
+| BO-21 | Un correo del buzón real solo se borra cuando una persona lo pide, nunca de forma automática. Solo puede pedirlo un Administrador de la organización o quien dio de alta la fuente, con permiso propio y reautenticación reciente; la petición y cada negación quedan auditadas. Si el buzón cambió desde que llegó el correo, o el servidor de correo no ofrece el borrado preciso de un solo mensaje, no se borra nada. La plataforma no guarda el correo para poder borrarlo: solo la posición que ocupaba en el buzón |
 
 ### 14.8 Lo que sigue abierto
 
@@ -287,5 +289,6 @@ Las marcadas como propuesta esperan la ratificación del ADR 0045.
 | 5 | Si VIEW ve el historial y si EDIT ve la cuarentena | Define cuánto se expone a quien no administra |
 | 6 | Si el acceso a la vista basta o se exige también acceso a la cuenta ligada | Es un desvío del plan; afecta qué pasa al quitar a alguien de la cuenta |
 | 7 | Hasta la prueba de intrusión, ¿solo buzones de prueba? (recomendación: sí) | Aun sin credenciales guardadas, lo que llega son códigos reales |
+| 8 | Comprobar con el servidor de correo real que ofrece el borrado preciso de un solo mensaje, y que la cuenta del buzón tiene permiso de borrar | Sin eso el borrado falla cerrado: no se borra nada y la petición queda como fallida. Está construido y probado solo con simulaciones |
 
 Ya está decidido que el correo se recibe por sondeo del servidor de correo propio (decisión del dueño, 2026-10-30), por lo que ya no figura como pregunta abierta.
