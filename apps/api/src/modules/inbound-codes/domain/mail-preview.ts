@@ -68,6 +68,19 @@ const LAST_BIDI_ISOLATE = 0x2069;
 const LEFT_TO_RIGHT_MARK = 0x200e;
 const RIGHT_TO_LEFT_MARK = 0x200f;
 const ARABIC_LETTER_MARK = 0x061c;
+/** Separadores de línea de Unicode: un asunto no debe partirse en dos líneas con ellos. */
+const LINE_SEPARATOR = 0x2028;
+const PARAGRAPH_SEPARATOR = 0x2029;
+/** Caracteres de ancho cero: permiten que dos asuntos distintos se vean iguales al confirmar qué correo se borra. */
+const FIRST_ZERO_WIDTH = 0x200b;
+const LAST_ZERO_WIDTH = 0x200d;
+const WORD_JOINER = 0x2060;
+const BYTE_ORDER_MARK = 0xfeff;
+const FIRST_INTERLINEAR_ANNOTATION = 0xfff9;
+const LAST_INTERLINEAR_ANNOTATION = 0xfffb;
+/** Bloque «tags»: texto invisible que algunos programas leen aunque no se vea. */
+const FIRST_TAG_CHARACTER = 0xe0000;
+const LAST_TAG_CHARACTER = 0xe007f;
 
 function isDroppedCodePoint(codePoint: number, keepLineBreaks: boolean): boolean {
   if (codePoint === TAB) return false;
@@ -76,7 +89,14 @@ function isDroppedCodePoint(codePoint: number, keepLineBreaks: boolean): boolean
   if (codePoint >= FIRST_C1_CONTROL && codePoint <= LAST_C1_CONTROL) return true;
   if (codePoint >= FIRST_BIDI_EMBEDDING && codePoint <= LAST_BIDI_EMBEDDING) return true;
   if (codePoint >= FIRST_BIDI_ISOLATE && codePoint <= LAST_BIDI_ISOLATE) return true;
+  if (codePoint >= FIRST_ZERO_WIDTH && codePoint <= LAST_ZERO_WIDTH) return true;
+  if (codePoint >= FIRST_INTERLINEAR_ANNOTATION && codePoint <= LAST_INTERLINEAR_ANNOTATION) {
+    return true;
+  }
+  if (codePoint >= FIRST_TAG_CHARACTER && codePoint <= LAST_TAG_CHARACTER) return true;
   return (
+    codePoint === WORD_JOINER ||
+    codePoint === BYTE_ORDER_MARK ||
     codePoint === LEFT_TO_RIGHT_MARK ||
     codePoint === RIGHT_TO_LEFT_MARK ||
     codePoint === ARABIC_LETTER_MARK
@@ -93,6 +113,12 @@ export function sanitizePreviewText(raw: string, kind: MailPreviewKind): string 
   let cleaned = '';
   for (const character of raw) {
     const codePoint = character.codePointAt(0) ?? 0;
+    const isLineSeparator = codePoint === LINE_SEPARATOR || codePoint === PARAGRAPH_SEPARATOR;
+    if (isLineSeparator) {
+      // Se tratan como un salto de línea normal: espacio en el asunto, salto en el cuerpo.
+      cleaned += keepLineBreaks ? '\n' : ' ';
+      continue;
+    }
     if (!keepLineBreaks && (codePoint === LINE_FEED || codePoint === CARRIAGE_RETURN)) {
       cleaned += ' ';
       continue;

@@ -44,7 +44,10 @@ function buildHarness(options: HarnessOptions = {}) {
   const auditRecord = vi.fn((event: { action: string }) =>
     Promise.resolve(
       options.auditFails === true
-        ? { ok: false as const, error: new DomainError('AUDIT.METADATA_FIELD_NOT_ALLOWED', 'audit down') }
+        ? {
+            ok: false as const,
+            error: new DomainError('AUDIT.METADATA_FIELD_NOT_ALLOWED', 'audit down'),
+          }
         : ok(event as never),
     ),
   );
@@ -145,13 +148,15 @@ describe('PreviewInboundMail.request', () => {
     );
   });
 
-  it('si ya hay una petición viva responde igual sin auditar de nuevo', async () => {
+  it('si ya hay una petición viva responde alreadyPending y audita igualmente a quien pidió', async () => {
     const { useCase, auditRecord } = buildHarness({ insertResult: 'already_pending' });
 
     const result = await useCase.request(RECEIPT_ID, 'subject', undefined);
 
     expect(result).toEqual(ok({ alreadyPending: true }));
-    expect(auditRecord).not.toHaveBeenCalled();
+    expect(auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'inbound.mail_preview_requested', actorId: ACTOR_ID }),
+    );
   });
 
   it('el cuerpo sin motivo válido se niega, se audita y no registra nada', async () => {

@@ -103,8 +103,8 @@ export class PreviewInboundMail {
         },
         now,
       );
-      if (inserted === 'already_pending') return ok({ alreadyPending: true });
-
+      // Aunque la petición ya exista (la creó otra persona), esta persona también pidió verla: se audita para que
+      // el rastro enlace a cada quien que pidió con quien leyó. No se crea otra fila.
       const recorded = await audit.record({
         action: 'inbound.mail_preview_requested',
         actorId,
@@ -118,7 +118,7 @@ export class PreviewInboundMail {
       });
       // Sin auditoría no hay petición: lanzar revierte la transacción completa.
       if (!recorded.ok) throw recorded.error;
-      return ok({ alreadyPending: false });
+      return ok({ alreadyPending: inserted === 'already_pending' });
     });
   }
 

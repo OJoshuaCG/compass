@@ -16,6 +16,17 @@ describe('sanitizePreviewText', () => {
     );
   });
 
+  it('quita los caracteres invisibles que disfrazan un asunto', () => {
+    expect(sanitizePreviewText('C\u200bó\u200cd\u200di\u2060g\ufeffo\u{e0041}', 'subject')).toBe(
+      'Código',
+    );
+  });
+
+  it('trata los separadores de línea de Unicode como un salto: espacio en el asunto, salto en el cuerpo', () => {
+    expect(sanitizePreviewText('Uno\u2028Dos\u2029Tres', 'subject')).toBe('Uno Dos Tres');
+    expect(sanitizePreviewText('Uno\u2028Dos', 'body')).toBe('Uno\nDos');
+  });
+
   it('no interpreta HTML ni enlaces: los deja como texto', () => {
     const raw = '<a href="https://example.test">clic</a>';
     expect(sanitizePreviewText(raw, 'body')).toBe(raw);
