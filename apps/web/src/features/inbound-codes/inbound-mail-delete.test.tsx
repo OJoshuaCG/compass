@@ -43,6 +43,7 @@ const statusFixture = (overrides: Partial<Status>): InboundMailDeleteStatusRespo
 type SetupOptions = {
   permissions?: Permission[];
   level?: InboundViewSummary['level'];
+  canManageMail?: boolean;
   post?: Parameters<typeof stubApi>[0][string];
   get?: Parameters<typeof stubApi>[0][string];
 };
@@ -50,6 +51,7 @@ type SetupOptions = {
 function setup({
   permissions = DELETER_PERMISSIONS,
   level = 'MANAGE',
+  canManageMail = true,
   post = jsonResponse({ status: 'pending', alreadyPending: false }, 202),
   get = jsonResponse(statusFixture({})),
 }: SetupOptions = {}) {
@@ -64,6 +66,7 @@ function setup({
           sourceDisplayName: 'Buzón de accesos',
           channel: 'mail',
           level,
+          canManageMail,
         } satisfies InboundViewSummary,
       ],
     }),
@@ -113,6 +116,14 @@ describe('mail delete visibility', () => {
 
   it('is not offered without the permission, even with MANAGE', async () => {
     setup({ permissions: ['inbound.read_codes'] });
+    renderApp(VIEW_PAGE);
+    const table = await historyTable();
+    await within(table).findByText('github.com');
+    expect(within(table).queryByRole('button', { name: /Borrar del buzón/ })).toBeNull();
+  });
+
+  it('is not offered to someone with MANAGE who is neither Administrator nor the source creator', async () => {
+    setup({ canManageMail: false });
     renderApp(VIEW_PAGE);
     const table = await historyTable();
     await within(table).findByText('github.com');

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DomainError, asOrganizationId, asUserId } from '../../../shared/kernel/index.js';
 import type { UserId } from '../../../shared/kernel/index.js';
 import type { Authorizer } from '../../access/index.js';
+import type { UserDirectory } from '../../directory/index.js';
 import { ListInboundDirectory } from './list-inbound-directory.js';
 import type {
   ConfigurableSourceSummary,
@@ -11,6 +12,8 @@ import type {
   ReadableViewSummary,
   TemplateSummary,
 } from './ports/inbound-directory.js';
+
+type UserRecordForTest = Awaited<ReturnType<UserDirectory['findById']>>;
 
 const ACTOR_ID = asUserId('0198aaaa-0000-7000-8000-000000000001');
 
@@ -21,6 +24,7 @@ const VIEW: ReadableViewSummary = {
   sourceDisplayName: 'Buzón de soporte',
   channel: 'mail',
   level: 'USE',
+  sourceCreatedByMe: false,
 };
 
 const SOURCE: ConfigurableSourceSummary = {
@@ -52,6 +56,8 @@ const TEMPLATE: TemplateSummary = {
 interface HarnessOptions {
   readonly permissionRejection?: DomainError;
   readonly actorId?: UserId | null;
+  /** Rango de la persona en el directorio (0 Raíz, 1 Administrador, 2 Líder, 3 Operador). */
+  readonly actorRank?: number;
 }
 
 function buildHarness(options: HarnessOptions = {}) {
@@ -79,6 +85,10 @@ function buildHarness(options: HarnessOptions = {}) {
       runIndependent: <T>(fn: () => Promise<T>) => fn(),
     },
     authorizer: { require } as unknown as Authorizer,
+    users: {
+      findById: () =>
+        Promise.resolve({ rank: options.actorRank ?? 3 } as unknown as UserRecordForTest),
+    },
     directory: {
       listReadableViews,
       listConfigurableSources,
@@ -102,10 +112,30 @@ describe('ListInboundDirectory.listViews', () => {
 
     const result = await harness.useCase.listViews();
 
-    expect(result).toEqual({ ok: true, value: [VIEW] });
+    expect(result).toEqual({ ok: true, value: [{ ...VIEW, canManageMail: false }] });
     expect(harness.require).toHaveBeenCalledWith({ permission: 'inbound.read_codes' });
     expect(harness.listReadableViews).toHaveBeenCalledWith(ACTOR_ID, MAX_INBOUND_LISTING);
     expect(harness.listConfigurableSources).not.toHaveBeenCalled();
+  });
+
+  it('lets an Administrator manage mail of any source', async () => {
+    const harness = buildHarness({ actorRank: 1 });
+
+    const result = await harness.useCase.listViews();
+
+    expect(result).toEqual({ ok: true, value: [{ ...VIEW, canManageMail: true }] });
+  });
+
+  it('lets the creator of the source manage its mail even when not Administrator', async () => {
+    const harness = buildHarness({ actorRank: 3 });
+    harness.listReadableViews.mockResolvedValueOnce([{ ...VIEW, sourceCreatedByMe: true }]);
+
+    const result = await harness.useCase.listViews();
+
+    expect(result).toEqual({
+      ok: true,
+      value: [{ ...VIEW, sourceCreatedByMe: true, canManageMail: true }],
+    });
   });
 
   it('does not read the directory when the permission is denied', async () => {

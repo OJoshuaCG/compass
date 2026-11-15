@@ -14,9 +14,10 @@
 import { MAX_INBOUND_LISTING } from '@iam/contracts';
 import type { Permission } from '@iam/contracts';
 
-import { DomainError, ok } from '../../../shared/kernel/index.js';
+import { DomainError, RANK, ok } from '../../../shared/kernel/index.js';
 import type { RequestContextReader, Result, UserId } from '../../../shared/kernel/index.js';
 import type { Authorizer } from '../../access/index.js';
+import type { UserDirectory } from '../../directory/index.js';
 import type { UnitOfWork } from '../../organization/index.js';
 import type {
   ConfigurableSourceSummary,
@@ -34,18 +35,32 @@ export interface ListInboundDirectoryDeps {
   readonly uow: UnitOfWork;
   readonly authorizer: Authorizer;
   readonly directory: InboundDirectory;
+  readonly users: Pick<UserDirectory, 'findById'>;
 }
+
+/** Vista legible más si la persona puede pedir borrar o ver correo de su fuente (la misma regla que aplica el servidor). */
+export type ReadableViewEntry = ReadableViewSummary & { readonly canManageMail: boolean };
 
 export class ListInboundDirectory {
   constructor(private readonly deps: ListInboundDirectoryDeps) {}
 
   /** Vistas que la persona puede leer, con su nivel. */
-  listViews(): Promise<Result<readonly ReadableViewSummary[], DomainError>> {
-    const { uow, authorizer, directory } = this.deps;
+  listViews(): Promise<Result<readonly ReadableViewEntry[], DomainError>> {
+    const { uow, authorizer, directory, users } = this.deps;
     return uow.run(async () => {
       await authorizer.require({ permission: READ_PERMISSION });
       const actorId = this.requireActorId();
-      return ok(await directory.listReadableViews(actorId, MAX_INBOUND_LISTING));
+      const views = await directory.listReadableViews(actorId, MAX_INBOUND_LISTING);
+      // Solo comodidad para la interfaz: borrar o ver correo lo decide y audita `RequestInboundMailDelete`
+      // (Administrador o quien dio de alta la fuente); aquí se anticipa para no ofrecer lo que será negado.
+      const actor = await users.findById(actorId);
+      const isAdministrator = actor !== null && actor.rank <= RANK.ADMINISTRATOR;
+      return ok(
+        views.map((view) => ({
+          ...view,
+          canManageMail: isAdministrator || view.sourceCreatedByMe,
+        })),
+      );
     });
   }
 

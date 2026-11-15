@@ -69,6 +69,7 @@ function kindRoutes(kind: 'subject' | 'body', content: string, handlers: KindHan
 type SetupOptions = {
   permissions?: Permission[];
   level?: InboundViewSummary['level'];
+  canManageMail?: boolean;
   subjectContent?: string;
   bodyContent?: string;
   subject?: KindHandlers;
@@ -78,6 +79,7 @@ type SetupOptions = {
 function setup({
   permissions = BODY_PERMISSIONS,
   level = 'MANAGE',
+  canManageMail = true,
   subjectContent = SUBJECT,
   bodyContent = BODY,
   subject = {},
@@ -94,6 +96,7 @@ function setup({
           sourceDisplayName: 'Buzón de accesos',
           channel: 'mail',
           level,
+          canManageMail,
         } satisfies InboundViewSummary,
       ],
     }),
@@ -187,6 +190,14 @@ describe('mail preview visibility', () => {
 
   it('is not offered without the permission, even with MANAGE', async () => {
     setup({ permissions: ['inbound.read_codes', 'inbound.reveal_reset'] });
+    renderApp(VIEW_PAGE);
+    const table = await historyTable();
+    await within(table).findByText('github.com');
+    expect(within(table).queryByRole('button', { name: OPEN_NAME })).toBeNull();
+  });
+
+  it('is not offered to someone with MANAGE who is neither Administrator nor the source creator', async () => {
+    setup({ canManageMail: false });
     renderApp(VIEW_PAGE);
     const table = await historyTable();
     await within(table).findByText('github.com');

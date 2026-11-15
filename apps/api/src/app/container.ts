@@ -627,6 +627,7 @@ export function buildContainer(options: ContainerOptions) {
       uow,
       authorizer,
       directory: new PgInboundDirectory(uow),
+      users: directory,
     }),
     readInboundCodes: new ReadInboundCodes({
       context: requestContext,

@@ -40,9 +40,17 @@ export function InboundViewPage({ viewId }: InboundViewPageProps) {
   // Solo comodidad: el servidor vuelve a exigir el permiso, MANAGE sobre la vista y reautenticación.
   const canRevealResets = hasRevealResetPermission && view?.level === 'MANAGE';
 
-  const canDeleteMail = canOfferMailDelete(hasDeleteMailPermission, view?.level);
+  const canDeleteMail = canOfferMailDelete(
+    hasDeleteMailPermission,
+    view?.level,
+    view?.canManageMail,
+  );
   // Ver el correo sigue la regla del borrado; el cuerpo exige además `inbound.reveal_reset`.
-  const canPreviewMail = canOfferMailPreview(hasDeleteMailPermission, view?.level);
+  const canPreviewMail = canOfferMailPreview(
+    hasDeleteMailPermission,
+    view?.level,
+    view?.canManageMail,
+  );
   const canPreviewMailBody = canOfferMailBodyPreview(canPreviewMail, hasRevealResetPermission);
 
   return (

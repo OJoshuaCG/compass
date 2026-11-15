@@ -25,6 +25,10 @@ export function canRequestMailDelete(state: MailDeleteState | null | undefined):
  * Comodidad de la interfaz: el servidor decide (permiso, Administrador o creador de la fuente,
  * reautenticación); aquí solo no se ofrece lo que ya se sabe que no procede.
  */
-export function canOfferMailDelete(hasPermission: boolean, level: string | undefined): boolean {
-  return hasPermission && level === 'MANAGE';
+export function canOfferMailDelete(
+  hasPermission: boolean,
+  level: string | undefined,
+  canManageMail: boolean | undefined,
+): boolean {
+  return hasPermission && level === 'MANAGE' && canManageMail === true;
 }

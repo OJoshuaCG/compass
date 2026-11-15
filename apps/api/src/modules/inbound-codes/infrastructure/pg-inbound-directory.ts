@@ -27,6 +27,7 @@ interface ViewSummaryRow {
   source_display_name: string;
   channel: ReadableViewSummary['channel'];
   level: ShareLevel;
+  source_created_by_me: boolean;
 }
 
 interface SourceSummaryRow {
@@ -60,7 +61,8 @@ export class PgInboundDirectory implements InboundDirectory {
 
   async listReadableViews(userId: UserId, limit: number): Promise<readonly ReadableViewSummary[]> {
     const result = await this.transactions.current().query<ViewSummaryRow>(
-      `select v.id, v.name, v.source_id, s.display_name as source_display_name, s.channel, ea.level
+      `select v.id, v.name, v.source_id, s.display_name as source_display_name, s.channel, ea.level,
+              (s.created_by = $1) as source_created_by_me
          from effective_access ea
          join mail_views v
            on v.organization_id = ea.organization_id and v.id = ea.resource_id
@@ -84,6 +86,7 @@ export class PgInboundDirectory implements InboundDirectory {
       sourceDisplayName: row.source_display_name,
       channel: row.channel,
       level: row.level,
+      sourceCreatedByMe: row.source_created_by_me,
     }));
   }
 

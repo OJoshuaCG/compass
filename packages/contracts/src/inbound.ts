@@ -228,6 +228,8 @@ export const inboundViewSummarySchema = z.object({
   sourceDisplayName: z.string(),
   channel: z.enum(['mail', 'sms']),
   level: shareLevelSchema,
+  /** Anticipa la regla del servidor para borrar o ver correo (Administrador o quien dio de alta la fuente). */
+  canManageMail: z.boolean(),
 });
 export type InboundViewSummary = z.infer<typeof inboundViewSummarySchema>;
 

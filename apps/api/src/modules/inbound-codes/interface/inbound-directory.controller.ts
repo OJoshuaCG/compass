@@ -28,6 +28,7 @@ export class InboundDirectoryController {
         sourceDisplayName: view.sourceDisplayName,
         channel: view.channel,
         level: view.level,
+        canManageMail: view.canManageMail,
       })),
     };
   }

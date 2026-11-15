@@ -22,14 +22,15 @@ export function mailPreviewFailureCode(
 }
 
 /**
- * Comodidad de la interfaz: ver el correo sigue la misma regla que borrarlo (permiso `inbound.delete_mail`
- * y MANAGE sobre la vista). El servidor decide y audita; aquí solo no se ofrece lo que ya se sabe que no procede.
+ * Comodidad de la interfaz: ver el correo sigue la misma regla que borrarlo (permiso `inbound.delete_mail`,
+ * MANAGE sobre la vista y ser Administrador o quien dio de alta la fuente). El servidor decide y audita; aquí solo no se ofrece lo que ya se sabe que no procede.
  */
 export function canOfferMailPreview(
   hasDeleteMailPermission: boolean,
   level: string | undefined,
+  canManageMail: boolean | undefined,
 ): boolean {
-  return canOfferMailDelete(hasDeleteMailPermission, level);
+  return canOfferMailDelete(hasDeleteMailPermission, level, canManageMail);
 }
 
 /** El cuerpo completo, además, solo se ofrece a quien tiene `inbound.reveal_reset` (como revelar restablecimientos). */
