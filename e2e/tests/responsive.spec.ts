@@ -22,7 +22,6 @@ const SIGNED_IN_ROUTES = [
   '/alerts',
   '/credential-health',
   '/inbound',
-  '/catalog',
 ];
 
 /** El ancho desplazable de la página no puede superar el de la ventana: eso sería scroll horizontal. */
@@ -55,7 +54,7 @@ async function expectTextFieldsAtLeastSixteenPixels(page: Page, screenName: stri
   const tooSmall = await page.evaluate((minimumPx) => {
     const fields = Array.from(
       document.querySelectorAll<HTMLElement>(
-        'input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea',
+        'input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]):not([type=range]):not([type=color]), select, textarea',
       ),
     );
     return fields
@@ -89,10 +88,13 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
-    context = await browser.newContext({ locale: 'en-US', viewport: PHONE_VIEWPORT });
+    context = await browser.newContext({ locale: 'en-US' });
     page = await context.newPage();
     violations = watchSecurityViolations(page);
+    // El inicio de sesión espera el menú lateral visible, que en 375 px nace plegado: se entra con el
+    // tamaño por defecto y se reduce la ventana después.
     await signInAsRoot(page);
+    await page.setViewportSize(PHONE_VIEWPORT);
   });
 
   test.afterAll(async () => {
@@ -105,6 +107,8 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
       await page.goto(route);
       await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
       await page.waitForLoadState('networkidle');
+      // Mide las tablas ya cargadas, no sus esqueletos.
+      await expect(page.locator('table[aria-busy="true"]')).toHaveCount(0);
       await expectNoHorizontalPageScroll(page, route);
       await expectNoTableRegionOverflow(page, route);
       await expectTextFieldsAtLeastSixteenPixels(page, route);

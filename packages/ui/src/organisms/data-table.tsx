@@ -174,7 +174,7 @@ export function DataTable<T extends object>({
                         column?.align === 'end' ? 'text-end' : 'text-start',
                         // En móvil solo las columnas ordenables quedan visibles (barra de orden);
                         // las demás siguen disponibles para lectores de pantalla.
-                        sortKey === undefined ? 'max-md:sr-only' : 'max-md:px-4 max-md:py-2',
+                        sortKey === undefined ? 'max-md:sr-only' : 'max-md:px-4',
                       )}
                     >
                       {sortKey !== undefined ? (
@@ -274,7 +274,9 @@ export function DataTable<T extends object>({
                         // no tiene utilidad semántica para `attr()`. Pinta la etiqueta de la
                         // columna en móvil sin duplicar el DOM (§4.1, regla 8).
                         className={cn(
-                          'px-5 py-3.5 text-text break-words',
+                          // `wrap-anywhere` y no `break-words`: en un contenedor flex solo el primero
+                          // reduce el ancho mínimo, así los valores largos (hashes, correos) se parten.
+                          'px-5 py-3.5 text-text wrap-anywhere max-md:min-w-0',
                           columnById.get(cell.column.id)?.align === 'end' && 'text-end',
                           'max-md:flex max-md:items-baseline max-md:justify-between max-md:gap-4 max-md:px-4 max-md:py-1.5 max-md:text-end',
                           'max-md:before:shrink-0 max-md:before:content-[attr(data-label)] max-md:before:text-start max-md:before:font-mono max-md:before:text-xs max-md:before:text-text-muted max-md:before:uppercase',

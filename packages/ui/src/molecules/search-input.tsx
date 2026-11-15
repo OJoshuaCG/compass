@@ -40,7 +40,7 @@ export function SearchInput({
         }}
         // Variante arbitraria justificada: oculta el botón de borrado nativo de WebKit,
         // que duplicaría al botón propio (accesible y traducido).
-        className="ps-9 pe-9 [&::-webkit-search-cancel-button]:hidden"
+        className="ps-9 pe-9 max-md:pe-10 [&::-webkit-search-cancel-button]:hidden"
         {...rest}
       />
       {value !== '' ? (

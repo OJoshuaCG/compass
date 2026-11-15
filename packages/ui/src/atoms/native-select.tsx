@@ -7,7 +7,7 @@ const nativeSelect = cva(
   'rounded-md border bg-raised px-2 text-text transition-colors duration-fast hover:border-text-muted disabled:cursor-not-allowed disabled:text-text-disabled',
   {
     variants: {
-      size: { sm: 'h-8 text-base md:text-sm', md: 'h-10 text-base md:text-sm' },
+      size: { sm: 'h-8 max-md:h-10 text-base md:text-sm', md: 'h-10 text-base md:text-sm' },
       invalid: { true: 'border-danger hover:border-danger', false: 'border-border-input' },
     },
     defaultVariants: { size: 'md', invalid: false },

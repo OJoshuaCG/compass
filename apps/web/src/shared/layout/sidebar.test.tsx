@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { jsonResponse, meFixture, stubApi } from '../../test/fake-api';
 import { es } from '../../test/helpers';
@@ -22,6 +22,12 @@ function setup() {
 const navigationName = es.common['nav.label'];
 
 describe('collapsible sidebar', () => {
+  // Se restaura aquí y no al final de cada prueba: si una aserción falla, el stub de matchMedia no
+  // debe filtrarse a las pruebas siguientes.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('is visible by default and exposes the toggle state', async () => {
     setup();
     renderApp('/');
@@ -88,7 +94,6 @@ describe('collapsible sidebar', () => {
       await screen.findByRole('button', { name: es.common['nav.showMenu'] }),
     ).toBeInTheDocument();
     expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBeNull();
-    vi.unstubAllGlobals();
   });
 
   it('folds after following a link on narrow screens without saving the choice', async () => {
@@ -107,7 +112,6 @@ describe('collapsible sidebar', () => {
     expect(screen.queryByRole('navigation', { name: navigationName })).not.toBeInTheDocument();
     // Lo guardado sigue siendo la última decisión explícita (mostrar), no el cierre automático.
     expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBe('visible');
-    vi.unstubAllGlobals();
   });
 
   it('keeps the menu open after following a link on wide screens', async () => {
