@@ -27,9 +27,12 @@ export function LanguageSwitcher() {
   const current: Locale = isLocale(i18n.language) ? i18n.language : LOCALES[0];
   const next: Locale = nextLocaleAfter(current);
   // El nombre del idioma destino se pinta en su propio idioma, como en los catálogos.
-  const label: string = t('language.switchTo', {
+  const switchToLabel: string = t('language.switchTo', {
     language: t(`language.${next}`, { lng: next }),
   });
+  // WCAG 2.5.3 (la etiqueta contiene el nombre visible): el nombre accesible empieza con el código que
+  // se ve en el botón, para que quien dicta "EN" o ve el texto encuentre el mismo control.
+  const label: string = `${languageCode(current)}: ${switchToLabel}`;
   return (
     <IconButton
       variant="secondary"

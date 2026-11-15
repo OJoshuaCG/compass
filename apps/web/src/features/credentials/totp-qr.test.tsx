@@ -395,7 +395,12 @@ describe('register from a QR image: Google Authenticator export', () => {
     expect(within(dialog).getByRole('button', { name: t['totp.register.submit'] })).toBeDisabled();
     await user.click(confirm);
 
-    expect(await within(dialog).findByText(t['totp.register.image.found'])).toBeVisible();
+    // El aviso nombra la cuenta elegida, no la primera ni una genérica.
+    expect(
+      await within(dialog).findByText(
+        fill(migrationT('foundAccount'), { label: 'Globex: bob@example.com' }),
+      ),
+    ).toBeVisible();
     // Elegir descarta las demás cuentas (y con ellas sus secretos) del estado del componente.
     expect(within(dialog).queryByRole('group', { name: migrationT('legend') })).toBeNull();
     expect(within(dialog).queryByText('Acme: ana@example.com')).toBeNull();

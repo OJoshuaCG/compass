@@ -8,10 +8,11 @@ import { renderApp } from '../../test/render-app';
 
 import { LOCALE_STORAGE_KEY } from './locale-storage';
 
-const switchToEnglish = es.common['language.switchTo'].replace(
+// El nombre accesible empieza con el código visible del idioma activo (WCAG 2.5.3).
+const switchToEnglish = `ES: ${es.common['language.switchTo'].replace(
   '{{language}}',
   es.common['language.en-US'],
-);
+)}`;
 
 describe('language switcher', () => {
   it('shows the code of the active language and names the language it switches to', async () => {
@@ -28,7 +29,7 @@ describe('language switcher', () => {
     renderApp('/');
     await user.click(await screen.findByRole('button', { name: switchToEnglish }));
     const backToSpanish = await screen.findByRole('button', {
-      name: 'Switch to Español (México)',
+      name: 'EN: Switch to Español (México)',
     });
     expect(backToSpanish).toHaveTextContent('EN');
     expect(document.documentElement.lang).toBe('en-US');
