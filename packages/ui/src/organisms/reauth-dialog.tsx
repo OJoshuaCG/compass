@@ -83,7 +83,7 @@ function ReauthForm({
           />
         )}
       </FormField>
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           {labels.cancel}
         </Button>
