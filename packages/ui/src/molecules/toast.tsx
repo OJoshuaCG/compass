@@ -116,7 +116,9 @@ export function ToastViewport({
       aria-label={regionLabel}
       // z-40, por debajo de diálogos y menús (z-50): un aviso no debe tapar sus botones. Bajo el
       // fondo de un diálogo el aviso se atenúa, pero sigue anunciándose por la región activa.
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-40 ms-auto flex max-w-sm flex-col gap-2"
+      // Los `calc(… env(safe-area-inset-*))` son valores arbitrarios inevitables: separan el aviso de
+      // la muesca y de la barra de gestos del iPhone, y `env()` no tiene utilidad de Tailwind.
+      className="pointer-events-none fixed start-[calc(1rem+env(safe-area-inset-left))] end-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 ms-auto flex max-w-sm flex-col gap-2"
     >
       {toasts.map((item) => (
         <ToastCard

@@ -26,6 +26,8 @@ export type DataTableLabels = {
   range: (range: { from: number; to: number; total?: number }) => string;
   /** Encabezado (solo para lectores de pantalla) de la columna de acciones. */
   actionsColumn: string;
+  /** Rótulo de la barra de orden que se ve en móvil («Ordenar por»). */
+  sortBy: string;
   /** Anuncio mientras carga. */
   loading: string;
   retry: string;
@@ -118,6 +120,7 @@ export function DataTable<T extends object>({
   const table = useTable({ features, columns: tableColumns, data: rows, getRowId });
   const columnById = new Map(columns.map((column) => [column.id, column]));
   const colSpan = columns.length + (rowActions ? 1 : 0);
+  const hasSortableColumns = columns.some((column) => column.sortKey !== undefined);
 
   const offset = pagination.offset ?? 0;
   const hasRows = status === 'success' && rows.length > 0;
@@ -148,10 +151,24 @@ export function DataTable<T extends object>({
             por eso se declaran los roles de forma explícita. */}
           <thead
             role="rowgroup"
-            className="border-b border-border bg-raised text-start font-mono text-xs tracking-widest text-text-muted uppercase max-md:block"
+            className={cn(
+              'border-b border-border bg-raised text-start font-mono text-xs tracking-widest text-text-muted uppercase max-md:block',
+              // Sin columnas ordenables la barra de orden sería una franja vacía en móvil; los
+              // encabezados siguen disponibles para lectores de pantalla.
+              !hasSortableColumns && 'max-md:sr-only',
+            )}
           >
             {table.getHeaderGroups().map((group) => (
-              <tr key={group.id} role="row" className="max-md:flex max-md:flex-wrap max-md:gap-x-4">
+              <tr
+                key={group.id}
+                role="row"
+                className="max-md:flex max-md:flex-wrap max-md:items-center max-md:gap-x-4"
+              >
+                {/* Solo se ve en móvil: nombra la barra de orden. Es decorativo porque cada botón de
+                    orden ya tiene su propio nombre accesible. */}
+                <td role="presentation" aria-hidden="true" className="hidden px-4 max-md:block">
+                  {labels.sortBy}
+                </td>
                 {group.headers.map((header) => {
                   const column = columnById.get(header.column.id);
                   const sortKey = column?.sortKey;

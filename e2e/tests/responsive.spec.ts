@@ -115,4 +115,27 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
     }
     expect(violations).toEqual([]);
   });
+
+  test('the menu opens as a drawer over the content, navigates and closes', async () => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Show menu' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Main navigation' });
+    await expect(drawer).toBeVisible();
+    await expectNoHorizontalPageScroll(page, 'open drawer');
+
+    // Escape lo cierra y el foco vuelve al botón que lo abrió.
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Show menu' })).toBeFocused();
+
+    // Elegir una sección navega y cierra el panel.
+    await page.getByRole('button', { name: 'Show menu' }).click();
+    await drawer.getByRole('link', { name: 'Accounts', exact: true }).click();
+    await expect(page).toHaveURL(/\/accounts$/);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(violations).toEqual([]);
+  });
 });

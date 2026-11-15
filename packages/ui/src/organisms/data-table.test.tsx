@@ -38,6 +38,7 @@ const labels: DataTableLabels = {
       ? `Showing ${String(from)}-${String(to)}`
       : `Showing ${String(from)}-${String(to)} of ${String(total)}`,
   actionsColumn: 'Actions',
+  sortBy: 'Sort by',
   loading: 'Loading table data',
   retry: 'Retry',
   emptyFiltered: { title: 'No results', description: 'Nothing matches', clear: 'Clear filters' },
@@ -95,6 +96,23 @@ describe('DataTable semantics', () => {
     const [name, platform] = screen.getAllByRole('columnheader');
     expect(name).toHaveAttribute('aria-sort', 'none');
     expect(platform).not.toHaveAttribute('aria-sort');
+  });
+
+  it('labels the mobile sort bar only when some column is sortable', () => {
+    const { unmount } = setup();
+    expect(screen.getByText('Sort by')).toBeInTheDocument();
+    unmount();
+    setup({
+      columns: columns.map((column) => ({
+        id: column.id,
+        header: column.header,
+        cell: column.cell,
+      })),
+    });
+    // Sin columnas ordenables la fila de encabezados sigue ahí para lectores de pantalla,
+    // y la barra de orden queda oculta visualmente en móvil.
+    expect(screen.getAllByRole('columnheader', { hidden: true }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Name' })).not.toBeInTheDocument();
   });
 
   it.each([

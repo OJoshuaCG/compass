@@ -18,6 +18,7 @@ export function useDataTableLabels(): DataTableLabels {
           ? t('table.range', { from, to })
           : t('table.rangeOfTotal', { from, to, total }),
       actionsColumn: t('table.actionsColumn'),
+      sortBy: t('table.sortBy'),
       loading: t('table.loading'),
       retry: t('actions.retry'),
       emptyFiltered: {
