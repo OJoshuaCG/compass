@@ -37,6 +37,19 @@ async function expectNoHorizontalPageScroll(page: Page, screenName: string): Pro
   ).toBeLessThanOrEqual(widths.clientWidth + SCROLL_WIDTH_TOLERANCE_PX);
 }
 
+/** Con la tabla en tarjetas (docs/frontend.md §6.2) ninguna región de tabla debe desbordar a 375 px. */
+async function expectNoTableRegionOverflow(page: Page, screenName: string): Promise<void> {
+  const overflowing = await page.evaluate((tolerancePx) => {
+    const regions = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="region"][tabindex="0"]'),
+    );
+    return regions
+      .filter((region) => region.scrollWidth > region.clientWidth + tolerancePx)
+      .map((region) => region.getAttribute('aria-label') ?? 'region');
+  }, SCROLL_WIDTH_TOLERANCE_PX);
+  expect(overflowing, `Table region overflow on "${screenName}"`).toEqual([]);
+}
+
 /** Todo campo de texto visible debe medir al menos 16 px para que iOS no haga zoom al enfocarlo. */
 async function expectTextFieldsAtLeastSixteenPixels(page: Page, screenName: string): Promise<void> {
   const tooSmall = await page.evaluate((minimumPx) => {
@@ -93,6 +106,7 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
       await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
       await page.waitForLoadState('networkidle');
       await expectNoHorizontalPageScroll(page, route);
+      await expectNoTableRegionOverflow(page, route);
       await expectTextFieldsAtLeastSixteenPixels(page, route);
     }
     expect(violations).toEqual([]);
