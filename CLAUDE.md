@@ -50,6 +50,7 @@ Antes de crear o cambiar cualquier pantalla o componente lee `docs/frontend.md` 
 - El estado nunca va solo en color: texto más ícono o punto. Lo que debe leerse exacto (códigos, hashes, identificadores, marcas de tiempo, IP) va en `font-mono`.
 - Pantallas nuevas: `PageHeader` con `eyebrow`, contenido en `Card`, rango con `RankBadge`, persona con `PersonCell`, tabla con la estándar. Reutiliza componentes de `@iam/ui` antes de crear uno.
 - Un color nuevo se agrega en los dos temas, se mide el contraste en `apps/web/src/shared/styles/tokens.test.ts` y se documenta en §4.1 y §4.2 en el mismo cambio.
+- Responsive en móvil obligatorio (decisión del dueño, 2026-11-15): toda pantalla o componente se diseña mobile-first y se valida a 375 px además de 768, 1024 y 1440. Reglas en `docs/frontend.md` §4.4 y §17 (regla 12): sin scroll horizontal de página, campos de 16 px, controles táctiles de 40 px en móvil, pies de acciones con `flex-wrap`. Cada encargo de interfaz lo cita y no se da por terminado sin esa validación.
 - Valores arbitrarios de Tailwind (`w-[37px]`, `opacity-85`…) prohibidos sin un comentario que explique el porqué.
 - Los secretos revelados siguen sus reglas de Seguridad: opacos (`bg-raised`), `font-mono text-accent` y solo en el estado del componente que los muestra.
 

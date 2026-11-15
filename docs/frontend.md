@@ -225,7 +225,9 @@ Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene ci
 ### 4.4 Espaciado y layout
 
 - Escala de 4 px de Tailwind (la unidad 1 equivale a 4 px). Prohibidos valores fuera de escala.
-- Mobile-first; puntos de quiebre estándar. La app es interna de escritorio, pero `mobile-handoff` y las pantallas de login deben funcionar en teléfono.
+- **Responsive en móvil es obligatorio para toda pantalla y todo componente** (decisión del dueño, 2026-11-15): es muy probable que se use desde teléfono, así que no se da por terminado nada que no se haya validado en 375 px, además de 768, 1024 y 1440. Mobile-first; puntos de quiebre estándar.
+- Reglas mínimas en móvil: sin scroll horizontal de la página (solo dentro de la región de una tabla); campos de texto de 16 px o más (por debajo, iOS hace zoom al enfocar); controles táctiles de 40 px en móvil (`max-md:`) y nunca menos de 24 px; pies de diálogo y barras de acciones que envuelven (`flex-wrap`); textos y datos largos que se rompen (`break-words`, `min-w-0`) en lugar de ensanchar la página; `min-h-dvh` en vez de `min-h-screen`; ningún elemento fijo que tape el foco o el contenido.
+- Todo lo que hoy depende de pasar el cursor o de una columna fuera de vista tiene que tener una vía alcanzable con el dedo.
 - Contenedor de contenido con ancho máximo; las tablas ocupan el ancho disponible con scroll horizontal contenido (no de la página).
 
 ## 5. Componentes
@@ -438,6 +440,7 @@ Todo lo del plan, convertido en reglas verificables:
 - [ ] Teclado, foco visible y etiquetas verificados; prueba de accesibilidad en verde.
 - [ ] Manejo de `401/403/404/409/422/429/5xx` según la sección 7.2.
 - [ ] Las tablas usan la tabla estándar con orden, límite y paginación.
+- [ ] Responsive validado a 375, 768, 1024 y 1440 px en los dos temas y los dos idiomas (§4.4): sin scroll horizontal de página, controles táctiles y campos de 16 px; la prueba e2e móvil en verde.
 - [ ] Ningún secreto fuera del estado del componente.
 - [ ] Lint, tipos, pruebas y límites de arquitectura en verde.
 - [ ] Si toca rutas protegidas (CSP, autenticación), revisión doble.
@@ -495,6 +498,7 @@ Las reglas que un agente debe respetar al trabajar en `apps/web` son estas. Si s
 9. Nunca leas archivos de entorno ni datos de producción.
 10. No toques rutas protegidas (CSP, autenticación, revelador de secretos) salvo encargo humano explícito.
 11. Si trabajas como agente delegado, limítate a las rutas indicadas en el encargo.
+12. Todo componente o pantalla nuevo o cambiado se diseña para móvil primero y se valida a 375 px (§4.4): sin scroll horizontal de página, campos de 16 px, controles táctiles de 40 px en móvil, pies de acciones con `flex-wrap`. Un encargo de interfaz sin esa validación no se da por terminado.
 
 Definición de terminado: pruebas de componente y de accesibilidad en verde; paridad de claves i18n, contraste de tokens y límites de arquitectura en verde.
 
