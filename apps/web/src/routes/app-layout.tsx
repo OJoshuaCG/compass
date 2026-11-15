@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   AppShell,
   ArrowRightLeft,
   Bell,
@@ -70,6 +71,8 @@ export function AppLayout() {
   const canReadInboundCodes = usePermission('inbound.read_codes');
   // Solo comodidad: el enlace de configurar fuentes se ofrece con `inbound.configure`; el servidor decide.
   const canConfigureInbound = usePermission('inbound.configure');
+  // Solo comodidad: el enlace de salud de credenciales se ofrece con `credential.view_health`; el servidor decide.
+  const canViewCredentialHealth = usePermission('credential.view_health');
   // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
   const canManageInfraAlerts = usePermission('alerts.infra.manage');
   // Solo comodidad: la transferencia de la Raíz la ven la Raíz y los Administradores; el servidor decide.
@@ -183,6 +186,13 @@ export function AppLayout() {
                   label={t('nav.inboundViewSettings')}
                 />
               </>
+            ) : null}
+            {canViewCredentialHealth ? (
+              <NavLink
+                to="/credential-health"
+                icon={<AlertTriangle className="size-5" />}
+                label={t('nav.credentialHealth')}
+              />
             ) : null}
           </NavGroup>
           {showAccessGroup ? (

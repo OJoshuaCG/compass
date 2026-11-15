@@ -166,6 +166,15 @@ const sharesRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/shares-route'), 'SharesRoute'),
 });
 
+const credentialHealthRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/credential-health',
+  component: lazyRouteComponent(
+    () => import('../routes/credential-health-route'),
+    'CredentialHealthRoute',
+  ),
+});
+
 const inboundRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/inbound',
@@ -245,6 +254,7 @@ const routeTree = rootRoute.addChildren([
     accountsRoute,
     credentialsRoute,
     credentialImportRoute,
+    credentialHealthRoute,
     sharesRoute,
     inboundRoute,
     inboundViewRoute,
