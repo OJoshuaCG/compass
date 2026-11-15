@@ -18,7 +18,7 @@ Objetivo: puntaje y señales de riesgo por credencial, sin guardar nunca el secr
 | T1 | S1, S2, S3, S6 | inline | Puntaje de fortaleza al escribir (migración 0042, puerto y adaptador zxcvbn, helper compartido por crear, cambiar, restaurar e importar) | 30 pruebas de API en verde; prueba de DB de la 0042 pendiente de resultado |
 | T2 | S2, S4 | inline | Caso de uso de lectura por cuenta (`GetAccountHealth`): débil, reutilizada (por huella), antigua, 2FA faltante o pendiente, expuesto, rotación pendiente. Sin «correo de recuperación externo» (L5) | 16 pruebas en verde (dominio, caso de uso, integración SQL); tsc y eslint limpios |
 | T3a | S5 | inline | Endpoint `GET /accounts/:accountId/health` y contrato `credentialHealthSchema` (cuenta) | tsc y eslint limpios; 3 pruebas de contrato en verde (el controlador y el cableado no tienen prueba HTTP propia) |
-| T3b | S5 | inline | Panel web de la cuenta (`frontend-developer`, textos es-MX/en-US) | pendiente |
+| T3b | S5 | inline | Panel web de la cuenta (columna «Salud» en la tabla de credenciales; `frontend-developer`, textos es-MX/en-US) | tsc y eslint limpios; 58 pruebas web en verde (salud y credenciales); contraste visual en ambos temas sin verificar |
 | T3c | S5 | inline | Paneles por grupo y por organización: requieren decidir el permiso que los autoriza (ruta protegida) | pendiente |
 
 ## Log

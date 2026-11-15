@@ -2,7 +2,7 @@ import type { Credential } from '@iam/contracts';
 import { Button, PageHeader, Spinner } from '@iam/ui';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAsyncAction } from '../../../shared/api';
@@ -10,6 +10,7 @@ import { useMe, usePermission } from '../../../shared/auth';
 import { ErrorAlert, useErrorMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { useToast } from '../../../shared/toast';
+import { credentialHealthKeys, fetchAccountHealth } from '../api/credential-health-api';
 import {
   credentialsKeys,
   fetchAccount,
@@ -79,6 +80,18 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
     queryFn: ({ signal }) => fetchCredentials(accountId, signal),
     staleTime: 0,
   });
+  // La salud es secundaria: su fallo no debe bloquear la lista, así que no reintenta de más ni
+  // se consulta su `isError` para decidir el estado de la pantalla.
+  const healthQuery = useQuery({
+    queryKey: credentialHealthKeys.account(accountId),
+    queryFn: ({ signal }) => fetchAccountHealth(accountId, signal),
+    staleTime: 0,
+    retry: false,
+  });
+  const healthById = useMemo(
+    () => new Map((healthQuery.data ?? []).map((item) => [item.credentialId, item])),
+    [healthQuery.data],
+  );
 
   // El usuario pasa por una variable local y va directo al portapapeles: no se guarda en estado.
   const copyUsername = useAsyncAction(async (credential: Credential) => {
@@ -153,6 +166,8 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
   };
   const reload = () => {
     void queryClient.invalidateQueries({ queryKey: credentialsKeys.list(accountId) });
+    // Crear o cambiar una contraseña recalcula la salud en el servidor.
+    void queryClient.invalidateQueries({ queryKey: credentialHealthKeys.account(accountId) });
   };
 
   // Cambiar contraseña, historial y segundo factor se eligen en el menú de fila.
@@ -200,6 +215,9 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
         }
       />
       {copyUsername.error !== undefined ? <ErrorAlert error={copyUsername.error} /> : null}
+      {healthQuery.isError ? (
+        <p className="text-sm text-text-muted">{t('health.unavailable', { ns: 'credentials' })}</p>
+      ) : null}
       <div
         ref={tableRegionRef}
         tabIndex={-1}
@@ -212,6 +230,8 @@ export function CredentialsPage({ accountId }: CredentialsPageProps) {
           onRetry={() => {
             void credentialsQuery.refetch();
           }}
+          health={healthById}
+          healthStatus={healthQuery.status === 'pending' ? 'loading' : healthQuery.status}
           timeZone={timeZone}
           canCopyUsername={canCopyUsername(myLevel)}
           canReveal={canRevealPassword(hasRevealPermission, myLevel)}

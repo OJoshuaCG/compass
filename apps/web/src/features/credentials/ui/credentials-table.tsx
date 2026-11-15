@@ -1,4 +1,4 @@
-import type { Credential } from '@iam/contracts';
+import type { Credential, CredentialHealth } from '@iam/contracts';
 import {
   Badge,
   Button,
@@ -14,12 +14,17 @@ import { useTranslation } from 'react-i18next';
 import { useDataTableLabels } from '../../../shared/i18n';
 import { formatDateTime, useClientPagination } from '../../../shared/lib';
 
+import { CredentialHealthBadges } from './credential-health-badges';
+
 export type CredentialsTableProps = {
   credentials: Credential[];
   status: 'loading' | 'success' | 'error';
   /** Mensaje ya traducido del error de carga. */
   errorMessage: string;
   onRetry: () => void;
+  /** Salud por id de credencial. Secundaria: si falla, la tabla sigue funcionando sin ella. */
+  health: ReadonlyMap<string, CredentialHealth>;
+  healthStatus: 'loading' | 'success' | 'error';
   /** Zona horaria del perfil, para las fechas. */
   timeZone: string | undefined;
   /** Decisiones de comodidad (permiso + nivel) que toma el container; el servidor decide siempre. */
@@ -57,6 +62,8 @@ export function CredentialsTable({
   status,
   errorMessage,
   onRetry,
+  health,
+  healthStatus,
   timeZone,
   canCopyUsername,
   canReveal,
@@ -97,8 +104,13 @@ export function CredentialsTable({
             </span>
           ),
       },
+      {
+        id: 'health',
+        header: t('health.col'),
+        cell: (row) => <CredentialHealthBadges health={health.get(row.id)} status={healthStatus} />,
+      },
     ],
-    [i18n.language, t, timeZone],
+    [health, healthStatus, i18n.language, t, timeZone],
   );
 
   // Las demás acciones viven en el menú "⋯" (docs/frontend.md §6.2). Cada una solo se ofrece si el
