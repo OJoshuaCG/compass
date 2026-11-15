@@ -41,6 +41,7 @@ import type {
   SecretField,
   SecretVersionRecord,
 } from './ports/credential-repository.js';
+import type { PasswordStrengthScorer } from './ports/password-strength-scorer.js';
 
 export interface ManageCredentialsDeps {
   readonly context: RequestContextReader;
@@ -49,6 +50,7 @@ export interface ManageCredentialsDeps {
   readonly accounts: AccountRepository;
   readonly credentials: CredentialRepository;
   readonly cipher: SecretCipher;
+  readonly strength: PasswordStrengthScorer;
   readonly audit: AuditLog;
   /** Cuenta los eventos de auditoría: es la fuente única del límite de revelaciones. */
   readonly auditCounter: AuditEventCounter;
@@ -465,8 +467,8 @@ export class ManageCredentials {
 
   /** Cifra y guarda un campo; el camino de cifrado es compartido con la importación (ver el helper). */
   private storeSecret(input: StoreSecretInput): Promise<void> {
-    const { context, credentials, cipher, ids } = this.deps;
-    return storeCredentialSecret({ context, credentials, cipher, ids }, input);
+    const { context, credentials, cipher, ids, strength, clock } = this.deps;
+    return storeCredentialSecret({ context, credentials, cipher, ids, strength, clock }, input);
   }
 
   /** Descifra la versión vigente de un campo. El texto en claro sale como cadena; los bytes se borran. */

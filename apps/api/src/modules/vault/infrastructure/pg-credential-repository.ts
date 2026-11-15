@@ -186,12 +186,21 @@ export class PgVaultCredentialRepository implements CredentialRepository {
     );
   }
 
-  async upsertPasswordFingerprint(credentialId: string, hmacHex: string): Promise<void> {
+  async upsertPasswordFingerprint(
+    credentialId: string,
+    hmacHex: string,
+    strengthScore: number,
+    scoredAt: Date,
+  ): Promise<void> {
     await this.transactions.current().query(
-      `insert into password_fingerprints (organization_id, credential_id, hmac)
-       values (nullif(current_setting('app.org_id', true), '')::uuid, $1, decode($2, 'hex'))
-       on conflict (organization_id, credential_id) do update set hmac = excluded.hmac`,
-      [credentialId, hmacHex],
+      `insert into password_fingerprints
+         (organization_id, credential_id, hmac, strength_score, strength_scored_at)
+       values (nullif(current_setting('app.org_id', true), '')::uuid, $1, decode($2, 'hex'), $3, $4)
+       on conflict (organization_id, credential_id) do update
+         set hmac = excluded.hmac,
+             strength_score = excluded.strength_score,
+             strength_scored_at = excluded.strength_scored_at`,
+      [credentialId, hmacHex, strengthScore, scoredAt],
     );
   }
 

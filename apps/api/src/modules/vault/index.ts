@@ -73,6 +73,7 @@ export { InMemoryTotpConfirmAttemptStore } from './infrastructure/in-memory-totp
 export type { TotpGenerator } from './application/ports/totp-generator.js';
 export type { TotpRecord, TotpRepository } from './application/ports/totp-repository.js';
 export { OtplibTotpGenerator } from './infrastructure/otplib-totp-generator.js';
+export { ZxcvbnPasswordStrengthScorer } from './infrastructure/zxcvbn-password-strength-scorer.js';
 export { PgTotpRepository } from './infrastructure/pg-totp-repository.js';
 export { parseOtpauthUri } from './domain/otpauth-uri.js';
 export type { ParsedOtpauthUri, TotpParameters } from './domain/otpauth-uri.js';
