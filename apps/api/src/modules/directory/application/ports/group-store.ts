@@ -25,6 +25,11 @@ export interface GroupStore {
   }): Promise<GroupRecord | null>;
   /** Bloquea la fila del grupo vivo para serializar cambios de miembros. */
   findLiveForUpdate(groupId: string): Promise<GroupRecord | null>;
+  /**
+   * Toma un bloqueo compartido sobre la fila de la persona: una baja concurrente (que la actualiza)
+   * espera a este cambio o este espera a que la baja confirme, de modo que nadie entra a un grupo ya dado de baja.
+   */
+  lockUserRow(userId: string): Promise<void>;
   findLive(groupId: string): Promise<GroupRecord | null>;
   /** `viewerId` fija el papel propio; `onlyOfViewer` restringe a los grupos donde es miembro. */
   listLive(input: {

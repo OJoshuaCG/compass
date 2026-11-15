@@ -19,11 +19,17 @@ export interface GroupRecord {
   readonly createdAt: Date;
 }
 
-/** Quien tiene rango de Administrador o superior administra cualquier grupo; el resto, solo los que gestiona. */
+/**
+ * Quien tiene rango de Administrador o superior administra cualquier grupo; el resto, solo los que gestiona.
+ * Un gestor cuyo rango bajó por debajo de Líder pierde el control aunque conserve la fila de gestor:
+ * el rango vigente manda sobre el papel guardado.
+ */
 export const canManageGroupMembers = (
   actorRank: Rank,
   actorRoleInGroup: GroupMemberRole | null,
-): boolean => actorRank <= MAX_RANK_WITH_FULL_GROUP_ACCESS || actorRoleInGroup === 'manager';
+): boolean =>
+  actorRank <= MAX_RANK_WITH_FULL_GROUP_ACCESS ||
+  (actorRoleInGroup === 'manager' && actorRank <= MAX_RANK_OF_GROUP_MANAGER);
 
 /** Ver todos los grupos exige rango alto o un permiso de gestión de grupos; si no, solo los propios. */
 export const seesEveryGroup = (actorRank: Rank, hasGroupPermission: boolean): boolean =>

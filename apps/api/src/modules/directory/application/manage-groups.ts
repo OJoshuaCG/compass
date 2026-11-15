@@ -113,6 +113,8 @@ export class ManageGroups {
       if (group === null) return notFound();
       if (!(await this.canAdminister(actor, groupId))) return this.denyAsNotFound();
 
+      // Se bloquea antes de leer el estado: así una baja concurrente no deja a una persona inactiva dentro.
+      await store.lockUserRow(userId);
       const target = await directory.findById(userId);
       if (
         target === null ||
