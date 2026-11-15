@@ -84,6 +84,7 @@
   "permission.inbound.read_codes": "View received access codes",
   "permission.inbound.configure": "Configure received-code sources and views",
   "permission.inbound.reveal_reset": "Reveal received reset codes and links",
+  "permission.credential.view_health": "View credential health by group and by organization",
   "permission.inbound.delete_mail": "Delete received mail from the real mailbox",
   "permission.alerts.infra.manage": "Manage infrastructure alerts (email and Telegram)",
   "permission.alerts.security.manage": "Manage security alerts and their recipients (Telegram)",

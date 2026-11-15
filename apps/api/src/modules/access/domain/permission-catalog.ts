@@ -32,6 +32,9 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'credential.reveal_password': 3,
   'credential.use_totp': 3,
   'credential.export_totp': 2,
+  // Paneles de salud de credenciales por grupo y por organización (solo números y conteos, nunca el secreto).
+  // Techo 2: lo ven Raíz, Administrador y Líder, los mismos rangos que administran grupos.
+  'credential.view_health': 2,
   'share.manage': 3,
   'access_request.approve': 2,
   'rotation.manage': 2,

@@ -29,6 +29,7 @@ export const PERMISSIONS = [
   'credential.reveal_password',
   'credential.use_totp',
   'credential.export_totp',
+  'credential.view_health',
   'share.manage',
   'access_request.approve',
   'rotation.manage',
