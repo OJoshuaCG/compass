@@ -137,14 +137,21 @@ export function DataTable<T extends object>({
       <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto rounded-t-lg">
         <table
           aria-busy={busy}
-          className={cn('w-full text-sm tabular-nums', refreshing && 'opacity-70')}
+          role="table"
+          className={cn('w-full text-sm tabular-nums max-md:block', refreshing && 'opacity-70')}
         >
           <caption className="sr-only">{caption}</caption>
           {/* text-xs (12 px) en lugar de los 11 px del diseño: queda en la escala del proyecto y
             text-muted cumple contraste sobre raised (§4.2). */}
-          <thead className="border-b border-border bg-raised text-start font-mono text-xs tracking-widest text-text-muted uppercase">
+          {/* En móvil (max-md) cada fila es una tarjeta apilada (§6.2 «Móvil»): al pasar los elementos
+            de la tabla a `display:block` algunos lectores de pantalla pierden la semántica de tabla,
+            por eso se declaran los roles de forma explícita. */}
+          <thead
+            role="rowgroup"
+            className="border-b border-border bg-raised text-start font-mono text-xs tracking-widest text-text-muted uppercase max-md:block"
+          >
             {table.getHeaderGroups().map((group) => (
-              <tr key={group.id}>
+              <tr key={group.id} role="row" className="max-md:flex max-md:flex-wrap max-md:gap-x-4">
                 {group.headers.map((header) => {
                   const column = columnById.get(header.column.id);
                   const sortKey = column?.sortKey;
@@ -154,6 +161,7 @@ export function DataTable<T extends object>({
                     <th
                       key={header.id}
                       scope="col"
+                      role="columnheader"
                       aria-sort={
                         sortKey === undefined
                           ? undefined
@@ -164,6 +172,9 @@ export function DataTable<T extends object>({
                       className={cn(
                         'px-5 py-3 font-medium',
                         column?.align === 'end' ? 'text-end' : 'text-start',
+                        // En móvil solo las columnas ordenables quedan visibles (barra de orden);
+                        // las demás siguen disponibles para lectores de pantalla.
+                        sortKey === undefined ? 'max-md:sr-only' : 'max-md:px-4 max-md:py-2',
                       )}
                     >
                       {sortKey !== undefined ? (
@@ -182,19 +193,27 @@ export function DataTable<T extends object>({
                   );
                 })}
                 {rowActions ? (
-                  <th scope="col" className="px-5 py-3">
+                  <th scope="col" role="columnheader" className="px-5 py-3 max-md:sr-only">
                     <span className="sr-only">{labels.actionsColumn}</span>
                   </th>
                 ) : null}
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody role="rowgroup" className="max-md:block">
             {status === 'loading'
               ? Array.from({ length: Math.min(limit, 10) }, (_, index) => (
-                  <tr key={index} className="border-b border-border last:border-b-0">
+                  <tr
+                    key={index}
+                    role="row"
+                    className="border-b border-border last:border-b-0 max-md:block max-md:px-4 max-md:py-3"
+                  >
                     {Array.from({ length: colSpan }, (_, cellIndex) => (
-                      <td key={cellIndex} className="px-5 py-3.5">
+                      <td
+                        key={cellIndex}
+                        role="cell"
+                        className="px-5 py-3.5 max-md:block max-md:px-4 max-md:py-1.5"
+                      >
                         <Skeleton />
                       </td>
                     ))}
@@ -202,8 +221,8 @@ export function DataTable<T extends object>({
                 ))
               : null}
             {status === 'error' ? (
-              <tr>
-                <td colSpan={colSpan}>
+              <tr role="row" className="max-md:block">
+                <td colSpan={colSpan} role="cell" className="max-md:block">
                   <div
                     role="alert"
                     className="flex flex-col items-center gap-3 px-4 py-10 text-center"
@@ -219,8 +238,8 @@ export function DataTable<T extends object>({
               </tr>
             ) : null}
             {status === 'success' && rows.length === 0 ? (
-              <tr>
-                <td colSpan={colSpan}>
+              <tr role="row" className="max-md:block">
+                <td colSpan={colSpan} role="cell" className="max-md:block">
                   {hasActiveFilters ? (
                     <EmptyState
                       title={labels.emptyFiltered.title}
@@ -243,21 +262,34 @@ export function DataTable<T extends object>({
               ? table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-b border-border last:border-b-0 hover:bg-raised"
+                    role="row"
+                    className="border-b border-border last:border-b-0 hover:bg-raised max-md:block max-md:px-4 max-md:py-3"
                   >
                     {row.getAllCells().map((cell) => (
                       <td
                         key={cell.id}
+                        role="cell"
+                        data-label={columnById.get(cell.column.id)?.header}
+                        // `content-[attr(data-label)]` es un valor arbitrario inevitable: Tailwind
+                        // no tiene utilidad semántica para `attr()`. Pinta la etiqueta de la
+                        // columna en móvil sin duplicar el DOM (§4.1, regla 8).
                         className={cn(
-                          'px-5 py-3.5 text-text',
+                          'px-5 py-3.5 text-text break-words',
                           columnById.get(cell.column.id)?.align === 'end' && 'text-end',
+                          'max-md:flex max-md:items-baseline max-md:justify-between max-md:gap-4 max-md:px-4 max-md:py-1.5 max-md:text-end',
+                          'max-md:before:shrink-0 max-md:before:content-[attr(data-label)] max-md:before:text-start max-md:before:font-mono max-md:before:text-xs max-md:before:text-text-muted max-md:before:uppercase',
                         )}
                       >
                         <table.FlexRender cell={cell} />
                       </td>
                     ))}
                     {rowActions ? (
-                      <td className="px-5 py-3.5 text-end">{rowActions(row.original)}</td>
+                      <td
+                        role="cell"
+                        className="px-5 py-3.5 text-end max-md:flex max-md:justify-end max-md:border-t max-md:border-border max-md:px-4 max-md:py-2"
+                      >
+                        {rowActions(row.original)}
+                      </td>
                     ) : null}
                   </tr>
                 ))

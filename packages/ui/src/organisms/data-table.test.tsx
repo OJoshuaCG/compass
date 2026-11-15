@@ -291,6 +291,21 @@ describe('DataTable states', () => {
     expect(screen.getByRole('button', { name: 'Edit Ada' })).toBeInTheDocument();
   });
 
+  it('labels every data cell with its column header and leaves the actions cell unlabelled', () => {
+    // La presentación en tarjetas de móvil pinta `data-label` con CSS; el atributo es el contrato.
+    setup({ rowActions: (row) => <button type="button">{`Edit ${row.name}`}</button> });
+    const bodyRows = screen.getAllByRole('row').slice(1);
+    expect(bodyRows).toHaveLength(rows.length);
+    for (const bodyRow of bodyRows) {
+      const cells = within(bodyRow).getAllByRole('cell');
+      expect(cells).toHaveLength(columns.length + 1);
+      columns.forEach((column, index) => {
+        expect(cells[index]).toHaveAttribute('data-label', column.header);
+      });
+      expect(cells[columns.length]).not.toHaveAttribute('data-label');
+    }
+  });
+
   it('disables Next while refreshing so a stale cursor cannot be used', () => {
     setup({
       refreshing: true,

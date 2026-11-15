@@ -287,6 +287,7 @@ De arriba abajo, la tabla tiene cuatro zonas:
 - **Cambio de página sin parpadeo**: se conserva la página anterior mientras llega la siguiente, con un indicador de carga sutil.
 - **Acciones por fila**: menú de "⋯" con teclado; las destructivas piden confirmación. Las acciones visibles dependen de los permisos del perfil, solo como comodidad.
 - **Selección múltiple** (si el caso la exige): casilla por fila y en el encabezado, con contador y barra de acciones masivas.
+- **Móvil** (`max-md`, §4.4): la misma `<table>` presenta cada fila como una tarjeta apilada, sin scroll horizontal. Cada celda de dato muestra su encabezado como etiqueta (atributo `data-label`, pintado con CSS) y el valor a la derecha. Las columnas ordenables quedan como una barra de orden sobre las tarjetas; las demás columnas y la de acciones se ocultan solo visualmente y siguen disponibles para lectores de pantalla. El menú «⋯» va al pie de cada tarjeta, con su área táctil de 40 px. Desde `md` la tabla no cambia.
 - **Densidad única**: una sola altura de fila. Texto secundario en el color de apoyo; cifras tabulares.
 
 ### 6.3 Contrato del componente
