@@ -128,13 +128,56 @@ describe('hyphenated code extraction', () => {
     });
   });
 
-  it('rejects leading, trailing and doubled hyphens', () => {
+  it('rejects leading and doubled hyphens and accepts a hyphen between any two digits', () => {
     expect(extractFixedLengthCode('Tu código es: -482913', hyphenatedRule).found).toBe(false);
     expect(extractFixedLengthCode('Tu código es: 48--2913', hyphenatedRule).found).toBe(false);
     expect(extractFixedLengthCode('Tu código es: 48291-3', hyphenatedRule)).toEqual({
       found: true,
       value: '48291-3',
     });
+  });
+
+  it('does not count a trailing hyphen as part of the code', () => {
+    expect(extractFixedLengthCode('Tu código es: 482-913-', hyphenatedRule)).toEqual({
+      found: true,
+      value: '482-913',
+    });
+    expect(extractFixedLengthCode('Tu código es: 482913-abc', hyphenatedRule)).toEqual({
+      found: true,
+      value: '482913',
+    });
+  });
+
+  // Falla cerrado: el mismo código escrito con y sin guiones cuenta como dos valores distintos y no se entrega ninguno.
+  it('reports the same code written with and without hyphens as ambiguous', () => {
+    const body = 'Tu código es: 482-913\nTu código es: 482913';
+
+    expect(extractFixedLengthCode(body, hyphenatedRule)).toEqual({
+      found: false,
+      reason: 'AMBIGUOUS',
+    });
+  });
+
+  // Solo el ancla separa un código de una fecha: con el largo de la fecha coincide, con otro largo no.
+  it('rejects a date-like run when the length differs and accepts it only when the length matches', () => {
+    const dateRule: FixedLengthCodeRule = { ...hyphenatedRule, leadingLiteral: 'Fecha: ' };
+
+    expect(extractFixedLengthCode('Fecha: 2026-11-14', dateRule).found).toBe(false);
+    expect(extractFixedLengthCode('Fecha: 2026-11-14', { ...dateRule, codeLength: 8 })).toEqual({
+      found: true,
+      value: '2026-11-14',
+    });
+  });
+
+  // Falla cerrado: un literal final que empieza por guion y un carácter de código se lee como código más largo.
+  it('discards a code whose trailing literal starts with a hyphen and a code character', () => {
+    const rule: FixedLengthCodeRule = {
+      ...hyphenatedRule,
+      charset: 'alphanumeric_hyphenated',
+      trailingLiteral: '-valid',
+    };
+
+    expect(extractFixedLengthCode('Tu código es: 482913-valid', rule).found).toBe(false);
   });
 
   it('does not cut a longer hyphenated code down to the expected length', () => {
@@ -153,6 +196,25 @@ describe('hyphenated code extraction', () => {
     expect(extractFixedLengthCode('Tu código es: AB4-9Z2', rule)).toEqual({
       found: true,
       value: 'AB4-9Z2',
+    });
+  });
+
+  it('does not cut a longer alphanumeric hyphenated code down to the expected length', () => {
+    const rule: FixedLengthCodeRule = { ...SIX_DIGIT_RULE, charset: 'alphanumeric_hyphenated' };
+
+    expect(extractFixedLengthCode('Tu código es: AB4-9Z2-X', rule).found).toBe(false);
+  });
+
+  it('supports the 12-character maximum with hyphens', () => {
+    const rule: FixedLengthCodeRule = {
+      ...SIX_DIGIT_RULE,
+      charset: 'alphanumeric_hyphenated',
+      codeLength: 12,
+    };
+
+    expect(extractFixedLengthCode('Tu código es: ABCD-EFGH-1234', rule)).toEqual({
+      found: true,
+      value: 'ABCD-EFGH-1234',
     });
   });
 });
