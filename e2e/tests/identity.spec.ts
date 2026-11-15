@@ -115,7 +115,7 @@ test.describe
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await page.getByRole('link', { name: 'Users' }).click();
+    await page.getByRole('link', { name: 'Users', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Invite user' }).click();
@@ -138,7 +138,7 @@ test.describe
     await guest.getByLabel('Full name').fill('Sofía Operadora');
     await guest.getByRole('textbox', { name: 'Password', exact: true }).fill('password1234');
     await guest.getByRole('button', { name: 'Create account' }).click();
-    await expect(guest.getByText(/too weak or too common/i)).toBeVisible();
+    await expect(guest.getByText(/too common or easy to guess/i)).toBeVisible();
 
     await guest.getByRole('textbox', { name: 'Password', exact: true }).fill(PASSWORD);
     await guest.getByRole('button', { name: 'Create account' }).click();
@@ -163,7 +163,7 @@ test.describe
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await page.getByRole('link', { name: 'Users' }).click();
+    await page.getByRole('link', { name: 'Users', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
 
     const table = page.getByRole('table', { name: 'User directory' });
@@ -183,7 +183,7 @@ test.describe
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await page.getByRole('link', { name: 'Users' }).click();
+    await page.getByRole('link', { name: 'Users', exact: true }).click();
     await page.getByRole('tab', { name: 'Team management' }).click();
 
     const table = page.getByRole('table', { name: 'People you manage' });
@@ -231,7 +231,7 @@ test.describe
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await page.getByRole('link', { name: 'Security' }).click();
+    await page.getByRole('link', { name: 'Security', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
     await expect(page.getByText('You have no passkeys yet')).toBeVisible();
 
@@ -252,10 +252,10 @@ test.describe
     await expect(page).toHaveURL(/\/login/);
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByRole('button', { name: 'Use a passkey' }).click();
-    await expect(page.getByRole('link', { name: 'Users' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Users', exact: true })).toBeVisible();
     await expect(page).not.toHaveURL(/\/login/);
 
-    await page.getByRole('link', { name: 'Security' }).click();
+    await page.getByRole('link', { name: 'Security', exact: true }).click();
     await expect(table.getByText('Chrome virtual key')).toBeVisible();
     expect(violations).toEqual([]);
   });
@@ -266,6 +266,6 @@ test.describe
     await page.getByRole('button', { name: 'Switch to Español (México)' }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeHidden();
     await page.reload();
-    await expect(page.getByRole('button', { name: /^Cambiar a / })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Cambiar a English/ })).toBeVisible();
   });
 });

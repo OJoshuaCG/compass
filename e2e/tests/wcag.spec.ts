@@ -49,7 +49,7 @@ test.describe('WCAG 2.2 A/AA scan with axe in a real browser (anonymous)', () =>
     await waitForScreen(page, 'Sign in');
     await expectNoWcagViolations(page, 'Sign in (en-US)');
 
-    await page.getByLabel('Language').selectOption({ label: 'Español (México)' });
+    await page.getByRole('button', { name: /Switch to Español \(México\)/ }).click();
     await waitForScreen(page, 'Iniciar sesión');
     await expectNoWcagViolations(page, 'Iniciar sesión (es-MX)');
     expect(violations).toEqual([]);
@@ -115,7 +115,7 @@ test.describe.serial('WCAG 2.2 A/AA scan with axe in a real browser (signed in a
   });
 
   test('users directory, accounts and security (es-MX)', async () => {
-    await page.getByLabel('Language').selectOption({ label: 'Español (México)' });
+    await page.getByRole('button', { name: /Switch to Español \(México\)/ }).click();
 
     await page.getByRole('link', { name: 'Usuarios', exact: true }).click();
     await waitForScreen(page, 'Usuarios');
