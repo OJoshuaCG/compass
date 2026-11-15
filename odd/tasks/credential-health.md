@@ -19,7 +19,7 @@ Objetivo: puntaje y señales de riesgo por credencial, sin guardar nunca el secr
 | T2 | S2, S4 | inline | Caso de uso de lectura por cuenta (`GetAccountHealth`): débil, reutilizada (por huella), antigua, 2FA faltante o pendiente, expuesto, rotación pendiente. Sin «correo de recuperación externo» (L5) | 16 pruebas en verde (dominio, caso de uso, integración SQL); tsc y eslint limpios |
 | T3a | S5 | inline | Endpoint `GET /accounts/:accountId/health` y contrato `credentialHealthSchema` (cuenta) | tsc y eslint limpios; 3 pruebas de contrato en verde (el controlador y el cableado no tienen prueba HTTP propia) |
 | T3b | S5 | inline | Panel web de la cuenta (columna «Salud» en la tabla de credenciales; `frontend-developer`, textos es-MX/en-US) | tsc y eslint limpios; 58 pruebas web en verde (salud y credenciales); contraste visual en ambos temas sin verificar |
-| T3c | S5 | inline | Paneles por grupo y por organización. Backend hecho (permiso `credential.view_health`, API de conteos); falta la web | parcial |
+| T3c | S5 | inline | Paneles por grupo y por organización. Permiso `credential.view_health`, API de conteos y pantalla `/credential-health` (solo conteos) | hecho |
 
 ## Log
 
@@ -30,3 +30,4 @@ Objetivo: puntaje y señales de riesgo por credencial, sin guardar nunca el secr
 - L5 (2026-11-14, jueces ciegos): duda 2, «correo de recuperación externo» necesita una configuración de «dominios propios» que no existe. Ambos jueces eligieron dejar la señal fuera de esta entrega y registrarla como pendiente.
 - L6 (2026-11-14): la lectura exige acceso efectivo a la cuenta (sin acceso, NOT_FOUND, igual que la ficha) y no agrega permiso nuevo; los paneles de grupo y organización (T3) necesitan decidir su permiso antes de escribirse.
 - L7 (2026-11-14): el dueño decidió «1a»: un solo permiso `credential.view_health` (techo 2, migración 0043) para ambos paneles. La organización exige además rango de Administrador o superior; un grupo exige poder administrarlo (`canManageGroupMembers`). Los paneles devuelven solo conteos (sin nombres de cuentas ni huellas). Supuesto: la reutilización se mide contra toda la organización también en el panel de grupo (los jueces A y B lo marcaron como advertencia no bloqueante; se documentó en el caso de uso). Jueces A y B sin bloqueantes; coincidieron en auditar también el grupo inexistente (aplicado). Mutación deliberada (rango y alcance de grupo deshabilitados): fallaron 4 pruebas de denegación; restaurado y en verde.
+- L8 (2026-11-14): pantalla web de T3c hecha (organización con rango ≤ 1, selector de grupo; pruebas web e i18n en verde). Supuesto: página propia `/credential-health` y menú con `AlertTriangle`; reversible.
