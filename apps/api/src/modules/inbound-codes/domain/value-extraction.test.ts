@@ -114,6 +114,49 @@ describe('fixed-length code extraction', () => {
 });
 
 // SENSIBLE (revisión humana)
+describe('hyphenated code extraction', () => {
+  const hyphenatedRule: FixedLengthCodeRule = { ...SIX_DIGIT_RULE, charset: 'digits_hyphenated' };
+
+  it('returns the code as received, with its hyphens, counting only digits', () => {
+    expect(extractFixedLengthCode('Tu código es: 482-913', hyphenatedRule)).toEqual({
+      found: true,
+      value: '482-913',
+    });
+    expect(extractFixedLengthCode('Tu código es: 482913', hyphenatedRule)).toEqual({
+      found: true,
+      value: '482913',
+    });
+  });
+
+  it('rejects leading, trailing and doubled hyphens', () => {
+    expect(extractFixedLengthCode('Tu código es: -482913', hyphenatedRule).found).toBe(false);
+    expect(extractFixedLengthCode('Tu código es: 48--2913', hyphenatedRule).found).toBe(false);
+    expect(extractFixedLengthCode('Tu código es: 48291-3', hyphenatedRule)).toEqual({
+      found: true,
+      value: '48291-3',
+    });
+  });
+
+  it('does not cut a longer hyphenated code down to the expected length', () => {
+    expect(extractFixedLengthCode('Tu código es: 482-913-7', hyphenatedRule).found).toBe(false);
+  });
+
+  it('keeps plain charsets strict: hyphens do not count without the hyphenated variant', () => {
+    expect(extractFixedLengthCode('Tu código es: 482-913', SIX_DIGIT_RULE).found).toBe(false);
+  });
+
+  it('supports alphanumeric hyphenated codes', () => {
+    const rule: FixedLengthCodeRule = {
+      ...SIX_DIGIT_RULE,
+      charset: 'alphanumeric_hyphenated',
+    };
+    expect(extractFixedLengthCode('Tu código es: AB4-9Z2', rule)).toEqual({
+      found: true,
+      value: 'AB4-9Z2',
+    });
+  });
+});
+
 describe('allowed-host link extraction', () => {
   it('returns a link whose host is in the allowed list and path matches the prefix', () => {
     const body = 'Restablece aquí: https://www.facebook.com/recover?token=abc123 gracias';
