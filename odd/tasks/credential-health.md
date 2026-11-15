@@ -16,7 +16,7 @@ Objetivo: puntaje y señales de riesgo por credencial, sin guardar nunca el secr
 | ID | Spec | Ruta | Estado | Evidencia |
 | --- | --- | --- | --- | --- |
 | T1 | S1, S2, S3, S6 | inline | Puntaje de fortaleza al escribir (migración 0042, puerto y adaptador zxcvbn, helper compartido por crear, cambiar, restaurar e importar) | 30 pruebas de API en verde; prueba de DB de la 0042 pendiente de resultado |
-| T2 | S2, S4 | inline | Caso de uso de lectura: débil, reutilizada (por huella), antigüedad, 2FA faltante o pendiente, exportado, rotación pendiente | pendiente |
+| T2 | S2, S4 | inline | Caso de uso de lectura por cuenta (`GetAccountHealth`): débil, reutilizada (por huella), antigua, 2FA faltante o pendiente, expuesto, rotación pendiente. Sin «correo de recuperación externo» (L5) | 16 pruebas en verde (dominio, caso de uso, integración SQL); tsc y eslint limpios |
 | T3 | S5 | inline | Endpoint y panel por organización, grupo y cuenta | pendiente |
 
 ## Log
@@ -24,3 +24,6 @@ Objetivo: puntaje y señales de riesgo por credencial, sin guardar nunca el secr
 - L1 (2026-11-14, dueño): «Sin problema instala o agrega el paquete o lo que sea del comando pnpm» y «Opcion A» (encargo de rutas protegidas para el lote). Se instaló `zxcvbn@4.4.2` y `@types/zxcvbn@4.4.5` (exactas, solo en `@iam/api`).
 - L2 (2026-11-14): el puntaje se guarda en `password_fingerprints` y no en una tabla nueva, porque comparte ciclo de vida con la huella (se reemplaza en cada cambio de contraseña) y ya tiene organización, índice y aislamiento. Las filas previas quedan en null hasta que la contraseña se reescriba.
 - L3 (2026-11-14): zxcvbn recorta a 100 caracteres (límite recomendado por la librería por rendimiento); una contraseña más larga se valora por su inicio.
+- L4 (2026-11-14, jueces ciegos): duda 1, límite de antigüedad. Juez A eligió 90 días y juez B 180; discrepan. Se toma 90 reutilizando `PASSWORD_STALE_AFTER_DAYS` (decisión del dueño del 2026-11-02, semáforo rojo): una sola cifra para todo el producto. Es informativo y reversible; queda como supuesto en el informe final.
+- L5 (2026-11-14, jueces ciegos): duda 2, «correo de recuperación externo» necesita una configuración de «dominios propios» que no existe. Ambos jueces eligieron dejar la señal fuera de esta entrega y registrarla como pendiente.
+- L6 (2026-11-14): la lectura exige acceso efectivo a la cuenta (sin acceso, NOT_FOUND, igual que la ficha) y no agrega permiso nuevo; los paneles de grupo y organización (T3) necesitan decidir su permiso antes de escribirse.

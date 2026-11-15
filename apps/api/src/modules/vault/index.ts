@@ -21,6 +21,9 @@ export type {
   CreateCredentialInput,
   ManageCredentialsDeps,
 } from './application/manage-credentials.js';
+export { GetAccountHealth } from './application/get-account-health.js';
+export type { GetAccountHealthDeps } from './application/get-account-health.js';
+export { PgCredentialHealthReader } from './infrastructure/pg-credential-health-reader.js';
 export { ImportCredentials } from './application/import-credentials.js';
 export type {
   ImportCommitOutcome,
