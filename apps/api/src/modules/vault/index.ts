@@ -23,6 +23,8 @@ export type {
 } from './application/manage-credentials.js';
 export { GetAccountHealth } from './application/get-account-health.js';
 export type { GetAccountHealthDeps } from './application/get-account-health.js';
+export { GetCredentialHealthSummary } from './application/get-credential-health-summary.js';
+export type { GetCredentialHealthSummaryDeps } from './application/get-credential-health-summary.js';
 export { PgCredentialHealthReader } from './infrastructure/pg-credential-health-reader.js';
 export { ImportCredentials } from './application/import-credentials.js';
 export type {

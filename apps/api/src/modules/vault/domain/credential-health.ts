@@ -79,3 +79,40 @@ export function evaluateCredentialHealth(
     strengthScore: facts.strengthScore,
   };
 }
+
+/** Conteos de salud de un conjunto de credenciales. Sin identificadores: solo números. */
+export interface CredentialHealthSummary {
+  readonly credentials: number;
+  readonly withSignals: number;
+  readonly strengthUnknown: number;
+  readonly bySignal: Readonly<Record<CredentialHealthSignal, number>>;
+}
+
+const ALL_SIGNALS: readonly CredentialHealthSignal[] = [
+  'weak_password',
+  'reused_password',
+  'stale_password',
+  'totp_missing',
+  'totp_pending',
+  'totp_exposed',
+  'rotation_pending',
+];
+
+export function summarizeCredentialHealth(
+  entries: readonly CredentialHealth[],
+): CredentialHealthSummary {
+  const bySignal = Object.fromEntries(ALL_SIGNALS.map((signal) => [signal, 0])) as Record<
+    CredentialHealthSignal,
+    number
+  >;
+  let withSignals = 0;
+  let strengthUnknown = 0;
+
+  for (const entry of entries) {
+    if (entry.signals.length > 0) withSignals += 1;
+    if (entry.strengthScore === null) strengthUnknown += 1;
+    for (const signal of entry.signals) bySignal[signal] += 1;
+  }
+
+  return { credentials: entries.length, withSignals, strengthUnknown, bySignal };
+}

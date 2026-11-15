@@ -92,6 +92,56 @@ async function readFacts(organization: SeededOrganization, accountId: string) {
   );
 }
 
+async function seedGroup(organization: SeededOrganization, name: string): Promise<string> {
+  const group = await db.admin.query<{ id: string }>(
+    'insert into groups (organization_id, name, created_by) values ($1, $2, $3) returning id',
+    [organization.organizationId, name, organization.rootId],
+  );
+  const groupId = group.rows[0]?.id;
+  if (groupId === undefined) throw new Error('seed failed');
+  return groupId;
+}
+
+interface ShareSeed {
+  readonly expired?: boolean;
+  readonly revoked?: boolean;
+}
+
+async function shareAccountWithGroup(
+  organization: SeededOrganization,
+  accountId: string,
+  groupId: string,
+  seed: ShareSeed = {},
+) {
+  await db.admin.query(
+    `insert into shares
+       (organization_id, resource_type, resource_id, grantee_type, grantee_id, level, granted_by,
+        expires_at, revoked_at, revoked_by)
+     values ($1, 'account', $2, 'group', $3, 'VIEW', $4, $5, $6, $7)`,
+    [
+      organization.organizationId,
+      accountId,
+      groupId,
+      organization.rootId,
+      seed.expired === true ? new Date(Date.now() - 60_000) : null,
+      seed.revoked === true ? new Date() : null,
+      seed.revoked === true ? organization.rootId : null,
+    ],
+  );
+}
+
+async function readFactsByGroup(organization: SeededOrganization, groupId: string) {
+  return requestContext.run(contextFor(organization.organizationId), () =>
+    uow.run(() => new PgCredentialHealthReader(uow).factsByGroup(groupId, new Date())),
+  );
+}
+
+async function readFactsByOrganization(organization: SeededOrganization) {
+  return requestContext.run(contextFor(organization.organizationId), () =>
+    uow.run(() => new PgCredentialHealthReader(uow).factsByOrganization()),
+  );
+}
+
 beforeAll(async () => {
   db = await createTestDatabase(inject('adminUrl'));
   uow = new PgUnitOfWork(db.appPool, requestContext, db.independentPool);
@@ -104,6 +154,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  await db.admin.query('delete from shares');
   await db.admin.query('delete from rotation_tasks');
   await db.admin.query('delete from credential_totp');
   await db.admin.query('delete from password_fingerprints');
@@ -194,5 +245,66 @@ describe('PgCredentialHealthReader against PostgreSQL', () => {
 
     expect((await readFacts(orgA, orgA.accountId))[0]?.hasOpenRotationTask).toBe(false);
     expect(await readFacts(orgB, orgA.accountId)).toEqual([]);
+  });
+});
+
+describe('PgCredentialHealthReader by group and by organization against PostgreSQL', () => {
+  it('reads only the credentials of accounts currently shared with the group', async () => {
+    const groupId = await seedGroup(orgA, 'Soporte');
+    const sharedCredential = await seedCredential(orgA, { label: 'compartida' });
+    await seedCredential(orgA, { label: 'no-compartida', accountId: orgA.otherAccountId });
+    await shareAccountWithGroup(orgA, orgA.accountId, groupId);
+
+    const facts = await readFactsByGroup(orgA, groupId);
+
+    expect(facts.map((entry) => entry.credentialId)).toEqual([sharedCredential]);
+  });
+
+  it('ignores revoked and expired shares and archived credentials', async () => {
+    const revokedGroup = await seedGroup(orgA, 'Revocado');
+    const expiredGroup = await seedGroup(orgA, 'Vencido');
+    await seedCredential(orgA, { label: 'viva' });
+    await seedCredential(orgA, { label: 'archivada', archived: true });
+    await shareAccountWithGroup(orgA, orgA.accountId, revokedGroup, { revoked: true });
+    await shareAccountWithGroup(orgA, orgA.accountId, expiredGroup, { expired: true });
+
+    expect(await readFactsByGroup(orgA, revokedGroup)).toEqual([]);
+    expect(await readFactsByGroup(orgA, expiredGroup)).toEqual([]);
+  });
+
+  it('returns a shared credential exactly once', async () => {
+    const groupId = await seedGroup(orgA, 'Una vez');
+    await seedCredential(orgA, { label: 'unica' });
+    await shareAccountWithGroup(orgA, orgA.accountId, groupId);
+
+    expect(await readFactsByGroup(orgA, groupId)).toHaveLength(1);
+  });
+
+  it('reads nothing of a group of another organization', async () => {
+    const groupId = await seedGroup(orgA, 'Ajeno');
+    await seedCredential(orgA, { label: 'a' });
+    await shareAccountWithGroup(orgA, orgA.accountId, groupId);
+
+    expect(await readFactsByGroup(orgB, groupId)).toEqual([]);
+  });
+
+  it('reads every live credential of active accounts of the organization and nothing of another', async () => {
+    const first = await seedCredential(orgA, { label: 'a' });
+    const second = await seedCredential(orgA, { label: 'b', accountId: orgA.otherAccountId });
+    await seedCredential(orgA, { label: 'archivada', archived: true });
+    await seedCredential(orgB, { label: 'de-b' });
+    await db.admin.query(
+      "update accounts set status = 'archived', archived_at = now() where organization_id = $1 and id = $2",
+      [orgA.organizationId, orgA.otherAccountId],
+    );
+
+    const facts = await readFactsByOrganization(orgA);
+
+    expect(facts.map((entry) => entry.credentialId)).toEqual([first]);
+    expect(facts.map((entry) => entry.credentialId)).not.toContain(second);
+    await db.admin.query(
+      "update accounts set status = 'active', archived_at = null where organization_id = $1 and id = $2",
+      [orgA.organizationId, orgA.otherAccountId],
+    );
   });
 });

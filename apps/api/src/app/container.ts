@@ -105,6 +105,7 @@ import {
 import type { Mailer } from '../modules/notification/index.js';
 import {
   GetAccountHealth,
+  GetCredentialHealthSummary,
   ManageAccounts,
   ManageSavedViews,
   ManageShares,
@@ -592,6 +593,13 @@ export function buildContainer(options: ContainerOptions) {
       uow,
       authorizer,
       accounts: new PgAccountRepository(uow),
+      health: new PgCredentialHealthReader(uow),
+      clock,
+    }),
+    getCredentialHealthSummary: new GetCredentialHealthSummary({
+      uow,
+      authorizer,
+      groups: new PgGroupStore(uow),
       health: new PgCredentialHealthReader(uow),
       clock,
     }),

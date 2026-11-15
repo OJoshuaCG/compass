@@ -42,6 +42,7 @@ import {
   ManageAccounts,
   ManageSavedViews,
   GetAccountHealth,
+  GetCredentialHealthSummary,
   ManageCredentials,
   ManageShares,
   ImportCredentials,
@@ -56,6 +57,7 @@ import { AccountSharesController } from '../modules/vault/interface/shares.contr
 import {
   AccountCredentialsController,
   AccountHealthController,
+  CredentialHealthSummaryController,
   CredentialsController,
 } from '../modules/vault/interface/credentials.controller.js';
 import { CredentialImportController } from '../modules/vault/interface/credential-import.controller.js';
@@ -133,6 +135,10 @@ export class AppModule {
       { provide: ManageSavedViews, useValue: container.manageSavedViews },
       { provide: ManageCredentials, useValue: container.manageCredentials },
       { provide: GetAccountHealth, useValue: container.getAccountHealth },
+      {
+        provide: GetCredentialHealthSummary,
+        useValue: container.getCredentialHealthSummary,
+      },
       { provide: ManageShares, useValue: container.manageShares },
       { provide: ImportCredentials, useValue: container.importCredentials },
       { provide: ManageTotp, useValue: container.manageTotp },
@@ -172,6 +178,7 @@ export class AppModule {
         SavedViewsController,
         AccountCredentialsController,
         AccountHealthController,
+        CredentialHealthSummaryController,
         AccountSharesController,
         CredentialsController,
         CredentialImportController,

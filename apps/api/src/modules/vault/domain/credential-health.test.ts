@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateCredentialHealth } from './credential-health.js';
+import { evaluateCredentialHealth, summarizeCredentialHealth } from './credential-health.js';
 import type { CredentialHealthFacts } from './credential-health.js';
 
 const NOW = new Date('2026-11-14T12:00:00.000Z');
@@ -62,5 +62,29 @@ describe('evaluateCredentialHealth', () => {
     const result = evaluateCredentialHealth({ ...healthyFacts, strengthScore: 1 }, NOW);
     expect(Object.keys(result).sort()).toEqual(['credentialId', 'signals', 'strengthScore']);
     expect(result.strengthScore).toBe(1);
+  });
+});
+
+describe('summarizeCredentialHealth', () => {
+  it('cuenta cada credencial una vez por señal y las que tienen al menos una', () => {
+    const summary = summarizeCredentialHealth([
+      { credentialId: 'a', signals: ['weak_password', 'stale_password'], strengthScore: 1 },
+      { credentialId: 'b', signals: ['stale_password'], strengthScore: null },
+      { credentialId: 'c', signals: [], strengthScore: 4 },
+    ]);
+
+    expect(summary.credentials).toBe(3);
+    expect(summary.withSignals).toBe(2);
+    expect(summary.strengthUnknown).toBe(1);
+    expect(summary.bySignal.weak_password).toBe(1);
+    expect(summary.bySignal.stale_password).toBe(2);
+    expect(summary.bySignal.totp_exposed).toBe(0);
+  });
+
+  it('devuelve ceros, sin fallar, cuando no hay credenciales', () => {
+    const summary = summarizeCredentialHealth([]);
+
+    expect(summary.credentials).toBe(0);
+    expect(Object.values(summary.bySignal).every((count) => count === 0)).toBe(true);
   });
 });
