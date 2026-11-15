@@ -256,7 +256,7 @@ function ConnectionForm({ source, connection, onCancel, onSaved }: ConnectionFor
       {clearsPassword ? (
         <Alert tone="warning">{t('sources.connection.clearsPassword', { ns: 'inbound' })}</Alert>
       ) : null}
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}
         </Button>

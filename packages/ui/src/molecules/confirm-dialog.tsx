@@ -61,7 +61,7 @@ export function ConfirmDialog({
             {description}
           </Dialog.Description>
           {children !== undefined ? <div className="mt-4">{children}</div> : null}
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
             <Dialog.Close asChild>
               <Button variant="secondary" disabled={loading}>
                 {cancelLabel}

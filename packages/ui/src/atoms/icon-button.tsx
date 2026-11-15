@@ -6,7 +6,7 @@ import { cn } from '../lib/cn';
 import { buttonVariants, type ButtonProps } from './button';
 
 const iconSize = cva('', {
-  variants: { size: { sm: 'size-8', md: 'size-10', lg: 'size-12' } },
+  variants: { size: { sm: 'size-8 max-md:size-10', md: 'size-10', lg: 'size-12' } },
   defaultVariants: { size: 'md' },
 });
 

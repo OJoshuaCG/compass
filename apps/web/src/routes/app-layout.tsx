@@ -43,13 +43,21 @@ type NavLinkProps = {
   icon: ReactNode;
   label: string;
   exact?: boolean;
+  /** Se llama al activar el enlace; el menú lo usa para plegarse en móvil. */
+  onNavigate: () => void;
 };
 
 /** Enlace del menú lateral: el `Link` del enrutador con las clases compartidas de `NavItem`. */
-function NavLink({ to, icon, label, exact = false }: NavLinkProps) {
+function NavLink({ to, icon, label, exact = false, onNavigate }: NavLinkProps) {
   return (
     <li>
-      <Link to={to} className={navItemClass} activeProps={activeProps} activeOptions={{ exact }}>
+      <Link
+        to={to}
+        className={navItemClass}
+        activeProps={activeProps}
+        activeOptions={{ exact }}
+        onClick={onNavigate}
+      >
         <span aria-hidden="true" className={navItemIconClass}>
           {icon}
         </span>
@@ -80,6 +88,7 @@ export function AppLayout() {
   const { logout, pending } = useLogout();
   const sidebarState = useSidebarVisibility(me?.user.id);
   const sidebarVisible: boolean = sidebarState.visible;
+  const closeSidebar: () => void = sidebarState.close;
   const showCatalog: boolean = import.meta.env.DEV;
   // El grupo Acceso se oculta entero cuando ninguno de sus enlaces aplica a la persona.
   const showAccessGroup: boolean =
@@ -139,20 +148,34 @@ export function AppLayout() {
       sidebar={
         <nav aria-label={t('nav.label')} className="flex flex-col gap-5">
           <NavGroup label={t('nav.group.workspace')}>
-            <NavLink to="/" exact icon={<House className="size-5" />} label={t('nav.home')} />
-            <NavLink to="/users" icon={<Users className="size-5" />} label={t('nav.users')} />
+            <NavLink
+              onNavigate={closeSidebar}
+              to="/"
+              exact
+              icon={<House className="size-5" />}
+              label={t('nav.home')}
+            />
+            <NavLink
+              onNavigate={closeSidebar}
+              to="/users"
+              icon={<Users className="size-5" />}
+              label={t('nav.users')}
+            />
             {/* Sin permiso previo: la lista ya llega acotada por el servidor a lo que la persona ve. */}
             <NavLink
+              onNavigate={closeSidebar}
               to="/groups"
               icon={<UsersRound className="size-5" />}
               label={t('nav.groups')}
             />
             <NavLink
+              onNavigate={closeSidebar}
               to="/sessions"
               icon={<Monitor className="size-5" />}
               label={t('nav.sessions')}
             />
             <NavLink
+              onNavigate={closeSidebar}
               to="/security"
               icon={<ShieldCheck className="size-5" />}
               label={t('nav.security')}
@@ -160,6 +183,7 @@ export function AppLayout() {
           </NavGroup>
           <NavGroup label={t('nav.group.vault')}>
             <NavLink
+              onNavigate={closeSidebar}
               to="/accounts"
               icon={<KeyRound className="size-5" />}
               label={t('nav.accounts')}
@@ -167,6 +191,7 @@ export function AppLayout() {
             {canReadInboundCodes ? (
               // Exacto: «Fuentes» y «Vistas» cuelgan de /inbound y no deben marcar también «Códigos».
               <NavLink
+                onNavigate={closeSidebar}
                 to="/inbound"
                 exact
                 icon={<Inbox className="size-5" />}
@@ -176,11 +201,13 @@ export function AppLayout() {
             {canConfigureInbound ? (
               <>
                 <NavLink
+                  onNavigate={closeSidebar}
                   to="/inbound/sources"
                   icon={<Layers className="size-5" />}
                   label={t('nav.inboundSources')}
                 />
                 <NavLink
+                  onNavigate={closeSidebar}
                   to="/inbound/view-settings"
                   icon={<SlidersHorizontal className="size-5" />}
                   label={t('nav.inboundViewSettings')}
@@ -189,6 +216,7 @@ export function AppLayout() {
             ) : null}
             {canViewCredentialHealth ? (
               <NavLink
+                onNavigate={closeSidebar}
                 to="/credential-health"
                 icon={<AlertTriangle className="size-5" />}
                 label={t('nav.credentialHealth')}
@@ -198,13 +226,24 @@ export function AppLayout() {
           {showAccessGroup ? (
             <NavGroup label={t('nav.group.access')}>
               {canManageRoles ? (
-                <NavLink to="/roles" icon={<UserCog className="size-5" />} label={t('nav.roles')} />
+                <NavLink
+                  onNavigate={closeSidebar}
+                  to="/roles"
+                  icon={<UserCog className="size-5" />}
+                  label={t('nav.roles')}
+                />
               ) : null}
               {canManageInfraAlerts ? (
-                <NavLink to="/alerts" icon={<Bell className="size-5" />} label={t('nav.alerts')} />
+                <NavLink
+                  onNavigate={closeSidebar}
+                  to="/alerts"
+                  icon={<Bell className="size-5" />}
+                  label={t('nav.alerts')}
+                />
               ) : null}
               {canSeeRootTransfer ? (
                 <NavLink
+                  onNavigate={closeSidebar}
                   to="/root-transfer"
                   icon={<ArrowRightLeft className="size-5" />}
                   label={t('nav.rootTransfer')}
@@ -212,6 +251,7 @@ export function AppLayout() {
               ) : null}
               {showCatalog ? (
                 <NavLink
+                  onNavigate={closeSidebar}
                   to="/catalog"
                   icon={<LayoutGrid className="size-5" />}
                   label={t('nav.catalog')}

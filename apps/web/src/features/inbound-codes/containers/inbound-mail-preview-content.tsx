@@ -310,7 +310,7 @@ export function InboundMailPreviewContent({
               />
             )}
           </FormField>
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button variant="secondary" onClick={backToStart}>
               {t('actions.cancel', { ns: 'common' })}
             </Button>
@@ -335,7 +335,7 @@ export function InboundMailPreviewContent({
           <p role="status" className="text-sm text-text-secondary">
             {t('mailPreview.status.slow')}
           </p>
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button variant="secondary" onClick={onClose}>
               {t('actions.close', { ns: 'common' })}
             </Button>
@@ -358,7 +358,7 @@ export function InboundMailPreviewContent({
             </Badge>
             <p className="text-sm text-text-secondary">{t(`mailPreview.result.${phase.code}`)}</p>
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button variant="secondary" onClick={onClose}>
               {t('actions.close', { ns: 'common' })}
             </Button>
@@ -372,7 +372,7 @@ export function InboundMailPreviewContent({
           <p role="status" className="text-sm text-text-secondary">
             {t('mailPreview.status.gone')}
           </p>
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button variant="secondary" onClick={onClose}>
               {t('actions.close', { ns: 'common' })}
             </Button>

@@ -15,9 +15,20 @@ function defaultSidebarVisible(): boolean {
   return window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
 }
 
+/** Sin `matchMedia` se asume escritorio: ahí el menú no estorba al contenido y no se cierra solo. */
+function isNarrowScreen(): boolean {
+  if (typeof window.matchMedia !== 'function') return false;
+  return !window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
+}
+
 export type SidebarVisibility = {
   visible: boolean;
   toggle: () => void;
+  /**
+   * Pliega el menú tras navegar en pantallas estrechas, donde apilado tapa el contenido. No guarda
+   * la preferencia: es una comodidad del momento, no una decisión de la persona. En escritorio no hace nada.
+   */
+  close: () => void;
 };
 
 /** Estado del menú lateral con su preferencia por persona en `localStorage`. */
@@ -32,6 +43,10 @@ export function useSidebarVisibility(personId: string | undefined): SidebarVisib
       const nextVisible: boolean = !visible;
       storeSidebarVisible(personId, nextVisible);
       setVisible(nextVisible);
+    },
+    close: () => {
+      if (!isNarrowScreen()) return;
+      setVisible(false);
     },
   };
 }

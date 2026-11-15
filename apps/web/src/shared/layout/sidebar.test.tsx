@@ -90,4 +90,31 @@ describe('collapsible sidebar', () => {
     expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBeNull();
     vi.unstubAllGlobals();
   });
+
+  it('folds after following a link on narrow screens without saving the choice', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    );
+    setup();
+    renderApp('/');
+    await user.click(await screen.findByRole('button', { name: es.common['nav.showMenu'] }));
+    await user.click(screen.getByRole('link', { name: es.common['nav.sessions'] }));
+    expect(
+      await screen.findByRole('button', { name: es.common['nav.showMenu'] }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: navigationName })).not.toBeInTheDocument();
+    // Lo guardado sigue siendo la última decisión explícita (mostrar), no el cierre automático.
+    expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBe('visible');
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps the menu open after following a link on wide screens', async () => {
+    const user = userEvent.setup();
+    setup();
+    renderApp('/');
+    await user.click(await screen.findByRole('link', { name: es.common['nav.sessions'] }));
+    expect(screen.getByRole('navigation', { name: navigationName })).toBeInTheDocument();
+  });
 });

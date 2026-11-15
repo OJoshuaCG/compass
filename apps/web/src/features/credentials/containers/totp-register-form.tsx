@@ -179,7 +179,7 @@ export function TotpRegisterForm({
           keyFields
         )}
       </Tabs>
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         {onCancel === undefined ? null : (
           <Button variant="secondary" onClick={onCancel}>
             {t('actions.cancel', { ns: 'common' })}

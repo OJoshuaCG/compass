@@ -24,7 +24,7 @@ export const buttonVariants = cva(
         danger: 'bg-danger-solid text-on-danger hover:opacity-90 active:opacity-80',
       },
       size: {
-        sm: 'h-8 px-3 text-sm',
+        sm: 'h-8 px-3 text-sm max-md:h-10',
         md: 'h-10 px-4 text-sm',
         lg: 'h-12 px-6 text-base',
       },

@@ -50,7 +50,7 @@ export function SearchInput({
           onClick={() => {
             onValueChange('');
           }}
-          className="absolute end-1 top-1 inline-flex size-8 items-center justify-center rounded-sm text-text-secondary hover:bg-raised hover:text-text"
+          className="absolute end-1 top-1 inline-flex size-8 items-center justify-center rounded-sm text-text-secondary hover:bg-raised hover:text-text max-md:end-0 max-md:top-0 max-md:size-10"
         >
           <X aria-hidden="true" className="size-4" />
         </button>
