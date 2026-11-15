@@ -1,7 +1,15 @@
 import {
   alertSettingsSchema,
+  telegramIntegrationSchema,
+  telegramIntegrationsResponseSchema,
+  telegramTestResultSchema,
   type AlertSettings,
+  type CreateTelegramIntegrationRequest,
   type InfrastructureAlertChannels,
+  type TelegramIntegration,
+  type TelegramIntegrationsResponse,
+  type TelegramTestResult,
+  type UpdateTelegramIntegrationRequest,
 } from '@iam/contracts';
 
 import { apiClient, type ApiClient } from '../../../shared/api';
@@ -10,6 +18,7 @@ import { apiClient, type ApiClient } from '../../../shared/api';
 export const integrationsKeys = {
   all: ['integrations'] as const,
   alertSettings: () => [...integrationsKeys.all, 'alert-settings'] as const,
+  telegram: () => [...integrationsKeys.all, 'telegram'] as const,
 };
 
 const ALERT_SETTINGS_PATH = '/integrations/alert-settings';
@@ -37,4 +46,66 @@ export function saveAlertSettings(
   return client.put(ALERT_SETTINGS_PATH, alertSettingsSchema, {
     body: { infrastructure, expectedVersion },
   });
+}
+
+const TELEGRAM_PATH = '/integrations/telegram';
+
+/**
+ * `GET /integrations/telegram` (permiso del canal). La respuesta nunca lleva el token, solo
+ * `hasBotToken`, así que puede pasar por Query.
+ */
+export function fetchTelegramIntegrations(
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<TelegramIntegrationsResponse> {
+  return client.get(TELEGRAM_PATH, telegramIntegrationsResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
+ * `POST /integrations/telegram` (reautenticación reciente). El token viaja una sola vez en el cuerpo:
+ * el llamador no lo guarda en Query ni en ningún almacenamiento.
+ */
+export function createTelegramIntegration(
+  body: CreateTelegramIntegrationRequest,
+  client: ApiClient = apiClient,
+): Promise<TelegramIntegration> {
+  return client.post(TELEGRAM_PATH, telegramIntegrationSchema, { body });
+}
+
+/** `PUT /integrations/telegram/:id`: nombre y chat. El token se cambia aparte. */
+export function updateTelegramIntegration(
+  id: string,
+  body: UpdateTelegramIntegrationRequest,
+  client: ApiClient = apiClient,
+): Promise<TelegramIntegration> {
+  return client.put(`${TELEGRAM_PATH}/${id}`, telegramIntegrationSchema, { body });
+}
+
+/** `PUT /integrations/telegram/:id/bot-token`: guarda un token nuevo (cifrado en el servidor). */
+export function rotateTelegramBotToken(
+  id: string,
+  botToken: string,
+  client: ApiClient = apiClient,
+): Promise<TelegramIntegration> {
+  return client.put(`${TELEGRAM_PATH}/${id}/bot-token`, telegramIntegrationSchema, {
+    body: { botToken },
+  });
+}
+
+/** `POST /integrations/telegram/:id/test`: `sent` o el código estable de fallo, nunca el texto de Telegram. */
+export function sendTelegramTest(
+  id: string,
+  client: ApiClient = apiClient,
+): Promise<TelegramTestResult> {
+  return client.post(`${TELEGRAM_PATH}/${id}/test`, telegramTestResultSchema);
+}
+
+/** `DELETE /integrations/telegram/:id`: archiva el canal; para volver a usarlo se crea otro. */
+export function archiveTelegramIntegration(
+  id: string,
+  client: ApiClient = apiClient,
+): Promise<TelegramIntegration> {
+  return client.delete(`${TELEGRAM_PATH}/${id}`, telegramIntegrationSchema);
 }
