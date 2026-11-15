@@ -104,6 +104,7 @@ import {
 } from '../modules/provisioning/index.js';
 import type { Mailer } from '../modules/notification/index.js';
 import {
+  GetAccountHealth,
   ManageAccounts,
   ManageSavedViews,
   ManageShares,
@@ -118,6 +119,7 @@ import {
   ZxcvbnPasswordStrengthScorer,
   PENDING_TOTP_NOTICE_EVENT_TYPE,
   PgAccountRepository,
+  PgCredentialHealthReader,
   PgOffboardingAccessCleanup,
   PgOffboardingAccountStore,
   PgOffboardingRotationStore,
@@ -584,6 +586,13 @@ export function buildContainer(options: ContainerOptions) {
       audit,
       auditCounter: auditEvents,
       ids,
+      clock,
+    }),
+    getAccountHealth: new GetAccountHealth({
+      uow,
+      authorizer,
+      accounts: new PgAccountRepository(uow),
+      health: new PgCredentialHealthReader(uow),
       clock,
     }),
     importCredentials: new ImportCredentials({

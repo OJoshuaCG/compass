@@ -41,6 +41,7 @@ import { InvitationsController } from '../modules/identity/interface/invitations
 import {
   ManageAccounts,
   ManageSavedViews,
+  GetAccountHealth,
   ManageCredentials,
   ManageShares,
   ImportCredentials,
@@ -54,6 +55,7 @@ import { SavedViewsController } from '../modules/vault/interface/saved-views.con
 import { AccountSharesController } from '../modules/vault/interface/shares.controller.js';
 import {
   AccountCredentialsController,
+  AccountHealthController,
   CredentialsController,
 } from '../modules/vault/interface/credentials.controller.js';
 import { CredentialImportController } from '../modules/vault/interface/credential-import.controller.js';
@@ -130,6 +132,7 @@ export class AppModule {
       { provide: ManageAccounts, useValue: container.manageAccounts },
       { provide: ManageSavedViews, useValue: container.manageSavedViews },
       { provide: ManageCredentials, useValue: container.manageCredentials },
+      { provide: GetAccountHealth, useValue: container.getAccountHealth },
       { provide: ManageShares, useValue: container.manageShares },
       { provide: ImportCredentials, useValue: container.importCredentials },
       { provide: ManageTotp, useValue: container.manageTotp },
@@ -168,6 +171,7 @@ export class AppModule {
         AccountsController,
         SavedViewsController,
         AccountCredentialsController,
+        AccountHealthController,
         AccountSharesController,
         CredentialsController,
         CredentialImportController,

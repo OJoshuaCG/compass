@@ -6,6 +6,7 @@ import type {
   ChangeCredentialPasswordRequest,
   CreateCredentialRequest,
   Credential,
+  CredentialHealth,
   CredentialUsername,
   PasswordVersion,
   RevealedPassword,
@@ -15,6 +16,7 @@ import { z } from 'zod';
 
 import { unwrap } from '../../../shared/http/http-decorators.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
+import { GetAccountHealth } from '../application/get-account-health.js';
 import { ManageCredentials } from '../application/manage-credentials.js';
 import type {
   CredentialRecord,
@@ -73,6 +75,21 @@ export class AccountCredentialsController {
     @Body(new ZodValidationPipe(createCredentialRequestSchema)) body: CreateCredentialRequest,
   ): Promise<Credential> {
     return toCredential(unwrap(await this.manageCredentials.create(accountId, body)));
+  }
+}
+
+@Controller('accounts/:accountId/health')
+export class AccountHealthController {
+  constructor(private readonly getAccountHealth: GetAccountHealth) {}
+
+  // Solo señales y puntaje: ninguna respuesta lleva secreto, pero tampoco se cachea (depende de la persona).
+  @Header('Cache-Control', NO_STORE)
+  @Get()
+  async health(
+    @Param('accountId', uuidPipe) accountId: string,
+  ): Promise<{ data: CredentialHealth[] }> {
+    const health = unwrap(await this.getAccountHealth.execute(accountId));
+    return { data: health.map((entry) => ({ ...entry, signals: [...entry.signals] })) };
   }
 }
 
