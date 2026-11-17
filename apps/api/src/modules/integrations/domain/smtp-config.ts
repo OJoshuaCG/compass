@@ -1,7 +1,12 @@
-import type { SmtpSecurityValue } from '@iam/contracts';
+import { SMTP_LIMITS, type SmtpSecurityValue } from '@iam/contracts';
+
+import type { IntegrationSecretField } from './integration-secret-context.js';
 
 /** Tipo de integración que guarda el servidor SMTP de una organización (CHECK de la migración 0044). */
 export const SMTP_INTEGRATION_KIND = 'smtp_mail';
+
+/** Campo de `integration_secrets` donde se guarda la contraseña del servidor SMTP (CHECK de la migración 0044). */
+export const SMTP_PASSWORD_FIELD: IntegrationSecretField = 'smtp_password';
 
 /** Permiso que gobierna el servidor SMTP: solo la Raíz (techo 0), igual que el canal de infraestructura. */
 export const SMTP_MANAGE_PERMISSION = 'alerts.infra.manage';
@@ -12,13 +17,7 @@ export const SMTP_MANAGE_PERMISSION = 'alerts.infra.manage';
  */
 export const SMTP_SECURITY_MODES: readonly SmtpSecurityValue[] = ['starttls', 'tls'];
 
-const HOST_MAX_LENGTH = 253;
 const HOST_LABEL_MAX_LENGTH = 63;
-const USERNAME_MAX_LENGTH = 254;
-const FROM_ADDRESS_MAX_LENGTH = 254;
-export const SMTP_PASSWORD_MAX_LENGTH = 512;
-const MIN_PORT = 1;
-const MAX_PORT = 65_535;
 const LAST_C0_CONTROL_CODE = 0x1f;
 const DELETE_CODE = 0x7f;
 
@@ -42,7 +41,7 @@ function hasControlCharacter(value: string): boolean {
  */
 export function normalizeSmtpHost(raw: string): string | null {
   const host = raw.trim().toLowerCase();
-  if (host.length === 0 || host.length > HOST_MAX_LENGTH) return null;
+  if (host.length === 0 || host.length > SMTP_LIMITS.hostMaxLength) return null;
   const labels = host.split('.');
   if (labels.length < 2) return null;
   const everyLabelValid = labels.every(
@@ -56,7 +55,7 @@ export function normalizeSmtpHost(raw: string): string | null {
 }
 
 export function isValidSmtpPort(port: number): boolean {
-  return Number.isInteger(port) && port >= MIN_PORT && port <= MAX_PORT;
+  return Number.isInteger(port) && port >= SMTP_LIMITS.portMin && port <= SMTP_LIMITS.portMax;
 }
 
 export function isSmtpSecurity(value: string): value is SmtpSecurityValue {
@@ -66,20 +65,20 @@ export function isSmtpSecurity(value: string): value is SmtpSecurityValue {
 /** Usuario SMTP: texto sin caracteres de control (evita inyectar comandos en el diálogo SMTP). */
 export function normalizeSmtpUsername(raw: string): string | null {
   const username = raw.trim();
-  if (username.length === 0 || username.length > USERNAME_MAX_LENGTH) return null;
+  if (username.length === 0 || username.length > SMTP_LIMITS.usernameMaxLength) return null;
   if (hasControlCharacter(username)) return null;
   return username;
 }
 
 export function normalizeSmtpFromAddress(raw: string): string | null {
   const address = raw.trim();
-  if (address.length === 0 || address.length > FROM_ADDRESS_MAX_LENGTH) return null;
+  if (address.length === 0 || address.length > SMTP_LIMITS.fromAddressMaxLength) return null;
   if (!FROM_ADDRESS_PATTERN.test(address)) return null;
   return address;
 }
 
 /** La contraseña no se recorta (los espacios pueden ser parte de ella) pero no admite saltos de línea. */
 export function isValidSmtpPassword(password: string): boolean {
-  if (password.length === 0 || password.length > SMTP_PASSWORD_MAX_LENGTH) return false;
+  if (password.length === 0 || password.length > SMTP_LIMITS.passwordMaxLength) return false;
   return !hasControlCharacter(password);
 }

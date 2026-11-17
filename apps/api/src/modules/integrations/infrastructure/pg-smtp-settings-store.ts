@@ -17,9 +17,7 @@ import type {
   SmtpSettingsStore,
   StoredSmtpPassword,
 } from '../application/ports/smtp-settings-store.js';
-import { SMTP_INTEGRATION_KIND } from '../domain/smtp-config.js';
-
-const PASSWORD_FIELD = 'smtp_password';
+import { SMTP_INTEGRATION_KIND, SMTP_PASSWORD_FIELD } from '../domain/smtp-config.js';
 
 interface SmtpRow {
   id: string;
@@ -54,7 +52,7 @@ const SETTINGS_COLUMNS = `integrations.id,
                  from integration_secrets
                 where integration_secrets.organization_id = integrations.organization_id
                   and integration_secrets.integration_id = integrations.id
-                  and integration_secrets.field = '${PASSWORD_FIELD}') as has_password,
+                  and integration_secrets.field = '${SMTP_PASSWORD_FIELD}') as has_password,
        integrations.created_at,
        integrations.updated_at`;
 
@@ -183,7 +181,7 @@ export class PgSmtpSettingsStore implements SmtpSettingsStore {
       `select secret_version, ciphertext, nonce, dek_version
          from integration_secrets
         where integration_id = $1
-          and field = '${PASSWORD_FIELD}'`,
+          and field = '${SMTP_PASSWORD_FIELD}'`,
       [settingsId],
     );
     const row = result.rows[0];
@@ -207,7 +205,7 @@ export class PgSmtpSettingsStore implements SmtpSettingsStore {
     await this.transactions.current().query(
       `insert into integration_secrets
          (organization_id, integration_id, field, ciphertext, nonce, dek_version, secret_version, rotated_at)
-       values (nullif(current_setting('app.org_id', true), '')::uuid, $1, '${PASSWORD_FIELD}',
+       values (nullif(current_setting('app.org_id', true), '')::uuid, $1, '${SMTP_PASSWORD_FIELD}',
                $2::bytea, $3::bytea, $4, $5, $6)
        on conflict (organization_id, integration_id, field) do update
           set ciphertext = excluded.ciphertext,

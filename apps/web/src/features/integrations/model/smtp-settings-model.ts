@@ -1,14 +1,13 @@
-import { SMTP_SECURITY_VALUES, type SmtpSettings } from '@iam/contracts';
+import {
+  SMTP_LIMITS,
+  SMTP_SECURITY_VALUES,
+  smtpDestinationChanged,
+  type SmtpSettings,
+} from '@iam/contracts';
 import { z } from 'zod';
 
 /** Mismo tope que el CHECK de `integrations.name` en el servidor. */
 const NAME_MAX_LENGTH = 200;
-const HOST_MAX_LENGTH = 300;
-const USERNAME_MAX_LENGTH = 300;
-const ADDRESS_MAX_LENGTH = 320;
-const PASSWORD_MAX_LENGTH = 1024;
-const PORT_MIN = 1;
-const PORT_MAX = 65_535;
 
 /** Puerto con que se abre el formulario: el de envío autenticado con STARTTLS. */
 export const DEFAULT_SMTP_PORT = '587';
@@ -18,17 +17,21 @@ export const DEFAULT_SMTP_SECURITY = 'starttls' as const;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const nameSchema = z.string().trim().min(1).max(NAME_MAX_LENGTH);
-const hostSchema = z.string().trim().min(1).max(HOST_MAX_LENGTH);
+const hostSchema = z.string().trim().min(1).max(SMTP_LIMITS.hostMaxLength);
 const portSchema = z
   .string()
   .trim()
   .regex(/^\d{1,5}$/)
-  .refine((value) => Number(value) >= PORT_MIN && Number(value) <= PORT_MAX);
+  .refine((value) => Number(value) >= SMTP_LIMITS.portMin && Number(value) <= SMTP_LIMITS.portMax);
 const securitySchema = z.enum(SMTP_SECURITY_VALUES);
-const usernameSchema = z.string().trim().min(1).max(USERNAME_MAX_LENGTH);
-const fromAddressSchema = z.string().trim().max(ADDRESS_MAX_LENGTH).regex(EMAIL_PATTERN);
+const usernameSchema = z.string().trim().min(1).max(SMTP_LIMITS.usernameMaxLength);
+const fromAddressSchema = z
+  .string()
+  .trim()
+  .max(SMTP_LIMITS.fromAddressMaxLength)
+  .regex(EMAIL_PATTERN);
 // La contraseña no se recorta: un espacio al final puede ser parte de ella.
-const passwordSchema = z.string().min(1).max(PASSWORD_MAX_LENGTH);
+const passwordSchema = z.string().min(1).max(SMTP_LIMITS.passwordMaxLength);
 
 const connectionShape = {
   name: nameSchema,
@@ -46,21 +49,18 @@ export type SmtpFormValues = z.input<typeof createSmtpFormSchema>;
  * Al editar la contraseña es opcional, salvo que cambie el servidor, el puerto, la seguridad o el usuario
  * y ya haya una guardada: la API lo exige igual, aquí se avisa antes de enviar. El campo vacío no se envía.
  */
-export function buildEditSmtpFormSchema(current: {
-  host: string;
-  port: number;
-  security: string;
-  username: string;
-  hasPassword: boolean;
-}) {
+export function buildEditSmtpFormSchema(
+  current: Pick<SmtpSettings, 'host' | 'port' | 'security' | 'username' | 'hasPassword'>,
+) {
   return z
-    .object({ ...connectionShape, password: z.string().max(PASSWORD_MAX_LENGTH) })
+    .object({ ...connectionShape, password: z.string().max(SMTP_LIMITS.passwordMaxLength) })
     .superRefine((values, context) => {
-      const destinationChanged =
-        values.host !== current.host ||
-        Number(values.port) !== current.port ||
-        values.security !== current.security ||
-        values.username !== current.username;
+      const destinationChanged = smtpDestinationChanged(current, {
+        host: values.host,
+        port: Number(values.port),
+        security: values.security,
+        username: values.username,
+      });
       if (destinationChanged && current.hasPassword && values.password === '') {
         // Mismo código que un campo vacío obligatorio: el aviso es el de «falta este dato».
         context.addIssue({

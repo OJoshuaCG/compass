@@ -230,7 +230,7 @@ export function buildContainer(options: ContainerOptions) {
   // sin él se usa el de las variables de entorno. El servidor lo escribe una persona de la organización, por
   // eso el envío pasa por un guardia de red (sin excepciones de redes privadas), igual que Telegram.
   const smtpSettingsStore = new PgSmtpSettingsStore(uow);
-  const smtpGuard = new NetworkGuard(async (host) => {
+  const outboundHostGuard = new NetworkGuard(async (host) => {
     const records = await resolveDnsRecords(host, { all: true });
     return records.map((record) => record.address);
   });
@@ -245,7 +245,7 @@ export function buildContainer(options: ContainerOptions) {
       const resolved = await resolveOrganizationSmtp.resolve();
       if (resolved === null) return null;
       const opened = await openGuardedSmtpTransport(
-        smtpGuard,
+        outboundHostGuard,
         resolved.connection,
         resolved.password,
       );
@@ -407,12 +407,8 @@ export function buildContainer(options: ContainerOptions) {
   );
   // Alertas de infraestructura al chat de Telegram de la Raíz (ADR 0047). Telegram es un host público
   // fijo: el guardia de red no lleva excepciones de redes privadas.
-  const telegramGuard = new NetworkGuard(async (host) => {
-    const records = await resolveDnsRecords(host, { all: true });
-    return records.map((record) => record.address);
-  });
   const telegramSender = new TelegramBotSender(
-    new GuardedHttpsClient(telegramGuard, createNodeHttpsTransport()),
+    new GuardedHttpsClient(outboundHostGuard, createNodeHttpsTransport()),
   );
   const notifyInfrastructureAlert = new NotifyInfrastructureAlert({
     settings: new PgAlertSettingsStore(uow),
@@ -755,7 +751,7 @@ export function buildContainer(options: ContainerOptions) {
       authorizer,
       settings: smtpSettingsStore,
       cipher,
-      sender: new NodemailerSmtpTestSender(smtpGuard),
+      sender: new NodemailerSmtpTestSender(outboundHostGuard),
       audit,
       clock,
     }),

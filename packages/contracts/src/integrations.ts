@@ -91,15 +91,40 @@ export const SMTP_SECURITY_VALUES = ['starttls', 'tls'] as const;
 export const smtpSecuritySchema = z.enum(SMTP_SECURITY_VALUES);
 export type SmtpSecurityValue = z.infer<typeof smtpSecuritySchema>;
 
+/**
+ * Topes de los campos del servidor SMTP: una sola fuente para el contrato, el caso de uso y el formulario.
+ * El host sigue el máximo de un nombre DNS (RFC 1035) y el usuario y el remitente el de una dirección
+ * (RFC 5321).
+ */
+export const SMTP_LIMITS = {
+  hostMaxLength: 253,
+  usernameMaxLength: 254,
+  fromAddressMaxLength: 254,
+  passwordMaxLength: 512,
+  portMin: 1,
+  portMax: 65_535,
+} as const;
+
+/**
+ * Campos que deciden a dónde y cómo se entrega la contraseña guardada. Si alguno cambia, la misma petición
+ * debe traer la contraseña nueva: la guardada nunca viaja a un destino distinto del que se tecleó con ella.
+ */
+export const SMTP_DESTINATION_FIELDS = ['host', 'port', 'security', 'username'] as const;
+type SmtpDestination = Pick<SmtpSettings, (typeof SMTP_DESTINATION_FIELDS)[number]>;
+
+export function smtpDestinationChanged(current: SmtpDestination, next: SmtpDestination): boolean {
+  return SMTP_DESTINATION_FIELDS.some((field) => current[field] !== next[field]);
+}
+
 const smtpSettingsFieldsShape = {
   name: z.string().min(1).max(400),
-  host: z.string().min(1).max(300),
-  port: z.number().int().min(1).max(65_535),
+  host: z.string().min(1).max(SMTP_LIMITS.hostMaxLength),
+  port: z.number().int().min(SMTP_LIMITS.portMin).max(SMTP_LIMITS.portMax),
   security: smtpSecuritySchema,
-  username: z.string().min(1).max(300),
-  fromAddress: z.string().min(1).max(320),
+  username: z.string().min(1).max(SMTP_LIMITS.usernameMaxLength),
+  fromAddress: z.string().min(1).max(SMTP_LIMITS.fromAddressMaxLength),
 };
-const smtpPasswordInputSchema = z.string().min(1).max(1024);
+const smtpPasswordInputSchema = z.string().min(1).max(SMTP_LIMITS.passwordMaxLength);
 
 export const createSmtpSettingsRequestSchema = z.object({
   ...smtpSettingsFieldsShape,

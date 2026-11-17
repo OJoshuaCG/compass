@@ -352,6 +352,8 @@ export type {
 } from './inbound.js';
 
 export {
+  SMTP_DESTINATION_FIELDS,
+  SMTP_LIMITS,
   SMTP_SECURITY_VALUES,
   TELEGRAM_INTEGRATION_KIND_VALUES,
   alertSettingsSchema,
@@ -360,6 +362,7 @@ export {
   infrastructureAlertChannelsSchema,
   rotateSmtpPasswordRequestSchema,
   rotateTelegramBotTokenRequestSchema,
+  smtpDestinationChanged,
   smtpSecuritySchema,
   smtpSettingsResponseSchema,
   smtpSettingsSchema,

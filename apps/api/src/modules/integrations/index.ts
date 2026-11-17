@@ -48,16 +48,7 @@ export type { IntegrationRecord } from './application/ports/integration-reposito
 export { PgIntegrationRepository } from './infrastructure/pg-integration-repository.js';
 export { ManageSmtpSettings } from './application/manage-smtp-settings.js';
 export type { SmtpTestOutcome } from './application/manage-smtp-settings.js';
-export type {
-  SmtpConnectionFields,
-  SmtpSettingsRecord,
-  SmtpSettingsStore,
-  SmtpTestSendResult,
-  SmtpTestSender,
-} from './application/ports/smtp-settings-store.js';
 export { PgSmtpSettingsStore } from './infrastructure/pg-smtp-settings-store.js';
-export { SMTP_INTEGRATION_KIND } from './domain/smtp-config.js';
 export { ResolveOrganizationSmtp } from './application/resolve-organization-smtp.js';
-export type { ResolvedSmtp } from './application/resolve-organization-smtp.js';
 export { openGuardedSmtpTransport } from './infrastructure/guarded-smtp-transport.js';
 export { NodemailerSmtpTestSender } from './infrastructure/nodemailer-smtp-test-sender.js';

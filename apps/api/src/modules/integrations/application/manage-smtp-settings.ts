@@ -22,7 +22,7 @@
  *   transacción corta, envía fuera de ella y audita en otra. Si la auditoría fallara tras el envío, el
  *   correo ya salió sin registro; es el costo de no retener la fila ni una conexión del pool.
  */
-import type { SmtpSecurityValue } from '@iam/contracts';
+import { smtpDestinationChanged, type SmtpSecurityValue } from '@iam/contracts';
 
 import { DomainError, err, ok } from '../../../shared/kernel/index.js';
 import type { Clock, RequestContextReader, Result, UserId } from '../../../shared/kernel/index.js';
@@ -35,6 +35,7 @@ import { integrationSecretContext } from '../domain/integration-secret-context.j
 import {
   SMTP_INTEGRATION_KIND,
   SMTP_MANAGE_PERMISSION,
+  SMTP_PASSWORD_FIELD,
   isSmtpSecurity,
   isValidSmtpPassword,
   isValidSmtpPort,
@@ -42,6 +43,7 @@ import {
   normalizeSmtpHost,
   normalizeSmtpUsername,
 } from '../domain/smtp-config.js';
+import { openSmtpPassword } from './open-smtp-password.js';
 import type {
   SmtpConnectionFields,
   SmtpSettingsRecord,
@@ -51,13 +53,9 @@ import type {
 } from './ports/smtp-settings-store.js';
 
 const FIRST_SECRET_VERSION = 1;
-const PASSWORD_FIELD = 'smtp_password';
 const AUDIT_TARGET_TYPE = 'integration';
-/** Campos que deciden a dónde y como se entrega la contraseña guardada. */
-const DESTINATION_FIELDS: readonly string[] = ['host', 'port', 'security', 'username'];
 
 const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
 
 export interface ManageSmtpSettingsDeps {
   readonly context: RequestContextReader;
@@ -107,7 +105,7 @@ export class ManageSmtpSettings {
   }
 
   create(input: CreateSmtpSettingsInput): Promise<Result<SmtpSettingsRecord, DomainError>> {
-    const { uow, authorizer, settings, audit, context } = this.deps;
+    const { uow, authorizer, settings } = this.deps;
     return uow.run(async () => {
       await authorizer.require({ permission: SMTP_MANAGE_PERMISSION });
       const actorId = this.requireActorId();
@@ -115,28 +113,13 @@ export class ManageSmtpSettings {
       const validated = validateSettings(input);
       if (!validated.ok) return validated;
       if (!isValidSmtpPassword(input.password)) return invalidInput('password');
-      const alreadyActive = err(
-        new DomainError(
-          'INTEGRATIONS.CHANNEL_ALREADY_ACTIVE',
-          'An active SMTP server already exists',
-        ),
-      );
-      if ((await settings.findActive()) !== null) return alreadyActive;
+      if ((await settings.findActive()) !== null) return channelAlreadyActive();
 
       const created = await settings.insert({ ...validated.value, createdBy: actorId });
-      if (created === null) return alreadyActive;
+      // Sin fila: otra petición creó el servidor activo entre la lectura y el alta (índice único parcial).
+      if (created === null) return channelAlreadyActive();
       await this.storePassword(created.id, FIRST_SECRET_VERSION, input.password);
-      await audit.record({
-        action: 'integration.created',
-        actorId,
-        targetType: AUDIT_TARGET_TYPE,
-        targetId: created.id,
-        outcome: 'success',
-        reasonCode: null,
-        ip: null,
-        requestId: context.current().requestId,
-        metadata: { kind: SMTP_INTEGRATION_KIND },
-      });
+      await this.recordSuccess('integration.created', actorId, created.id, {});
       return ok({ ...created, hasPassword: true });
     });
   }
@@ -145,7 +128,7 @@ export class ManageSmtpSettings {
     settingsId: string,
     input: UpdateSmtpSettingsInput,
   ): Promise<Result<SmtpSettingsRecord, DomainError>> {
-    const { uow, settings, audit, context } = this.deps;
+    const { uow, settings } = this.deps;
     return uow.run(async () => {
       const current = await this.loadManageable(settingsId);
       if (!current.ok) return current;
@@ -163,31 +146,24 @@ export class ManageSmtpSettings {
       const changedFields = changedFieldNames(existing, validated.value);
       // Cambiar el destino con la contraseña vieja la enviaría a un servidor que nunca la recibió de la
       // persona (p. ej. un host nuevo y una prueba de envío): se exige reescribirla en la misma petición.
-      const destinationChanged = changedFields.some((field) => DESTINATION_FIELDS.includes(field));
+      const destinationChanged = smtpDestinationChanged(existing, validated.value);
       if (destinationChanged && existing.hasPassword && newPassword === undefined) {
         return invalidInput('password');
       }
+      const connectionChanged = changedFields.length > 0;
       // Sin cambios no se escribe ni se audita: un evento vacío solo ensucia la bitácora.
-      if (changedFields.length === 0 && newPassword === undefined) return ok(existing);
+      if (!connectionChanged && newPassword === undefined) return ok(existing);
 
-      const saved =
-        changedFields.length === 0 ? existing : await settings.update(existing.id, validated.value);
+      const saved = connectionChanged
+        ? await settings.update(existing.id, validated.value)
+        : existing;
+      const auditedFields = [...changedFields];
       if (newPassword !== undefined) {
-        const stored = await settings.findPassword(existing.id);
-        const secretVersion = stored === null ? FIRST_SECRET_VERSION : stored.secretVersion + 1;
-        await this.storePassword(existing.id, secretVersion, newPassword);
-        changedFields.push(PASSWORD_FIELD);
+        await this.replacePassword(existing.id, newPassword);
+        auditedFields.push(SMTP_PASSWORD_FIELD);
       }
-      await audit.record({
-        action: 'integration.updated',
-        actorId,
-        targetType: AUDIT_TARGET_TYPE,
-        targetId: existing.id,
-        outcome: 'success',
-        reasonCode: null,
-        ip: null,
-        requestId: context.current().requestId,
-        metadata: { kind: SMTP_INTEGRATION_KIND, changedFields: changedFields.join(',') },
+      await this.recordSuccess('integration.updated', actorId, existing.id, {
+        changedFields: auditedFields.join(','),
       });
       return ok(newPassword === undefined ? saved : { ...saved, hasPassword: true });
     });
@@ -197,7 +173,7 @@ export class ManageSmtpSettings {
     settingsId: string,
     password: string,
   ): Promise<Result<SmtpSettingsRecord, DomainError>> {
-    const { uow, settings, audit, context } = this.deps;
+    const { uow } = this.deps;
     return uow.run(async () => {
       const current = await this.loadManageable(settingsId);
       if (!current.ok) return current;
@@ -206,26 +182,17 @@ export class ManageSmtpSettings {
 
       if (!isValidSmtpPassword(password)) return invalidInput('password');
 
-      const stored = await settings.findPassword(existing.id);
-      const secretVersion = stored === null ? FIRST_SECRET_VERSION : stored.secretVersion + 1;
-      await this.storePassword(existing.id, secretVersion, password);
-      await audit.record({
-        action: 'integration.secret_rotated',
-        actorId,
-        targetType: AUDIT_TARGET_TYPE,
-        targetId: existing.id,
-        outcome: 'success',
-        reasonCode: null,
-        ip: null,
-        requestId: context.current().requestId,
-        metadata: { kind: SMTP_INTEGRATION_KIND, field: PASSWORD_FIELD, secretVersion },
+      const secretVersion = await this.replacePassword(existing.id, password);
+      await this.recordSuccess('integration.secret_rotated', actorId, existing.id, {
+        field: SMTP_PASSWORD_FIELD,
+        secretVersion,
       });
       return ok({ ...existing, hasPassword: true });
     });
   }
 
   archive(settingsId: string): Promise<Result<SmtpSettingsRecord, DomainError>> {
-    const { uow, settings, audit, context, clock } = this.deps;
+    const { uow, settings, clock } = this.deps;
     return uow.run(async () => {
       const current = await this.loadManageable(settingsId);
       if (!current.ok) return current;
@@ -233,17 +200,7 @@ export class ManageSmtpSettings {
       const actorId = this.requireActorId();
 
       const saved = await settings.archive(existing.id, clock.now());
-      await audit.record({
-        action: 'integration.archived',
-        actorId,
-        targetType: AUDIT_TARGET_TYPE,
-        targetId: existing.id,
-        outcome: 'success',
-        reasonCode: null,
-        ip: null,
-        requestId: context.current().requestId,
-        metadata: { kind: SMTP_INTEGRATION_KIND },
-      });
+      await this.recordSuccess('integration.archived', actorId, existing.id, {});
       return ok(saved);
     });
   }
@@ -254,7 +211,7 @@ export class ManageSmtpSettings {
    * configuración incompleta responde con `err`.
    */
   async sendTest(settingsId: string): Promise<Result<SmtpTestOutcome, DomainError>> {
-    const { uow, settings, cipher, sender, audit, context } = this.deps;
+    const { uow, settings, cipher, sender, context } = this.deps;
     // Transacción corta: autoriza, lee y descifra. El bloqueo de la fila termina antes de tocar la red.
     const prepared = await uow.run(async () => {
       const current = await this.loadManageable(settingsId);
@@ -268,19 +225,12 @@ export class ManageSmtpSettings {
           new DomainError('INTEGRATIONS.NOT_CONFIGURED', 'The SMTP server has no saved password'),
         );
       }
-      const opened = await cipher.decrypt(
-        integrationSecretContext(
-          context.current().organizationId,
-          existing.id,
-          PASSWORD_FIELD,
-          stored.secretVersion,
-        ),
-        stored.encrypted,
+      const password = await openSmtpPassword(
+        cipher,
+        context.current().organizationId,
+        existing.id,
+        stored,
       );
-      // Una contraseña que no se abre es un fallo del servicio de llaves, no de la persona: se LANZA.
-      if (!opened.ok) throw opened.error;
-      const password = textDecoder.decode(opened.value);
-      opened.value.fill(0);
       return ok({ existing, actorId, password });
     });
     if (!prepared.ok) return prepared;
@@ -299,19 +249,17 @@ export class ManageSmtpSettings {
       recipient: existing.fromAddress,
     });
     const outcome: SmtpTestOutcome = result.ok ? 'sent' : result.code;
-    await uow.run(async () => {
-      await audit.record({
-        action: 'integration.test_sent',
+    await uow.run(() =>
+      this.recordAudit(
+        'integration.test_sent',
         actorId,
-        targetType: AUDIT_TARGET_TYPE,
-        targetId: existing.id,
-        outcome: result.ok ? 'success' : 'failure',
-        reasonCode: result.ok ? null : result.code,
-        ip: null,
-        requestId: context.current().requestId,
-        metadata: { kind: SMTP_INTEGRATION_KIND, outcome },
-      });
-    });
+        existing.id,
+        { outcome },
+        result.ok
+          ? { outcome: 'success', reasonCode: null }
+          : { outcome: 'failure', reasonCode: result.code },
+      ),
+    );
     return ok(outcome);
   }
 
@@ -329,6 +277,51 @@ export class ManageSmtpSettings {
     return ok(found);
   }
 
+  /**
+   * Guarda una contraseña nueva con la versión siguiente a la almacenada (o la primera) y devuelve esa
+   * versión, que la auditoría registra. La usan la edición y el cambio de contraseña.
+   */
+  private async replacePassword(settingsId: string, password: string): Promise<number> {
+    const stored = await this.deps.settings.findPassword(settingsId);
+    const secretVersion = stored === null ? FIRST_SECRET_VERSION : stored.secretVersion + 1;
+    await this.storePassword(settingsId, secretVersion, password);
+    return secretVersion;
+  }
+
+  private recordSuccess(
+    action: string,
+    actorId: UserId,
+    targetId: string,
+    metadata: Record<string, string | number>,
+  ): Promise<void> {
+    return this.recordAudit(action, actorId, targetId, metadata, {
+      outcome: 'success',
+      reasonCode: null,
+    });
+  }
+
+  /** Solo lleva el tipo, nombres de campo y versión: nunca la contraseña ni la respuesta del servidor. */
+  private async recordAudit(
+    action: string,
+    actorId: UserId,
+    targetId: string,
+    metadata: Record<string, string | number>,
+    result: { readonly outcome: 'success' | 'failure'; readonly reasonCode: string | null },
+  ): Promise<void> {
+    const { audit, context } = this.deps;
+    await audit.record({
+      action,
+      actorId,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId,
+      outcome: result.outcome,
+      reasonCode: result.reasonCode,
+      ip: null,
+      requestId: context.current().requestId,
+      metadata: { kind: SMTP_INTEGRATION_KIND, ...metadata },
+    });
+  }
+
   /** Cifra con el contexto de la versión nueva. Un fallo se LANZA: devolver `err` confirmaría lo escrito. */
   private async storePassword(
     settingsId: string,
@@ -343,7 +336,7 @@ export class ManageSmtpSettings {
         integrationSecretContext(
           context.current().organizationId,
           settingsId,
-          PASSWORD_FIELD,
+          SMTP_PASSWORD_FIELD,
           secretVersion,
         ),
         bytes,
@@ -390,6 +383,12 @@ function changedFieldNames(existing: SmtpSettingsRecord, next: ValidatedSettings
   if (next.username !== existing.username) changed.push('username');
   if (next.fromAddress !== existing.fromAddress) changed.push('fromAddress');
   return changed;
+}
+
+function channelAlreadyActive(): Result<never, DomainError> {
+  return err(
+    new DomainError('INTEGRATIONS.CHANNEL_ALREADY_ACTIVE', 'An active SMTP server already exists'),
+  );
 }
 
 /** Solo el nombre del campo inválido; nunca su valor (puede ser la contraseña o un dato personal). */
