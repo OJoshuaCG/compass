@@ -352,11 +352,19 @@ export type {
 } from './inbound.js';
 
 export {
+  SMTP_SECURITY_VALUES,
   TELEGRAM_INTEGRATION_KIND_VALUES,
   alertSettingsSchema,
+  createSmtpSettingsRequestSchema,
   createTelegramIntegrationRequestSchema,
   infrastructureAlertChannelsSchema,
+  rotateSmtpPasswordRequestSchema,
   rotateTelegramBotTokenRequestSchema,
+  smtpSecuritySchema,
+  smtpSettingsResponseSchema,
+  smtpSettingsSchema,
+  smtpTestResultSchema,
+  updateSmtpSettingsRequestSchema,
   telegramIntegrationKindSchema,
   telegramIntegrationSchema,
   telegramIntegrationsResponseSchema,
@@ -366,13 +374,20 @@ export {
 } from './integrations.js';
 export type {
   AlertSettings,
+  CreateSmtpSettingsRequest,
   CreateTelegramIntegrationRequest,
   InfrastructureAlertChannels,
+  RotateSmtpPasswordRequest,
   RotateTelegramBotTokenRequest,
+  SmtpSecurityValue,
+  SmtpSettings,
+  SmtpSettingsResponse,
+  SmtpTestResult,
   TelegramIntegration,
   TelegramIntegrationKindValue,
   TelegramIntegrationsResponse,
   TelegramTestResult,
   UpdateAlertSettingsRequest,
+  UpdateSmtpSettingsRequest,
   UpdateTelegramIntegrationRequest,
 } from './integrations.js';

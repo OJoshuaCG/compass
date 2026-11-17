@@ -81,3 +81,57 @@ export const updateAlertSettingsRequestSchema = z.object({
   expectedVersion: z.number().int().min(0),
 });
 export type UpdateAlertSettingsRequest = z.infer<typeof updateAlertSettingsRequestSchema>;
+
+/**
+ * Servidor SMTP de una organización (ADR 0047, enmienda del 2026-11-17). Los esquemas solo acotan el
+ * tamaño: host, puerto, seguridad y remitente los valida el caso de uso, que rechaza con
+ * `VALIDATION.FAILED` y el nombre del campo, sin devolver nunca el valor recibido.
+ */
+export const SMTP_SECURITY_VALUES = ['starttls', 'tls'] as const;
+export const smtpSecuritySchema = z.enum(SMTP_SECURITY_VALUES);
+export type SmtpSecurityValue = z.infer<typeof smtpSecuritySchema>;
+
+const smtpSettingsFieldsShape = {
+  name: z.string().min(1).max(400),
+  host: z.string().min(1).max(300),
+  port: z.number().int().min(1).max(65_535),
+  security: smtpSecuritySchema,
+  username: z.string().min(1).max(300),
+  fromAddress: z.string().min(1).max(320),
+};
+const smtpPasswordInputSchema = z.string().min(1).max(1024);
+
+export const createSmtpSettingsRequestSchema = z.object({
+  ...smtpSettingsFieldsShape,
+  password: smtpPasswordInputSchema,
+});
+export type CreateSmtpSettingsRequest = z.infer<typeof createSmtpSettingsRequestSchema>;
+
+export const updateSmtpSettingsRequestSchema = z.object(smtpSettingsFieldsShape);
+export type UpdateSmtpSettingsRequest = z.infer<typeof updateSmtpSettingsRequestSchema>;
+
+export const rotateSmtpPasswordRequestSchema = z.object({ password: smtpPasswordInputSchema });
+export type RotateSmtpPasswordRequest = z.infer<typeof rotateSmtpPasswordRequestSchema>;
+
+/** Un servidor SMTP tal como se muestra: la contraseña nunca sale, solo si existe una guardada. */
+export const smtpSettingsSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  status: z.enum(['active', 'archived']),
+  host: z.string(),
+  port: z.number().int(),
+  security: smtpSecuritySchema,
+  username: z.string(),
+  fromAddress: z.string(),
+  hasPassword: z.boolean(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type SmtpSettings = z.infer<typeof smtpSettingsSchema>;
+
+export const smtpSettingsResponseSchema = z.object({ data: z.array(smtpSettingsSchema) });
+export type SmtpSettingsResponse = z.infer<typeof smtpSettingsResponseSchema>;
+
+/** Resultado de la prueba: `sent` o un código estable de fallo, nunca el texto del servidor SMTP. */
+export const smtpTestResultSchema = z.object({ outcome: z.string().min(1) });
+export type SmtpTestResult = z.infer<typeof smtpTestResultSchema>;

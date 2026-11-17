@@ -1,7 +1,7 @@
 import type { SecretContext } from '../../crypto/index.js';
 
 /** Campos secretos que puede guardar una integración (coinciden con el CHECK de `integration_secrets.field`). */
-export const INTEGRATION_SECRET_FIELDS = ['bot_token', 'api_key'] as const;
+export const INTEGRATION_SECRET_FIELDS = ['bot_token', 'api_key', 'smtp_password'] as const;
 export type IntegrationSecretField = (typeof INTEGRATION_SECRET_FIELDS)[number];
 
 /** Prefijo del campo en el contexto de cifrado (AAD): separa estos secretos de los de otros módulos. */

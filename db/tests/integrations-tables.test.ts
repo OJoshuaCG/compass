@@ -143,6 +143,9 @@ describe('integrations: structure', () => {
     expect(await integrationOutcome(a, { kind: 'telegram_infra' })).toBe(UNIQUE_VIOLATION);
     expect(await integrationOutcome(a, { kind: 'sms_pull' })).toBe(NO_FAILURE);
     expect(await integrationOutcome(a, { kind: 'sms_pull' })).toBe(NO_FAILURE);
+    // Servidor SMTP (migración 0044): uno activo por organización.
+    expect(await integrationOutcome(a, { kind: 'smtp_mail' })).toBe(NO_FAILURE);
+    expect(await integrationOutcome(a, { kind: 'smtp_mail' })).toBe(UNIQUE_VIOLATION);
     // Otra organización tiene sus propios canales.
     expect(await integrationOutcome(b, { kind: 'telegram_security' })).toBe(NO_FAILURE);
   });
@@ -160,6 +163,7 @@ describe('integration_secrets: structure', () => {
   it('accepts a valid secret and rejects unknown fields, short ciphertext and bad nonce', async () => {
     const integrationId = await insertIntegration(a);
     expect(await insertSecret(a, integrationId, { field: 'api_key' })).toBe(NO_FAILURE);
+    expect(await insertSecret(a, integrationId, { field: 'smtp_password' })).toBe(NO_FAILURE);
     expect(await insertSecret(a, integrationId, { field: 'password' })).toBe(CHECK_VIOLATION);
     expect(await insertSecret(a, integrationId, { ciphertext: '\\x0011' })).toBe(CHECK_VIOLATION);
     expect(await insertSecret(a, integrationId, { nonce: '\\x0000' })).toBe(CHECK_VIOLATION);

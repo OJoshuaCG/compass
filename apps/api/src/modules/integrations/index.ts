@@ -46,3 +46,14 @@ export { ManageTelegramIntegrations } from './application/manage-telegram-integr
 export type { TestSendOutcome } from './application/manage-telegram-integrations.js';
 export type { IntegrationRecord } from './application/ports/integration-repository.js';
 export { PgIntegrationRepository } from './infrastructure/pg-integration-repository.js';
+export { ManageSmtpSettings } from './application/manage-smtp-settings.js';
+export type { SmtpTestOutcome } from './application/manage-smtp-settings.js';
+export type {
+  SmtpConnectionFields,
+  SmtpSettingsRecord,
+  SmtpSettingsStore,
+  SmtpTestSendResult,
+  SmtpTestSender,
+} from './application/ports/smtp-settings-store.js';
+export { PgSmtpSettingsStore } from './infrastructure/pg-smtp-settings-store.js';
+export { SMTP_INTEGRATION_KIND } from './domain/smtp-config.js';
