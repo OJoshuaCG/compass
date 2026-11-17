@@ -92,7 +92,7 @@ export function AppShell({
             }}
           >
             <RadixDialog.Portal>
-              <RadixDialog.Overlay className="fixed inset-0 z-50 scrim" />
+              <RadixDialog.Overlay className="fixed inset-0 z-50 scrim drawer-scrim" />
               {/* El identificador va en el contenido: el botón que abre el menú lo referencia con
                   `aria-controls`. `ps-[max(…)]` es un valor arbitrario inevitable: respeta la muesca
                   del iPhone en horizontal sin perder el relleno normal (`env()` no tiene utilidad). */}
@@ -109,7 +109,7 @@ export function AppShell({
                   if (opener?.isConnected) opener.focus();
                   drawerOpenerRef.current = null;
                 }}
-                className="fixed inset-y-0 start-0 z-50 flex w-72 max-w-5/6 flex-col overflow-y-auto border-e border-border bg-sidebar pe-3 pt-4 pb-6 ps-[max(0.75rem,env(safe-area-inset-left))]"
+                className="drawer-panel fixed inset-y-0 start-0 z-50 flex w-72 max-w-5/6 flex-col overflow-y-auto border-e border-border bg-sidebar pe-3 pt-4 pb-6 ps-[max(0.75rem,env(safe-area-inset-left))]"
               >
                 <RadixDialog.Title className="sr-only">{sidebarDrawerLabel}</RadixDialog.Title>
                 <RadixDialog.Close
