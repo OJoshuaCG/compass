@@ -15,7 +15,12 @@
  *   contraseña, el host, el usuario ni la respuesta del servidor SMTP.
  * - Solo canales cifrados (`starttls` o `tls`) y solo nombres DNS: la comprobación de red privada la hace el
  *   adaptador de envío sobre el nombre ya resuelto.
- * - El correo de prueba va a la propia dirección remitente: nunca a un destino que alguien teclee.
+ * - La contraseña guardada no se puede reutilizar contra otro destino: si cambia el servidor, el puerto, la
+ *   seguridad o el usuario y ya hay una guardada, la misma petición debe traer la contraseña nueva.
+ * - El correo de prueba va a la dirección remitente configurada (no hay un campo de destinatario aparte).
+ * - La prueba no mantiene abierta una transacción mientras habla con la red: lee y descifra en una
+ *   transacción corta, envía fuera de ella y audita en otra. Si la auditoría fallara tras el envío, el
+ *   correo ya salió sin registro; es el costo de no retener la fila ni una conexión del pool.
  */
 import type { SmtpSecurityValue } from '@iam/contracts';
 
@@ -48,6 +53,8 @@ import type {
 const FIRST_SECRET_VERSION = 1;
 const PASSWORD_FIELD = 'smtp_password';
 const AUDIT_TARGET_TYPE = 'integration';
+/** Campos que deciden a dónde y como se entrega la contraseña guardada. */
+const DESTINATION_FIELDS: readonly string[] = ['host', 'port', 'security', 'username'];
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -74,6 +81,11 @@ export interface SmtpSettingsInput {
 
 export interface CreateSmtpSettingsInput extends SmtpSettingsInput {
   readonly password: string;
+}
+
+export interface UpdateSmtpSettingsInput extends SmtpSettingsInput {
+  /** Obligatoria si cambia el destino de la conexión y ya hay una contraseña guardada. */
+  readonly password?: string | undefined;
 }
 
 /** Resultado de la prueba: `sent` o el código estable de fallo del adaptador; nunca texto del servidor. */
@@ -103,16 +115,16 @@ export class ManageSmtpSettings {
       const validated = validateSettings(input);
       if (!validated.ok) return validated;
       if (!isValidSmtpPassword(input.password)) return invalidInput('password');
-      if ((await settings.findActive()) !== null) {
-        return err(
-          new DomainError(
-            'INTEGRATIONS.CHANNEL_ALREADY_ACTIVE',
-            'An active SMTP server already exists',
-          ),
-        );
-      }
+      const alreadyActive = err(
+        new DomainError(
+          'INTEGRATIONS.CHANNEL_ALREADY_ACTIVE',
+          'An active SMTP server already exists',
+        ),
+      );
+      if ((await settings.findActive()) !== null) return alreadyActive;
 
       const created = await settings.insert({ ...validated.value, createdBy: actorId });
+      if (created === null) return alreadyActive;
       await this.storePassword(created.id, FIRST_SECRET_VERSION, input.password);
       await audit.record({
         action: 'integration.created',
@@ -131,7 +143,7 @@ export class ManageSmtpSettings {
 
   update(
     settingsId: string,
-    input: SmtpSettingsInput,
+    input: UpdateSmtpSettingsInput,
   ): Promise<Result<SmtpSettingsRecord, DomainError>> {
     const { uow, settings, audit, context } = this.deps;
     return uow.run(async () => {
@@ -143,11 +155,29 @@ export class ManageSmtpSettings {
       const validated = validateSettings(input);
       if (!validated.ok) return validated;
 
-      const changedFields = changedFieldNames(existing, validated.value);
-      // Sin cambios no se escribe ni se audita: un evento vacío solo ensucia la bitácora.
-      if (changedFields.length === 0) return ok(existing);
+      const newPassword = input.password;
+      if (newPassword !== undefined && !isValidSmtpPassword(newPassword)) {
+        return invalidInput('password');
+      }
 
-      const saved = await settings.update(existing.id, validated.value);
+      const changedFields = changedFieldNames(existing, validated.value);
+      // Cambiar el destino con la contraseña vieja la enviaría a un servidor que nunca la recibió de la
+      // persona (p. ej. un host nuevo y una prueba de envío): se exige reescribirla en la misma petición.
+      const destinationChanged = changedFields.some((field) => DESTINATION_FIELDS.includes(field));
+      if (destinationChanged && existing.hasPassword && newPassword === undefined) {
+        return invalidInput('password');
+      }
+      // Sin cambios no se escribe ni se audita: un evento vacío solo ensucia la bitácora.
+      if (changedFields.length === 0 && newPassword === undefined) return ok(existing);
+
+      const saved =
+        changedFields.length === 0 ? existing : await settings.update(existing.id, validated.value);
+      if (newPassword !== undefined) {
+        const stored = await settings.findPassword(existing.id);
+        const secretVersion = stored === null ? FIRST_SECRET_VERSION : stored.secretVersion + 1;
+        await this.storePassword(existing.id, secretVersion, newPassword);
+        changedFields.push(PASSWORD_FIELD);
+      }
       await audit.record({
         action: 'integration.updated',
         actorId,
@@ -159,7 +189,7 @@ export class ManageSmtpSettings {
         requestId: context.current().requestId,
         metadata: { kind: SMTP_INTEGRATION_KIND, changedFields: changedFields.join(',') },
       });
-      return ok(saved);
+      return ok(newPassword === undefined ? saved : { ...saved, hasPassword: true });
     });
   }
 
@@ -223,9 +253,10 @@ export class ManageSmtpSettings {
    * fallo del envío NO es un error de la operación: se informa en el resultado y se audita; solo la
    * configuración incompleta responde con `err`.
    */
-  sendTest(settingsId: string): Promise<Result<SmtpTestOutcome, DomainError>> {
+  async sendTest(settingsId: string): Promise<Result<SmtpTestOutcome, DomainError>> {
     const { uow, settings, cipher, sender, audit, context } = this.deps;
-    return uow.run(async () => {
+    // Transacción corta: autoriza, lee y descifra. El bloqueo de la fila termina antes de tocar la red.
+    const prepared = await uow.run(async () => {
       const current = await this.loadManageable(settingsId);
       if (!current.ok) return current;
       const existing = current.value;
@@ -248,24 +279,27 @@ export class ManageSmtpSettings {
       );
       // Una contraseña que no se abre es un fallo del servicio de llaves, no de la persona: se LANZA.
       if (!opened.ok) throw opened.error;
+      const password = textDecoder.decode(opened.value);
+      opened.value.fill(0);
+      return ok({ existing, actorId, password });
+    });
+    if (!prepared.ok) return prepared;
+    const { existing, actorId, password } = prepared.value;
 
-      let result: SmtpTestSendResult;
-      try {
-        result = await sender.send({
-          connection: {
-            host: existing.host,
-            port: existing.port,
-            security: existing.security,
-            username: existing.username,
-            fromAddress: existing.fromAddress,
-          },
-          password: textDecoder.decode(opened.value),
-          recipient: existing.fromAddress,
-        });
-      } finally {
-        opened.value.fill(0);
-      }
-      const outcome: SmtpTestOutcome = result.ok ? 'sent' : result.code;
+    // Sin transacción abierta: DNS, TCP, TLS y SMTP pueden tardar decenas de segundos.
+    const result: SmtpTestSendResult = await sender.send({
+      connection: {
+        host: existing.host,
+        port: existing.port,
+        security: existing.security,
+        username: existing.username,
+        fromAddress: existing.fromAddress,
+      },
+      password,
+      recipient: existing.fromAddress,
+    });
+    const outcome: SmtpTestOutcome = result.ok ? 'sent' : result.code;
+    await uow.run(async () => {
       await audit.record({
         action: 'integration.test_sent',
         actorId,
@@ -277,8 +311,8 @@ export class ManageSmtpSettings {
         requestId: context.current().requestId,
         metadata: { kind: SMTP_INTEGRATION_KIND, outcome },
       });
-      return ok(outcome);
     });
+    return ok(outcome);
   }
 
   /** Carga y bloquea la configuración y exige el permiso. Una archivada no admite cambios. */

@@ -206,33 +206,76 @@ describe('smtp settings: configured', () => {
     expect(await screen.findByText(t['smtp.test.AUTH_REJECTED'])).toBeVisible();
   });
 
-  it('edits the connection with a PUT that carries no password', async () => {
+  it('edits the sender with a PUT that carries no password', async () => {
     const user = userEvent.setup();
     const api = setup({
       [`GET ${SMTP_PATH}`]: jsonResponse({ data: [smtpFixture()] }),
-      [`PUT ${ITEM_PATH}`]: jsonResponse(smtpFixture({ port: 465, security: 'tls' })),
+      [`PUT ${ITEM_PATH}`]: jsonResponse(smtpFixture({ fromAddress: 'avisos@example.com' })),
     });
     renderApp(PAGE);
     await sectionLoaded();
 
     await user.click(await screen.findByRole('button', { name: t['smtp.actions.edit'] }));
     const dialog = await screen.findByRole('dialog', { name: t['smtp.edit.title'] });
-    expect(within(dialog).queryByLabelText(new RegExp(t['smtp.form.password']))).toBeNull();
-    const port = field(t['smtp.form.port']);
-    await user.clear(port);
-    await user.type(port, '465');
-    await user.selectOptions(field(t['smtp.form.security']), 'tls');
+    const sender = field(t['smtp.form.fromAddress']);
+    await user.clear(sender);
+    await user.type(sender, 'avisos@example.com');
     await user.click(within(dialog).getByRole('button', { name: t['smtp.edit.submit'] }));
 
     expect(await screen.findByText(t['smtp.updated'])).toBeVisible();
     expect(api.callsTo('PUT', ITEM_PATH)[0]?.body).toEqual({
       name: 'Correo corporativo',
       host: 'smtp.example.com',
-      port: 465,
-      security: 'tls',
+      port: 587,
+      security: 'starttls',
       username: 'mailer@example.com',
-      fromAddress: 'no-reply@example.com',
+      fromAddress: 'avisos@example.com',
     });
+  });
+
+  it('does not send a changed destination without the password', async () => {
+    const user = userEvent.setup();
+    const api = setup({ [`GET ${SMTP_PATH}`]: jsonResponse({ data: [smtpFixture()] }) });
+    renderApp(PAGE);
+    await sectionLoaded();
+
+    await user.click(await screen.findByRole('button', { name: t['smtp.actions.edit'] }));
+    const dialog = await screen.findByRole('dialog', { name: t['smtp.edit.title'] });
+    const host = field(t['smtp.form.host']);
+    await user.clear(host);
+    await user.type(host, 'smtp.otro.example.com');
+    await user.click(within(dialog).getByRole('button', { name: t['smtp.edit.submit'] }));
+
+    await waitFor(() => {
+      expect(field(t['smtp.form.newPassword'])).toHaveAttribute('aria-invalid', 'true');
+    });
+    expect(api.callsTo('PUT', ITEM_PATH)).toHaveLength(0);
+  });
+
+  it('sends the password together with a changed destination and never shows it', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      [`GET ${SMTP_PATH}`]: jsonResponse({ data: [smtpFixture()] }),
+      [`PUT ${ITEM_PATH}`]: jsonResponse(smtpFixture({ host: 'smtp.otro.example.com' })),
+    });
+    renderApp(PAGE);
+    await sectionLoaded();
+
+    await user.click(await screen.findByRole('button', { name: t['smtp.actions.edit'] }));
+    const dialog = await screen.findByRole('dialog', { name: t['smtp.edit.title'] });
+    expect(await axeViolations(dialog)).toEqual([]);
+    const host = field(t['smtp.form.host']);
+    await user.clear(host);
+    await user.type(host, 'smtp.otro.example.com');
+    await user.type(field(t['smtp.form.newPassword']), NEW_PASSWORD);
+    await user.click(within(dialog).getByRole('button', { name: t['smtp.edit.submit'] }));
+
+    expect(await screen.findByText(t['smtp.updated'])).toBeVisible();
+    expect(api.callsTo('PUT', ITEM_PATH)[0]?.body).toMatchObject({
+      host: 'smtp.otro.example.com',
+      password: NEW_PASSWORD,
+    });
+    expect(document.body.textContent).not.toContain(NEW_PASSWORD);
   });
 
   it('replaces the password through its own request', async () => {

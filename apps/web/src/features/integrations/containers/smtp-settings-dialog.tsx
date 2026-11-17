@@ -2,6 +2,7 @@ import type { SmtpSettings } from '@iam/contracts';
 import { SMTP_SECURITY_VALUES } from '@iam/contracts';
 import { Button, Dialog, FormField, Input, NativeSelect, PasswordInput } from '@iam/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -11,13 +12,13 @@ import { createSmtpSettings, updateSmtpSettings } from '../api/integrations-api'
 import {
   DEFAULT_SMTP_PORT,
   DEFAULT_SMTP_SECURITY,
+  buildEditSmtpFormSchema,
   createSmtpFormSchema,
-  editSmtpFormSchema,
   type SmtpFormValues,
 } from '../model/smtp-settings-model';
 
 type SmtpFormProps = {
-  /** Sin servidor vigente se da de alta uno (con contraseña); con servidor se edita sin contraseña. */
+  /** Sin servidor vigente se da de alta uno; al editar la contraseña es opcional (ver el modelo). */
   settings: SmtpSettings | undefined;
   onCancel: () => void;
   onSaved: () => void;
@@ -32,12 +33,16 @@ function SmtpForm({ settings, onCancel, onSaved }: SmtpFormProps) {
   const { t } = useTranslation(['integrations', 'common', 'errors']);
   const validationMessage = useValidationMessage();
   const isCreating = settings === undefined;
+  const editSchema = useMemo(
+    () => (settings === undefined ? null : buildEditSmtpFormSchema(settings)),
+    [settings],
+  );
   const action = useAsyncAction(async (values: SmtpFormValues) => {
-    if (settings === undefined) {
+    if (settings === undefined || editSchema === null) {
       const parsed = createSmtpFormSchema.parse(values);
       return createSmtpSettings({ ...parsed, port: Number(parsed.port) });
     }
-    const parsed = editSmtpFormSchema.parse(values);
+    const parsed = editSchema.parse(values);
     return updateSmtpSettings(settings.id, {
       name: parsed.name,
       host: parsed.host,
@@ -45,6 +50,8 @@ function SmtpForm({ settings, onCancel, onSaved }: SmtpFormProps) {
       security: parsed.security,
       username: parsed.username,
       fromAddress: parsed.fromAddress,
+      // Vacía = conservar la guardada; solo viaja cuando la persona la escribió.
+      ...(parsed.password === '' ? {} : { password: parsed.password }),
     });
   });
   const cooldown = useRateLimitCooldown(action.error);
@@ -56,7 +63,7 @@ function SmtpForm({ settings, onCancel, onSaved }: SmtpFormProps) {
     control,
     formState: { errors },
   } = useForm<SmtpFormValues>({
-    resolver: zodResolver(isCreating ? createSmtpFormSchema : editSmtpFormSchema),
+    resolver: zodResolver(editSchema ?? createSmtpFormSchema),
     defaultValues: {
       name: settings?.name ?? '',
       host: settings?.host ?? '',
@@ -81,9 +88,15 @@ function SmtpForm({ settings, onCancel, onSaved }: SmtpFormProps) {
       return;
     }
     // CHANNEL_ALREADY_ACTIVE, ARCHIVED, 403, 429 y 5xx se muestran en el aviso del diálogo.
-    const knownFields = isCreating
-      ? (['name', 'host', 'port', 'security', 'username', 'fromAddress', 'password'] as const)
-      : (['name', 'host', 'port', 'security', 'username', 'fromAddress'] as const);
+    const knownFields = [
+      'name',
+      'host',
+      'port',
+      'security',
+      'username',
+      'fromAddress',
+      'password',
+    ] as const;
     if (
       applyFieldErrors(
         result.error,
@@ -218,30 +231,36 @@ function SmtpForm({ settings, onCancel, onSaved }: SmtpFormProps) {
           />
         )}
       </FormField>
-      {isCreating ? (
-        <FormField
-          label={t('smtp.form.password', { ns: 'integrations' })}
-          help={t('smtp.form.passwordHelp', { ns: 'integrations' })}
-          required
-          error={validationMessage(errors.password, {
-            field: 'smtpPassword',
-            empty: password === '',
-          })}
-        >
-          {(field) => (
-            <PasswordInput
-              {...field}
-              {...register('password')}
-              // `new-password` evita que el gestor del navegador ofrezca la contraseña de la persona.
-              autoComplete="new-password"
-              spellCheck={false}
-              showLabel={t('password.show', { ns: 'common' })}
-              hideLabel={t('password.hide', { ns: 'common' })}
-              invalid={field['aria-invalid'] === true}
-            />
-          )}
-        </FormField>
-      ) : null}
+      <FormField
+        label={
+          isCreating
+            ? t('smtp.form.password', { ns: 'integrations' })
+            : t('smtp.form.newPassword', { ns: 'integrations' })
+        }
+        help={
+          isCreating
+            ? t('smtp.form.passwordHelp', { ns: 'integrations' })
+            : t('smtp.form.newPasswordHelp', { ns: 'integrations' })
+        }
+        required={isCreating}
+        error={validationMessage(errors.password, {
+          field: 'smtpPassword',
+          empty: password === '',
+        })}
+      >
+        {(field) => (
+          <PasswordInput
+            {...field}
+            {...register('password')}
+            // `new-password` evita que el gestor del navegador ofrezca la contraseña de la persona.
+            autoComplete="new-password"
+            spellCheck={false}
+            showLabel={t('password.show', { ns: 'common' })}
+            hideLabel={t('password.hide', { ns: 'common' })}
+            invalid={field['aria-invalid'] === true}
+          />
+        )}
+      </FormField>
       <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}

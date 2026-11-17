@@ -53,11 +53,16 @@ interface Options {
   readonly hasPassword?: boolean;
   readonly allowed?: boolean;
   readonly sendResult?: SmtpTestSendResult;
+  readonly insertConflict?: boolean;
 }
 
 function buildHarness(options: Options = {}) {
   const existing = options.existing === undefined ? record() : options.existing;
-  const insert = vi.fn(() => Promise.resolve(record({ id: 'new-id', hasPassword: false })));
+  const insert = vi.fn(() =>
+    Promise.resolve(
+      options.insertConflict === true ? null : record({ id: 'new-id', hasPassword: false }),
+    ),
+  );
   const update = vi.fn((id: string) => Promise.resolve(record({ id })));
   const archive = vi.fn((id: string) => Promise.resolve(record({ id, status: 'archived' })));
   const putPassword = vi.fn<(secret: Record<string, unknown>) => Promise<void>>(() =>
@@ -182,15 +187,65 @@ describe('create', () => {
     if (!result.ok) expect(result.error.code).toBe('INTEGRATIONS.CHANNEL_ALREADY_ACTIVE');
     expect(h.insert).not.toHaveBeenCalled();
   });
+
+  it('answers CHANNEL_ALREADY_ACTIVE when a concurrent request created it first', async () => {
+    const h = buildHarness({ insertConflict: true });
+    const result = await h.useCase.create({ ...VALID_INPUT, password: PASSWORD });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('INTEGRATIONS.CHANNEL_ALREADY_ACTIVE');
+    expect(h.putPassword).not.toHaveBeenCalled();
+    expect(h.audit).not.toHaveBeenCalled();
+  });
 });
 
 describe('update', () => {
   it('lists only the changed field names in the audit', async () => {
     const h = buildHarness();
-    await h.useCase.update('id', { ...VALID_INPUT, port: 465, security: 'tls' });
-    expect(h.audit.mock.calls[0]?.[0]).toMatchObject({
-      metadata: { kind: 'smtp_mail', changedFields: 'port,security' },
+    await h.useCase.update('id', {
+      ...VALID_INPUT,
+      fromAddress: 'otro@example.com',
+      name: 'Nuevo',
     });
+    expect(h.audit.mock.calls[0]?.[0]).toMatchObject({
+      metadata: { kind: 'smtp_mail', changedFields: 'name,fromAddress' },
+    });
+  });
+
+  it.each([
+    ['host', { host: 'smtp.otro.example.com' }],
+    ['port', { port: 465, security: 'tls' as const }],
+    ['username', { username: 'otro-usuario' }],
+  ])('refuses a changed %s without a new password and writes nothing', async (_name, change) => {
+    const h = buildHarness();
+    const result = await h.useCase.update('id', { ...VALID_INPUT, ...change });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('VALIDATION.FAILED');
+    expect(h.update).not.toHaveBeenCalled();
+    expect(h.putPassword).not.toHaveBeenCalled();
+    expect(h.audit).not.toHaveBeenCalled();
+  });
+
+  it('accepts a changed destination together with a new password and bumps the secret version', async () => {
+    const h = buildHarness();
+    const result = await h.useCase.update('id', {
+      ...VALID_INPUT,
+      host: 'smtp.otro.example.com',
+      password: PASSWORD,
+    });
+    expect(result.ok).toBe(true);
+    expect(h.update).toHaveBeenCalledTimes(1);
+    expect(h.putPassword.mock.calls[0]?.[0]).toMatchObject({ secretVersion: 5 });
+    expect(h.audit.mock.calls[0]?.[0]).toMatchObject({
+      metadata: { kind: 'smtp_mail', changedFields: 'host,smtp_password' },
+    });
+    expect(JSON.stringify(h.audit.mock.calls)).not.toContain(PASSWORD);
+  });
+
+  it('rejects a new password with line breaks', async () => {
+    const h = buildHarness();
+    const result = await h.useCase.update('id', { ...VALID_INPUT, password: 'a\nb' });
+    expect(result.ok).toBe(false);
+    expect(h.putPassword).not.toHaveBeenCalled();
   });
 
   it('does not write or audit when nothing changed', async () => {

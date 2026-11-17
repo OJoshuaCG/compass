@@ -43,10 +43,36 @@ export const createSmtpFormSchema = z.object({ ...connectionShape, password: pas
 export type SmtpFormValues = z.input<typeof createSmtpFormSchema>;
 
 /**
- * Al editar no se pide la contraseña (se cambia aparte), pero el formulario comparte la forma de los
- * valores con el de alta; el campo viaja vacío y nunca se envía.
+ * Al editar la contraseña es opcional, salvo que cambie el servidor, el puerto, la seguridad o el usuario
+ * y ya haya una guardada: la API lo exige igual, aquí se avisa antes de enviar. El campo vacío no se envía.
  */
-export const editSmtpFormSchema = z.object({ ...connectionShape, password: z.string() });
+export function buildEditSmtpFormSchema(current: {
+  host: string;
+  port: number;
+  security: string;
+  username: string;
+  hasPassword: boolean;
+}) {
+  return z
+    .object({ ...connectionShape, password: z.string().max(PASSWORD_MAX_LENGTH) })
+    .superRefine((values, context) => {
+      const destinationChanged =
+        values.host !== current.host ||
+        Number(values.port) !== current.port ||
+        values.security !== current.security ||
+        values.username !== current.username;
+      if (destinationChanged && current.hasPassword && values.password === '') {
+        // Mismo código que un campo vacío obligatorio: el aviso es el de «falta este dato».
+        context.addIssue({
+          code: 'too_small',
+          origin: 'string',
+          minimum: 1,
+          inclusive: true,
+          path: ['password'],
+        });
+      }
+    });
+}
 
 export const rotateSmtpPasswordFormSchema = z.object({ password: passwordSchema });
 export type RotateSmtpPasswordFormValues = z.input<typeof rotateSmtpPasswordFormSchema>;

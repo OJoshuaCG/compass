@@ -107,7 +107,15 @@ export const createSmtpSettingsRequestSchema = z.object({
 });
 export type CreateSmtpSettingsRequest = z.infer<typeof createSmtpSettingsRequestSchema>;
 
-export const updateSmtpSettingsRequestSchema = z.object(smtpSettingsFieldsShape);
+/**
+ * La contraseña es opcional al editar, pero obligatoria si cambia el servidor, el puerto, la seguridad o el
+ * usuario y ya hay una guardada: así la contraseña guardada nunca viaja a un destino distinto del que se
+ * tecleó con ella. La regla la hace cumplir el caso de uso.
+ */
+export const updateSmtpSettingsRequestSchema = z.object({
+  ...smtpSettingsFieldsShape,
+  password: smtpPasswordInputSchema.optional(),
+});
 export type UpdateSmtpSettingsRequest = z.infer<typeof updateSmtpSettingsRequestSchema>;
 
 export const rotateSmtpPasswordRequestSchema = z.object({ password: smtpPasswordInputSchema });

@@ -134,15 +134,18 @@ export class PgSmtpSettingsStore implements SmtpSettingsStore {
     return result.rows.map(toRecord);
   }
 
-  async insert(settings: NewSmtpSettings): Promise<SmtpSettingsRecord> {
+  async insert(settings: NewSmtpSettings): Promise<SmtpSettingsRecord | null> {
     const result = await this.transactions.current().query<{ id: string }>(
       `insert into integrations (organization_id, kind, name, config, created_by)
        values (nullif(current_setting('app.org_id', true), '')::uuid, $1, $2, $3::jsonb, $4)
+       on conflict do nothing
        returning id`,
       [SMTP_INTEGRATION_KIND, settings.name, toConfigJson(settings), settings.createdBy],
     );
     const inserted = result.rows[0];
-    if (inserted === undefined) throw new Error('The SMTP settings insert returned no row');
+    // Sin fila: otra petición creó la configuración activa entre la lectura y este alta (índice único
+    // parcial). `do nothing` evita el error 23505, que dejaría abortada la transacción en curso.
+    if (inserted === undefined) return null;
     return this.reread(inserted.id, 'insert');
   }
 

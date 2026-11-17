@@ -46,7 +46,8 @@ export interface SmtpSettingsStore {
   findActive(): Promise<SmtpSettingsRecord | null>;
   /** Activo primero y luego por fecha. */
   list(): Promise<readonly SmtpSettingsRecord[]>;
-  insert(settings: NewSmtpSettings): Promise<SmtpSettingsRecord>;
+  /** `null` si ya existe una configuración activa (carrera con otra petición). */
+  insert(settings: NewSmtpSettings): Promise<SmtpSettingsRecord | null>;
   update(
     settingsId: string,
     changes: SmtpConnectionFields & { readonly name: string },
