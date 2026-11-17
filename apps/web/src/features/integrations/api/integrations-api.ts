@@ -1,5 +1,13 @@
 import {
   alertSettingsSchema,
+  smtpSettingsResponseSchema,
+  smtpSettingsSchema,
+  smtpTestResultSchema,
+  type CreateSmtpSettingsRequest,
+  type SmtpSettings,
+  type SmtpSettingsResponse,
+  type SmtpTestResult,
+  type UpdateSmtpSettingsRequest,
   telegramIntegrationSchema,
   telegramIntegrationsResponseSchema,
   telegramTestResultSchema,
@@ -19,6 +27,7 @@ export const integrationsKeys = {
   all: ['integrations'] as const,
   alertSettings: () => [...integrationsKeys.all, 'alert-settings'] as const,
   telegram: () => [...integrationsKeys.all, 'telegram'] as const,
+  smtp: () => [...integrationsKeys.all, 'smtp'] as const,
 };
 
 const ALERT_SETTINGS_PATH = '/integrations/alert-settings';
@@ -108,4 +117,55 @@ export function archiveTelegramIntegration(
   client: ApiClient = apiClient,
 ): Promise<TelegramIntegration> {
   return client.delete(`${TELEGRAM_PATH}/${id}`, telegramIntegrationSchema);
+}
+
+const SMTP_PATH = '/integrations/smtp';
+
+/** `GET /integrations/smtp`: la respuesta nunca lleva la contraseña, solo `hasPassword`. */
+export function fetchSmtpSettings(
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<SmtpSettingsResponse> {
+  return client.get(SMTP_PATH, smtpSettingsResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/** `POST /integrations/smtp` (reautenticación reciente). La contraseña viaja una sola vez en el cuerpo. */
+export function createSmtpSettings(
+  body: CreateSmtpSettingsRequest,
+  client: ApiClient = apiClient,
+): Promise<SmtpSettings> {
+  return client.post(SMTP_PATH, smtpSettingsSchema, { body });
+}
+
+/** `PUT /integrations/smtp/:id`: servidor, usuario y remitente. La contraseña se cambia aparte. */
+export function updateSmtpSettings(
+  id: string,
+  body: UpdateSmtpSettingsRequest,
+  client: ApiClient = apiClient,
+): Promise<SmtpSettings> {
+  return client.put(`${SMTP_PATH}/${id}`, smtpSettingsSchema, { body });
+}
+
+/** `PUT /integrations/smtp/:id/password`: guarda una contraseña nueva (cifrada en el servidor). */
+export function rotateSmtpPassword(
+  id: string,
+  password: string,
+  client: ApiClient = apiClient,
+): Promise<SmtpSettings> {
+  return client.put(`${SMTP_PATH}/${id}/password`, smtpSettingsSchema, { body: { password } });
+}
+
+/** `POST /integrations/smtp/:id/test`: `sent` o el código estable de fallo, nunca el texto del servidor. */
+export function sendSmtpTest(id: string, client: ApiClient = apiClient): Promise<SmtpTestResult> {
+  return client.post(`${SMTP_PATH}/${id}/test`, smtpTestResultSchema);
+}
+
+/** `DELETE /integrations/smtp/:id`: archiva el servidor; el correo vuelve al del entorno. */
+export function archiveSmtpSettings(
+  id: string,
+  client: ApiClient = apiClient,
+): Promise<SmtpSettings> {
+  return client.delete(`${SMTP_PATH}/${id}`, smtpSettingsSchema);
 }

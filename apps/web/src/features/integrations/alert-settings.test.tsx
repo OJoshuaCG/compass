@@ -12,6 +12,7 @@ import { renderApp } from '../../test/render-app';
 const PAGE = '/alerts';
 const SETTINGS_PATH = '/integrations/alert-settings';
 const TELEGRAM_PATH = '/integrations/telegram';
+const SMTP_PATH = '/integrations/smtp';
 const PERMISSIONS: Permission[] = ['alerts.infra.manage'];
 
 const settingsFixture = (overrides: Partial<AlertSettings> = {}): AlertSettings => ({
@@ -29,6 +30,7 @@ function setup(routes: Routes = {}, permissions: Permission[] = PERMISSIONS) {
     [`GET ${SETTINGS_PATH}`]: jsonResponse(settingsFixture()),
     // La pantalla también consulta el canal de Telegram; aquí sin canal para no mezclar avisos.
     [`GET ${TELEGRAM_PATH}`]: jsonResponse({ data: [] }),
+    [`GET ${SMTP_PATH}`]: jsonResponse({ data: [] }),
     ...routes,
   });
 }

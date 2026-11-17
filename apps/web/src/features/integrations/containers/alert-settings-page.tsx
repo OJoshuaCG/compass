@@ -13,6 +13,7 @@ import { useToast } from '../../../shared/toast';
 import { fetchAlertSettings, integrationsKeys, saveAlertSettings } from '../api/integrations-api';
 import { hasActiveChannel } from '../model/alert-settings-model';
 import { AlertSettingsForm } from '../ui/alert-settings-form';
+import { SmtpSettingsSection } from './smtp-settings-section';
 import { TelegramChannelSection } from './telegram-channel-section';
 
 /**
@@ -145,6 +146,7 @@ export function AlertSettingsPage() {
             })}
           </p>
         ) : null}
+        <SmtpSettingsSection />
         <TelegramChannelSection />
       </div>
     </>
