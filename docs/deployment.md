@@ -246,7 +246,7 @@ El arranque lo hace [`docker/start.sh`](../docker/start.sh), que también atiend
    | `KMS_ADAPTER` | `aws` |
    | `AWS_KMS_KEY_ID`, `AWS_REGION` | Id, ARN o alias de la clave y su región |
    | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Del usuario IAM con permisos mínimos (las lee el SDK de AWS, no la app) |
-   | `MAIL_TRANSPORT` | `smtp`, con `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` |
+   | `MAIL_TRANSPORT` | `smtp`, con `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`. Desde el 2026-11-17 son el **respaldo**: cada organización puede configurar su propio servidor en `/alerts` (ADR 0047) y solo los correos sin organización o de organizaciones sin servidor propio salen por estas variables. Producción sigue exigiéndolas |
    | `TRUST_PROXY` | Ver 2.8 |
    | `WEBAUTHN_RP_NAME`, `LOG_LEVEL`, `DB_POOL_MAX` | Opcionales (ver `apps/api/src/app/config.ts`) |
    | `OUTBOX_WORKER_ENABLED`, `OUTBOX_POLL_INTERVAL_MS` | Opcionales; el publicador del outbox está apagado por defecto (ver `docs/backend.md` §6.5). **Con él apagado no sale el aviso por correo a la Raíz cuando alguien revela un restablecimiento de códigos entrantes**: el aviso viaja por el outbox. Si usas los códigos entrantes, pon `OUTBOX_WORKER_ENABLED=true`. **Lo mismo vale para las alertas de infraestructura a la Raíz** (por ejemplo, que `anchor-audit` no pudo anclar una organización): sin el publicador, nunca salen |

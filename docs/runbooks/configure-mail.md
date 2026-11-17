@@ -20,6 +20,10 @@ Que la API envíe las invitaciones y el aviso de uso de un código de emergencia
 - El gestor de secretos de la infraestructura para guardar la contraseña SMTP. Nunca va en el repositorio, en un archivo de entorno versionado ni en un ticket.
 - El origen público de la aplicación ya definido (`APP_ORIGIN`): de él salen los enlaces de las invitaciones.
 
+## Servidor propio de cada organización (desde la web)
+
+Desde el 2026-11-17 la Raíz de cada organización puede configurar su servidor SMTP en `/alerts` (sección «Servidor de correo (SMTP)»): servidor, puerto, seguridad (`starttls` o `tls`), usuario, contraseña y remitente, con botón de correo de prueba. La contraseña se guarda cifrada y no se vuelve a mostrar. El servidor debe ser un nombre público (no IP ni nombres internos). Si la organización no tiene servidor activo, o el correo no pertenece a una organización (recuperación de la Raíz), se usan las variables de abajo, que siguen siendo obligatorias en producción como respaldo. Si el servidor de la organización falla, el correo no cambia de remitente: se reintenta por el outbox.
+
 ## Pasos
 
 1. Define las variables de entorno de la API:
