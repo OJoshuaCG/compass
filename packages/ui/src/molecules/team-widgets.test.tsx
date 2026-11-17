@@ -81,6 +81,26 @@ describe('Tabs', () => {
     expect(screen.getByRole('tab', { name: 'First' })).toHaveFocus();
   });
 
+  it('scrolls the active tab into view when the selection changes', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    // jsdom no implementa `scrollIntoView`: se define solo durante esta prueba.
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+      writable: true,
+    });
+    try {
+      render(<Harness />);
+      screen.getByRole('tab', { name: 'First' }).focus();
+      await user.keyboard('{ArrowRight}');
+      expect(scrollIntoView).toHaveBeenLastCalledWith({ inline: 'nearest', block: 'nearest' });
+      expect(scrollIntoView.mock.contexts.at(-1)).toBe(screen.getByRole('tab', { name: 'Second' }));
+    } finally {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+    }
+  });
+
   it('makes the tabpanel focusable so keyboard users can reach its content', async () => {
     const user = userEvent.setup();
     render(<Harness />);
