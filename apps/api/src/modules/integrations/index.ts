@@ -30,6 +30,8 @@ export { NotifyInfrastructureAlert } from './application/notify-infrastructure-a
 export { ManageAlertSettings } from './application/manage-alert-settings.js';
 export { PgAlertSettingsStore } from './infrastructure/pg-alert-settings-store.js';
 export { PgInfrastructureAlertQueue } from './infrastructure/pg-infrastructure-alert-queue.js';
+export { PgInfrastructureAlertHistory } from './infrastructure/pg-infrastructure-alert-history.js';
+export type { InfrastructureAlertHistory } from './application/ports/infrastructure-alert-history.js';
 export type { InfrastructureAlertQueue } from './application/ports/infrastructure-alert-queue.js';
 export type {
   ActiveTelegramChannel,
