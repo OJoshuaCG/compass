@@ -102,6 +102,7 @@ import {
   PgOrganizationSeeder,
   PgEmergencyCodeInvalidator,
 } from '../modules/provisioning/index.js';
+import { OrganizationMailer, SmtpMailer } from '../modules/notification/index.js';
 import type { Mailer } from '../modules/notification/index.js';
 import {
   GetAccountHealth,
@@ -159,7 +160,12 @@ import {
   GuardedHttpsClient,
   INFRASTRUCTURE_ALERT_EVENT_TYPE,
   ManageAlertSettings,
+  ManageSmtpSettings,
   ManageTelegramIntegrations,
+  NodemailerSmtpTestSender,
+  PgSmtpSettingsStore,
+  ResolveOrganizationSmtp,
+  openGuardedSmtpTransport,
   NotifyInfrastructureAlert,
   PgAlertSettingsStore,
   PgIntegrationRepository,
@@ -197,7 +203,7 @@ export interface ContainerOptions {
 const DEFAULT_OUTBOX_POLL_INTERVAL_MS = 5000;
 
 export function buildContainer(options: ContainerOptions) {
-  const { pool, independentPool, mailer, kms, logger } = options;
+  const { pool, independentPool, mailer: environmentMailer, kms, logger } = options;
   // Único rastro de un aviso de seguridad que ni salió ni pudo auditarse: solo el tipo, sin destinatario.
   const reportNoticeLost = (kind: string): void => {
     logger.error({ kind }, 'security notice lost: delivery and its audit event both failed');
@@ -219,6 +225,47 @@ export function buildContainer(options: ContainerOptions) {
     independently,
   });
   const cipher = new SecretCipher({ keys, primitives });
+
+  // Correo saliente: cada organización puede tener su servidor SMTP (ADR 0047, enmienda del 2026-11-17);
+  // sin él se usa el de las variables de entorno. El servidor lo escribe una persona de la organización, por
+  // eso el envío pasa por un guardia de red (sin excepciones de redes privadas), igual que Telegram.
+  const smtpSettingsStore = new PgSmtpSettingsStore(uow);
+  const smtpGuard = new NetworkGuard(async (host) => {
+    const records = await resolveDnsRecords(host, { all: true });
+    return records.map((record) => record.address);
+  });
+  const resolveOrganizationSmtp = new ResolveOrganizationSmtp({
+    context: requestContext,
+    uow,
+    settings: smtpSettingsStore,
+    cipher,
+  });
+  const mailer = new OrganizationMailer(environmentMailer, {
+    select: async () => {
+      const resolved = await resolveOrganizationSmtp.resolve();
+      if (resolved === null) return null;
+      const opened = await openGuardedSmtpTransport(
+        smtpGuard,
+        resolved.connection,
+        resolved.password,
+      );
+      // Un destino no permitido LANZA (no cae al servidor del entorno): ver `MailerSelector`.
+      if (!opened.ok) throw new Error(`Organization SMTP host rejected: ${opened.code}`);
+      return new SmtpMailer(
+        {
+          host: resolved.connection.host,
+          port: resolved.connection.port,
+          security: resolved.connection.security,
+          user: resolved.connection.username,
+          password: resolved.password,
+          from: resolved.connection.fromAddress,
+          baseUrl: options.webauthn.origin,
+        },
+        undefined,
+        opened.transport,
+      );
+    },
+  });
 
   // audit
   const auditEvents = new PgAuditEventRepository(uow);
@@ -701,6 +748,16 @@ export function buildContainer(options: ContainerOptions) {
       authorizer,
       settings: new PgAlertSettingsStore(uow),
       audit,
+    }),
+    manageSmtpSettings: new ManageSmtpSettings({
+      context: requestContext,
+      uow,
+      authorizer,
+      settings: smtpSettingsStore,
+      cipher,
+      sender: new NodemailerSmtpTestSender(smtpGuard),
+      audit,
+      clock,
     }),
     manageTelegramIntegrations: new ManageTelegramIntegrations({
       context: requestContext,

@@ -57,3 +57,7 @@ export type {
 } from './application/ports/smtp-settings-store.js';
 export { PgSmtpSettingsStore } from './infrastructure/pg-smtp-settings-store.js';
 export { SMTP_INTEGRATION_KIND } from './domain/smtp-config.js';
+export { ResolveOrganizationSmtp } from './application/resolve-organization-smtp.js';
+export type { ResolvedSmtp } from './application/resolve-organization-smtp.js';
+export { openGuardedSmtpTransport } from './infrastructure/guarded-smtp-transport.js';
+export { NodemailerSmtpTestSender } from './infrastructure/nodemailer-smtp-test-sender.js';

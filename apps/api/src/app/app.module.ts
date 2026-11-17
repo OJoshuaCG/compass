@@ -80,7 +80,12 @@ import { InboundMailDeleteController } from '../modules/inbound-codes/interface/
 import { InboundMailPreviewController } from '../modules/inbound-codes/interface/inbound-mail-preview.controller.js';
 import { InboundResetsController } from '../modules/inbound-codes/interface/inbound-resets.controller.js';
 import { InboundViewSharesController } from '../modules/inbound-codes/interface/inbound-view-shares.controller.js';
-import { ManageAlertSettings, ManageTelegramIntegrations } from '../modules/integrations/index.js';
+import {
+  ManageAlertSettings,
+  ManageSmtpSettings,
+  ManageTelegramIntegrations,
+} from '../modules/integrations/index.js';
+import { SmtpSettingsController } from '../modules/integrations/interface/smtp-settings.controller.js';
 import { AlertSettingsController } from '../modules/integrations/interface/alert-settings.controller.js';
 import { IntegrationsController } from '../modules/integrations/interface/integrations.controller.js';
 import { CsrfGuard } from '../shared/http/csrf.guard.js';
@@ -153,6 +158,7 @@ export class AppModule {
         useValue: container.manageInboundSourceConnection,
       },
       { provide: ManageAlertSettings, useValue: container.manageAlertSettings },
+      { provide: ManageSmtpSettings, useValue: container.manageSmtpSettings },
       { provide: ManageTelegramIntegrations, useValue: container.manageTelegramIntegrations },
       { provide: ManageInboundViewShares, useValue: container.manageInboundViewShares },
       { provide: IdempotencyService, useValue: container.idempotency },
@@ -192,6 +198,7 @@ export class AppModule {
         InboundConfigurationController,
         InboundSourceConnectionController,
         IntegrationsController,
+        SmtpSettingsController,
         AlertSettingsController,
       ],
       providers,

@@ -25,6 +25,14 @@ export { renderRankChangeEmail } from './application/render-rank-change-email.js
 export { renderRevealLimitEmail } from './application/render-reveal-limit-email.js';
 export { renderResetRevealEmail } from './application/render-reset-reveal-email.js';
 export { renderInfrastructureAlertEmail } from './application/render-infrastructure-alert-email.js';
-export { SMTP_WORST_CASE_ATTEMPT_MS, SmtpMailer } from './infrastructure/smtp-mailer.js';
+export {
+  SMTP_CONNECTION_TIMEOUT_MS,
+  SMTP_GREETING_TIMEOUT_MS,
+  SMTP_SOCKET_TIMEOUT_MS,
+  SMTP_WORST_CASE_ATTEMPT_MS,
+  SmtpMailer,
+} from './infrastructure/smtp-mailer.js';
+export { OrganizationMailer } from './infrastructure/organization-mailer.js';
+export type { MailerSelector } from './infrastructure/organization-mailer.js';
 export type { MailTransport, SmtpOptions, SmtpSecurity } from './infrastructure/smtp-mailer.js';
 export { LogMailer } from './infrastructure/log-mailer.js';
