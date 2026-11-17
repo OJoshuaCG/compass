@@ -1,5 +1,5 @@
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Button } from '../atoms/button';
 import { Skeleton } from '../atoms/skeleton';
@@ -118,6 +118,26 @@ export function DataTable<T extends object>({
   }, [columns]);
 
   const table = useTable({ features, columns: tableColumns, data: rows, getRowId });
+
+  // La región solo es enfocable cuando de verdad se desplaza en horizontal (WCAG 2.1.1): en móvil
+  // la tabla son tarjetas apiladas y en escritorio puede caber entera, y ahí un tabulador extra
+  // sobre la región no lleva a nada.
+  const regionRef = useRef<HTMLDivElement>(null);
+  const [scrollsHorizontally, setScrollsHorizontally] = useState(false);
+  useEffect(() => {
+    const region = regionRef.current;
+    if (region === null || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      setScrollsHorizontally(region.scrollWidth > region.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(region);
+    if (region.firstElementChild !== null) observer.observe(region.firstElementChild);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
   const columnById = new Map(columns.map((column) => [column.id, column]));
   const colSpan = columns.length + (rowActions ? 1 : 0);
   const hasSortableColumns = columns.some((column) => column.sortKey !== undefined);
@@ -136,8 +156,14 @@ export function DataTable<T extends object>({
   return (
     <div className={cn('rounded-lg border border-border-strong bg-surface', className)}>
       {toolbar !== undefined ? <div className="border-b border-border p-3">{toolbar}</div> : null}
-      {/* Scroll horizontal contenido en la tabla, no en la página; enfocable para teclado. */}
-      <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto rounded-t-lg">
+      {/* Scroll horizontal contenido en la tabla, no en la página; enfocable para teclado solo si se desplaza. */}
+      <div
+        ref={regionRef}
+        role="region"
+        aria-label={caption}
+        tabIndex={scrollsHorizontally ? 0 : undefined}
+        className="overflow-x-auto rounded-t-lg"
+      >
         <table
           aria-busy={busy}
           role="table"

@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../test/axe';
 
@@ -177,7 +177,7 @@ describe('DataTable sorting', () => {
     const user = userEvent.setup();
     const onSortChange = vi.fn();
     setup({ onSortChange });
-    await user.tab(); // región desplazable
+    // La región no es un tabulador mientras la tabla no se desborda (jsdom no mide, así que nunca).
     await user.tab(); // botón del encabezado
     expect(screen.getByRole('button', { name: 'Name' })).toHaveFocus();
     await user.keyboard('{Enter}');
@@ -330,5 +330,38 @@ describe('DataTable states', () => {
       pagination: { hasPrevious: false, hasNext: true, onPrevious: vi.fn(), onNext: vi.fn() },
     });
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  });
+
+  describe('table region focus', () => {
+    // jsdom no mide el diseño ni trae ResizeObserver: se simulan solo en estas pruebas.
+    function stubLayout(scrollWidth: number, clientWidth: number) {
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          observe = vi.fn();
+          disconnect = vi.fn();
+          unobserve = vi.fn();
+        },
+      );
+      vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(scrollWidth);
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(clientWidth);
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it('is not a tab stop when the table fits', () => {
+      stubLayout(300, 300);
+      setup();
+      expect(screen.getByRole('region', { name: 'Users' })).not.toHaveAttribute('tabindex');
+    });
+
+    it('becomes a tab stop only when the table scrolls horizontally', () => {
+      stubLayout(900, 300);
+      setup();
+      expect(screen.getByRole('region', { name: 'Users' })).toHaveAttribute('tabindex', '0');
+    });
   });
 });
