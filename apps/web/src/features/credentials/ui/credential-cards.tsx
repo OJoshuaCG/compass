@@ -258,7 +258,9 @@ export function CredentialCards({
               </dl>
 
               <div className="flex flex-col gap-1">
-                <span className="text-sm text-text-muted">{t('health.col', { ns: 'credentials' })}</span>
+                <span className="text-sm text-text-muted">
+                  {t('health.col', { ns: 'credentials' })}
+                </span>
                 <CredentialHealthBadges health={health.get(credential.id)} status={healthStatus} />
               </div>
 
