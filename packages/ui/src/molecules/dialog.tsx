@@ -30,7 +30,11 @@ export function Dialog({
       <RadixDialog.Portal>
         {/* z-50 > z-40 del aviso emergente: el aviso nunca tapa los botones de un diálogo abierto. */}
         <RadixDialog.Overlay className="fixed inset-0 z-50 scrim" />
-        <RadixDialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto glass rounded-lg p-6">
+        {/* `max-h-[calc(100dvh-2rem)]` es un valor arbitrario inevitable: deja 1 rem de margen arriba
+            y abajo (la utilidad `max-h-dvh` lo pegaba a los bordes) y `dvh` se encoge con el teclado
+            virtual donde el viewport lo permite. `overscroll-contain` evita arrastrar la página de
+            detrás al llegar al final de un contenido largo. */}
+        <RadixDialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-[calc(100dvh-2rem)] max-w-md -translate-y-1/2 overflow-y-auto overscroll-contain glass rounded-lg p-6">
           <RadixDialog.Title className="pe-8 font-heading text-lg break-words text-text">
             {title}
           </RadixDialog.Title>
