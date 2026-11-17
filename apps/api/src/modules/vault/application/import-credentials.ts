@@ -26,6 +26,7 @@ import type {
 
 import { DomainError, ok } from '../../../shared/kernel/index.js';
 import type {
+  Clock,
   IdGenerator,
   RequestContextReader,
   Result,
@@ -39,6 +40,7 @@ import { readImportFile, validateImportRow } from '../domain/credential-csv.js';
 import type { ImportRow } from '../domain/credential-csv.js';
 import type { AccountRepository, PlatformRecord } from './ports/account-repository.js';
 import type { CredentialRepository } from './ports/credential-repository.js';
+import type { PasswordStrengthScorer } from './ports/password-strength-scorer.js';
 import { storeCredentialSecret } from './store-credential-secret.js';
 
 export interface ImportCredentialsDeps {
@@ -48,8 +50,10 @@ export interface ImportCredentialsDeps {
   readonly accounts: AccountRepository;
   readonly credentials: CredentialRepository;
   readonly cipher: SecretCipher;
+  readonly strength: PasswordStrengthScorer;
   readonly audit: AuditLog;
   readonly ids: IdGenerator;
+  readonly clock: Clock;
 }
 
 /** Confirmar con filas inválidas no escribe nada y devuelve el informe para que la persona las corrija. */
@@ -100,7 +104,7 @@ export class ImportCredentials {
 
   /** Crea cuentas y credenciales de las filas válidas; si alguna fila es inválida, no crea nada. */
   commit(csv: string): Promise<Result<ImportCommitOutcome, DomainError>> {
-    const { context, uow, accounts, credentials, cipher, audit, ids } = this.deps;
+    const { context, uow, accounts, credentials, cipher, strength, clock, audit, ids } = this.deps;
     return uow.run(async () => {
       const actorId = await this.authorizeImport();
       const requestId = context.current().requestId;
@@ -148,7 +152,7 @@ export class ImportCredentials {
             kind: 'password',
             createdBy: actorId,
           });
-          const storage = { context, credentials, cipher, ids };
+          const storage = { context, credentials, cipher, ids, strength, clock };
           await storeCredentialSecret(storage, {
             credentialId: credential.id,
             field: 'username',

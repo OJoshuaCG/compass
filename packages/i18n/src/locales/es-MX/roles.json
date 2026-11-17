@@ -95,6 +95,8 @@
   "permission.inbound.read_codes": "Ver códigos de acceso recibidos",
   "permission.inbound.configure": "Configurar fuentes y vistas de códigos recibidos",
   "permission.inbound.reveal_reset": "Revelar restablecimientos recibidos",
+  "permission.credential.view_health": "Ver la salud de las credenciales por grupo y por organización",
+  "permission.inbound.delete_mail": "Borrar correo recibido del buzón real",
   "permission.alerts.infra.manage": "Gestionar las alertas de infraestructura (correo y Telegram)",
   "permission.alerts.security.manage": "Gestionar las alertas de seguridad y sus destinatarios (Telegram)",
   "tabs.label": "Secciones de roles y permisos",

@@ -55,7 +55,7 @@ export function Dialog({
           <div className="mt-4">{children}</div>
           <RadixDialog.Close
             aria-label={closeLabel}
-            className="absolute end-3 top-3 inline-flex size-8 items-center justify-center rounded-sm text-text-secondary hover:bg-raised hover:text-text"
+            className="absolute end-3 top-3 inline-flex size-8 items-center justify-center rounded-sm text-text-secondary hover:bg-raised hover:text-text max-md:size-10"
           >
             <X aria-hidden="true" className="size-4" />
           </RadixDialog.Close>

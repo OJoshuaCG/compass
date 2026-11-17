@@ -11,6 +11,8 @@ export interface ReadableViewSummary {
   readonly sourceDisplayName: string;
   readonly channel: 'mail' | 'sms';
   readonly level: ShareLevel;
+  /** La persona dio de alta la fuente de la vista; junto con ser Administrador decide quién borra correo. */
+  readonly sourceCreatedByMe: boolean;
 }
 
 /** Vista no archivada, de una fuente no archivada, sobre la que la persona tiene un nivel efectivo. */

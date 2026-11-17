@@ -1,4 +1,4 @@
-import type { Credential, ShareLevel } from '@iam/contracts';
+import type { Credential, CredentialHealth, ShareLevel } from '@iam/contracts';
 import {
   Badge,
   Button,
@@ -15,12 +15,17 @@ import { useTranslation } from 'react-i18next';
 
 import { formatDateTime } from '../../../shared/lib';
 
+import { CredentialHealthBadges } from './credential-health-badges';
+
 export type CredentialCardsProps = {
   credentials: Credential[];
   status: 'loading' | 'success' | 'error';
   /** Mensaje ya traducido del error de carga. */
   errorMessage: string;
   onRetry: () => void;
+  /** Salud por id de credencial. Secundaria: si falla, las tarjetas siguen funcionando sin ella. */
+  health: ReadonlyMap<string, CredentialHealth>;
+  healthStatus: 'loading' | 'success' | 'error';
   /** Zona horaria del perfil, para las fechas. */
   timeZone: string | undefined;
   /** Nivel en la cuenta, para explicar por qué no se puede revelar. */
@@ -61,6 +66,8 @@ export function CredentialCards({
   status,
   errorMessage,
   onRetry,
+  health,
+  healthStatus,
   timeZone,
   myLevel,
   canCopyUsername,
@@ -249,6 +256,11 @@ export function CredentialCards({
                   </div>
                 ) : null}
               </dl>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-sm text-text-muted">{t('health.col', { ns: 'credentials' })}</span>
+                <CredentialHealthBadges health={health.get(credential.id)} status={healthStatus} />
+              </div>
 
               <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
                 <span>

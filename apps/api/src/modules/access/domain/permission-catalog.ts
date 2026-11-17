@@ -32,6 +32,9 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'credential.reveal_password': 3,
   'credential.use_totp': 3,
   'credential.export_totp': 2,
+  // Paneles de salud de credenciales por grupo y por organización (solo números y conteos, nunca el secreto).
+  // Techo 2: lo ven Raíz, Administrador y Líder, los mismos rangos que administran grupos.
+  'credential.view_health': 2,
   'share.manage': 3,
   'access_request.approve': 2,
   'rotation.manage': 2,
@@ -40,6 +43,9 @@ export const PERMISSION_CEILING: Readonly<Record<Permission, Rank>> = {
   'inbound.read_codes': 3,
   'inbound.configure': 2,
   'inbound.reveal_reset': 1,
+  // Borrar un correo del buzón real. Techo 2 para que quien dio de alta la fuente (Líder) pueda; el caso de
+  // uso exige además ser Administrador o superior, o quien registró la fuente.
+  'inbound.delete_mail': 2,
   // Notificaciones por Telegram (ADR 0047). Infraestructura es solo de la Raíz; las de seguridad también
   // las gestiona el Administrador.
   'alerts.infra.manage': 0,
@@ -83,6 +89,9 @@ export const ACTION_POLICY: Readonly<Partial<Record<Permission, ActionPolicy>>> 
   'credential.export_totp': { reauth: true, writtenReason: true, criticalAudit: true },
   // Un restablecimiento (código o enlace) abre una cuenta ajena: mismo molde que exportar el 2FA.
   'inbound.reveal_reset': { reauth: true, writtenReason: true, criticalAudit: true },
+  // Borrar correo es irreversible y destruye evidencia del buzón: reautenticación y auditoría crítica, sin
+  // motivo escrito (no abre una cuenta ajena; el motivo solo se pide para ver el cuerpo del correo).
+  'inbound.delete_mail': { reauth: true, writtenReason: false, criticalAudit: true },
   // Configurar a dónde salen los avisos y a quién cambia quién ve la actividad de la plataforma:
   // reautenticación reciente y auditoría crítica, como la configuración de la organización.
   'alerts.infra.manage': { reauth: true, writtenReason: false, criticalAudit: true },

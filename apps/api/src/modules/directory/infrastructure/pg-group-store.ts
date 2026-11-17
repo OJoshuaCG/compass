@@ -76,6 +76,12 @@ export class PgGroupStore implements GroupStore {
     return row === undefined ? null : toRecord(row);
   }
 
+  async lockUserRow(userId: string): Promise<void> {
+    await this.transactions
+      .current()
+      .query('select 1 from users where id = $1 for share', [userId]);
+  }
+
   async findLive(groupId: string): Promise<GroupRecord | null> {
     const result = await this.transactions.current().query<GroupRow>(
       `select id, name, description, created_by, created_at

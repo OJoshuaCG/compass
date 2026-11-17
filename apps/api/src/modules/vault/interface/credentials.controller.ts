@@ -6,6 +6,8 @@ import type {
   ChangeCredentialPasswordRequest,
   CreateCredentialRequest,
   Credential,
+  CredentialHealth,
+  CredentialHealthSummary,
   CredentialUsername,
   PasswordVersion,
   RevealedPassword,
@@ -15,6 +17,8 @@ import { z } from 'zod';
 
 import { unwrap } from '../../../shared/http/http-decorators.js';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe.js';
+import { GetAccountHealth } from '../application/get-account-health.js';
+import { GetCredentialHealthSummary } from '../application/get-credential-health-summary.js';
 import { ManageCredentials } from '../application/manage-credentials.js';
 import type {
   CredentialRecord,
@@ -75,6 +79,50 @@ export class AccountCredentialsController {
     return toCredential(unwrap(await this.manageCredentials.create(accountId, body)));
   }
 }
+
+@Controller('accounts/:accountId/health')
+export class AccountHealthController {
+  constructor(private readonly getAccountHealth: GetAccountHealth) {}
+
+  // Solo señales y puntaje: ninguna respuesta lleva secreto, pero tampoco se cachea (depende de la persona).
+  @Header('Cache-Control', NO_STORE)
+  @Get()
+  async health(
+    @Param('accountId', uuidPipe) accountId: string,
+  ): Promise<{ data: CredentialHealth[] }> {
+    const health = unwrap(await this.getAccountHealth.execute(accountId));
+    return { data: health.map((entry) => ({ ...entry, signals: [...entry.signals] })) };
+  }
+}
+
+@Controller('credential-health')
+export class CredentialHealthSummaryController {
+  constructor(private readonly getSummary: GetCredentialHealthSummary) {}
+
+  // Solo conteos; no se cachea porque el alcance depende de la persona.
+  @Header('Cache-Control', NO_STORE)
+  @Get('organization')
+  async organization(): Promise<{ data: CredentialHealthSummary }> {
+    const summary = unwrap(await this.getSummary.forOrganization());
+    return { data: toSummaryResponse(summary) };
+  }
+
+  @Header('Cache-Control', NO_STORE)
+  @Get('groups/:groupId')
+  async group(
+    @Param('groupId', uuidPipe) groupId: string,
+  ): Promise<{ data: CredentialHealthSummary }> {
+    const summary = unwrap(await this.getSummary.forGroup(groupId));
+    return { data: toSummaryResponse(summary) };
+  }
+}
+
+const toSummaryResponse = (summary: CredentialHealthSummary): CredentialHealthSummary => ({
+  credentials: summary.credentials,
+  withSignals: summary.withSignals,
+  strengthUnknown: summary.strengthUnknown,
+  bySignal: { ...summary.bySignal },
+});
 
 @Controller('credentials')
 export class CredentialsController {

@@ -253,6 +253,7 @@
   "nav.inbound": "Códigos de acceso",
   "nav.inboundSources": "Fuentes de códigos",
   "nav.inboundViewSettings": "Vistas de códigos",
+  "nav.credentialHealth": "Salud de credenciales",
   "nav.alerts": "Alertas de infraestructura",
   "nav.rootTransfer": "Transferencia de la Raíz"
 }

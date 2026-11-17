@@ -104,6 +104,15 @@ export type {
   ListGroupsQuery,
 } from './groups.js';
 
+export {
+  MAX_SAVED_VIEWS,
+  SAVED_VIEW_NAME_MAX_LENGTH,
+  SAVED_VIEW_SEARCH_MAX_LENGTH,
+  createSavedAccountViewRequestSchema,
+  savedAccountViewSchema,
+} from './saved-account-views.js';
+export type { CreateSavedAccountViewRequest, SavedAccountView } from './saved-account-views.js';
+
 export { sessionSummarySchema } from './sessions.js';
 export type { SessionSummary } from './sessions.js';
 
@@ -171,6 +180,10 @@ export {
   REVEAL_REASON_MIN_LENGTH,
   changeCredentialPasswordRequestSchema,
   createCredentialRequestSchema,
+  CREDENTIAL_HEALTH_SIGNALS,
+  credentialHealthSchema,
+  credentialHealthSummarySchema,
+  credentialHealthSignalSchema,
   credentialKindSchema,
   credentialSchema,
   credentialUsernameSchema,
@@ -182,6 +195,9 @@ export type {
   ChangeCredentialPasswordRequest,
   CreateCredentialRequest,
   Credential,
+  CredentialHealth,
+  CredentialHealthSummary,
+  CredentialHealthSignal,
   CredentialKind,
   CredentialUsername,
   PasswordVersion,
@@ -264,6 +280,15 @@ export {
   inboundCodesResponseSchema,
   inboundResetSchema,
   inboundResetsResponseSchema,
+  inboundMailDeleteRequestedSchema,
+  inboundMailPreviewContentResponseSchema,
+  inboundMailPreviewRequestedSchema,
+  inboundMailPreviewRequestSchema,
+  inboundMailPreviewStatusResponseSchema,
+  INBOUND_MAIL_PREVIEW_FAILURE_CODES,
+  INBOUND_MAIL_PREVIEW_KINDS,
+  inboundMailDeleteStatusResponseSchema,
+  INBOUND_MAIL_DELETE_RESULT_CODES,
   revealInboundResetsRequestSchema,
   inboundHistoryQuerySchema,
   inboundHistoryResponseSchema,
@@ -298,6 +323,12 @@ export type {
   InboundCodesResponse,
   InboundReset,
   InboundResetsResponse,
+  InboundMailDeleteRequested,
+  InboundMailPreviewContentResponse,
+  InboundMailPreviewKind,
+  InboundMailPreviewRequested,
+  InboundMailPreviewStatusResponse,
+  InboundMailDeleteStatusResponse,
   RevealInboundResetsRequest,
   InboundHistoryQuery,
   InboundHistoryResponse,

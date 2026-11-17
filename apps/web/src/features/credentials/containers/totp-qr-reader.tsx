@@ -142,6 +142,13 @@ export function TotpQrReader({ onResult }: TotpQrReaderProps) {
     if (chosen === undefined) return;
     onResult(chosen.otpauthUri);
     setOutcomeKind('found');
+    // Se muestra la cuenta elegida para que la persona confirme que registra la correcta, igual que
+    // cuando la exportación trae una sola cuenta.
+    setSingleAccountLabel(
+      chosen.label === ''
+        ? t('totp.register.image.migration.unnamed', { position: Number(selectedIndex) + 1 })
+        : chosen.label,
+    );
     // Las demás cuentas, con sus secretos, se olvidan en cuanto se elige una.
     setMigrationChoices(null);
     setSelectedIndex(undefined);

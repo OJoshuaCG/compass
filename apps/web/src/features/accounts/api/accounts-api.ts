@@ -3,7 +3,9 @@ import {
   accountSchema,
   accountTagsResponseSchema,
   platformSchema,
+  savedAccountViewSchema,
   type CreateAccountRequest,
+  type CreateSavedAccountViewRequest,
   type UpdateAccountRequest,
 } from '@iam/contracts';
 import { z } from 'zod';
@@ -19,6 +21,8 @@ export const accountsKeys = {
   platforms: () => [...accountsKeys.all, 'platforms'] as const,
   /** Etiquetas en uso: cambian con cada alta, edición o archivo, igual que los listados. */
   tags: () => [...accountsKeys.all, 'tags'] as const,
+  /** Vistas guardadas de la persona: no cuelgan de `lists()` porque no se recargan con las cuentas. */
+  savedViews: () => [...accountsKeys.all, 'saved-views'] as const,
 };
 
 /**
@@ -71,4 +75,27 @@ export function updateAccount(
 /** `POST /accounts/:id/archive` (204, exige `account.archive` y nivel MANAGE). */
 export function archiveAccount(id: string, client: ApiClient = apiClient) {
   return client.post(`/accounts/${id}/archive`, noContentSchema);
+}
+
+const savedViewsResponseSchema = z.object({ data: z.array(savedAccountViewSchema) });
+
+/** `GET /account-views`: las vistas guardadas de quien consulta (máximo `MAX_SAVED_VIEWS`), sin paginar. */
+export async function fetchSavedViews(signal?: AbortSignal, client: ApiClient = apiClient) {
+  const response = await client.get('/account-views', savedViewsResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+  return response.data;
+}
+
+/** `POST /account-views` (201): 409 nombre repetido, 422 límite alcanzado o datos inválidos. */
+export function createSavedView(
+  body: CreateSavedAccountViewRequest,
+  client: ApiClient = apiClient,
+) {
+  return client.post('/account-views', savedAccountViewSchema, { body });
+}
+
+/** `DELETE /account-views/:id` (204): solo vistas propias; 404 si ya no existe. */
+export function deleteSavedView(id: string, client: ApiClient = apiClient) {
+  return client.delete(`/account-views/${id}`, noContentSchema);
 }

@@ -6,6 +6,11 @@ import {
   inboundSourceConnectionSchema,
   inboundSourceSchema,
   inboundSourcesResponseSchema,
+  inboundMailDeleteRequestedSchema,
+  inboundMailDeleteStatusResponseSchema,
+  inboundMailPreviewContentResponseSchema,
+  inboundMailPreviewRequestedSchema,
+  inboundMailPreviewStatusResponseSchema,
   inboundReceiptSchema,
   inboundResetsResponseSchema,
   inboundViewShareSchema,
@@ -21,6 +26,12 @@ import {
   type InboundSource,
   type InboundSourceConnection,
   type InboundSourceSummary,
+  type InboundMailDeleteRequested,
+  type InboundMailDeleteStatusResponse,
+  type InboundMailPreviewContentResponse,
+  type InboundMailPreviewKind,
+  type InboundMailPreviewRequested,
+  type InboundMailPreviewStatusResponse,
   type InboundResetsResponse,
   type InboundReceipt,
   type InboundViewShare,
@@ -50,6 +61,7 @@ export const inboundKeys = {
   sources: () => [...inboundKeys.all, 'sources'] as const,
   connection: (sourceId: string) => [...inboundKeys.all, 'connection', sourceId] as const,
   history: (viewId: string) => [...inboundKeys.all, 'history', viewId] as const,
+  mailDelete: (receiptId: string) => [...inboundKeys.all, 'mail-delete', receiptId] as const,
   viewShares: (viewId: string) => [...inboundKeys.all, 'view-shares', viewId] as const,
 };
 
@@ -81,6 +93,95 @@ export function createInboundHistoryFetcher(
   client: ApiClient = apiClient,
 ): FetchPage<InboundReceipt> {
   return createListFetcher(client, `/inbound/views/${viewId}/history`, inboundReceiptSchema);
+}
+
+/**
+ * `POST /inbound/receipts/:receiptId/mail-delete` (202; permiso `inbound.delete_mail`, Administrador o quien
+ * dio de alta la fuente, y reautenticación reciente, que abre el cliente): pide borrar el mensaje del
+ * buzón real. No borra en el acto: lo ejecuta el worker en su siguiente pasada. Es idempotente.
+ */
+export function requestInboundMailDelete(
+  receiptId: string,
+  client: ApiClient = apiClient,
+): Promise<InboundMailDeleteRequested> {
+  return client.post(
+    `/inbound/receipts/${receiptId}/mail-delete`,
+    inboundMailDeleteRequestedSchema,
+  );
+}
+
+/** `GET /inbound/receipts/:receiptId/mail-delete`: estado de la petición más reciente (`data: null` si nunca se pidió). Solo ids y estados. */
+export function fetchInboundMailDeleteStatus(
+  receiptId: string,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<InboundMailDeleteStatusResponse> {
+  return client.get(
+    `/inbound/receipts/${receiptId}/mail-delete`,
+    inboundMailDeleteStatusResponseSchema,
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+}
+
+/**
+ * Cuerpo de la petición de vista previa: el motivo solo viaja con el cuerpo (el asunto no lo lleva). El
+ * motivo no es un secreto, pero no se registra ni se guarda fuera del estado del componente.
+ */
+function mailPreviewBody(reason: string | undefined): { reason?: string } {
+  return reason === undefined ? {} : { reason };
+}
+
+/**
+ * `POST /inbound/receipts/:receiptId/mail-preview/:kind` (202; permiso `inbound.delete_mail`, y
+ * `inbound.reveal_reset` con motivo para el cuerpo; reautenticación que abre el cliente): pide al worker
+ * traer el asunto o el cuerpo del mensaje. Aquí no viaja ningún contenido del correo.
+ */
+export function requestInboundMailPreview(
+  receiptId: string,
+  kind: InboundMailPreviewKind,
+  reason?: string,
+  client: ApiClient = apiClient,
+): Promise<InboundMailPreviewRequested> {
+  return client.post(
+    `/inbound/receipts/${receiptId}/mail-preview/${kind}`,
+    inboundMailPreviewRequestedSchema,
+    { body: mailPreviewBody(reason) },
+  );
+}
+
+/**
+ * `GET /inbound/receipts/:receiptId/mail-preview/:kind`: estado de la vista previa (`data: null` si no hay
+ * una vigente). Solo estados y fechas, nunca el contenido; aun así se consulta sin pasar por Query para
+ * no dejar rastro del recibo en la caché.
+ */
+export function fetchInboundMailPreviewStatus(
+  receiptId: string,
+  kind: InboundMailPreviewKind,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+): Promise<InboundMailPreviewStatusResponse> {
+  return client.get(
+    `/inbound/receipts/${receiptId}/mail-preview/${kind}`,
+    inboundMailPreviewStatusResponseSchema,
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+}
+
+/**
+ * `POST /inbound/receipts/:receiptId/mail-preview/:kind/read`: entrega ÚNICA del contenido (la fila se borra al
+ * entregarse). El contenido se devuelve al llamador y nunca pasa por Query, la URL ni el almacenamiento.
+ */
+export function readInboundMailPreview(
+  receiptId: string,
+  kind: InboundMailPreviewKind,
+  reason?: string,
+  client: ApiClient = apiClient,
+): Promise<InboundMailPreviewContentResponse> {
+  return client.post(
+    `/inbound/receipts/${receiptId}/mail-preview/${kind}/read`,
+    inboundMailPreviewContentResponseSchema,
+    { body: mailPreviewBody(reason) },
+  );
 }
 
 /**

@@ -40,6 +40,9 @@ import { FirstRootSetup } from '../modules/provisioning/index.js';
 import { InvitationsController } from '../modules/identity/interface/invitations.controller.js';
 import {
   ManageAccounts,
+  ManageSavedViews,
+  GetAccountHealth,
+  GetCredentialHealthSummary,
   ManageCredentials,
   ManageShares,
   ImportCredentials,
@@ -49,9 +52,12 @@ import {
   AccountsController,
   PlatformsController,
 } from '../modules/vault/interface/accounts.controller.js';
+import { SavedViewsController } from '../modules/vault/interface/saved-views.controller.js';
 import { AccountSharesController } from '../modules/vault/interface/shares.controller.js';
 import {
   AccountCredentialsController,
+  AccountHealthController,
+  CredentialHealthSummaryController,
   CredentialsController,
 } from '../modules/vault/interface/credentials.controller.js';
 import { CredentialImportController } from '../modules/vault/interface/credential-import.controller.js';
@@ -63,11 +69,15 @@ import {
   ManageInboundViewShares,
   ReadInboundCodes,
   RevealInboundResets,
+  PreviewInboundMail,
+  RequestInboundMailDelete,
 } from '../modules/inbound-codes/index.js';
 import { InboundConfigurationController } from '../modules/inbound-codes/interface/inbound-configuration.controller.js';
 import { InboundSourceConnectionController } from '../modules/inbound-codes/interface/inbound-source-connection.controller.js';
 import { InboundCodesController } from '../modules/inbound-codes/interface/inbound-codes.controller.js';
 import { InboundDirectoryController } from '../modules/inbound-codes/interface/inbound-directory.controller.js';
+import { InboundMailDeleteController } from '../modules/inbound-codes/interface/inbound-mail-delete.controller.js';
+import { InboundMailPreviewController } from '../modules/inbound-codes/interface/inbound-mail-preview.controller.js';
 import { InboundResetsController } from '../modules/inbound-codes/interface/inbound-resets.controller.js';
 import { InboundViewSharesController } from '../modules/inbound-codes/interface/inbound-view-shares.controller.js';
 import { ManageAlertSettings, ManageTelegramIntegrations } from '../modules/integrations/index.js';
@@ -122,13 +132,21 @@ export class AppModule {
       { provide: ManagePersonRoles, useValue: container.managePersonRoles },
       { provide: RotateDataKey, useValue: container.rotateDataKey },
       { provide: ManageAccounts, useValue: container.manageAccounts },
+      { provide: ManageSavedViews, useValue: container.manageSavedViews },
       { provide: ManageCredentials, useValue: container.manageCredentials },
+      { provide: GetAccountHealth, useValue: container.getAccountHealth },
+      {
+        provide: GetCredentialHealthSummary,
+        useValue: container.getCredentialHealthSummary,
+      },
       { provide: ManageShares, useValue: container.manageShares },
       { provide: ImportCredentials, useValue: container.importCredentials },
       { provide: ManageTotp, useValue: container.manageTotp },
       { provide: ListInboundDirectory, useValue: container.listInboundDirectory },
       { provide: ReadInboundCodes, useValue: container.readInboundCodes },
       { provide: RevealInboundResets, useValue: container.revealInboundResets },
+      { provide: RequestInboundMailDelete, useValue: container.requestInboundMailDelete },
+      { provide: PreviewInboundMail, useValue: container.previewInboundMail },
       { provide: ManageInboundConfiguration, useValue: container.manageInboundConfiguration },
       {
         provide: ManageInboundSourceConnection,
@@ -157,7 +175,10 @@ export class AppModule {
         GroupsController,
         PlatformsController,
         AccountsController,
+        SavedViewsController,
         AccountCredentialsController,
+        AccountHealthController,
+        CredentialHealthSummaryController,
         AccountSharesController,
         CredentialsController,
         CredentialImportController,
@@ -165,6 +186,8 @@ export class AppModule {
         InboundCodesController,
         InboundDirectoryController,
         InboundResetsController,
+        InboundMailDeleteController,
+        InboundMailPreviewController,
         InboundViewSharesController,
         InboundConfigurationController,
         InboundSourceConnectionController,

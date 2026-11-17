@@ -161,7 +161,7 @@ function EditAccountForm({ account, onCancel, onUpdated, onReload }: EditAccount
           });
         }}
       />
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}
         </Button>

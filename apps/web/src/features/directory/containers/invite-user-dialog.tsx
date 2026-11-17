@@ -312,7 +312,7 @@ function InviteForm({ actorRank, onDone, onLinkReady }: InviteFormProps) {
           </p>
         </div>
       ) : null}
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onDone}>
           {t('actions.cancel', { ns: 'common' })}
         </Button>

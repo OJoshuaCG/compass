@@ -132,6 +132,7 @@ export {
   RootTransferNoticePayloadError,
 } from './domain/root-transfer-notice.js';
 
+export { canManageGroupMembers } from './domain/group-policy.js';
 export { ManageGroups } from './application/manage-groups.js';
 export type { GroupView, ManageGroupsDeps } from './application/manage-groups.js';
 export type { GroupStore } from './application/ports/group-store.js';

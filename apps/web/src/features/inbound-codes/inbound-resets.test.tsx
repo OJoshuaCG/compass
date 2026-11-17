@@ -38,6 +38,7 @@ const viewFixture = (overrides: Partial<InboundViewSummary> = {}): InboundViewSu
   sourceId: SOURCE_ID,
   sourceDisplayName: 'Buzón de accesos',
   channel: 'mail',
+  canManageMail: false,
   level: 'MANAGE',
   ...overrides,
 });
@@ -173,10 +174,7 @@ describe('revealed resets', () => {
     const { queryClient } = renderApp(VIEW_PAGE);
     const region = await openReasonForm(user);
 
-    await user.type(
-      within(region).getByRole('textbox', { name: /Motivo/ }),
-      `  ${VALID_REASON}  `,
-    );
+    await user.type(within(region).getByRole('textbox', { name: /Motivo/ }), `  ${VALID_REASON}  `);
     await user.click(within(region).getByRole('button', { name: t['resets.submit'] }));
 
     const codeField = await within(region).findByDisplayValue(RESET_CODE);

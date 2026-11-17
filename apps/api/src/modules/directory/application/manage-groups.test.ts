@@ -43,6 +43,7 @@ const person = (id: UserId, rank: Rank, status: UserRecord['status'] = 'active')
 class InMemoryGroupStore implements GroupStore {
   readonly groups: GroupRecord[] = [];
   readonly memberships: { groupId: string; userId: string; role: GroupMemberRole }[] = [];
+  readonly lockedUsers: string[] = [];
   private counter = 0;
 
   insertGroup(input: { name: string; description: string | null; createdBy: string }) {
@@ -63,6 +64,10 @@ class InMemoryGroupStore implements GroupStore {
   }
   findLiveForUpdate(groupId: string) {
     return Promise.resolve(this.groups.find((group) => group.id === groupId) ?? null);
+  }
+  lockUserRow(userId: string) {
+    this.lockedUsers.push(userId);
+    return Promise.resolve();
   }
   findLive(groupId: string) {
     return this.findLiveForUpdate(groupId);
@@ -304,6 +309,27 @@ describe('managing members', () => {
       ok: false,
       error: { code: 'GROUP.MEMBER_EXISTS' },
     });
+  });
+
+  it('locks the person row before reading its status, so a concurrent deactivation cannot slip in', async () => {
+    const t = setup();
+    await t.manage.create({ name: 'A' });
+    await t.manage.addMember('group-1', OPERATOR_ID, 'member');
+    expect(t.store.lockedUsers).toEqual([OPERATOR_ID]);
+  });
+
+  it('denies a stored manager whose current rank fell below Leader', async () => {
+    const t = setup();
+    await t.manage.create({ name: 'A' });
+    // Quien era gestor y hoy es Operativo conserva la fila, pero ya no administra el grupo.
+    t.store.memberships.push({ groupId: 'group-1', userId: OPERATOR_ID, role: 'manager' });
+    t.permissions.set(OPERATOR_ID, new Set<Permission>(['group.manage_members']));
+    t.actAs(OPERATOR_ID);
+    expect(await t.manage.addMember('group-1', OTHER_LEADER_ID, 'member')).toMatchObject({
+      ok: false,
+      error: { code: 'GROUP.NOT_FOUND' },
+    });
+    expect(t.auditDenial).toHaveBeenCalled();
   });
 
   it('removes a member and audits it, but never the last manager', async () => {

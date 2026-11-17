@@ -96,7 +96,7 @@ function TransferManagerForm({ person, onClose, onDone }: TransferManagerDialogP
           onValueChange={setSelected}
         />
       ) : null}
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onClose}>
           {t('actions.cancel', { ns: 'common' })}
         </Button>

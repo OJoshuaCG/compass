@@ -61,3 +61,45 @@ export type RevealedPassword = z.infer<typeof revealedPasswordSchema>;
 
 export const credentialUsernameSchema = z.object({ username: z.string() });
 export type CredentialUsername = z.infer<typeof credentialUsernameSchema>;
+
+export const CREDENTIAL_HEALTH_SIGNALS = [
+  'weak_password',
+  'reused_password',
+  'stale_password',
+  'totp_missing',
+  'totp_pending',
+  'totp_exposed',
+  'rotation_pending',
+] as const;
+export const credentialHealthSignalSchema = z.enum(CREDENTIAL_HEALTH_SIGNALS);
+export type CredentialHealthSignal = z.infer<typeof credentialHealthSignalSchema>;
+
+/** Salud de una credencial: solo señales y el puntaje (0 a 4, `null` = aún no medido); nunca el secreto. */
+export const credentialHealthSchema = z.object({
+  credentialId: z.uuid(),
+  signals: z.array(credentialHealthSignalSchema),
+  strengthScore: z.number().int().min(0).max(4).nullable(),
+});
+export type CredentialHealth = z.infer<typeof credentialHealthSchema>;
+
+/**
+ * Resumen de salud de un conjunto de credenciales (grupo u organización): solo conteos, nunca nombres de
+ * cuentas, etiquetas, huellas ni secretos. Cada credencial cuenta una vez por señal, y `withSignals`
+ * cuenta las que tienen al menos una.
+ */
+export const credentialHealthSummarySchema = z.object({
+  credentials: z.number().int().min(0),
+  withSignals: z.number().int().min(0),
+  /** Credenciales cuya fortaleza aún no se midió (se guardaron antes de existir el puntaje). */
+  strengthUnknown: z.number().int().min(0),
+  bySignal: z.object({
+    weak_password: z.number().int().min(0),
+    reused_password: z.number().int().min(0),
+    stale_password: z.number().int().min(0),
+    totp_missing: z.number().int().min(0),
+    totp_pending: z.number().int().min(0),
+    totp_exposed: z.number().int().min(0),
+    rotation_pending: z.number().int().min(0),
+  }),
+});
+export type CredentialHealthSummary = z.infer<typeof credentialHealthSummarySchema>;

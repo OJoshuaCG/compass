@@ -90,8 +90,16 @@ export interface CredentialRepository {
    */
   retireCurrentSecret(credentialId: string, field: SecretField): Promise<void>;
   insertSecret(secret: NewSecretVersion): Promise<void>;
-  /** Una huella por credencial; se reemplaza en cada cambio de contraseña. */
-  upsertPasswordFingerprint(credentialId: string, hmacHex: string): Promise<void>;
+  /**
+   * Una huella por credencial; se reemplaza en cada cambio de contraseña, junto con su puntaje de fortaleza
+   * (salud de credenciales). Solo se guarda el número, nunca el texto.
+   */
+  upsertPasswordFingerprint(
+    credentialId: string,
+    hmacHex: string,
+    strengthScore: number,
+    scoredAt: Date,
+  ): Promise<void>;
   markRotated(credentialId: string, at: Date): Promise<void>;
   passwordHistory(credentialId: string): Promise<readonly PasswordVersionSummary[]>;
   /**

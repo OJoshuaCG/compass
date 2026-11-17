@@ -40,6 +40,7 @@ const PLAN_CEILINGS: ReadonlyArray<readonly [string, Rank]> = [
   ['credential.reveal_password', 3],
   ['credential.use_totp', 3],
   ['credential.export_totp', 2],
+  ['credential.view_health', 2],
   ['share.manage', 3],
   ['access_request.approve', 2],
   ['rotation.manage', 2],
@@ -47,14 +48,15 @@ const PLAN_CEILINGS: ReadonlyArray<readonly [string, Rank]> = [
   ['inbound.read_codes', 3],
   ['inbound.configure', 2],
   ['inbound.reveal_reset', 1],
+  ['inbound.delete_mail', 2],
   ['alerts.infra.manage', 0],
   ['alerts.security.manage', 1],
 ];
 
 describe('permission catalog', () => {
-  it('has the 34 permissions of the catalog (27 of the plan, credential.restore_version, the three inbound ones, user.invite_link and the two alert ones), each with its ceiling', () => {
-    expect(PERMISSIONS).toHaveLength(34);
-    expect(PLAN_CEILINGS).toHaveLength(34);
+  it('has the 36 permissions of the catalog (27 of the plan, credential.restore_version, credential.view_health, the four inbound ones, user.invite_link and the two alert ones), each with its ceiling', () => {
+    expect(PERMISSIONS).toHaveLength(36);
+    expect(PLAN_CEILINGS).toHaveLength(36);
     for (const [permission, ceiling] of PLAN_CEILINGS) {
       expect(PERMISSION_CEILING[permission as Permission], permission).toBe(ceiling);
     }

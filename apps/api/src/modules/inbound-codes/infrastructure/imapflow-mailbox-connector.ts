@@ -6,10 +6,14 @@ import type { MailConnection } from '../application/ports/mail-connection-loader
 import {
   MailboxConnectionError,
   MessageFetchError,
+  MailboxDeleteUnsupportedError,
   type MailboxConnector,
+  type MailboxDeleteOutcome,
   type MailboxFailureCode,
   type MailboxMessageSummary,
   type MailboxSession,
+  type MailboxWriteConnector,
+  type MailboxWriteSession,
   type RawMessage,
 } from '../application/ports/mailbox.js';
 import type { NetworkGuard } from './network-guard.js';
@@ -56,6 +60,10 @@ export interface ImapClient {
     query: { uid: true; source: { maxLength: number } },
     options: { uid: true },
   ): Promise<{ readonly source?: Uint8Array } | false>;
+  /** Marca `\\Deleted` y expulsa; con `uid: true` y `UIDPLUS` expulsa solo esos UID. */
+  messageDelete(range: string, options: { uid: true }): Promise<boolean>;
+  /** Extensiones que anunció el servidor (`UIDPLUS`, …). */
+  readonly capabilities: ReadonlyMap<string, boolean | number>;
   logout(): Promise<void>;
   close(): void;
 }
@@ -148,13 +156,35 @@ function isConnectionLevelError(error: unknown): boolean {
   return CONNECTION_LEVEL_ERROR_CODES.has(code) || TLS_ERROR_CODE_PATTERN.test(code);
 }
 
-export class ImapFlowMailboxConnector implements MailboxConnector {
+/** Extensión que permite expulsar solo los UID indicados (RFC 4315). */
+const UID_EXPUNGE_CAPABILITY = 'UIDPLUS';
+
+export class ImapFlowMailboxConnector implements MailboxConnector, MailboxWriteConnector {
   constructor(
     private readonly guard: NetworkGuard,
     private readonly createClient: ImapClientFactory = createImapFlowClient,
   ) {}
 
   async open(connection: MailConnection): Promise<MailboxSession> {
+    const { client, lock, uidValidity } = await this.connectToInbox(connection, true);
+    return new ImapFlowMailboxSession(client, lock, uidValidity);
+  }
+
+  async openForWrite(connection: MailConnection): Promise<MailboxWriteSession> {
+    const { client, lock, uidValidity } = await this.connectToInbox(connection, false);
+    // Se comprueba antes de ofrecer la sesión: sin UIDPLUS ni siquiera se llega a marcar un mensaje.
+    if (!client.capabilities.has(UID_EXPUNGE_CAPABILITY)) {
+      lock.release();
+      closeQuietly(client);
+      throw new MailboxDeleteUnsupportedError();
+    }
+    return new ImapFlowMailboxWriteSession(client, lock, uidValidity);
+  }
+
+  private async connectToInbox(
+    connection: MailConnection,
+    readOnly: boolean,
+  ): Promise<{ client: ImapClient; lock: { release(): void }; uidValidity: number }> {
     // La IP validada es a la que se conecta; el nombre original se conserva para verificar el certificado.
     const resolved = await this.guard.resolve(connection.host);
     if (!resolved.ok) throw new MailboxConnectionError('HOST_REJECTED');
@@ -181,8 +211,8 @@ export class ImapFlowMailboxConnector implements MailboxConnector {
 
     let lock: { release(): void };
     try {
-      // `EXAMINE`: el sondeo nunca modifica el buzón (no marca leídos ni borra).
-      lock = await client.getMailboxLock(MAILBOX_PATH, { readOnly: true });
+      // `EXAMINE` (solo lectura) para el sondeo: nunca modifica el buzón. `SELECT` solo para el borrado a petición.
+      lock = await client.getMailboxLock(MAILBOX_PATH, { readOnly });
     } catch {
       closeQuietly(client);
       throw new MailboxConnectionError('MAILBOX_UNAVAILABLE');
@@ -194,7 +224,7 @@ export class ImapFlowMailboxConnector implements MailboxConnector {
       closeQuietly(client);
       throw new MailboxConnectionError('MAILBOX_UNAVAILABLE');
     }
-    return new ImapFlowMailboxSession(client, lock, Number(mailbox.uidValidity));
+    return { client, lock, uidValidity: Number(mailbox.uidValidity) };
   }
 }
 
@@ -275,6 +305,33 @@ class ImapFlowMailboxSession implements MailboxSession {
       await this.client.logout();
     } catch {
       // Si liberar o cerrar la sesión falla, se corta el socket para no dejarlo abierto.
+      closeQuietly(this.client);
+    }
+  }
+}
+
+class ImapFlowMailboxWriteSession implements MailboxWriteSession {
+  constructor(
+    private readonly client: ImapClient,
+    private readonly lock: { release(): void },
+    readonly uidValidity: number,
+  ) {}
+
+  async deleteMessage(uid: number): Promise<MailboxDeleteOutcome> {
+    try {
+      const deleted = await this.client.messageDelete(String(uid), { uid: true });
+      return deleted ? 'deleted' : 'not_deleted';
+    } catch (error) {
+      if (isConnectionLevelError(error)) throw new MailboxConnectionError(classifyImapError(error));
+      return 'not_deleted';
+    }
+  }
+
+  async close(): Promise<void> {
+    try {
+      this.lock.release();
+      await this.client.logout();
+    } catch {
       closeQuietly(this.client);
     }
   }

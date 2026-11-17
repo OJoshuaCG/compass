@@ -120,7 +120,7 @@ function RevealErrorPanel({ error, onClose, onRetry }: RevealErrorPanelProps) {
   return (
     <div className="flex flex-col gap-4">
       <ErrorAlert error={error} secondsLeft={cooldown.secondsLeft} />
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onClose}>
           {t('actions.close', { ns: 'common' })}
         </Button>
@@ -161,7 +161,7 @@ function HiddenNotice({ onClose, onRevealAgain }: HiddenNoticeProps) {
       >
         {t('reveal.hidden', { ns: 'credentials' })}
       </p>
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onClose}>
           {t('actions.close', { ns: 'common' })}
         </Button>

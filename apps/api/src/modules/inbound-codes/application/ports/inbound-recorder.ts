@@ -6,6 +6,15 @@ import type { SourceRef } from './poll-state-store.js';
 
 export type RecordOutcome = 'recorded' | 'duplicate';
 
+/**
+ * Dónde está el mensaje en el buzón IMAP. Son solo dos enteros: sirven para borrarlo a petición y no
+ * identifican el contenido. Si `uidValidity` cambia en el servidor, el `uid` guardado deja de significar algo.
+ */
+export interface MailboxPosition {
+  readonly uidValidity: number;
+  readonly uid: number;
+}
+
 export interface AcceptedRecord {
   readonly fingerprint: string;
   readonly receivedAt: Date;
@@ -17,12 +26,14 @@ export interface AcceptedRecord {
   readonly value: string;
   readonly expiresAt: Date;
   readonly signingDomain: string;
+  readonly mailboxPosition: MailboxPosition;
 }
 
 export interface QuarantineRecord {
   readonly fingerprint: string;
   readonly receivedAt: Date;
   readonly reason: QuarantineReason;
+  readonly mailboxPosition: MailboxPosition;
 }
 
 /**

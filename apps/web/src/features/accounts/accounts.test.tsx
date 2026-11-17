@@ -87,6 +87,7 @@ function setup(
     'GET /me': jsonResponse(meFixture({ permissions, rank: 1 })),
     'GET /accounts': page([MANAGED, EDITABLE, VIEWABLE]),
     'GET /platforms': jsonResponse({ data: PLATFORMS }),
+    'GET /account-views': jsonResponse({ data: [] }),
     ...extra,
   });
 }

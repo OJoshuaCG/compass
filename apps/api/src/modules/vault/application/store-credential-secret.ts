@@ -5,15 +5,19 @@
  * (`ImportCredentials`) compartan EXACTAMENTE el mismo camino de cifrado: el texto en claro solo se
  * entrega al módulo de criptografía y nunca se guarda, se audita ni se registra.
  */
-import type { RequestContextReader, UserId } from '../../../shared/kernel/index.js';
+import type { Clock, RequestContextReader, UserId } from '../../../shared/kernel/index.js';
 import type { SecretCipher } from '../../crypto/index.js';
 import type { CredentialRepository, SecretField } from './ports/credential-repository.js';
+import type { PasswordStrengthScorer } from './ports/password-strength-scorer.js';
 
 export interface SecretStorageDeps {
   readonly context: RequestContextReader;
   readonly credentials: CredentialRepository;
   readonly cipher: SecretCipher;
   readonly ids: { next(): string };
+  /** Valora la contraseña al escribirla (salud de credenciales); solo se guarda el puntaje. */
+  readonly strength: PasswordStrengthScorer;
+  readonly clock: Clock;
 }
 
 export interface StoreSecretInput {
@@ -37,7 +41,7 @@ export async function storeCredentialSecret(
   deps: SecretStorageDeps,
   input: StoreSecretInput,
 ): Promise<void> {
-  const { context, credentials, cipher, ids } = deps;
+  const { context, credentials, cipher, ids, strength, clock } = deps;
   const organizationId = context.current().organizationId;
 
   const bytes = textEncoder.encode(input.plaintext);
@@ -92,6 +96,11 @@ export async function storeCredentialSecret(
       dekVersion,
     );
     if (!fingerprint.ok) throw fingerprint.error;
-    await credentials.upsertPasswordFingerprint(input.credentialId, fingerprint.value.index);
+    await credentials.upsertPasswordFingerprint(
+      input.credentialId,
+      fingerprint.value.index,
+      strength.score(input.plaintext),
+      clock.now(),
+    );
   }
 }

@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   AppShell,
   ArrowRightLeft,
   BrandMark,
@@ -45,6 +46,7 @@ function NavLink({
   paths = [to],
   icon: Icon,
   exact,
+  onNavigate,
   children,
 }: {
   to:
@@ -55,17 +57,25 @@ function NavLink({
     | '/catalog'
     | '/inbound'
     | '/inbound/sources'
-    | '/root-transfer';
+    | '/root-transfer'
+    | '/credential-health';
   paths?: readonly string[];
   icon: LucideIcon;
   exact?: boolean;
+  /** Se llama al activar el enlace; el menú lo usa para plegarse en móvil. */
+  onNavigate: () => void;
   children: ReactNode;
 }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const active = exact === true ? pathname === to : paths.some((path) => isWithin(pathname, path));
   return (
     <li>
-      <Link to={to} className={navItemClass} aria-current={active ? 'page' : undefined}>
+      <Link
+        to={to}
+        className={navItemClass}
+        aria-current={active ? 'page' : undefined}
+        onClick={onNavigate}
+      >
         <span aria-hidden="true" className={navItemIconClass}>
           <Icon className="size-5" />
         </span>
@@ -95,6 +105,8 @@ export function AppLayout() {
   const canReadInboundCodes = usePermission('inbound.read_codes');
   // Solo comodidad: el enlace de configurar fuentes se ofrece con `inbound.configure`; el servidor decide.
   const canConfigureInbound = usePermission('inbound.configure');
+  // Solo comodidad: el enlace de salud de credenciales se ofrece con `credential.view_health`; el servidor decide.
+  const canViewCredentialHealth = usePermission('credential.view_health');
   // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
   const canManageInfraAlerts = usePermission('alerts.infra.manage');
   // Solo comodidad: la transferencia de la Raíz la ven la Raíz y los Administradores; el servidor decide.
@@ -102,6 +114,7 @@ export function AppLayout() {
   const { logout, pending } = useLogout();
   const sidebarState = useSidebarVisibility(me?.user.id);
   const sidebarVisible: boolean = sidebarState.visible;
+  const closeSidebar: () => void = sidebarState.close;
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   // Pestañas de cada sección, como en el diseño: Personas (usuarios y roles) y Configuración
@@ -196,20 +209,21 @@ export function AppLayout() {
       sidebar={
         <nav aria-label={t('nav.label')} className="flex flex-col gap-5">
           <NavGroup label={t('nav.group.workspace')}>
-            <NavLink to="/" exact icon={House}>
+            <NavLink onNavigate={closeSidebar} to="/" exact icon={House}>
               {t('nav.home')}
             </NavLink>
-            <NavLink to="/users" paths={PEOPLE_PATHS} icon={Users}>
+            <NavLink onNavigate={closeSidebar} to="/users" paths={PEOPLE_PATHS} icon={Users}>
               {t('nav.people')}
             </NavLink>
           </NavGroup>
           <NavGroup label={t('nav.group.vault')}>
             {/* La vista previa del diseño (/vault, solo en desarrollo) no tiene entrada propia. */}
-            <NavLink to="/accounts" paths={VAULT_PATHS} icon={Lock}>
+            <NavLink onNavigate={closeSidebar} to="/accounts" paths={VAULT_PATHS} icon={Lock}>
               {t('nav.vault')}
             </NavLink>
             {canReadInboundCodes || canConfigureInbound ? (
               <NavLink
+                onNavigate={closeSidebar}
                 to={canReadInboundCodes ? '/inbound' : '/inbound/sources'}
                 paths={INBOUND_PATHS}
                 icon={Mail}
@@ -217,18 +231,28 @@ export function AppLayout() {
                 {t('nav.codes')}
               </NavLink>
             ) : null}
+            {canViewCredentialHealth ? (
+              <NavLink onNavigate={closeSidebar} to="/credential-health" icon={AlertTriangle}>
+                {t('nav.credentialHealth')}
+              </NavLink>
+            ) : null}
           </NavGroup>
           <NavGroup label={t('nav.group.access')}>
-            <NavLink to="/security" paths={SETTINGS_PATHS} icon={Settings}>
+            <NavLink
+              onNavigate={closeSidebar}
+              to="/security"
+              paths={SETTINGS_PATHS}
+              icon={Settings}
+            >
               {t('nav.settings')}
             </NavLink>
             {canSeeRootTransfer ? (
-              <NavLink to="/root-transfer" icon={ArrowRightLeft}>
+              <NavLink onNavigate={closeSidebar} to="/root-transfer" icon={ArrowRightLeft}>
                 {t('nav.rootTransfer')}
               </NavLink>
             ) : null}
             {import.meta.env.DEV ? (
-              <NavLink to="/catalog" icon={LayoutGrid}>
+              <NavLink onNavigate={closeSidebar} to="/catalog" icon={LayoutGrid}>
                 {t('nav.catalog')}
               </NavLink>
             ) : null}

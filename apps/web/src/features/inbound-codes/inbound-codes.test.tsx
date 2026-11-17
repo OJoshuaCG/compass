@@ -35,6 +35,7 @@ const viewFixture = (overrides: Partial<InboundViewSummary> = {}): InboundViewSu
   sourceId: SOURCE_ID,
   sourceDisplayName: 'Buzón de accesos',
   channel: 'mail',
+  canManageMail: false,
   level: 'USE',
   ...overrides,
 });

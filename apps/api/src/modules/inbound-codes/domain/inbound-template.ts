@@ -23,7 +23,18 @@ export type SubjectRule =
   | { readonly mode: 'equals'; readonly value: string }
   | { readonly mode: 'prefix'; readonly value: string };
 
-export type CodeCharset = 'digits' | 'alphanumeric';
+/**
+ * Juego de caracteres del código. Las variantes `*_hyphenated` admiten guiones SOLO entre dos caracteres del
+ * código (p. ej. `123-456`); `codeLength` cuenta los caracteres sin los guiones y el valor se conserva como
+ * llegó, con sus guiones.
+ */
+export const CODE_CHARSETS = [
+  'digits',
+  'alphanumeric',
+  'digits_hyphenated',
+  'alphanumeric_hyphenated',
+] as const;
+export type CodeCharset = (typeof CODE_CHARSETS)[number];
 
 /** Código de largo fijo entre un literal de arranque y, opcionalmente, un literal de cierre. */
 export interface FixedLengthCodeRule {
@@ -140,7 +151,7 @@ export function findTemplateProblems(template: InboundTemplate): readonly Templa
       extraction.codeLength <= MAX_CODE_LENGTH;
     if (!hasValidLength) problems.push('INVALID_CODE_LENGTH');
     const declaredCharset: string = extraction.charset;
-    if (declaredCharset !== 'digits' && declaredCharset !== 'alphanumeric') {
+    if (!(CODE_CHARSETS as readonly string[]).includes(declaredCharset)) {
       problems.push('UNKNOWN_CHARSET');
     }
     if (template.kind === 'reset_link') problems.push('KIND_EXTRACTION_MISMATCH');

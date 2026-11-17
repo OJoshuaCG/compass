@@ -26,9 +26,9 @@ export function PageHeader({ title, description, eyebrow, actions, className }: 
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="text-3xl font-semibold text-text">{title}</h1>
+        <h1 className="text-3xl font-semibold break-words text-text">{title}</h1>
         {description !== undefined ? (
-          <p className="max-w-prose text-base text-text-secondary">{description}</p>
+          <p className="max-w-prose text-base break-words text-text-secondary">{description}</p>
         ) : null}
       </div>
       {actions !== undefined ? (

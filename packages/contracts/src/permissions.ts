@@ -29,6 +29,7 @@ export const PERMISSIONS = [
   'credential.reveal_password',
   'credential.use_totp',
   'credential.export_totp',
+  'credential.view_health',
   'share.manage',
   'access_request.approve',
   'rotation.manage',
@@ -36,6 +37,7 @@ export const PERMISSIONS = [
   'inbound.read_codes',
   'inbound.configure',
   'inbound.reveal_reset',
+  'inbound.delete_mail',
   'alerts.infra.manage',
   'alerts.security.manage',
 ] as const;

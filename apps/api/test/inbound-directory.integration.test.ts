@@ -67,6 +67,7 @@ async function seedSource(
   options: {
     readonly status?: 'active' | 'suspended' | 'archived';
     readonly accountId?: string | null;
+    readonly createdBy?: string;
   } = {},
 ): Promise<string> {
   const status = options.status ?? 'active';
@@ -80,7 +81,7 @@ async function seedSource(
       `${displayName.toLowerCase().replaceAll(' ', '-')}@${fixture.slug}.example`,
       displayName,
       options.accountId ?? null,
-      fixture.root,
+      options.createdBy ?? fixture.root,
       status,
     ],
   );
@@ -194,6 +195,7 @@ describe('PgInboundDirectory.listReadableViews', () => {
         sourceDisplayName: 'Con cuenta activa',
         channel: 'mail',
         level: 'MANAGE',
+        sourceCreatedByMe: false,
       },
       {
         id: zeta,
@@ -202,9 +204,29 @@ describe('PgInboundDirectory.listReadableViews', () => {
         sourceDisplayName: 'Soporte',
         channel: 'mail',
         level: 'USE',
+        sourceCreatedByMe: false,
       },
     ]);
     expect(views.map((view) => view.id)).not.toContain(notShared);
+  });
+
+  it('marks the views whose source was created by the person asking, and only those', async () => {
+    const fixture = await seedFixture('dir-creator');
+    const ownSource = await seedSource(fixture, 'Propia', { createdBy: fixture.person });
+    const otherSource = await seedSource(fixture, 'Ajena');
+    const ownView = await seedView(fixture, ownSource, 'Vista propia');
+    const otherView = await seedView(fixture, otherSource, 'Vista ajena');
+    await share(fixture, 'mail_view', ownView, 'user', fixture.person, 'MANAGE');
+    await share(fixture, 'mail_view', otherView, 'user', fixture.person, 'MANAGE');
+
+    const views = await inOrg(fixture.organization, () =>
+      directory.listReadableViews(asUserId(fixture.person), LIMIT),
+    );
+
+    expect(views.map((view) => [view.name, view.sourceCreatedByMe])).toEqual([
+      ['Vista ajena', false],
+      ['Vista propia', true],
+    ]);
   });
 
   it('includes views reached through a group with the highest level', async () => {

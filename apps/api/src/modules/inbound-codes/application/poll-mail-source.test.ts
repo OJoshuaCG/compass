@@ -204,6 +204,7 @@ describe('PollMailSource', () => {
           // min(fecha firmada 11:59:40, recepción 11:59:30) + 10 minutos.
           expiresAt: new Date('2026-10-30T12:09:30.000Z'),
           signingDomain: 'facebook.com',
+          mailboxPosition: { uidValidity: POLL_UID_VALIDITY, uid: 5 },
         },
       ]);
       expect(state.savedCursors).toEqual([{ uidValidity: POLL_UID_VALIDITY, lastUid: 5 }]);
@@ -266,6 +267,7 @@ describe('PollMailSource', () => {
           fingerprint: 'raw:00aa:msg-3',
           receivedAt: new Date(FIXTURE_NOW.getTime() - 30 * 1000),
           reason: 'NO_VALID_SIGNATURE',
+          mailboxPosition: { uidValidity: POLL_UID_VALIDITY, uid: 3 },
         },
       ]);
       expect(state.savedCursors).toEqual([{ uidValidity: POLL_UID_VALIDITY, lastUid: 3 }]);
@@ -307,6 +309,7 @@ describe('PollMailSource', () => {
           fingerprint: `pos:00aa:${String(POLL_UID_VALIDITY)}:6`,
           receivedAt: new Date(FIXTURE_NOW.getTime() - 30 * 1000),
           reason: 'FETCH_FAILED',
+          mailboxPosition: { uidValidity: POLL_UID_VALIDITY, uid: 6 },
         },
       ]);
       expect(result.status).toBe('completed');

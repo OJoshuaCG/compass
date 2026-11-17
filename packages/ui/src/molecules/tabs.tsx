@@ -58,7 +58,7 @@ export function Tabs({ label, tabs, value, onValueChange, children }: TabsProps)
         role="tablist"
         aria-label={label}
         onKeyDown={onKeyDown}
-        className="flex gap-1 border-b border-border-strong"
+        className="flex gap-1 overflow-x-auto border-b border-border-strong"
       >
         {tabs.map((tab) => {
           const selected = tab.id === value;
@@ -79,7 +79,7 @@ export function Tabs({ label, tabs, value, onValueChange, children }: TabsProps)
                 onValueChange(tab.id);
               }}
               className={cn(
-                'min-h-10 border-b-2 px-4 text-sm font-medium transition-colors duration-fast',
+                'min-h-10 shrink-0 border-b-2 px-4 whitespace-nowrap text-sm font-medium transition-colors duration-fast',
                 selected
                   ? 'border-accent text-text'
                   : 'border-transparent text-text-secondary hover:text-text',

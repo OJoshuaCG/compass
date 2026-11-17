@@ -1,5 +1,6 @@
 import type { AccountListFilter } from '@iam/contracts';
 import { Button, NativeSelect, SearchInput } from '@iam/ui';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export type AccountsToolbarProps = {
@@ -14,6 +15,8 @@ export type AccountsToolbarProps = {
   /** Etiqueta activa; `undefined` = todas. */
   tag: string | undefined;
   onTagChange: (tag: string | undefined) => void;
+  /** Controles adicionales al final de la barra (p. ej. las vistas guardadas). */
+  children?: ReactNode;
 };
 
 /** Valor de la opción «todas las etiquetas»: vacío, que ninguna etiqueta puede tener. */
@@ -28,6 +31,7 @@ export function AccountsToolbar({
   tags,
   tag,
   onTagChange,
+  children,
 }: AccountsToolbarProps) {
   const { t } = useTranslation(['accounts', 'common']);
 
@@ -84,6 +88,7 @@ export function AccountsToolbar({
           );
         })}
       </div>
+      {children}
     </div>
   );
 }

@@ -137,7 +137,7 @@ test.describe
     await guest.getByLabel('Full name').fill('Sofía Operadora');
     await guest.getByRole('textbox', { name: 'Password', exact: true }).fill('password1234');
     await guest.getByRole('button', { name: 'Create account' }).click();
-    await expect(guest.getByText(/too weak or too common/i)).toBeVisible();
+    await expect(guest.getByText(/too common or easy to guess/i)).toBeVisible();
 
     await guest.getByRole('textbox', { name: 'Password', exact: true }).fill(PASSWORD);
     await guest.getByRole('button', { name: 'Create account' }).click();

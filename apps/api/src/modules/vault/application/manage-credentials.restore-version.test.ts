@@ -124,6 +124,7 @@ function buildUseCase(options: BuildOptions) {
         ),
       blindIndex: () => Promise.resolve(ok({ index: 'ab12' })),
     } as unknown as SecretCipher,
+    strength: { score: () => 3 },
     audit,
     auditCounter: { count: () => Promise.resolve(0) },
     ids: { next: () => 'id-1' },
@@ -137,6 +138,7 @@ function buildUseCase(options: BuildOptions) {
     retireCurrentSecret,
     insertSecret,
     markRotated,
+    upsertPasswordFingerprint,
   };
 }
 
@@ -146,7 +148,14 @@ const denialsOf = (events: readonly RecordedAuditEvent[]) =>
 // SENSIBLE (revisión humana): permiso propio para restaurar una versión de la contraseña.
 describe('ManageCredentials.restoreVersion permission', () => {
   it('restores with credential.restore_version and EDIT, creating the next version and auditing it', async () => {
-    const { useCase, auditEvents, insertSecret, retireCurrentSecret, markRotated } = buildUseCase({
+    const {
+      useCase,
+      auditEvents,
+      insertSecret,
+      retireCurrentSecret,
+      markRotated,
+      upsertPasswordFingerprint,
+    } = buildUseCase({
       permissions: ['credential.restore_version'],
       level: 'EDIT',
     });
@@ -160,6 +169,13 @@ describe('ManageCredentials.restoreVersion permission', () => {
       expect.objectContaining({ credentialId: CREDENTIAL_ID, field: 'password', version: 3 }),
     );
     expect(markRotated).toHaveBeenCalledTimes(1);
+    // La contraseña restaurada se vuelve a valorar: la huella y el puntaje siempre describen la versión vigente.
+    expect(upsertPasswordFingerprint).toHaveBeenCalledWith(
+      CREDENTIAL_ID,
+      'ab12',
+      3,
+      expect.any(Date),
+    );
     const restored = auditEvents.filter((event) => event.action === 'credential.version_restored');
     expect(restored).toHaveLength(1);
     expect(restored[0]?.metadata).toEqual({ restoredVersion: OLD_VERSION, newVersion: 3 });

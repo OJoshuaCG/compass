@@ -1,10 +1,15 @@
 import type {
+  CodeCharset,
   ExtractionRule,
   InboundItemKind,
   InboundTemplate,
   SubjectRule,
 } from '../domain/inbound-template.js';
-import { INBOUND_ITEM_KINDS, isTemplateEvaluable } from '../domain/inbound-template.js';
+import {
+  CODE_CHARSETS,
+  INBOUND_ITEM_KINDS,
+  isTemplateEvaluable,
+} from '../domain/inbound-template.js';
 
 /**
  * Convierte una fila de `inbound_templates` en la plantilla del dominio. La columna `definition` guarda
@@ -58,12 +63,19 @@ function parseExtraction(value: unknown): ExtractionRule | null {
     if (
       typeof leadingLiteral !== 'string' ||
       typeof codeLength !== 'number' ||
-      (charset !== 'digits' && charset !== 'alphanumeric') ||
+      typeof charset !== 'string' ||
+      !(CODE_CHARSETS as readonly string[]).includes(charset) ||
       typeof trailingLiteral !== 'string'
     ) {
       return null;
     }
-    return { type: 'fixed_length_code', leadingLiteral, codeLength, charset, trailingLiteral };
+    return {
+      type: 'fixed_length_code',
+      leadingLiteral,
+      codeLength,
+      charset: charset as CodeCharset,
+      trailingLiteral,
+    };
   }
   if (value['type'] === 'allowed_host_link') {
     const { allowedHosts, pathPrefix } = value;

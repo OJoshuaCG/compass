@@ -1,6 +1,6 @@
 # B6: búsqueda de cuentas, indicador de antigüedad de la contraseña y vistas guardadas
 
-Estado: **parcial** (revisado 2026-11-03): T1 a T4 hechas; T5 (vistas guardadas) pendiente. Ruta protegida (bóveda, índice ciego, migración con aislamiento por filas): el dueño asignó el trabajo ("lleva a cabo todo lo necesario y puedes continuar tarea tras tarea pendiente relacionada a ella"). Requiere jueces ciegos y prueba de mutación. Rama: `main` (sin ramas nuevas). Pruebas: solo por `test-runner`.
+Estado: **hecho** (2026-11-13): T1 a T6 hechas. Ruta protegida (bóveda, índice ciego, migración con aislamiento por filas): el dueño asignó el trabajo ("lleva a cabo todo lo necesario y puedes continuar tarea tras tarea pendiente relacionada a ella"). Requiere jueces ciegos y prueba de mutación. Rama: `main` (sin ramas nuevas). Pruebas: solo por `test-runner`.
 
 ## Especificación
 
@@ -30,8 +30,8 @@ Reglas:
 - [x] T2. Estado de antigüedad por cuenta (API) y filtros «Por revisar» y «Sin 2FA». Evidencia: `password-age.test.ts` y las pruebas de la API; paginación con cursor y filtro (12 cuentas, 2 páginas).
 - [x] T3. Web: campo de búsqueda, fichas de filtro y columna «Último cambio» con círculo (es-MX y en-US, accesibilidad). Evidencia: `accounts.test.tsx` y `use-table-query.test.tsx` en verde (iteración 1: 58/58 con directory; iteración 2 pendiente de cierre); typecheck y lint web en verde. Decisión: búsqueda y filtro viven en memoria (la pantalla ya guarda la pestaña en memoria y su ruta no tiene parámetros de búsqueda), no en la URL.
 - [x] T4. Búsqueda exacta por usuario con índice ciego (ruta protegida). Hecha 2026-11-13: `vault-account-search.e2e.test.ts` y `vault-accounts.e2e.test.ts` 35 de 35; con mutación (`or true` en la comparación) fallan 4 de 18 y el archivo se restauró. Semántica: coincidencia exacta, distingue mayúsculas, solo sobre cuentas accesibles. La prueba de plan de ejecución no se hizo.
-- [ ] T5. Vistas guardadas (migración nueva, API y web). La siguiente migración libre es la 0036 (la última es `0035_root_transfers.sql`, revisado 2026-11-13).
-- [ ] T6. Jueces ciegos, mutación deliberada, documentación.
+- [x] T5. Vistas guardadas (migración 0036, API y web). Hecha 2026-11-13: `saved-account-views.e2e.test.ts` 10 de 10, web `saved-views.test.tsx`, `accounts.test.tsx` y paridad de i18n 69 de 69, matriz de autorización con las 3 rutas.
+- [x] T6. Jueces ciegos, mutación deliberada, documentación. Hecha 2026-11-13 (ver bitácora).
 
 ## Bitácora
 
@@ -45,3 +45,8 @@ Reglas:
 - 2026-11-13 (mapa de T5, sin código todavía): modelo de migración `0034_alert_settings.sql` (cabecera con decisiones, `comment on`, RLS por organización, `grant` por columnas); modelo de módulo por persona: `passkeys` (caso de uso, puerto, almacén, controlador, cableado en `container.ts` y `app.module.ts`). Las políticas de aislamiento solo filtran por organización; el aislamiento por persona va en el SQL (`where user_id = $actor`).
   - Contrato reutilizable: `accountListQuerySchema` (`q`, `filter`) en `packages/contracts/src/accounts.ts`; una vista guardada es `{name, q?, filter?}`. Pantalla: `my-accounts-panel.tsx`, `use-account-list-table.ts`, `accounts-toolbar.tsx`; textos en `packages/i18n/src/locales/{es-MX,en-US}/accounts.json` con paridad comprobada.
   - Supuestos míos, conservadores, por confirmar (los documentos no los fijan): máximo 10 vistas por persona (patrón de `MAX_PASSKEYS`); nombre único por persona, sin distinguir mayúsculas; las vistas de una persona dada de baja se borran con ella (pregunta abierta n.º 6 de `docs/business/vault.md`); sin permiso nuevo (son preferencias propias); borrar la fila es aceptable porque una vista no es dato de auditoría, pero se audita la creación y el borrado.
+- 2026-11-13 (revisión ciega de T5): sin fuga entre personas ni entre organizaciones, sin filtración en errores. Confirmado por ambos jueces y corregido: el máximo de 10 se podía rebasar con altas simultáneas (contar e insertar sin candado); ahora `lockUser` toma `pg_advisory_xact_lock` por persona. Pruebas añadidas: altas concurrentes, 401 sin sesión en las tres rutas, y la constante del máximo se importa del contrato.
+  - Mutación deliberada: quitar `and user_id = $2` en `deleteOwned` hace fallar «never lists or deletes the views of another person» (esperaba 404, recibió 204); 9 de 10 pasan. Archivo restaurado, hash idéntico.
+  - Sin corregir: no hay prueba con una segunda organización; la prueba «keeps the account list behind effective access» no aplica una vista guardada; las vistas de una persona dada de baja se conservan y la llave foránea a `users` bloquearía borrar al usuario (sin comprobar si la baja borra usuarios); el orden por `lower(name)` depende de la collation.
+  - Decisión mía, por confirmar con el dueño: el texto de búsqueda de una vista se guarda en claro (puede ser un usuario de la plataforma). Supuesto corregido: las vistas de una baja NO se borran con ella; se conservan y nadie más las ve.
+  - Las pruebas de aislamiento de `saved-account-views.e2e.test.ts` necesitan revisión humana (`SENSIBLE`).

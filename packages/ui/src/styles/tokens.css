@@ -283,6 +283,7 @@
     @apply bg-canvas font-sans text-text;
     /* La barra superior es fija: sin este margen el foco por teclado queda tapado (WCAG 2.4.11). */
     scroll-padding-top: 5rem;
+    scroll-padding-bottom: 6rem;
   }
 
   /* Ambiente: dos degradados muy tenues que solo dan profundidad detrás del cristal. */

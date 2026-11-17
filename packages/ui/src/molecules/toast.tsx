@@ -89,7 +89,7 @@ function ToastCard({ item, onDismiss, dismissLabel, onHoldChange }: ToastCardPro
         onClick={() => {
           onDismiss(item.id);
         }}
-        className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-text-secondary hover:bg-raised hover:text-text"
+        className="inline-flex size-6 max-md:size-10 shrink-0 items-center justify-center rounded-sm text-text-secondary hover:bg-raised hover:text-text"
       >
         <X aria-hidden="true" className="size-4" />
       </button>

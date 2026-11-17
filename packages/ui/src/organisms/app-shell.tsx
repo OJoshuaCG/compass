@@ -57,7 +57,7 @@ export function AppShell({
   sidebarHidden = false,
 }: AppShellProps) {
   return (
-    <div className={cn('flex min-h-screen flex-col text-text', className)}>
+    <div className={cn('flex min-h-dvh flex-col text-text', className)}>
       <SkipLink label={skipLinkLabel} />
       <header className="glass-bar sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-4 py-2 md:px-5">
         {header}

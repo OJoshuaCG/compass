@@ -71,9 +71,12 @@ Esta sección es una autorización permanente de la persona dueña del proyecto.
   - Una dependencia nueva, un comando de red o despliegue, o editar una migración ya aplicada.
   - Una ruta protegida que el encargo no incluye. Si el lote va a tocar rutas protegidas, se pide el encargo una sola vez al empezar, para todo el lote, no archivo por archivo.
   - Secretos o datos personales en el cambio.
-  - Una regla de negocio que falta o es ambigua y que no está decidida en `docs/`.
+  - Una regla de negocio que falta o es ambigua, no está decidida en `docs/` y NO pasa por el protocolo de jueces de abajo.
+  - Lo que el protocolo de jueces excluye: dinero, borrado o cambio irreversible de datos, autenticación, permisos nuevos o más amplios, criptografía y cualquier cosa de la lista anterior.
   - La misma falla dos veces, una falla del entorno o una prueba que parece estar mal.
 - Fuera de esa lista, ante una duda menor se elige la opción más conservadora y coherente con lo ya decidido, se anota en la bitácora del documento ODD y se sigue.
+- Protocolo de jueces para reglas ambiguas (autorizado por la persona dueña el 2026-11-14): si la duda es de comportamiento o de experiencia (no de seguridad, dinero ni datos), se redacta la pregunta y las opciones, se lanzan `jd-judge-a` y `jd-judge-b` a ciegas sobre lo mismo, y si ambos eligen la misma opción se ejecuta sin esperar a nadie. La decisión, las opciones y el veredicto de cada juez se anotan en la bitácora del documento ODD. Si discrepan, o si la duda toca la lista de exclusiones, se agrupa en la siguiente pregunta numerada para la persona. Los supuestos así tomados se listan en el informe final para que la persona los pueda revertir.
+- Entre tareas no se pide permiso ni se anuncia «sigo»: al terminar una unidad (commit hecho) se empieza la siguiente que el plan o el handoff ya autorizan. Se termina el turno solo con el lote vacío o ante una parada de la lista.
 
 ## Cómo preguntar
 

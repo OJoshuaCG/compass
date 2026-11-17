@@ -25,22 +25,65 @@ const LINK_TERMINATING_CHARACTERS = '<>"\'`()[]{}\\|^';
 const CODE_SPACE = 32;
 const CODE_DELETE = 127;
 
-function isCodeCharacter(code: number, charset: FixedLengthCodeRule['charset']): boolean {
-  return charset === 'digits' ? isAsciiDigitCode(code) : isAsciiLetterOrDigitCode(code);
+const HYPHEN_CODE = 45;
+
+function isHyphenatedCharset(charset: FixedLengthCodeRule['charset']): boolean {
+  return charset === 'digits_hyphenated' || charset === 'alphanumeric_hyphenated';
 }
 
-/** Todos los caracteres desde `start` hasta `start + length` pertenecen al juego de caracteres. */
-function isRunOfCodeCharacters(
+function isCodeCharacter(code: number, charset: FixedLengthCodeRule['charset']): boolean {
+  const usesDigitsOnly = charset === 'digits' || charset === 'digits_hyphenated';
+  return usesDigitsOnly ? isAsciiDigitCode(code) : isAsciiLetterOrDigitCode(code);
+}
+
+/**
+ * Lee `length` caracteres del código desde `start`. En las variantes con guiones, un guion solo cuenta si
+ * está entre dos caracteres del código (nunca al inicio, al final ni doble). Devuelve el índice donde
+ * termina el código, o `null` si no hay un código completo.
+ */
+function readCodeRun(
   body: string,
   start: number,
   length: number,
   charset: FixedLengthCodeRule['charset'],
-): boolean {
-  if (start + length > body.length) return false;
-  for (let index = start; index < start + length; index += 1) {
-    if (!isCodeCharacter(body.charCodeAt(index), charset)) return false;
+): number | null {
+  const allowsHyphens = isHyphenatedCharset(charset);
+  let index = start;
+  let readCharacters = 0;
+  while (readCharacters < length) {
+    if (index >= body.length) return null;
+    const code = body.charCodeAt(index);
+    if (isCodeCharacter(code, charset)) {
+      readCharacters += 1;
+      index += 1;
+      continue;
+    }
+    const isInnerHyphen =
+      allowsHyphens &&
+      code === HYPHEN_CODE &&
+      readCharacters > 0 &&
+      index + 1 < body.length &&
+      isCodeCharacter(body.charCodeAt(index + 1), charset);
+    if (!isInnerHyphen) return null;
+    index += 1;
   }
-  return true;
+  return index;
+}
+
+/** Tras el código sigue otro carácter del código, o un guion seguido de uno: el código sería más largo. */
+function continuesAsCode(
+  body: string,
+  codeEnd: number,
+  charset: FixedLengthCodeRule['charset'],
+): boolean {
+  if (codeEnd >= body.length) return false;
+  if (isCodeCharacter(body.charCodeAt(codeEnd), charset)) return true;
+  return (
+    isHyphenatedCharset(charset) &&
+    body.charCodeAt(codeEnd) === HYPHEN_CODE &&
+    codeEnd + 1 < body.length &&
+    isCodeCharacter(body.charCodeAt(codeEnd + 1), charset)
+  );
 }
 
 /**
@@ -61,12 +104,9 @@ export function extractFixedLengthCode(body: string, rule: FixedLengthCodeRule):
     searchFrom = literalIndex + 1;
 
     const codeStart = literalIndex + rule.leadingLiteral.length;
-    const codeEnd = codeStart + rule.codeLength;
-    if (!isRunOfCodeCharacters(body, codeStart, rule.codeLength, rule.charset)) continue;
-
-    const hasMoreCodeCharacters =
-      codeEnd < body.length && isCodeCharacter(body.charCodeAt(codeEnd), rule.charset);
-    if (hasMoreCodeCharacters) continue;
+    const codeEnd = readCodeRun(body, codeStart, rule.codeLength, rule.charset);
+    if (codeEnd === null) continue;
+    if (continuesAsCode(body, codeEnd, rule.charset)) continue;
     if (!body.startsWith(rule.trailingLiteral, codeEnd)) continue;
 
     foundCodes.add(body.slice(codeStart, codeEnd));

@@ -71,6 +71,13 @@ function setup(options: SetupOptions = {}) {
   const insertedShares: { accountId: string; userId: string; level: string }[] = [];
   const insertedCredentials: { id: string; accountId: string; label: string }[] = [];
   const storedSecrets: { credentialId: string; field: string; ciphertext: Uint8Array }[] = [];
+  const storedFingerprints: {
+    credentialId: string;
+    hmacHex: string;
+    strengthScore: number;
+    scoredAt: Date;
+  }[] = [];
+  const scoredPasswords: string[] = [];
   const encryptedPlaintexts: string[] = [];
   let sequence = 0;
 
@@ -153,7 +160,15 @@ function setup(options: SetupOptions = {}) {
       storedSecrets.push(secret);
       return Promise.resolve();
     },
-    upsertPasswordFingerprint: () => Promise.resolve(),
+    upsertPasswordFingerprint: (
+      credentialId: string,
+      hmacHex: string,
+      strengthScore: number,
+      scoredAt: Date,
+    ) => {
+      storedFingerprints.push({ credentialId, hmacHex, strengthScore, scoredAt });
+      return Promise.resolve();
+    },
   } as unknown as CredentialRepository;
 
   const cipher = {
@@ -180,8 +195,15 @@ function setup(options: SetupOptions = {}) {
     accounts,
     credentials,
     cipher,
+    strength: {
+      score: (password: string) => {
+        scoredPasswords.push(password);
+        return 2;
+      },
+    },
     audit,
     ids: { next: () => `id-${String(++sequence)}` },
+    clock: { now: () => FIXED_NOW },
   });
 
   return {
@@ -192,6 +214,8 @@ function setup(options: SetupOptions = {}) {
     insertedShares,
     insertedCredentials,
     storedSecrets,
+    storedFingerprints,
+    scoredPasswords,
     encryptedPlaintexts,
   };
 }
@@ -209,6 +233,8 @@ const imported = (outcome: ImportCommitOutcome) => {
   if (outcome.status !== 'imported') throw new Error('expected the import to be committed');
   return outcome.result;
 };
+
+const FIXED_NOW = new Date('2026-11-14T12:00:00.000Z');
 
 describe('ImportCredentials.preview', () => {
   it('classifies rows as valid, invalid and duplicate with stable codes', async () => {
@@ -337,6 +363,27 @@ describe('ImportCredentials.commit', () => {
     for (const secret of harness.storedSecrets) {
       expect(new TextDecoder().decode(secret.ciphertext)).toBe('sealed');
     }
+  });
+
+  it('guarda el puntaje de fortaleza de cada contraseña junto a su huella, nunca el texto', async () => {
+    const harness = setup();
+
+    const outcome = await harness.importer.commit(
+      csvOf(
+        row('instagram', 'Brand', 'Main', 'u1', 'p1'),
+        row('facebook', 'Page', 'Main', 'u3', 'p3'),
+      ),
+    );
+
+    expect(outcome.ok).toBe(true);
+    // Solo se valoran las contraseñas: los usuarios no entran a la salud de credenciales.
+    expect(harness.scoredPasswords.sort()).toEqual(['p1', 'p3']);
+    expect(harness.storedFingerprints).toHaveLength(2);
+    for (const fingerprint of harness.storedFingerprints) {
+      expect(fingerprint.strengthScore).toBe(2);
+      expect(fingerprint.scoredAt).toEqual(FIXED_NOW);
+    }
+    expect(JSON.stringify(harness.storedFingerprints)).not.toMatch(/p1|p3/);
   });
 
   it('audits one event with counts only, as the last write of the transaction', async () => {

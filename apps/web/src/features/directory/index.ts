@@ -11,3 +11,5 @@ export { directoryKeys, fetchPendingInvitationsPage, fetchUsersPage } from './ap
 export { RankBadge, type RankBadgeProps } from './ui/rank-badge';
 export { RootTransferPage } from './containers/root-transfer-page';
 export { GroupsPage } from './containers/groups-page';
+// Los grupos que quien consulta puede ver; los usa el selector del panel de salud de credenciales.
+export { fetchGroups, groupsKeys } from './api/groups-api';

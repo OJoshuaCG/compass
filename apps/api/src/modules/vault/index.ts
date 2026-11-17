@@ -11,11 +11,21 @@ export {
   ROTATION_TASK_DUE_DAYS,
 } from './application/manage-shares.js';
 export type { ManageSharesDeps } from './application/manage-shares.js';
+export { ManageSavedViews } from './application/manage-saved-views.js';
+export type {
+  CreateSavedViewInput,
+  ManageSavedViewsDeps,
+} from './application/manage-saved-views.js';
 export { ManageCredentials } from './application/manage-credentials.js';
 export type {
   CreateCredentialInput,
   ManageCredentialsDeps,
 } from './application/manage-credentials.js';
+export { GetAccountHealth } from './application/get-account-health.js';
+export type { GetAccountHealthDeps } from './application/get-account-health.js';
+export { GetCredentialHealthSummary } from './application/get-credential-health-summary.js';
+export type { GetCredentialHealthSummaryDeps } from './application/get-credential-health-summary.js';
+export { PgCredentialHealthReader } from './infrastructure/pg-credential-health-reader.js';
 export { ImportCredentials } from './application/import-credentials.js';
 export type {
   ImportCommitOutcome,
@@ -68,6 +78,7 @@ export { InMemoryTotpConfirmAttemptStore } from './infrastructure/in-memory-totp
 export type { TotpGenerator } from './application/ports/totp-generator.js';
 export type { TotpRecord, TotpRepository } from './application/ports/totp-repository.js';
 export { OtplibTotpGenerator } from './infrastructure/otplib-totp-generator.js';
+export { ZxcvbnPasswordStrengthScorer } from './infrastructure/zxcvbn-password-strength-scorer.js';
 export { PgTotpRepository } from './infrastructure/pg-totp-repository.js';
 export { parseOtpauthUri } from './domain/otpauth-uri.js';
 export type { ParsedOtpauthUri, TotpParameters } from './domain/otpauth-uri.js';
@@ -91,6 +102,7 @@ export type {
 } from './application/ports/share-repository.js';
 export { canGrant, levelSatisfies } from './domain/share-level.js';
 export { PgAccountRepository } from './infrastructure/pg-account-repository.js';
+export { PgSavedViewRepository } from './infrastructure/pg-saved-view-repository.js';
 export { PgVaultCredentialRepository } from './infrastructure/pg-credential-repository.js';
 export { PgOffboardingAccountStore } from './infrastructure/pg-offboarding-account-store.js';
 export { PgOffboardingAccessCleanup } from './infrastructure/pg-offboarding-access-cleanup.js';

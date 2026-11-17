@@ -48,6 +48,94 @@ export type InboundReset = z.infer<typeof inboundResetSchema>;
 export const inboundResetsResponseSchema = z.object({ data: z.array(inboundResetSchema) });
 export type InboundResetsResponse = z.infer<typeof inboundResetsResponseSchema>;
 
+/**
+ * Petición de borrar un correo del buzón real. La API solo la registra; el worker la ejecuta en su siguiente
+ * pasada, así que la respuesta es siempre `pending`. `alreadyPending` indica que ya había una sin terminar.
+ */
+export const inboundMailDeleteRequestedSchema = z.object({
+  status: z.literal('pending'),
+  alreadyPending: z.boolean(),
+});
+export type InboundMailDeleteRequested = z.infer<typeof inboundMailDeleteRequestedSchema>;
+
+/** Resultado acotado que deja el worker; nunca texto del servidor de correo. */
+export const INBOUND_MAIL_DELETE_RESULT_CODES = [
+  'DELETED',
+  'NOT_FOUND',
+  'POSITION_CHANGED',
+  'UNSUPPORTED',
+  'CONNECTION',
+  'CONNECTION_MISSING',
+  'UNEXPECTED',
+  'EXPIRED',
+] as const;
+
+/** Estado de la petición de borrado más reciente de un recibo; `data` es `null` si nunca se pidió. */
+export const inboundMailDeleteStatusResponseSchema = z.object({
+  data: z
+    .object({
+      status: z.enum(['pending', 'done', 'failed']),
+      resultCode: z.enum(INBOUND_MAIL_DELETE_RESULT_CODES).nullable(),
+      requestedAt: z.iso.datetime(),
+      completedAt: z.iso.datetime().nullable(),
+    })
+    .nullable(),
+});
+export type InboundMailDeleteStatusResponse = z.infer<typeof inboundMailDeleteStatusResponseSchema>;
+
+/** Clases de vista previa de un correo: el asunto confirma qué mensaje es; el cuerpo exige un motivo escrito. */
+export const INBOUND_MAIL_PREVIEW_KINDS = ['subject', 'body'] as const;
+export type InboundMailPreviewKind = (typeof INBOUND_MAIL_PREVIEW_KINDS)[number];
+
+/**
+ * Cuerpo de la petición o de la lectura de una vista previa. El motivo se valida en el caso de uso, que lo niega
+ * con auditoría (`isValidRevealReason`); rechazarlo aquí sería una negación sin rastro. Solo el cuerpo lo usa.
+ */
+export const inboundMailPreviewRequestSchema = z.object({
+  reason: z.unknown().optional(),
+});
+
+/** Resultado acotado de una vista previa fallida; nunca texto del servidor de correo. */
+export const INBOUND_MAIL_PREVIEW_FAILURE_CODES = [
+  'NOT_FOUND',
+  'POSITION_CHANGED',
+  'CONNECTION',
+  'CONNECTION_MISSING',
+  'TOO_LARGE',
+  'EMPTY',
+  'UNREADABLE',
+  'UNEXPECTED',
+] as const;
+
+/** La petición se registró; el worker trae el contenido en su siguiente pasada. */
+export const inboundMailPreviewRequestedSchema = z.object({
+  status: z.literal('pending'),
+  alreadyPending: z.boolean(),
+});
+export type InboundMailPreviewRequested = z.infer<typeof inboundMailPreviewRequestedSchema>;
+
+/** Estado de la vista previa más reciente de un recibo y clase; `data` es `null` si no hay ninguna vigente. */
+export const inboundMailPreviewStatusResponseSchema = z.object({
+  data: z
+    .object({
+      status: z.enum(['pending', 'ready', 'failed']),
+      resultCode: z.enum(INBOUND_MAIL_PREVIEW_FAILURE_CODES).nullable(),
+      requestedAt: z.iso.datetime(),
+    })
+    .nullable(),
+});
+export type InboundMailPreviewStatusResponse = z.infer<
+  typeof inboundMailPreviewStatusResponseSchema
+>;
+
+/** Entrega única del contenido: se borra de la base al entregarse, así que no se puede volver a pedir lo mismo. */
+export const inboundMailPreviewContentResponseSchema = z.object({
+  data: z.object({ kind: z.enum(INBOUND_MAIL_PREVIEW_KINDS), content: z.string() }),
+});
+export type InboundMailPreviewContentResponse = z.infer<
+  typeof inboundMailPreviewContentResponseSchema
+>;
+
 /** Recepción aceptada que casó con la vista: sin asunto, remitente ni valores. */
 export const inboundReceiptSchema = z.object({
   id: z.uuid(),
@@ -140,6 +228,8 @@ export const inboundViewSummarySchema = z.object({
   sourceDisplayName: z.string(),
   channel: z.enum(['mail', 'sms']),
   level: shareLevelSchema,
+  /** Anticipa la regla del servidor para borrar o ver correo (Administrador o quien dio de alta la fuente). */
+  canManageMail: z.boolean(),
 });
 export type InboundViewSummary = z.infer<typeof inboundViewSummarySchema>;
 

@@ -52,9 +52,10 @@ test('a sensitive action can be re-authenticated with a passkey instead of a cod
   await expect(page.getByRole('link', { name: 'People' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Settings' }).click();
-  await page.getByRole('button', { name: 'Add passkey' }).click();
-  await page.getByLabel('Passkey name').fill('Reauth second key');
-  await page.getByRole('button', { name: 'Continue' }).click();
+  // Quitar una llave es otra acción sensible. No se registra una segunda llave: el servidor excluye las
+  // credenciales ya registradas (`excludeCredentials`) y el mismo autenticador no puede crear otra.
+  await page.getByRole('button', { name: 'Remove the passkey Reauth first key' }).click();
+  await page.getByRole('button', { name: 'Remove passkey' }).click();
 
   // La acción sensible pide confirmar la identidad y ahora ofrece la llave junto al código.
   const dialog = page.getByRole('dialog', { name: 'Confirm your identity' });
@@ -62,10 +63,7 @@ test('a sensitive action can be re-authenticated with a passkey instead of a cod
   await dialog.getByRole('button', { name: 'Use a passkey' }).click();
 
   // Sin escribir ningún código, la acción termina y el diálogo se cierra.
-  await expect(page.getByText('The passkey Reauth second key was added.')).toBeVisible();
+  await expect(page.getByText('The passkey was removed.')).toBeVisible();
   await expect(dialog).toBeHidden();
-  const table = page.getByRole('list', { name: 'Your passkeys' });
-  await expect(table.getByText('Reauth first key')).toBeVisible();
-  await expect(table.getByText('Reauth second key')).toBeVisible();
   expect(violations).toEqual([]);
 });
