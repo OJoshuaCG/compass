@@ -1,5 +1,5 @@
 import * as RadixDialog from '@radix-ui/react-dialog';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 
 import { X } from '../icons';
 import { cn } from '../lib/cn';
@@ -73,6 +73,10 @@ export function AppShell({
   sidebarDrawerLabel = '',
   sidebarCloseLabel = '',
 }: AppShellProps) {
+  // El botón que abre el menú vive en la barra superior, fuera del diálogo: Radix solo devuelve el
+  // foco a su propio `Trigger`, así que se recuerda quién lo tenía al abrir (WCAG 2.4.3).
+  const drawerOpenerRef = useRef<HTMLElement | null>(null);
+
   return (
     <div className={cn('flex min-h-dvh flex-col text-text', className)}>
       <SkipLink label={skipLinkLabel} />
@@ -95,6 +99,16 @@ export function AppShell({
               <RadixDialog.Content
                 id={SIDEBAR_ID}
                 aria-describedby={undefined}
+                onOpenAutoFocus={() => {
+                  drawerOpenerRef.current =
+                    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                }}
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  const opener = drawerOpenerRef.current;
+                  if (opener?.isConnected) opener.focus();
+                  drawerOpenerRef.current = null;
+                }}
                 className="fixed inset-y-0 start-0 z-50 flex w-72 max-w-5/6 flex-col overflow-y-auto border-e border-border bg-sidebar pe-3 pt-4 pb-6 ps-[max(0.75rem,env(safe-area-inset-left))]"
               >
                 <RadixDialog.Title className="sr-only">{sidebarDrawerLabel}</RadixDialog.Title>

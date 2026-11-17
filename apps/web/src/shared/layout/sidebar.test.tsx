@@ -122,11 +122,13 @@ describe('collapsible sidebar', () => {
     );
     setup();
     renderApp('/');
-    await user.click(await screen.findByRole('button', { name: es.common['nav.showMenu'] }));
+    const toggle = await screen.findByRole('button', { name: es.common['nav.showMenu'] });
+    await user.click(toggle);
     const drawer = await screen.findByRole('dialog', { name: navigationName });
     expect(drawer).toContainElement(screen.getByRole('navigation', { name: navigationName }));
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
     expect(screen.queryByRole('navigation', { name: navigationName })).not.toBeInTheDocument();
     expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBeNull();
   });
