@@ -15,6 +15,15 @@ const MIN_TEXT_FIELD_FONT_PX = 16;
 // Margen de subpíxeles al comparar anchos de desplazamiento.
 const SCROLL_WIDTH_TOLERANCE_PX = 1;
 
+// Controles táctiles de 40 px en móvil (docs/frontend.md §4.4); la tolerancia absorbe subpíxeles.
+const MIN_TOUCH_TARGET_PX = 40;
+const TOUCH_TARGET_TOLERANCE_PX = 0.5;
+// Otros anchos que deben seguir sin scroll horizontal de la página: tableta y teléfono en horizontal.
+const OTHER_VIEWPORTS = [
+  { name: 'tablet 768', width: 768, height: 1024 },
+  { name: 'phone landscape 812', width: 812, height: 375 },
+];
+
 const SIGNED_IN_ROUTES = [
   '/',
   '/users',
@@ -32,11 +41,23 @@ const SIGNED_IN_ROUTES = [
 async function expectNoHorizontalPageScroll(page: Page, screenName: string): Promise<void> {
   const widths = await page.evaluate(() => {
     const root = document.documentElement;
-    return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth };
+    return {
+      scrollWidth: root.scrollWidth,
+      clientWidth: root.clientWidth,
+      windowWidth: window.innerWidth,
+      // Quién se sale por la derecha: facilita encontrar el elemento que ensancha la página.
+      culprits: Array.from(document.body.querySelectorAll<HTMLElement>('*'))
+        .filter((element) => element.getBoundingClientRect().right > root.clientWidth + 1)
+        .slice(0, 6)
+        .map((element) => {
+          const box = element.getBoundingClientRect();
+          return `${element.tagName.toLowerCase()}.${element.className.toString().slice(0, 60)} right=${String(Math.round(box.right))}`;
+        }),
+    };
   });
   expect(
     widths.scrollWidth,
-    `Horizontal page scroll on "${screenName}" at ${String(PHONE_VIEWPORT.width)}px`,
+    `Horizontal page scroll on "${screenName}" at ${String(widths.windowWidth)}px; overflowing: ${widths.culprits.join(' | ')}`,
   ).toBeLessThanOrEqual(widths.clientWidth + SCROLL_WIDTH_TOLERANCE_PX);
 }
 
@@ -44,9 +65,12 @@ async function expectNoHorizontalPageScroll(page: Page, screenName: string): Pro
 async function expectNoTableRegionOverflow(page: Page, screenName: string): Promise<void> {
   const overflowing = await page.evaluate((tolerancePx) => {
     const regions = Array.from(
-      document.querySelectorAll<HTMLElement>('[role="region"][tabindex="0"]'),
+      // Todas las regiones, no solo las enfocables: la tabla solo se vuelve enfocable cuando desborda.
+      document.querySelectorAll<HTMLElement>('table[role="table"]'),
     );
     return regions
+      .map((table) => table.parentElement)
+      .filter((region): region is HTMLElement => region !== null)
       .filter((region) => region.scrollWidth > region.clientWidth + tolerancePx)
       .map((region) => region.getAttribute('aria-label') ?? 'region');
   }, SCROLL_WIDTH_TOLERANCE_PX);
@@ -67,6 +91,37 @@ async function expectTextFieldsAtLeastSixteenPixels(page: Page, screenName: stri
       .map((field) => field.getAttribute('name') ?? field.getAttribute('type') ?? field.tagName);
   }, MIN_TEXT_FIELD_FONT_PX);
   expect(tooSmall, `Text fields under 16px on "${screenName}"`).toEqual([]);
+}
+
+/** Todo control visible (botón, pestaña, selector, campo) debe medir al menos 40 px de alto en móvil. */
+async function expectTouchTargetsLargeEnough(page: Page, screenName: string): Promise<void> {
+  const tooSmall = await page.evaluate(
+    ({ minimumPx, tolerancePx }) => {
+      const controls = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          'button, [role="tab"], select, input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file])',
+        ),
+      );
+      return controls
+        .filter(
+          (control) =>
+            control.offsetParent !== null || getComputedStyle(control).position === 'fixed',
+        )
+        .filter((control) => control.closest('[aria-hidden="true"]') === null)
+        .filter((control) => !control.matches('.sr-only') && control.closest('.sr-only') === null)
+        .map((control) => ({ control, box: control.getBoundingClientRect() }))
+        .filter(({ box }) => box.height > 0 && box.height + tolerancePx < minimumPx)
+        .map(
+          ({ control, box }) =>
+            `${control.tagName.toLowerCase()} "${(control.getAttribute('aria-label') ?? control.textContent).trim().slice(0, 30)}" ${String(Math.round(box.height))}px`,
+        );
+    },
+    { minimumPx: MIN_TOUCH_TARGET_PX, tolerancePx: TOUCH_TARGET_TOLERANCE_PX },
+  );
+  expect(
+    tooSmall,
+    `Touch targets under ${String(MIN_TOUCH_TARGET_PX)}px on "${screenName}"`,
+  ).toEqual([]);
 }
 
 test.describe('Responsive at phone width (anonymous)', () => {
@@ -122,8 +177,28 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
       await expectNoHorizontalPageScroll(page, route);
       await expectNoTableRegionOverflow(page, route);
       await expectTextFieldsAtLeastSixteenPixels(page, route);
+      await expectTouchTargetsLargeEnough(page, route);
     }
     expect(violations).toEqual([]);
+  });
+
+  test('every screen fits without horizontal page scroll at tablet and landscape widths', async () => {
+    test.setTimeout(240_000);
+    for (const viewport of OTHER_VIEWPORTS) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      for (const route of SIGNED_IN_ROUTES) {
+        await page.goto(route);
+        await expectOutcomeConfirmingIdentity(
+          page,
+          rootSecret,
+          page.getByRole('heading', { level: 1 }).first(),
+        );
+        await page.waitForLoadState('networkidle');
+        await expect(page.locator('table[aria-busy="true"]')).toHaveCount(0);
+        await expectNoHorizontalPageScroll(page, `${route} (${viewport.name})`);
+      }
+    }
+    await page.setViewportSize(PHONE_VIEWPORT);
   });
 
   test('the menu opens as a drawer over the content, navigates and closes', async () => {
