@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 
-import { signInAsRoot, watchSecurityViolations } from './support/identity-helpers.js';
+import {
+  expectOutcomeConfirmingIdentity,
+  signInAsRoot,
+  watchSecurityViolations,
+} from './support/identity-helpers.js';
 
 // Validación responsive obligatoria (docs/frontend.md §4.4): la app se usa desde teléfono, así que cada
 // pantalla debe caber en 375 px sin scroll horizontal de la página y sus campos de texto deben medir 16 px
@@ -85,6 +89,7 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
   let context: BrowserContext;
   let page: Page;
   let violations: string[];
+  let rootSecret: string;
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
@@ -93,7 +98,7 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
     violations = watchSecurityViolations(page);
     // El inicio de sesión espera el menú lateral visible, que en 375 px nace plegado: se entra con el
     // tamaño por defecto y se reduce la ventana después.
-    await signInAsRoot(page);
+    rootSecret = await signInAsRoot(page);
     await page.setViewportSize(PHONE_VIEWPORT);
   });
 
@@ -105,7 +110,12 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
     test.setTimeout(180_000);
     for (const route of SIGNED_IN_ROUTES) {
       await page.goto(route);
-      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+      // Algunas pantallas (p. ej. /alerts) piden confirmar la identidad al cargar: se responde y se sigue.
+      await expectOutcomeConfirmingIdentity(
+        page,
+        rootSecret,
+        page.getByRole('heading', { level: 1 }).first(),
+      );
       await page.waitForLoadState('networkidle');
       // Mide las tablas ya cargadas, no sus esqueletos.
       await expect(page.locator('table[aria-busy="true"]')).toHaveCount(0);
