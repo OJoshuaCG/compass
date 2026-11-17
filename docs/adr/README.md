@@ -66,8 +66,8 @@ Plantilla: [`template.md`](template.md).
 | [0047](0047-user-configured-integrations.md) | Integraciones configurables por la persona administradora: alertas de infraestructura por correo y/o Telegram (Raíz) y recepción de SMS por API genérica de consulta (encargo del dueño, 2026-11-03) | Aceptada | Al construir las integraciones |
 | [0048](0048-root-transfer-and-emergency-code-reissue.md) | Transferencia de la Raíz con espera de 72 horas y reemisión de los códigos de emergencia | Aceptada |
 | [0049](0049-compass-visual-system.md) | Sistema visual de Compass: acento latón, dos temas (oscuro y claro) y cristal solo en capas flotantes (encargo del dueño, 2026-11-04) | Aceptada | Al crear o cambiar cualquier pantalla o componente |
-| [0050](0050-sso-libraries-evidence-and-saml-conditions.md) | Evidencia sobre `oidc-provider` y `samlify` y condiciones para usar SAML (complementa al 0018) | Propuesta | Antes de abrir la fase 2 (SSO) y antes de escribir código SAML en la fase 3 |
-| [0051](0051-single-session-across-sso-protocols.md) | Una sola sesión de Compass para OIDC y SAML: revocación en cascada y vidas de token acotadas (decisiones D1 a D4 abiertas) | Propuesta | Antes de abrir la fase 2 (SSO) |
+| [0050](0050-sso-libraries-evidence-and-saml-conditions.md) | Evidencia sobre `oidc-provider` y `samlify` y condiciones para usar SAML (complementa al 0018) | Aceptada (2026-11-17; pendientes la consulta a Meta, las versiones vigentes y el spike) | Antes de abrir la fase 2 (SSO) y antes de escribir código SAML en la fase 3 |
+| [0051](0051-single-session-across-sso-protocols.md) | Una sola sesión de Compass para OIDC y SAML: revocación en cascada y vidas de token acotadas (decisiones D1 a D4 aceptadas) | Aceptada (2026-11-17; sin implementar) | Antes de abrir la fase 2 (SSO) |
 
 Las fases indicadas son una recomendación de este registro, no una decisión del plan.
 

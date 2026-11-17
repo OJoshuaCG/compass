@@ -111,6 +111,16 @@ Una sesión es el periodo en que una persona permanece autenticada.
 
 **Ejemplo.** A Luis le roban su laptop sin cerrar sesión. Ana, su responsable, entra y cierra todas las sesiones de Luis. Desde ese momento el ladrón no puede hacer nada más. Si Ana además suspende a Luis mientras se aclara el incidente, tampoco podrá volver a entrar.
 
+**Cuando exista el inicio de sesión único (fase 2, todavía no construida).** La decisión del dueño (2026-11-17, [ADR 0051](../adr/0051-single-session-across-sso-protocols.md)) es que la sesión de Compass siga siendo la única que manda:
+
+- Entrar a una aplicación conectada usa la sesión que la persona ya tiene abierta. Si no hay una, aparece el ingreso de Compass.
+- Usar una aplicación conectada cuenta como actividad y mantiene viva la sesión, pero el tope absoluto de 12 horas no se alarga nunca.
+- Las aplicaciones reciben permisos de vida corta (5 minutos) y solo renuevan si la sesión de Compass sigue viva. Una aplicación puede renovar por más tiempo solo si justifica por escrito por qué lo necesita.
+- Al suspender o desactivar a una persona, o cerrar su sesión, el sistema le quita el acceso en las aplicaciones conectadas y avisa a cada una para que cierre. Si una aplicación no puede recibir el aviso, el acceso termina cuando vence su permiso corto.
+- **Meta Business:** si Meta no ofrece cierre de sesión inmediato (no está confirmado), la promesa es que la persona se **da de baja en Meta de forma automática** y su acceso vence en poco tiempo. No se promete un cierre instantáneo allí.
+
+**Ejemplo.** Ana desactiva a Luis a las 10:00 mientras él trabaja en una herramienta interna conectada. Compass cierra su sesión, revoca lo que la herramienta le había dado y le avisa para que lo cierre. Aunque el aviso no llegara, a las 10:05 como máximo la herramienta deja de aceptarlo.
+
 ## 5. Reautenticación
 
 Las acciones más sensibles piden haber verificado un factor **en los últimos 5 minutos**. La lista de acciones está en [`permissions-and-sharing.md`](permissions-and-sharing.md): revelar contraseñas, exportar el segundo factor, cambiar rango o roles, acceso de emergencia, transferir la Raíz y gestionar aplicaciones de inicio de sesión único.

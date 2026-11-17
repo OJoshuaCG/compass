@@ -1,6 +1,6 @@
 # ADR 0050: Evidencia sobre `oidc-provider` y `samlify` y condiciones para usar SAML
 
-- **Estado**: Propuesta (pendiente de la ratificación de la persona dueña). Complementa al [ADR 0018](0018-sso-provider-oidc-provider-and-samlify.md), que sigue vigente y no se reemplaza.
+- **Estado**: Aceptada por la persona dueña del proyecto el 2026-11-17 («Acepto tus recomendaciones, sin problema»), con los plazos propuestos que contiene. Quedan pendientes las verificaciones que el propio ADR lista (consulta a Meta, versiones vigentes y spike). Complementa al [ADR 0018](0018-sso-provider-oidc-provider-and-samlify.md), que sigue vigente y no se reemplaza.
 - **Fecha**: 2026-11-17
 - **Referencias**: [ADR 0018](0018-sso-provider-oidc-provider-and-samlify.md); [ADR 0051](0051-single-session-across-sso-protocols.md) (sesión única); [`plan.md`](../../plan.md) secciones «Seguridad (no se reimplementan)» y «Hoja de ruta SSO y preparación del broker tipo Cerby»; [`docs/backend.md`](../backend.md) §16 (spike de `oidc-provider` sobre Fastify).
 
@@ -36,7 +36,7 @@ La confirmación con Meta no es un trámite: cada resultado posible cambia lo qu
 | Meta **no habilita** el proveedor de identidad para el portfolio | La fase 3 se cancela por falta de objetivo. No se escribe código SAML. Se evalúa si SCIM saliente sigue teniendo valor por sí solo |
 | Meta lo habilita y la organización **ya usa** Google Workspace, Microsoft 365 u Okta | Se conecta Meta a ese IdP (ya tienen integración publicada). Compass sigue como dueño de la bóveda; no se construye SAML |
 | Meta lo habilita y **no hay** IdP SAML en la organización | Se decide entre el puente (Keycloak) y `samlify` dentro de Compass, con las condiciones de la Decisión 3 |
-| Meta no responde o la respuesta es ambigua tras **30 días** (plazo propuesto, a ratificar) | Se trata como «no habilita» y se reabre solo si Meta cambia su política |
+| Meta no responde o la respuesta es ambigua tras **30 días** (plazo aceptado el 2026-11-17) | Se trata como «no habilita» y se reabre solo si Meta cambia su política |
 
 Para elegir entre puente y `samlify` se compara, con el mismo caso de prueba (inicio de sesión en un entorno de prueba de Meta): esfuerzo de construcción, servicios nuevos que operar, quién recibe y aplica los parches de seguridad, y cómo se revoca el acceso al desactivar a una persona.
 
@@ -58,7 +58,7 @@ El ADR 0018 y `docs/backend.md` §16 exigen un spike porque `oidc-provider` est�
 
 - Todo el acceso al paquete vive detrás de un módulo propio (`federation`, ver `docs/architecture.md`); ningún otro módulo lo importa. Las reglas de capas del lint lo hacen cumplir.
 - Los datos (clientes, concesiones, claves de firma) están en tablas propias del proyecto (`oidc_clients`, `oidc_grants`, `signing_keys`), no en un formato del paquete, de modo que cambiar de motor no obliga a migrar identidades.
-- Plan B ya decidido: Ory Hydra como servicio aparte, con Compass como su aplicación de login y consentimiento. Se activa si el paquete queda sin mantenimiento por más de 6 meses (plazo propuesto) o si aparece una vulnerabilidad crítica sin parche en 30 días.
+- Plan B ya decidido: Ory Hydra como servicio aparte, con Compass como su aplicación de login y consentimiento. Se activa si el paquete queda sin mantenimiento por más de 6 meses (plazo aceptado el 2026-11-17) o si aparece una vulnerabilidad crítica sin parche en 30 días.
 - Se fija versión exacta y se respeta la espera de 7 días, también para sus actualizaciones de seguridad (una corrección crítica puede saltarse la espera con aprobación expresa de la persona dueña).
 
 ## Política de parches de seguridad
@@ -66,7 +66,7 @@ El ADR 0018 y `docs/backend.md` §16 exigen un spike porque `oidc-provider` est�
 Las fallas de 2025 en `samlify`, `node-saml` y `xml-crypto` se corrigieron con rapidez, pero solo sirve si el equipo se entera.
 
 - Se suscribe el repositorio a los avisos de seguridad de GitHub de `oidc-provider`, `jose`, `samlify` (si se adopta) y `xml-crypto`.
-- Plazo máximo para evaluar un aviso crítico o alto: 2 días hábiles; para aplicarlo, 7 días naturales (plazos propuestos, a ratificar). Se registra el aviso, la decisión y la fecha en el documento de seguimiento de la fase.
+- Plazo máximo para evaluar un aviso crítico o alto: 2 días hábiles; para aplicarlo, 7 días naturales (plazos aceptados el 2026-11-17). Se registra el aviso, la decisión y la fecha en el documento de seguimiento de la fase.
 - Una versión que corrige un aviso crítico puede saltarse la espera de 7 días del proyecto con aprobación expresa de la persona dueña, anotada en la bitácora.
 - Una prueba de regresión por cada aviso aplicado (por ejemplo, una aserción SAML con firma envuelta debe rechazarse) para que una actualización futura no reintroduzca la falla.
 
