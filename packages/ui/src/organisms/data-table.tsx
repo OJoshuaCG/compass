@@ -162,7 +162,9 @@ export function DataTable<T extends object>({
         role="region"
         aria-label={caption}
         tabIndex={scrollsHorizontally ? 0 : undefined}
-        className="overflow-x-auto rounded-t-lg"
+        // `relative`: el texto `sr-only` de los encabezados es `position:absolute`; sin un ancestro
+        // posicionado escapa del recorte del scroll y ensancha la página (visto a 768 px).
+        className="relative overflow-x-auto rounded-t-lg"
       >
         <table
           aria-busy={busy}
