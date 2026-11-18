@@ -27,10 +27,10 @@
 | ID  | Specs        | Ruta      | Estado    | Commit |
 | --- | ------------ | --------- | --------- | ------ |
 | T0  | —            | inline    | hecho     | spike en ADR 0050, `aab87ee` |
-| T1  | S14, S15     | inline    | hecho (ADR 0052, decisiones 1A-4A) | ver commit de esta unidad |
-| T2  | S15          | inline    | hecho (`pnpm add` exacta, lockfile +31 paquetes) | ver commit de esta unidad |
-| T3  | S6, S8, S15  | inline    | en pruebas (migración 0045) | — |
-| T4  | S6, S7       | inline    | pendiente | — |
+| T1  | S14, S15     | inline    | hecho (ADR 0052, decisiones 1A-4A) | `56ccdf9` |
+| T2  | S15          | inline    | hecho (`pnpm add` exacta, lockfile +31 paquetes) | `63c9c92` |
+| T3  | S6, S8, S15  | inline    | hecho (migración 0045, pruebas de BD 42/42) | `31f43a6` |
+| T4  | S6, S7       | inline    | hecho (pruebas unitarias 37/37; `PgSigningKeyStore` sin prueba de integración, va en T10) | ver commit |
 | T5  | S8, S9       | inline    | pendiente | — |
 | T6  | S1-S3, S7, S10 | inline  | pendiente | — |
 | T7  | S6           | inline    | pendiente | — |

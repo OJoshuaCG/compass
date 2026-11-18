@@ -65,6 +65,7 @@
   "CRYPTO.DECRYPT_FAILED": "The secret could not be decrypted.",
   "CRYPTO.KMS_UNAVAILABLE": "The key service is unavailable right now.",
   "CRYPTO.UNKNOWN_DEK_VERSION": "The secret uses an unknown key version.",
+  "CRYPTO.LAST_SIGNING_KEY": "The last active signing key cannot be retired.",
   "AUDIT.METADATA_FIELD_NOT_ALLOWED": "The audit event contains a disallowed field.",
   "AUDIT.CHAIN_BROKEN": "An inconsistency was detected in the audit chain.",
   "AUDIT.REASON_CODE_REQUIRED": "A denial must be recorded with a reason code.",

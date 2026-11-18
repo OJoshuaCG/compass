@@ -65,6 +65,7 @@
   "CRYPTO.DECRYPT_FAILED": "No se pudo descifrar el secreto.",
   "CRYPTO.KMS_UNAVAILABLE": "El servicio de claves no está disponible por ahora.",
   "CRYPTO.UNKNOWN_DEK_VERSION": "El secreto usa una versión de clave desconocida.",
+  "CRYPTO.LAST_SIGNING_KEY": "No se puede retirar la última clave de firma activa.",
   "AUDIT.METADATA_FIELD_NOT_ALLOWED": "El evento de auditoría contiene un campo no permitido.",
   "AUDIT.CHAIN_BROKEN": "Se detectó una inconsistencia en la cadena de auditoría.",
   "AUDIT.REASON_CODE_REQUIRED": "Una negación debe registrarse con un código de motivo.",
