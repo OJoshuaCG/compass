@@ -8,6 +8,8 @@ import { uuidv7 } from 'uuidv7';
 
 import { ProblemDetailsFilter } from '../shared/http/problem-details.filter.js';
 import { AppModule } from './app.module.js';
+import { mountOidcProvider } from './mount-oidc-provider.js';
+import type { OidcCallbackProvider } from './mount-oidc-provider.js';
 import { serveWebApp } from './serve-web.js';
 import type { Container } from './container.js';
 import { toFastifyTrustProxy } from './trust-proxy.js';
@@ -62,6 +64,8 @@ export interface CreateAppOptions {
   readonly trustProxy?: TrustProxySetting;
   /** Carpeta con la SPA compilada (`apps/web/dist`); si se indica, la API la sirve en el mismo origen. */
   readonly webDistDir?: string;
+  /** Proveedor OIDC ya construido; si se indica, se monta antes que la SPA (ADR 0050). */
+  readonly oidcProvider?: OidcCallbackProvider;
 }
 
 export async function createApp(options: CreateAppOptions): Promise<NestFastifyApplication> {
@@ -82,6 +86,13 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
   await app.register(helmet, {
     contentSecurityPolicy: { useDefaults: false, directives: CONTENT_SECURITY_POLICY },
   });
+  // Antes de la SPA: su comodín `/*` no debe adelantarse a las rutas del proveedor.
+  if (options.oidcProvider !== undefined) {
+    await mountOidcProvider(app, {
+      provider: options.oidcProvider,
+      staticHeaders: { 'permissions-policy': PERMISSIONS_POLICY },
+    });
+  }
   if (options.webDistDir !== undefined) await serveWebApp(app, options.webDistDir);
   app
     .getHttpAdapter()

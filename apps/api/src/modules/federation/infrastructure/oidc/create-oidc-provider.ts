@@ -77,6 +77,22 @@ export function createOidcProvider(options: CreateOidcProviderOptions): Provider
       RefreshToken: MAX_GRANT_TTL_SECONDS,
     },
     rotateRefreshToken: true,
+    // Todo bajo `/oidc`: así no choca con las rutas de la SPA (`/auth`, `/me`...) y el montaje en Fastify
+    // solo necesita un prefijo más el documento de descubrimiento, que la especificación fija.
+    routes: {
+      authorization: '/oidc/auth',
+      backchannel_authentication: '/oidc/backchannel',
+      code_verification: '/oidc/device',
+      device_authorization: '/oidc/device/auth',
+      end_session: '/oidc/session/end',
+      introspection: '/oidc/token/introspection',
+      jwks: '/oidc/jwks',
+      pushed_authorization_request: '/oidc/request',
+      registration: '/oidc/reg',
+      revocation: '/oidc/token/revocation',
+      token: '/oidc/token',
+      userinfo: '/oidc/me',
+    },
     extraClientMetadata: { properties: [...COMPASS_CLIENT_METADATA] },
     interactions: {
       url: (_ctx: unknown, interaction: { uid: string }) => options.interactionUrl(interaction.uid),

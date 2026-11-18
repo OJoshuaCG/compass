@@ -61,6 +61,9 @@ afterAll(async () => {
   });
 });
 
+/** El host de los endpoints sale de la petición; lo que se fija es la ruta. */
+const pathOf = (value: unknown): string => new URL(String(value)).pathname;
+
 describe('createOidcProvider', () => {
   it('publica un descubrimiento solo con código, PKCE S256 y firma con la clave propia', async () => {
     const response = await fetch(`${baseUrl}/.well-known/openid-configuration`, {
@@ -76,12 +79,15 @@ describe('createOidcProvider', () => {
     expect(discovery['code_challenge_methods_supported']).toEqual(['S256']);
     expect(discovery['id_token_signing_alg_values_supported']).toEqual(['ES256']);
     expect(discovery['backchannel_logout_supported']).toBe(true);
+    expect(pathOf(discovery['jwks_uri'])).toBe('/oidc/jwks');
+    expect(pathOf(discovery['token_endpoint'])).toBe('/oidc/token');
+    expect(pathOf(discovery['authorization_endpoint'])).toBe('/oidc/auth');
     expect(discovery['registration_endpoint']).toBeUndefined();
     expect(discovery['device_authorization_endpoint']).toBeUndefined();
   });
 
   it('publica en /jwks solo la parte pública de la clave activa', async () => {
-    const response = await fetch(`${baseUrl}/jwks`, { headers: { host: 'localhost' } });
+    const response = await fetch(`${baseUrl}/oidc/jwks`, { headers: { host: 'localhost' } });
     const body = (await response.json()) as { keys: Record<string, unknown>[] };
 
     expect(body.keys).toHaveLength(1);

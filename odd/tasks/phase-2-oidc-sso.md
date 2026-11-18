@@ -32,8 +32,8 @@
 | T3  | S6, S8, S15  | inline    | hecho (migración 0045, pruebas de BD 42/42) | `31f43a6` |
 | T4  | S6, S7       | inline    | hecho (pruebas unitarias 37/37; `PgSigningKeyStore` sin prueba de integración, va en T10) | `04eb252` |
 | T5  | S8, S9       | inline    | hecho (núcleo `b190b22`; almacenes PG con prueba de integración 5/5, controlador `sso/clients`, contratos y cableado) | `e4b1b81` |
-| T6  | S1-S3, S7, S10 | inline  | hecho (adaptador PG 8/8 contra PostgreSQL; fábrica del proveedor 2/2) | ver commit |
-| T7  | S6           | inline    | pendiente | — |
+| T6  | S1-S3, S7, S10 | inline  | hecho (adaptador PG 8/8 contra PostgreSQL; fábrica del proveedor 2/2) | `73fa465` |
+| T7  | S6           | inline    | hecho (montaje sin dependencias, rutas bajo `/oidc`, pruebas 6/6 + `create-app`/`serve-web`; variables de entorno y arranque de claves pasan a T8) | pendiente de hash |
 | T8  | S1, S11, S13 | inline    | pendiente | — |
 | T9  | S4, S5, S9, S12 | inline | pendiente | — |
 | T10 | todas        | inline    | pendiente | — |
@@ -62,3 +62,4 @@
 - **L7** (2026-11-18): el secreto del cliente se empaqueta en `secret_ciphertext` como `versión DEK (4) | nonce (12) | cifrado`; así no se edita la migración 0045. El recifrado de DEK (ADR 0040) aún no cubre `oidc_clients`: las versiones viejas de DEK siguen abriendo, pero queda pendiente añadirlo a `ReencryptIntegrationSecrets` antes de retirar DEKs.
 - **L8** (2026-11-18, supuesto): el adaptador conserva el `jti` de Sesión e Interacción en el contenido (el paquete las busca por `uid` y necesita el identificador original para volver a guardarlas); el resto de tokens guarda solo el hash. La cookie de la sesión del proveedor no es el único factor: T8 debe exigir además la cookie de la sesión de Compass ligada (`compass_session_id`).
 - **L9** (2026-11-18, supuesto): los id token se firman con ES256 por omisión (parámetro `idTokenSigningAlg`). Si algún cliente candidato (AWS, Kubernetes, Jenkins) solo acepta RS256, basta rotar a una clave RS256 y cambiar el parámetro. Sin funciones experimentales activas no hay `ack` que fijar (S7).
+- **L10** (2026-11-18): se monta el proveedor sin `@fastify/middie` (dependencia nueva): ruta encapsulada con `hijack` y analizadores de cuerpo quitados solo en ese alcance; las cabeceras de helmet y `permissions-policy` se copian a mano. Todas las rutas del paquete van bajo `/oidc` (más `/.well-known/openid-configuration`, fijo por especificación) para no chocar con la SPA. Las variables (`OIDC_ENABLED`, claves de cookie, algoritmo), `ensureActiveKey` y el cargador de claims se cablean en T8 junto con el proveedor real; `.env.example` tiene cambios ajenos sin confirmar y se toca entonces.
