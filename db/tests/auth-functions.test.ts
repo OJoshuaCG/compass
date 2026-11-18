@@ -134,7 +134,7 @@ describe('auth.* pre-authentication functions (no app.org_id set)', () => {
     });
   });
 
-  it('are SECURITY DEFINER with a fixed search_path, owned by a non-bypass role, executable only by iam_app', async () => {
+  it('are SECURITY DEFINER with a fixed search_path, owned by a non-bypass role, executable only by its intended role', async () => {
     const { rows } = await admin.query<{
       proname: string;
       prosecdef: boolean;
@@ -143,31 +143,52 @@ describe('auth.* pre-authentication functions (no app.org_id set)', () => {
       bypass: boolean;
       pub: boolean;
       app: boolean;
+      worker: boolean;
     }>(`
       select p.proname, p.prosecdef, p.proconfig, r.rolname as owner, r.rolbypassrls as bypass,
              has_function_privilege('public', p.oid, 'EXECUTE') as pub,
-             has_function_privilege('iam_app', p.oid, 'EXECUTE') as app
+             has_function_privilege('iam_app', p.oid, 'EXECUTE') as app,
+             has_function_privilege('iam_inbound_worker', p.oid, 'EXECUTE') as worker
       from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'auth'
       join pg_roles r on r.oid = p.proowner
       where p.prorettype <> 'trigger'::regtype
       order by p.proname`);
-    expect(rows.map((r) => r.proname)).toEqual([
+    // Funciones que solo ejecuta el worker de correo entrante (migraciones 0029, 0038, 0039 y 0040).
+    const workerOnly = [
+      'list_pollable_inbound_sources',
+      'list_sources_with_expired_mail_previews',
+      'list_sources_with_pending_mail_deletes',
+      'list_sources_with_pending_mail_previews',
+      'list_sources_with_stale_mail_deletes',
+    ];
+    const appFunctions = [
+      'add_oidc_signing_key',
       'create_first_organization',
       'find_handoff_by_token_hash',
       'find_invitation_by_token_hash',
       'find_login_by_email',
+      'find_oidc_client_org',
+      'find_oidc_payload_org',
+      'find_oidc_payload_org_by_uid',
       'find_session_by_token_hash',
+      'list_oidc_signing_keys',
       'list_organization_ids',
       'resolve_inbound_address',
-    ]);
+      'retire_oidc_signing_key',
+    ];
+    expect(rows.map((r) => r.proname)).toEqual([...appFunctions, ...workerOnly].sort());
     for (const r of rows) {
       expect(r.prosecdef, r.proname).toBe(true);
       expect(r.proconfig, r.proname).toContain('search_path=pg_catalog');
       expect(r.owner, r.proname).toBe('iam_auth_reader');
       expect(r.bypass, r.proname).toBe(false);
       expect(r.pub, r.proname).toBe(false);
-      expect(r.app, r.proname).toBe(true);
+      // La migración 0025 concede `resolve_inbound_address` a iam_app y a iam_inbound_worker.
+      const isWorkerOnly = workerOnly.includes(r.proname);
+      const isBothRoles = r.proname === 'resolve_inbound_address';
+      expect(r.app, r.proname).toBe(!isWorkerOnly);
+      expect(r.worker, r.proname).toBe(isWorkerOnly || isBothRoles);
     }
   });
 

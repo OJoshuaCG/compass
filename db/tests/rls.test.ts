@@ -55,6 +55,10 @@ const PHASE1_TENANT_TABLES = [
   'mail_delete_requests',
   // SENSIBLE (revisión humana): vista previa transitoria y cifrada de un correo del buzón (migración 0040).
   'mail_preview_requests',
+  // SENSIBLE (revisión humana): proveedor OIDC (migración 0045, ADR 0052). `oidc_signing_keys` no aparece porque es
+  // la única tabla de plataforma sin organización y se prueba aparte en `oidc-tables.test.ts`.
+  'oidc_clients',
+  'oidc_payloads',
 ];
 
 let adminUrl = '';
