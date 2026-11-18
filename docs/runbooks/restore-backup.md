@@ -29,7 +29,7 @@ Objetivos decididos por el dueño el 2026-11-04 (C2, L2): respaldo con `pg_dump`
 1. Declarar el simulacro o el incidente y fijar el punto de recuperación (el respaldo horario que se restaurará). Comando: por definir.
 2. Restaurar la base de datos PostgreSQL al punto elegido en el entorno destino (red privada, TLS obligatorio, cifrado en reposo). Comando: por definir.
 3. Aplicar las migraciones pendientes con el rol de migraciones, si el esquema difiere (proceso `migrate`). Comando: por definir.
-4. Restaurar o reconstruir Redis (contadores y colas; no es fuente de verdad) y reinyectar los secretos de infraestructura desde el gestor de secretos. Comando: por definir.
+4. No hay Redis que restaurar (descartado el 2026-11-17; los contadores viven en memoria de la API). Reinyectar los secretos de infraestructura desde el gestor de secretos. Comando: por definir.
 5. Verificar el acceso a la KEK desde el entorno y desplegar la API y el worker con la configuración del entorno. Comando: por definir.
 6. Ejecutar la verificación de la cadena de auditoría sobre los datos restaurados.
 7. Descifrar un conjunto de secretos de prueba con la KEK (revelar una contraseña y generar un código 2FA de credenciales de verificación).

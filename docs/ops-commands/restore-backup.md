@@ -11,7 +11,7 @@ Completa los pasos del runbook [restore-backup](../runbooks/restore-backup.md) q
 | 1. Fijar el punto de recuperación | **Propuesto** | Con volcados, el punto es la hora del archivo. Listar los disponibles (Wasabi habla el protocolo de S3): ver bloque A. |
 | 2. Restaurar la base | **Propuesto** | Primero los roles del servidor, después la base: ver bloque B. |
 | 3. Aplicar migraciones pendientes | **Existe** | `MIGRATION_DATABASE_URL='postgres://iam_migrator:<secreto>@<host>/<base>' node apps/api/dist/main.migrate.js` ([`deployment.md`](../deployment.md) §2.5). |
-| 4. Redis y secretos de infraestructura | **Existe**, con una salvedad | Redis aún no existe: los contadores viven en memoria (handoff §8, A8), así que no hay nada que restaurar. Los secretos de infraestructura se reinyectan como variables de entorno en Dokploy con la plantilla `.env.dokploy.example` ([`deployment.md`](../deployment.md) §2.6). |
+| 4. Redis y secretos de infraestructura | **Existe**, con una salvedad | No hay Redis (descartado por el dueño, 2026-11-17): los contadores viven en memoria (handoff §8, A8), así que no hay nada que restaurar. Los secretos de infraestructura se reinyectan como variables de entorno en Dokploy con la plantilla `.env.dokploy.example` ([`deployment.md`](../deployment.md) §2.6). |
 | 5. Verificar el KMS y desplegar | **Existe** | Se despliega desde Dokploy ([`deployment.md`](../deployment.md) §2.6 y §2.7). El acceso al KMS se comprueba solo: al arrancar, la API genera y abre una clave desechable y **no arranca** si falla (L1a, TODO). |
 | 9. Destruir el entorno del simulacro | **Propuesto** | Ver bloque C. Es destructivo: lo ejecuta una persona, tras confirmar el servidor. |
 
