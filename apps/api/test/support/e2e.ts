@@ -52,6 +52,8 @@ export interface E2eEnvironment {
 export interface StartEnvironmentOptions {
   /** Captura los logs a nivel `trace`; sin ella los logs se silencian (o siguen `E2E_LOG`). */
   readonly logDestination?: DestinationStream;
+  /** Monta el proveedor OIDC real (claves de firma, adaptador PG y rutas de interacción). */
+  readonly oidc?: boolean;
 }
 
 export async function startEnvironment(
@@ -78,7 +80,20 @@ export async function startEnvironment(
     // Costo mínimo de Argon2: las pruebas hacen decenas de inicios de sesión.
     argon2: { ...OWASP_ARGON2_PARAMS, memoryCost: 1024, timeCost: 1 },
   });
-  const app = await createApp({ logger, container, appOrigin: APP_ORIGIN });
+  const oidc =
+    options.oidc === true
+      ? await container.createOidc({
+          issuer: APP_ORIGIN,
+          cookieKeys: ['e2e-oidc-cookie-key-with-more-than-32-chars'],
+          idTokenSigningAlg: 'ES256',
+        })
+      : null;
+  const app = await createApp({
+    logger,
+    container,
+    appOrigin: APP_ORIGIN,
+    ...(oidc === null ? {} : { oidcProvider: oidc.provider, oidcInteraction: oidc.interaction }),
+  });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
   const adminPool = new Pool({ connectionString: db.adminUrl, max: 2 });

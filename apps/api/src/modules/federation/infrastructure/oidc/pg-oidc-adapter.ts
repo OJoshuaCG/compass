@@ -152,7 +152,14 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
             [this.model, uid],
           );
         const row = result.rows[0];
-        if (row === undefined || !this.sessionMatchesCompassSession(row)) return undefined;
+        if (row === undefined) return undefined;
+        if (ambient.current() === null) {
+          // Comprobación de vínculo de un token (punto de token, cierre de sesión): no hay cookie de Compass, así
+          // que la sesión del proveedor solo «existe» mientras viva la sesión de Compass a la que está ligada.
+          if (!(await this.compassSessionIsAlive(row.compass_session_id))) return undefined;
+        } else if (!this.sessionMatchesCompassSession(row)) {
+          return undefined;
+        }
         // Sesión e Interacción guardan su `jti` en el contenido (ver `storesJti`); `uid` es solo el respaldo.
         return toProviderPayload(row, stringField(row.payload, 'jti') ?? uid);
       });
@@ -322,6 +329,18 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         return { userId: owner.user_id, compassSessionId: owner.compass_session_id };
       }
       return { userId: null, compassSessionId: null };
+    }
+
+    private async compassSessionIsAlive(compassSessionId: string | null): Promise<boolean> {
+      if (this.model !== SESSION_MODEL) return true;
+      if (compassSessionId === null) return false;
+      const result = await transactions
+        .current()
+        .query(
+          `select 1 from sessions where id = $1 and revoked_at is null and expires_at > now()`,
+          [compassSessionId],
+        );
+      return result.rows.length > 0;
     }
 
     private async clipToSession(

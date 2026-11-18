@@ -13,7 +13,9 @@ import type {
 const NOW = new Date('2026-11-18T12:00:00.000Z');
 const ORG = 'org-1';
 const MFA_AT = new Date('2026-11-18T11:59:30.000Z');
-const INTERACTION_STARTED_SECONDS = Math.floor(new Date('2026-11-18T11:59:00.000Z').getTime() / 1000);
+const INTERACTION_STARTED_SECONDS = Math.floor(
+  new Date('2026-11-18T11:59:00.000Z').getTime() / 1000,
+);
 
 const principal = (overrides: Partial<InteractionPrincipal> = {}): InteractionPrincipal => ({
   sessionId: 'session-1',
@@ -73,9 +75,12 @@ function run(scenario: Scenario = {}) {
       },
       grantAll,
     },
-    authenticate: () => Promise.resolve(scenario.principal === undefined ? principal() : scenario.principal),
+    authenticate: () =>
+      Promise.resolve(scenario.principal === undefined ? principal() : scenario.principal),
     resolveClientOrganization: () =>
-      Promise.resolve(scenario.clientOrganization === undefined ? ORG : scenario.clientOrganization),
+      Promise.resolve(
+        scenario.clientOrganization === undefined ? ORG : scenario.clientOrganization,
+      ),
     checkEntry,
     runWithAmbient: (_context, fn) => fn(),
     now: () => NOW,

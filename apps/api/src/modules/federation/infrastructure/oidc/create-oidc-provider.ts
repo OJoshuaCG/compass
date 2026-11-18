@@ -47,8 +47,19 @@ export interface CreateOidcProviderOptions {
   readonly idTokenSigningAlg: 'ES256' | 'RS256';
   /** Dirección de la pantalla de interacción servida por Compass (T8). */
   readonly interactionUrl: (uid: string) => string;
-  /** Datos del perfil de una persona activa; `null` si ya no existe o no está activa. */
-  readonly loadAccountClaims: (accountId: string) => Promise<OidcAccountClaims | null>;
+  /**
+   * Datos del perfil de una persona activa; `null` si ya no existe o no está activa. Recibe el `client_id`
+   * de la petición: en el punto de token no hay sesión de Compass y la organización sale del cliente.
+   */
+  readonly loadAccountClaims: (
+    accountId: string,
+    clientId: string | null,
+  ) => Promise<OidcAccountClaims | null>;
+}
+
+/** Lo mínimo del contexto de petición que el paquete pasa a `findAccount`. */
+interface ProviderContext {
+  readonly oidc?: { readonly client?: { readonly clientId?: string } };
 }
 
 export function createOidcProvider(options: CreateOidcProviderOptions): Provider {
@@ -63,7 +74,10 @@ export function createOidcProvider(options: CreateOidcProviderOptions): Provider
     pkce: { required: () => true },
     scopes: ['openid', 'profile', 'email', 'offline_access'],
     claims: {
-      openid: ['sub', 'sid'],
+      // `acr`, `amr` y `auth_time` salen siempre en el id token: son la garantía de autenticación que Compass declara
+      // (ADR 0051 §5) y el cliente decide con ellos si pide reautenticación. El paquete solo los emite si el
+      // scope `openid` los lista.
+      openid: ['sub', 'sid', 'acr', 'amr', 'auth_time'],
       profile: ['name'],
       email: ['email', 'email_verified'],
     },
@@ -97,11 +111,14 @@ export function createOidcProvider(options: CreateOidcProviderOptions): Provider
     interactions: {
       url: (_ctx: unknown, interaction: { uid: string }) => options.interactionUrl(interaction.uid),
     },
-    findAccount: (_ctx: unknown, accountId: string) =>
+    findAccount: (ctx: ProviderContext, accountId: string) =>
       Promise.resolve({
         accountId,
         claims: async (): Promise<Record<string, unknown>> => {
-          const profile = await options.loadAccountClaims(accountId);
+          const profile = await options.loadAccountClaims(
+            accountId,
+            ctx.oidc?.client?.clientId ?? null,
+          );
           if (profile === null) return { sub: accountId };
           // Compass no verifica el correo por esta vía: la persona entró con él, pero la bandera solo se
           // declara verdadera cuando exista una verificación propia.

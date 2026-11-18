@@ -23,10 +23,16 @@ import {
   DataKeyResolver,
   DekCache,
   NodeCryptoPrimitives,
+  NodeSigningKeyGenerator,
   PgDataKeyRepository,
+  PgSigningKeyStore,
+  PlatformEnvelope,
   SecretCipher,
+  SigningKeyService,
 } from '../modules/crypto/index.js';
 import type { KeyManagementPort } from '../modules/crypto/index.js';
+import { buildOidcWiring } from './oidc-wiring.js';
+import type { OidcWiringSettings } from './oidc-wiring.js';
 import {
   ManageOidcClients,
   PgGrantStore,
@@ -806,6 +812,28 @@ export function buildContainer(options: ContainerOptions) {
       audit,
       clock,
     }),
+    /** Construye el proveedor OIDC real; solo lo llama el arranque con `OIDC_ENABLED=true` (ADR 0050-0052). */
+    createOidc: (settings: OidcWiringSettings) =>
+      buildOidcWiring(
+        {
+          pool,
+          scope,
+          transactions: uow,
+          primitives,
+          cipher,
+          ids,
+          clock,
+          sessions,
+          authorizer,
+          directory,
+          signingKeys: new SigningKeyService({
+            store: new PgSigningKeyStore(pool),
+            generator: new NodeSigningKeyGenerator(),
+            envelope: new PlatformEnvelope({ kms, primitives }),
+          }),
+        },
+        settings,
+      ),
     // Lo consumen las cascadas de revocación (ADR 0051 §3); se cablea en la tarea T9.
     revokeGrants: new RevokeGrants(new PgGrantStore(uow)),
     manageGroups: new ManageGroups({

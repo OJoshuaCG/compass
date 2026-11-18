@@ -72,3 +72,4 @@ export { PgSessionRepository } from './infrastructure/pg-session-repository.js';
 export { ZxcvbnPasswordStrength } from './infrastructure/zxcvbn-password-strength.js';
 export type { Argon2Params } from './infrastructure/argon2-password-hasher.js';
 export { ReencryptTotpSecrets } from './application/reencrypt-totp-secrets.js';
+export { SESSION_COOKIE } from './interface/session-cookie.js';

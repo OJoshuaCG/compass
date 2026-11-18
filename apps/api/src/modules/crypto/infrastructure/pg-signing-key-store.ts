@@ -4,7 +4,8 @@
  *   `auth.*` de la migración 0045, que fijan el esquema y limitan lo que se puede hacer.
  * - Solo se maneja el sobre cifrado; la clave privada en claro nunca llega a este archivo.
  */
-import type { TransactionProvider } from '../../organization/index.js';
+import type { Pool } from 'pg';
+
 import type {
   Jwk,
   SigningAlgorithm,
@@ -19,15 +20,20 @@ interface SigningKeyRow {
   readonly private_jwk_ciphertext: Buffer;
 }
 
+/**
+ * Lo único que el almacén necesita de la base: ejecutar una sentencia. Las claves de firma no pertenecen a
+ * ninguna organización, así que se usa el pool directamente (sin transacción con `app.org_id`); cada
+ * operación es una sola función `auth.*`, atómica por sí misma.
+ */
+export type SigningKeyDatabase = Pick<Pool, 'query'>;
+
 export class PgSigningKeyStore implements SigningKeyStore {
-  constructor(private readonly transactions: TransactionProvider) {}
+  constructor(private readonly database: SigningKeyDatabase) {}
 
   async listActive(): Promise<readonly StoredSigningKey[]> {
-    const { rows } = await this.transactions
-      .current()
-      .query<SigningKeyRow>(
-        'select kid, alg, public_jwk, private_jwk_ciphertext from auth.list_oidc_signing_keys()',
-      );
+    const { rows } = await this.database.query<SigningKeyRow>(
+      'select kid, alg, public_jwk, private_jwk_ciphertext from auth.list_oidc_signing_keys()',
+    );
     return rows.map((row) => ({
       kid: row.kid,
       algorithm: row.alg,
@@ -37,20 +43,19 @@ export class PgSigningKeyStore implements SigningKeyStore {
   }
 
   async add(key: StoredSigningKey): Promise<void> {
-    await this.transactions
-      .current()
-      .query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4)', [
-        key.kid,
-        key.algorithm,
-        JSON.stringify(key.publicJwk),
-        Buffer.from(key.privateJwkCiphertext),
-      ]);
+    await this.database.query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4)', [
+      key.kid,
+      key.algorithm,
+      JSON.stringify(key.publicJwk),
+      Buffer.from(key.privateJwkCiphertext),
+    ]);
   }
 
   async retire(kid: string): Promise<boolean> {
-    const { rows } = await this.transactions
-      .current()
-      .query<{ retired: boolean }>('select auth.retire_oidc_signing_key($1) as retired', [kid]);
+    const { rows } = await this.database.query<{ retired: boolean }>(
+      'select auth.retire_oidc_signing_key($1) as retired',
+      [kid],
+    );
     return rows[0]?.retired === true;
   }
 }

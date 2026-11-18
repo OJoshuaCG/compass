@@ -25,8 +25,28 @@ export interface OidcCallbackProvider {
   callback(): (request: IncomingMessage, response: ServerResponse) => void;
 }
 
+/** Manejador de las interacciones de login y consentimiento (`/oidc/interaction/:uid`). */
+export interface OidcInteractionRoute {
+  /** Entrega la petición al proveedor bajo el contexto de la sesión de Compass, si la cookie es válida. */
+  runUnderCompassSession(
+    sessionToken: string | undefined,
+    requestId: string,
+    work: () => void,
+  ): Promise<void>;
+  handle(input: {
+    readonly request: IncomingMessage;
+    readonly response: ServerResponse;
+    readonly uid: string;
+    readonly sessionToken: string | undefined;
+    readonly requestId: string;
+  }): Promise<void>;
+}
+
 export interface MountOidcProviderOptions {
   readonly provider: OidcCallbackProvider;
+  readonly interaction?: OidcInteractionRoute;
+  /** Cookie de sesión de Compass, que solo la ruta de interacción lee (la del proveedor no basta, L8). */
+  readonly sessionCookieName?: string;
   /** Cabeceras propias del proyecto que el `onSend` de Fastify no aplicará a una respuesta entregada. */
   readonly staticHeaders: Readonly<Record<string, string>>;
 }
@@ -44,7 +64,8 @@ export async function mountOidcProvider(
       parsed(null);
     });
 
-    const deliver = (request: FastifyRequest, reply: FastifyReply): void => {
+    // Fastify ya no procesa una respuesta entregada: las cabeceras de seguridad se copian antes.
+    const prepare = (request: FastifyRequest, reply: FastifyReply): void => {
       for (const [name, value] of Object.entries(reply.getHeaders())) {
         if (value !== undefined) reply.raw.setHeader(name, value);
       }
@@ -53,8 +74,45 @@ export async function mountOidcProvider(
       }
       reply.raw.setHeader('x-request-id', request.id);
       reply.hijack();
+    };
+
+    const deliver = (request: FastifyRequest, reply: FastifyReply): void => {
+      prepare(request, reply);
       handle(request.raw, reply.raw);
     };
+
+    const { interaction, sessionCookieName } = options;
+    if (interaction !== undefined && sessionCookieName !== undefined) {
+      // Más específica que el comodín: Fastify la elige primero. Solo GET; el resto cae en el paquete.
+      scope.get<{ Params: { uid: string } }>(
+        `${OIDC_ROUTE_PREFIX}/interaction/:uid`,
+        (request, reply) => {
+          prepare(request, reply);
+          void interaction.handle({
+            request: request.raw,
+            response: reply.raw,
+            uid: request.params.uid,
+            sessionToken: request.cookies[sessionCookieName],
+            requestId: request.id,
+          });
+        },
+      );
+    }
+
+    if (interaction !== undefined && sessionCookieName !== undefined) {
+      // Reanudar la autorización (`/oidc/auth/:uid`) guarda la sesión del proveedor, que debe quedar ligada a la
+      // sesión de Compass de quien navega (L8): el navegador envía la cookie en esta navegación de primer nivel.
+      scope.all(`${OIDC_ROUTE_PREFIX}/auth/*`, (request, reply) => {
+        prepare(request, reply);
+        void interaction.runUnderCompassSession(
+          request.cookies[sessionCookieName],
+          request.id,
+          () => {
+            handle(request.raw, reply.raw);
+          },
+        );
+      });
+    }
 
     scope.all(`${OIDC_ROUTE_PREFIX}/*`, deliver);
     scope.all(OIDC_DISCOVERY_PATH, deliver);

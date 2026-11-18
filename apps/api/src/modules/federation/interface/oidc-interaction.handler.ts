@@ -97,6 +97,42 @@ const readMaxAgeSeconds = (params: InteractionDetails['params']): number | null 
 export class OidcInteractionHandler {
   constructor(private readonly deps: OidcInteractionDeps) {}
 
+  /**
+   * Ejecuta `work` (la entrega de una petición al proveedor) bajo el contexto ambiente de la sesión de Compass
+   * cuando la cookie es válida; sin ella, `work` corre sin contexto y el adaptador rechaza lo que lo necesite.
+   * Es lo que permite al proveedor guardar su sesión al reanudar la autorización tras el login (L8).
+   */
+  async runUnderCompassSession(
+    sessionToken: string | undefined,
+    requestId: string,
+    work: () => void,
+  ): Promise<void> {
+    let principal: InteractionPrincipal | null = null;
+    if (sessionToken !== undefined && sessionToken !== '') {
+      try {
+        principal = await this.deps.authenticate(sessionToken, requestId);
+      } catch {
+        principal = null;
+      }
+    }
+    if (principal === null) {
+      work();
+      return;
+    }
+    const validated = principal;
+    await this.deps.runWithAmbient(
+      {
+        organizationId: validated.organizationId,
+        compassSessionId: validated.sessionId,
+        userId: validated.userId,
+      },
+      () => {
+        work();
+        return Promise.resolve();
+      },
+    );
+  }
+
   async handle(input: InteractionRequest): Promise<void> {
     const { response } = input;
     try {

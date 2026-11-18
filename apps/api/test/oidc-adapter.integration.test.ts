@@ -269,10 +269,14 @@ describe('PgOidcAdapter', () => {
     const jti = `sess-${crypto.randomUUID()}`;
     await new Adapter('Session').upsert(jti, { jti, uid, accountId: fixture.user }, 3600);
 
-    // Sin cookie de Compass (por ejemplo, una llamada de cliente o la cookie del proveedor sola).
+    // Sin cookie de Compass (por ejemplo, una llamada de cliente o la cookie del proveedor sola) la sesión del
+    // proveedor no sirve para autenticar a nadie...
     asClient();
-    expect(await new Adapter('Session').findByUid(uid)).toBeUndefined();
     expect(await new Adapter('Session').find(jti)).toBeUndefined();
+    // ...pero el vínculo de un token (punto de token) se comprueba por uid mientras viva la sesión de Compass.
+    expect(await new Adapter('Session').findByUid(uid)).toMatchObject({ jti, uid });
+    await db.admin.query(`update sessions set revoked_at = now() where id = $1`, [fixture.session]);
+    expect(await new Adapter('Session').findByUid(uid)).toBeUndefined();
 
     // Con la cookie de otra sesión de Compass de la misma organización.
     ambientContext = {

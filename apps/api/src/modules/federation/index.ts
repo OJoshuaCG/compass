@@ -10,3 +10,10 @@ export type { OidcClientStore, NewOidcClient } from './application/ports/oidc-cl
 export type { OidcClientRecord, ClientRank } from './domain/oidc-client.js';
 export { PgOidcClientStore } from './infrastructure/pg-oidc-client-store.js';
 export { PgGrantStore } from './infrastructure/pg-grant-store.js';
+export { AsyncOidcAmbientStore } from './infrastructure/oidc/async-oidc-ambient-store.js';
+export { PgOidcOrgResolver } from './infrastructure/oidc/oidc-org-resolver.js';
+export { createPgOidcAdapter } from './infrastructure/oidc/pg-oidc-adapter.js';
+export { createOidcProvider } from './infrastructure/oidc/create-oidc-provider.js';
+export { createInteractionProvider } from './infrastructure/oidc/interaction-provider.js';
+export { OidcInteractionHandler } from './interface/oidc-interaction.handler.js';
+export type { InteractionPrincipal } from './interface/oidc-interaction.handler.js';

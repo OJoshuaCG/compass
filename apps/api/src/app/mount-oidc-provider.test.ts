@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createLogger } from '../shared/infrastructure/logger.js';
 import { createApp } from './create-app.js';
-import type { OidcCallbackProvider } from './mount-oidc-provider.js';
+import type { OidcCallbackProvider, OidcInteractionRoute } from './mount-oidc-provider.js';
 
 /** Proveedor de mentira: devuelve lo que recibió, para comprobar que Fastify no tocó el cuerpo. */
 const echoProvider: OidcCallbackProvider = {
@@ -27,12 +27,31 @@ const echoProvider: OidcCallbackProvider = {
   },
 };
 
+/** Cookies de Compass con las que se reanudó una autorización. */
+const resumeTokens: (string | undefined)[] = [];
+
+/** Ruta de interacción de mentira: devuelve el `uid` y la cookie de Compass que le llegaron. */
+const echoInteraction: OidcInteractionRoute = {
+  runUnderCompassSession: (sessionToken, _requestId, work) => {
+    resumeTokens.push(sessionToken);
+    work();
+    return Promise.resolve();
+  },
+  handle: ({ response, uid, sessionToken }) => {
+    response.statusCode = 200;
+    response.setHeader('content-type', 'application/json');
+    response.end(JSON.stringify({ uid, sessionToken: sessionToken ?? null }));
+    return Promise.resolve();
+  },
+};
+
 let app: NestFastifyApplication;
 
 beforeAll(async () => {
   app = await createApp({
     logger: createLogger({ level: 'silent' }),
     oidcProvider: echoProvider,
+    oidcInteraction: echoInteraction,
   });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
@@ -43,6 +62,39 @@ afterAll(async () => {
 });
 
 describe('mountOidcProvider', () => {
+  it('serves /oidc/interaction/:uid with its own handler and the Compass session cookie', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/oidc/interaction/abc123',
+      cookies: { '__Host-session': 'compass-token' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<{ uid: string; sessionToken: string }>()).toEqual({
+      uid: 'abc123',
+      sessionToken: 'compass-token',
+    });
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  it('resumes /oidc/auth/:uid under the Compass session and still delivers it to the provider', async () => {
+    resumeTokens.length = 0;
+    const response = await app.inject({
+      method: 'GET',
+      url: '/oidc/auth/abc123',
+      cookies: { '__Host-session': 'compass-token' },
+    });
+
+    expect(resumeTokens).toEqual(['compass-token']);
+    expect(response.json<{ url: string }>().url).toBe('/oidc/auth/abc123');
+  });
+
+  it('still delivers the rest of /oidc to the provider when interactions are mounted', async () => {
+    const response = await app.inject({ method: 'GET', url: '/oidc/auth?client_id=x' });
+
+    expect(response.json<{ url: string }>().url).toBe('/oidc/auth?client_id=x');
+  });
+
   it('delivers the discovery document path to the provider', async () => {
     const response = await app.inject({ method: 'GET', url: '/.well-known/openid-configuration' });
 
