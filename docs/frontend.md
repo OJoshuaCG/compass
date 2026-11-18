@@ -225,7 +225,12 @@ Por qué funciona: Inter es neutra y muy legible en interfaces densas y tiene ci
 ### 4.4 Espaciado y layout
 
 - Escala de 4 px de Tailwind (la unidad 1 equivale a 4 px). Prohibidos valores fuera de escala.
-- Mobile-first; puntos de quiebre estándar. La app es interna de escritorio, pero `mobile-handoff` y las pantallas de login deben funcionar en teléfono.
+- **Responsive en móvil es obligatorio para toda pantalla y todo componente** (decisión del dueño, 2026-11-15): es muy probable que se use desde teléfono, así que no se da por terminado nada que no se haya validado en 375 px, además de 768, 1024 y 1440. Mobile-first; puntos de quiebre estándar.
+- Reglas mínimas en móvil: sin scroll horizontal de la página (solo dentro de la región de una tabla); campos de texto de 16 px o más (por debajo, iOS hace zoom al enfocar); controles táctiles de 40 px en móvil (`max-md:`) y nunca menos de 24 px; pies de diálogo y barras de acciones que envuelven (`flex-wrap`); textos y datos largos que se rompen (`break-words`, `min-w-0`) en lugar de ensanchar la página; `min-h-dvh` en vez de `min-h-screen`; ningún elemento fijo que tape el foco o el contenido.
+- **Menú lateral en móvil**: bajo `md` es un panel modal (`AppShell` con `sidebarMode="drawer"`, sobre Radix Dialog) que se abre sobre el contenido con fondo atenuado, se cierra con Escape, toque en el fondo, su botón de cierre o al navegar, y atrapa el foco. Siempre arranca cerrado y su estado no se guarda; en escritorio sigue siendo una columna cuya visibilidad se recuerda por persona.
+- **Diálogos y teclado virtual**: el contenido de un diálogo nunca supera `100dvh - 2rem` y se desplaza por dentro (`overflow-y-auto` con `overscroll-contain`), así que un formulario largo sigue alcanzable con el teclado abierto. La página declara `interactive-widget=resizes-content` para que el teclado encoja el viewport en los navegadores que lo respetan; Safari en iPhone lo ignora y desplaza el campo enfocado dentro del propio diálogo.
+- **iPhone**: la página declara `viewport-fit=cover`, así que lo fijo respeta las zonas seguras con `env(safe-area-inset-*)` (aviso emergente, panel del menú y el relleno lateral del `body`). Un elemento fijo nuevo debe hacer lo mismo. El color de la barra del navegador (`theme-color`) sigue al tema activo.
+- Todo lo que hoy depende de pasar el cursor o de una columna fuera de vista tiene que tener una vía alcanzable con el dedo.
 - Contenedor de contenido con ancho máximo; las tablas ocupan el ancho disponible con scroll horizontal contenido (no de la página).
 
 ## 5. Componentes
@@ -285,6 +290,7 @@ De arriba abajo, la tabla tiene cuatro zonas:
 - **Cambio de página sin parpadeo**: se conserva la página anterior mientras llega la siguiente, con un indicador de carga sutil.
 - **Acciones por fila**: menú de "⋯" con teclado; las destructivas piden confirmación y, en el menú, van al final tras una línea separadora. Las acciones visibles dependen de los permisos del perfil, solo como comodidad. Una tabla con pocas acciones (por ejemplo, Cuentas) puede mostrarlas en escritorio como botones de solo ícono con nombre accesible y `title`, y pasar al menú "⋯" en pantallas angostas (`useMediaQuery`): se pinta una versión u otra, nunca las dos.
 - **Selección múltiple** (si el caso la exige): casilla por fila y en el encabezado, con contador y barra de acciones masivas.
+- **Móvil** (`max-md`, §4.4): la misma `<table>` presenta cada fila como una tarjeta apilada, sin scroll horizontal. Cada celda de dato muestra su encabezado como etiqueta (atributo `data-label`, pintado con CSS) y el valor a la derecha. Las columnas ordenables quedan como una barra de orden («Ordenar por») sobre las tarjetas, que no se dibuja si ninguna columna es ordenable; las demás columnas y la de acciones se ocultan solo visualmente y siguen disponibles para lectores de pantalla. El menú «⋯» va al pie de cada tarjeta, con su área táctil de 40 px. Desde `md` la tabla no cambia.
 - **Densidad única**: una sola altura de fila. Texto secundario en el color de apoyo; cifras tabulares.
 
 ### 6.3 Contrato del componente
@@ -438,6 +444,7 @@ Todo lo del plan, convertido en reglas verificables:
 - [ ] Teclado, foco visible y etiquetas verificados; prueba de accesibilidad en verde.
 - [ ] Manejo de `401/403/404/409/422/429/5xx` según la sección 7.2.
 - [ ] Las tablas usan la tabla estándar con orden, límite y paginación.
+- [ ] Responsive validado a 375, 768, 1024 y 1440 px en los dos temas y los dos idiomas (§4.4): sin scroll horizontal de página, controles táctiles y campos de 16 px; la prueba e2e móvil en verde.
 - [ ] Ningún secreto fuera del estado del componente.
 - [ ] Lint, tipos, pruebas y límites de arquitectura en verde.
 - [ ] Si toca rutas protegidas (CSP, autenticación), revisión doble.
@@ -493,6 +500,7 @@ Las reglas que un agente debe respetar al trabajar en `apps/web` son estas. Si s
 9. Nunca leas archivos de entorno ni datos de producción.
 10. No toques rutas protegidas (CSP, autenticación, revelador de secretos) salvo encargo humano explícito.
 11. Si trabajas como agente delegado, limítate a las rutas indicadas en el encargo.
+12. Todo componente o pantalla nuevo o cambiado se diseña para móvil primero y se valida a 375 px (§4.4): sin scroll horizontal de página, campos de 16 px, controles táctiles de 40 px en móvil, pies de acciones con `flex-wrap`. Un encargo de interfaz sin esa validación no se da por terminado.
 
 Definición de terminado: pruebas de componente y de accesibilidad en verde; paridad de claves i18n, contraste de tokens y límites de arquitectura en verde.
 

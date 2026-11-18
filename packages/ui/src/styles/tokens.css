@@ -278,6 +278,66 @@
   backdrop-filter: blur(7px);
 }
 
+/*
+ * Panel lateral móvil (drawer): entra desde el borde de inicio y el fondo se desvanece. Radix espera
+ * el fin de la animación de cierre antes de quitar el nodo (`data-state`). Con movimiento reducido la
+ * regla global de abajo las deja instantáneas. El desplazamiento es horizontal fijo porque los
+ * idiomas soportados (es-MX, en-US) son de izquierda a derecha; un idioma RTL exigiría invertirlo.
+ */
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes drawer-slide-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes drawer-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes drawer-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@utility drawer-panel {
+  &[data-state='open'] {
+    animation: drawer-slide-in var(--duration-base) ease-out;
+  }
+  &[data-state='closed'] {
+    animation: drawer-slide-out var(--duration-fast) ease-in forwards;
+  }
+}
+
+@utility drawer-scrim {
+  &[data-state='open'] {
+    animation: drawer-fade-in var(--duration-base) ease-out;
+  }
+  &[data-state='closed'] {
+    animation: drawer-fade-out var(--duration-fast) ease-in forwards;
+  }
+}
+
 @layer base {
   html {
     @apply bg-canvas font-sans text-text;
@@ -293,6 +353,8 @@
       radial-gradient(700px 520px at -4% 104%, var(--ambient-b), transparent 62%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
+    /* iPhone en horizontal (viewport-fit=cover): el contenido no queda bajo la muesca. */
+    padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
   }
 
   /* Los encabezados usan Space Grotesk; los componentes no repiten la clase. */

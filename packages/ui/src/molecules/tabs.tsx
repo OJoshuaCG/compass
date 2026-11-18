@@ -1,4 +1,4 @@
-import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
 
@@ -24,6 +24,16 @@ export function Tabs({ label, tabs, value, onValueChange, children }: TabsProps)
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const tabId = (id: string) => `${base}-tab-${id}`;
   const panelId = `${base}-panel`;
+
+  // En pantallas angostas la lista se desplaza en horizontal: sin esto, la pestaña activa (por
+  // ejemplo la que llega elegida desde la URL) puede quedar fuera de la vista. Sin animación para
+  // respetar `prefers-reduced-motion`; `scrollIntoView` no existe en jsdom.
+  useEffect(() => {
+    const activeTab = buttons.current.get(value);
+    if (activeTab !== undefined && typeof activeTab.scrollIntoView === 'function') {
+      activeTab.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }
+  }, [value]);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const index = tabs.findIndex((tab) => tab.id === value);
@@ -58,7 +68,7 @@ export function Tabs({ label, tabs, value, onValueChange, children }: TabsProps)
         role="tablist"
         aria-label={label}
         onKeyDown={onKeyDown}
-        className="flex gap-1 overflow-x-auto border-b border-border-strong"
+        className="flex gap-1 overflow-x-auto border-b border-border-strong py-1"
       >
         {tabs.map((tab) => {
           const selected = tab.id === value;

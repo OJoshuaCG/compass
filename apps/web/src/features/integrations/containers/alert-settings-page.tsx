@@ -13,6 +13,8 @@ import { useToast } from '../../../shared/toast';
 import { fetchAlertSettings, integrationsKeys, saveAlertSettings } from '../api/integrations-api';
 import { hasActiveChannel } from '../model/alert-settings-model';
 import { AlertSettingsForm } from '../ui/alert-settings-form';
+import { SmtpSettingsSection } from './smtp-settings-section';
+import { TelegramChannelSection } from './telegram-channel-section';
 
 /**
  * Container de `/alerts`: a qué canales llegan las alertas de infraestructura. El permiso
@@ -136,6 +138,8 @@ export function AlertSettingsPage() {
             })}
           </p>
         ) : null}
+        <SmtpSettingsSection />
+        <TelegramChannelSection />
       </div>
     </>
   );

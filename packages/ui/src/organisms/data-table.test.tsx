@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../test/axe';
 
@@ -38,6 +38,7 @@ const labels: DataTableLabels = {
       ? `Showing ${String(from)}-${String(to)}`
       : `Showing ${String(from)}-${String(to)} of ${String(total)}`,
   actionsColumn: 'Actions',
+  sortBy: 'Sort by',
   loading: 'Loading table data',
   retry: 'Retry',
   emptyFiltered: { title: 'No results', description: 'Nothing matches', clear: 'Clear filters' },
@@ -95,6 +96,23 @@ describe('DataTable semantics', () => {
     const [name, platform] = screen.getAllByRole('columnheader');
     expect(name).toHaveAttribute('aria-sort', 'none');
     expect(platform).not.toHaveAttribute('aria-sort');
+  });
+
+  it('labels the mobile sort bar only when some column is sortable', () => {
+    const { unmount } = setup();
+    expect(screen.getByText('Sort by')).toBeInTheDocument();
+    unmount();
+    setup({
+      columns: columns.map((column) => ({
+        id: column.id,
+        header: column.header,
+        cell: column.cell,
+      })),
+    });
+    // Sin columnas ordenables la fila de encabezados sigue ahí para lectores de pantalla,
+    // y la barra de orden queda oculta visualmente en móvil.
+    expect(screen.getAllByRole('columnheader', { hidden: true }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Name' })).not.toBeInTheDocument();
   });
 
   it.each([
@@ -159,7 +177,7 @@ describe('DataTable sorting', () => {
     const user = userEvent.setup();
     const onSortChange = vi.fn();
     setup({ onSortChange });
-    await user.tab(); // región desplazable
+    // La región no es un tabulador mientras la tabla no se desborda (jsdom no mide, así que nunca).
     await user.tab(); // botón del encabezado
     expect(screen.getByRole('button', { name: 'Name' })).toHaveFocus();
     await user.keyboard('{Enter}');
@@ -291,11 +309,59 @@ describe('DataTable states', () => {
     expect(screen.getByRole('button', { name: 'Edit Ada' })).toBeInTheDocument();
   });
 
+  it('labels every data cell with its column header and leaves the actions cell unlabelled', () => {
+    // La presentación en tarjetas de móvil pinta `data-label` con CSS; el atributo es el contrato.
+    setup({ rowActions: (row) => <button type="button">{`Edit ${row.name}`}</button> });
+    const bodyRows = screen.getAllByRole('row').slice(1);
+    expect(bodyRows).toHaveLength(rows.length);
+    for (const bodyRow of bodyRows) {
+      const cells = within(bodyRow).getAllByRole('cell');
+      expect(cells).toHaveLength(columns.length + 1);
+      columns.forEach((column, index) => {
+        expect(cells[index]).toHaveAttribute('data-label', column.header);
+      });
+      expect(cells[columns.length]).not.toHaveAttribute('data-label');
+    }
+  });
+
   it('disables Next while refreshing so a stale cursor cannot be used', () => {
     setup({
       refreshing: true,
       pagination: { hasPrevious: false, hasNext: true, onPrevious: vi.fn(), onNext: vi.fn() },
     });
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  });
+
+  describe('table region focus', () => {
+    // jsdom no mide el diseño ni trae ResizeObserver: se simulan solo en estas pruebas.
+    function stubLayout(scrollWidth: number, clientWidth: number) {
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          observe = vi.fn();
+          disconnect = vi.fn();
+          unobserve = vi.fn();
+        },
+      );
+      vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(scrollWidth);
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(clientWidth);
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it('is not a tab stop when the table fits', () => {
+      stubLayout(300, 300);
+      setup();
+      expect(screen.getByRole('region', { name: 'Users' })).not.toHaveAttribute('tabindex');
+    });
+
+    it('becomes a tab stop only when the table scrolls horizontally', () => {
+      stubLayout(900, 300);
+      setup();
+      expect(screen.getByRole('region', { name: 'Users' })).toHaveAttribute('tabindex', '0');
+    });
   });
 });

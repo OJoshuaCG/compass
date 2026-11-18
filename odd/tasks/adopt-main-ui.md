@@ -36,3 +36,9 @@ Objetivo: llevar a `dev` el sistema visual de `main` (latón, temas oscuro y cla
 - Entra: vistas guardadas de Mis cuentas, salud de credenciales (cuenta, grupo y organización, permiso `credential.view_health`), borrado y vista previa de correo del buzón, códigos con guion, ajustes responsive.
 - Conflictos: etiquetas y vistas guardadas conviven en la barra de Cuentas; la salud se muestra en las tarjetas de credenciales de dev (la tabla de main no existe aquí); el menú lateral conserva las pestañas de dev y suma el enlace de salud en Bóveda y el pliegue del menú al navegar en móvil; el selector de idioma y los diálogos de rol siguen siendo los de dev.
 - Pendiente: `zxcvbn` y `@types/zxcvbn` (dependencias que main ya aprobó) no están instaladas en este equipo; sin ellas no compilan ni se prueban la API ni sus pruebas.
+
+### L12 · 2026-11-17 · Unión de main (responsive y SMTP por organización)
+
+- Entra: tabla en tarjetas en pantallas estrechas, panel lateral móvil animado, diálogos con margen en móvil, SMTP por organización (migración 0044), canal de Telegram de alertas, aviso de eventos en cuarentena, ADR 0050 y 0051.
+- Conflictos: solo `dialog.tsx` (se conserva la colocación lateral de dev con el margen y `overscroll-contain` de main) y `data-table.tsx` (se toma la versión de main).
+- Sin ejecutar aquí: pruebas de la API (SWC) y de navegador (sin Docker).

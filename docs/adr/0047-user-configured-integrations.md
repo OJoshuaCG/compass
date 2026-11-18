@@ -113,6 +113,18 @@ Esta enmienda no reemplaza lo decidido arriba: lo amplía. Hasta aquí la alerta
 - **Primer productor:** el comando diario `anchor-audit` ([ADR 0042](0042-audit-chain-external-anchoring.md)) encola la alerta con código `job_failed` cuando una organización queda sin ancla. Como viaja por el outbox, solo sale si la API corre con `OUTBOX_WORKER_ENABLED=true`.
 - **Pendiente:** la pantalla del panel en la web. Hoy la configuración solo se cambia por la API.
 
+## Enmienda (2026-11-17): servidor SMTP por organización, configurado desde la web
+
+Esta enmienda amplía lo decidido arriba. Hasta aquí el correo salía solo por el SMTP del entorno (`MAIL_TRANSPORT`, `SMTP_*`, `MAIL_FROM`).
+
+- **Decisión del dueño:** el servidor SMTP se configura desde la web y es por organización («Claro, por organizacion, es lo mejor, adelante!»).
+- **Dónde se guarda:** una fila de `integrations` con tipo `smtp_mail` (servidor, puerto, seguridad, usuario y remitente en `config`) y la contraseña cifrada en `integration_secrets` con el campo `smtp_password` (migración `0044`). Solo hay un servidor activo por organización (índice único parcial). Entra en el recifrado de claves como los demás secretos de integraciones.
+- **Quién y cómo:** `GET`, `POST`, `PUT`, `DELETE /integrations/smtp` y `PUT /integrations/smtp/:id/password` con el permiso `alerts.infra.manage` (solo la Raíz), reautenticación y auditoría crítica en la misma transacción. No hay permiso nuevo. La contraseña nunca se devuelve, solo `hasPassword`. Al editar, si cambia el servidor, el puerto, la seguridad o el usuario y ya hay una contraseña guardada, la misma petición debe traer la contraseña nueva: así la guardada nunca se envía a un destino distinto del que se tecleó con ella. La prueba de envío no mantiene una transacción abierta mientras habla con la red.
+- **Reglas del servidor:** solo `starttls` o `tls` (nunca sin cifrar); el servidor debe ser un nombre DNS, no una IP ni `localhost`. Antes de cada envío, y también en la prueba, se resuelve el nombre y se rechazan destinos internos; la conexión va a la IP ya validada con el nombre original para el certificado (defensa contra SSRF y contra el cambio de DNS entre la comprobación y el uso).
+- **Prueba de envío:** `POST /integrations/smtp/:id/test` manda un correo al remitente y responde `sent` o un código estable (`HOST_UNRESOLVED`, `HOST_NOT_ALLOWED`, `CONNECTION_FAILED`, `TLS_FAILED`, `AUTH_REJECTED`, `SENDER_REJECTED`, `TIMEOUT`, `SEND_FAILED`); nunca el texto del servidor.
+- **Respaldo:** si la organización no tiene servidor activo, o el correo no tiene organización (por ejemplo la recuperación de la Raíz), sale por el del entorno. Si el servidor de la organización existe pero falla o no se puede abrir su contraseña, **no** hay respaldo: cambiaría el remitente en silencio. El fallo sigue el camino normal de reintentos del outbox.
+- **Supuesto a revisar:** una configuración nueva se activa al guardarla; no hay un paso obligatorio de «probar antes de activar». La persona dispone del botón de prueba, pero el sistema no lo exige.
+
 ## Preguntas abiertas
 
 1. Falta un ejemplo real de la API de Wotbi (una petición y su respuesta) para validar el modelo declarativo antes de cerrar el SMS.

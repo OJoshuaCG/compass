@@ -158,6 +158,10 @@ export function AppLayout() {
     <AppShell
       skipLinkLabel={t('nav.skipToContent')}
       sidebarHidden={!sidebarVisible}
+      sidebarMode={sidebarState.narrow ? 'drawer' : 'inline'}
+      onSidebarDismiss={closeSidebar}
+      sidebarDrawerLabel={t('nav.label')}
+      sidebarCloseLabel={t('nav.hideMenu')}
       header={
         <>
           <div className="flex items-center gap-2">
@@ -173,7 +177,8 @@ export function AppLayout() {
                 )
               }
               aria-expanded={sidebarVisible}
-              aria-controls={SIDEBAR_ID}
+              // En pantallas estrechas el panel no existe en el DOM mientras está cerrado.
+              aria-controls={sidebarVisible || !sidebarState.narrow ? SIDEBAR_ID : undefined}
               onClick={sidebarState.toggle}
             />
             <span className="inline-flex items-center gap-2.5 font-heading text-lg font-semibold text-text">

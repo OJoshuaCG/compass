@@ -53,7 +53,9 @@ export function ConfirmDialog({
       <Dialog.Portal>
         {/* z-50 > z-40 del aviso emergente: el aviso nunca tapa los botones de un diálogo abierto. */}
         <Dialog.Overlay className="fixed inset-0 z-50 scrim" />
-        <Dialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-dvh max-w-md -translate-y-1/2 overflow-y-auto glass rounded-lg p-6">
+        {/* Mismo alto máximo que `Dialog` (margen de 1 rem y `dvh` para el teclado virtual): ver ese
+            componente para el porqué del valor arbitrario. */}
+        <Dialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-[calc(100dvh-2rem)] max-w-md -translate-y-1/2 overflow-y-auto overscroll-contain glass rounded-lg p-6">
           <Dialog.Title className="font-heading text-lg break-words text-text">
             {title}
           </Dialog.Title>

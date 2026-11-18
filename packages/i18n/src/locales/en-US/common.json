@@ -37,6 +37,7 @@
   "table.rangeOfTotal": "Showing {{from}}–{{to}} of {{total}}",
   "table.pagination": "Table pagination",
   "table.actionsColumn": "Actions",
+  "table.sortBy": "Sort by",
   "table.empty.title": "No records yet",
   "table.empty.description": "Data will appear here once it exists.",
   "table.emptyFiltered.title": "No results",

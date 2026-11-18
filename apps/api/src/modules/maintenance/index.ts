@@ -30,3 +30,11 @@ export { SyncSystemRoles } from './application/sync-system-roles.js';
 export type { SyncSystemRolesSummary } from './application/sync-system-roles.js';
 export type { StoredSystemRole, SystemRoleStore } from './application/ports/system-role-ports.js';
 export { PgSystemRoleStore } from './infrastructure/pg-system-role-store.js';
+export { CheckQuarantinedEvents } from './application/check-quarantined-events.js';
+export type { QuarantineCheckSummary } from './application/check-quarantined-events.js';
+export type {
+  QuarantineAlertHistory,
+  QuarantineAlerter,
+  QuarantinedEventCounter,
+} from './application/ports/quarantine-alert-ports.js';
+export { PgQuarantinedEventCounter } from './infrastructure/pg-quarantined-event-counter.js';

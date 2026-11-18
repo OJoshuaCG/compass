@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { jsonResponse, meFixture, stubApi } from '../../test/fake-api';
 import { es } from '../../test/helpers';
@@ -22,6 +22,12 @@ function setup() {
 const navigationName = es.common['nav.label'];
 
 describe('collapsible sidebar', () => {
+  // Se restaura aquí y no al final de cada prueba: si una aserción falla, el stub de matchMedia no
+  // debe filtrarse a las pruebas siguientes.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('is visible by default and exposes the toggle state', async () => {
     setup();
     renderApp('/');
@@ -88,10 +94,9 @@ describe('collapsible sidebar', () => {
       await screen.findByRole('button', { name: es.common['nav.showMenu'] }),
     ).toBeInTheDocument();
     expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBeNull();
-    vi.unstubAllGlobals();
   });
 
-  it('folds after following a link on narrow screens without saving the choice', async () => {
+  it('closes the drawer after following a link on narrow screens and never saves the choice', async () => {
     const user = userEvent.setup();
     vi.stubGlobal(
       'matchMedia',
@@ -105,9 +110,41 @@ describe('collapsible sidebar', () => {
       await screen.findByRole('button', { name: es.common['nav.showMenu'] }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: navigationName })).not.toBeInTheDocument();
-    // Lo guardado sigue siendo la última decisión explícita (mostrar), no el cierre automático.
-    expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBe('visible');
-    vi.unstubAllGlobals();
+    // En pantallas estrechas el panel es un gesto del momento: nada se guarda ni al abrir ni al cerrar.
+    expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBeNull();
+  });
+
+  it('opens the menu as a modal drawer on narrow screens and closes it with Escape', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    );
+    setup();
+    renderApp('/');
+    const toggle = await screen.findByRole('button', { name: es.common['nav.showMenu'] });
+    await user.click(toggle);
+    const drawer = await screen.findByRole('dialog', { name: navigationName });
+    expect(drawer).toContainElement(screen.getByRole('navigation', { name: navigationName }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
+    expect(screen.queryByRole('navigation', { name: navigationName })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(sidebarStorageKey(PERSON_ID))).toBeNull();
+  });
+
+  it('ignores a stored "visible" choice on narrow screens', async () => {
+    window.localStorage.setItem(sidebarStorageKey(PERSON_ID), 'visible');
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    );
+    setup();
+    renderApp('/');
+    expect(
+      await screen.findByRole('button', { name: es.common['nav.showMenu'] }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('keeps the menu open after following a link on wide screens', async () => {

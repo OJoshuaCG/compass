@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import * as RadixDialog from '@radix-ui/react-dialog';
+import { useRef, type ReactNode } from 'react';
 
+import { X } from '../icons';
 import { cn } from '../lib/cn';
 
 export type AppShellProps = {
@@ -16,6 +18,17 @@ export type AppShellProps = {
    * quien no lo pasa conserva el comportamiento anterior.
    */
   sidebarHidden?: boolean;
+  /**
+   * `inline` (por defecto): el menú va al lado del contenido. `drawer`: panel modal que se abre
+   * sobre el contenido con fondo atenuado, Escape y foco atrapado; es el modo de las pantallas
+   * estrechas, donde un menú en el flujo del documento quedaría fuera de la vista al hacer scroll.
+   */
+  sidebarMode?: 'inline' | 'drawer';
+  /** Se llama cuando el panel pide cerrarse (Escape o toque en el fondo). Solo en modo `drawer`. */
+  onSidebarDismiss?: () => void;
+  /** Nombre accesible del panel y de su botón de cierre (ya traducido). Solo en modo `drawer`. */
+  sidebarDrawerLabel?: string;
+  sidebarCloseLabel?: string;
 };
 
 /**
@@ -55,7 +68,15 @@ export function AppShell({
   children,
   className,
   sidebarHidden = false,
+  sidebarMode = 'inline',
+  onSidebarDismiss,
+  sidebarDrawerLabel = '',
+  sidebarCloseLabel = '',
 }: AppShellProps) {
+  // El botón que abre el menú vive en la barra superior, fuera del diálogo: Radix solo devuelve el
+  // foco a su propio `Trigger`, así que se recuerda quién lo tenía al abrir (WCAG 2.4.3).
+  const drawerOpenerRef = useRef<HTMLElement | null>(null);
+
   return (
     <div className={cn('flex min-h-dvh flex-col text-text', className)}>
       <SkipLink label={skipLinkLabel} />
@@ -63,16 +84,56 @@ export function AppShell({
         {header}
       </header>
       <div className="flex flex-1 flex-col md:flex-row">
-        {/* w-62 = 248 px, el ancho del menú del diseño (ADR 0049): cabe la etiqueta más larga
-            («Alertas de infraestructura») sin cortarla. En pantallas estrechas ocupa todo el ancho. */}
-        <aside
-          id={SIDEBAR_ID}
-          // `hidden` lo saca del árbol de accesibilidad y del orden de tabulación, no solo de la vista.
-          hidden={sidebarHidden}
-          className="border-b border-border bg-sidebar px-3 pt-4 pb-6 md:w-62 md:shrink-0 md:border-e md:border-b-0"
-        >
-          {sidebar}
-        </aside>
+        {sidebarMode === 'drawer' ? (
+          <RadixDialog.Root
+            open={!sidebarHidden}
+            onOpenChange={(open) => {
+              if (!open) onSidebarDismiss?.();
+            }}
+          >
+            <RadixDialog.Portal>
+              <RadixDialog.Overlay className="fixed inset-0 z-50 scrim drawer-scrim" />
+              {/* El identificador va en el contenido: el botón que abre el menú lo referencia con
+                  `aria-controls`. `ps-[max(…)]` es un valor arbitrario inevitable: respeta la muesca
+                  del iPhone en horizontal sin perder el relleno normal (`env()` no tiene utilidad). */}
+              <RadixDialog.Content
+                id={SIDEBAR_ID}
+                aria-describedby={undefined}
+                onOpenAutoFocus={() => {
+                  drawerOpenerRef.current =
+                    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                }}
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  const opener = drawerOpenerRef.current;
+                  if (opener?.isConnected) opener.focus();
+                  drawerOpenerRef.current = null;
+                }}
+                className="drawer-panel fixed inset-y-0 start-0 z-50 flex w-72 max-w-5/6 flex-col overflow-y-auto border-e border-border bg-sidebar pe-3 pt-4 pb-6 ps-[max(0.75rem,env(safe-area-inset-left))]"
+              >
+                <RadixDialog.Title className="sr-only">{sidebarDrawerLabel}</RadixDialog.Title>
+                <RadixDialog.Close
+                  aria-label={sidebarCloseLabel}
+                  className="mb-2 ms-auto inline-flex size-10 shrink-0 items-center justify-center rounded-sm text-text-secondary hover:bg-raised hover:text-text"
+                >
+                  <X aria-hidden="true" className="size-4" />
+                </RadixDialog.Close>
+                {sidebar}
+              </RadixDialog.Content>
+            </RadixDialog.Portal>
+          </RadixDialog.Root>
+        ) : (
+          /* w-62 = 248 px, el ancho del menú del diseño (ADR 0049): cabe la etiqueta más larga
+             («Alertas de infraestructura») sin cortarla. */
+          <aside
+            id={SIDEBAR_ID}
+            // `hidden` lo saca del árbol de accesibilidad y del orden de tabulación, no solo de la vista.
+            hidden={sidebarHidden}
+            className="border-b border-border bg-sidebar px-3 pt-4 pb-6 md:w-62 md:shrink-0 md:border-e md:border-b-0"
+          >
+            {sidebar}
+          </aside>
+        )}
         <main
           id={MAIN_CONTENT_ID}
           tabIndex={-1}
