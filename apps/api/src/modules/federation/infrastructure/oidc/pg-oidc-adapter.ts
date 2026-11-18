@@ -56,6 +56,10 @@ interface PayloadRow {
   readonly consumed_at: Date | null;
 }
 
+interface SessionLinkRow {
+  readonly compass_session_id: string | null;
+}
+
 interface GrantOwnerRow {
   readonly user_id: string | null;
   readonly compass_session_id: string | null;
@@ -123,13 +127,14 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         ambient.current()?.organizationId ?? (await resolver.byPayloadKey(this.model, hashKey(id)));
       if (organizationId === null) return undefined;
       return runInOrganization(organizationId, async () => {
-        const result = await transactions.current().query<PayloadRow>(
-          `select payload, consumed_at from oidc_payloads
+        const result = await transactions.current().query<PayloadRow & SessionLinkRow>(
+          `select payload, consumed_at, compass_session_id from oidc_payloads
             where model = $1 and key_hash = $2 and expires_at > now()`,
           [this.model, hashKey(id)],
         );
         const row = result.rows[0];
-        return row === undefined ? undefined : toProviderPayload(row, id);
+        if (row === undefined || !this.sessionMatchesCompassSession(row)) return undefined;
+        return toProviderPayload(row, id);
       });
     }
 
@@ -139,17 +144,33 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         ambient.current()?.organizationId ?? (await resolver.byUid(this.model, uid));
       if (organizationId === null) return undefined;
       return runInOrganization(organizationId, async () => {
-        const result = await transactions.current().query<PayloadRow & { key_hash: Buffer }>(
-          `select payload, consumed_at, key_hash from oidc_payloads
-            where model = $1 and uid = $2 and expires_at > now()`,
-          [this.model, uid],
-        );
+        const result = await transactions
+          .current()
+          .query<PayloadRow & SessionLinkRow & { key_hash: Buffer }>(
+            `select payload, consumed_at, key_hash, compass_session_id from oidc_payloads
+              where model = $1 and uid = $2 and expires_at > now()`,
+            [this.model, uid],
+          );
         const row = result.rows[0];
+        if (row === undefined || !this.sessionMatchesCompassSession(row)) return undefined;
         // Sesión e Interacción guardan su `jti` en el contenido (ver `storesJti`); `uid` es solo el respaldo.
-        return row === undefined
-          ? undefined
-          : toProviderPayload(row, stringField(row.payload, 'jti') ?? uid);
+        return toProviderPayload(row, stringField(row.payload, 'jti') ?? uid);
       });
+    }
+
+    /**
+     * La sesión del proveedor no basta por sí sola (ADR 0051 §1, L8): solo vale cuando la petición trae
+     * además la cookie de la sesión de Compass a la que está ligada. Sin ella (otra persona en el mismo
+     * navegador, sesión de Compass cerrada o cookie del proveedor robada) la sesión «no existe».
+     */
+    private sessionMatchesCompassSession(row: SessionLinkRow): boolean {
+      if (this.model !== SESSION_MODEL) return true;
+      const current = ambient.current();
+      return (
+        current !== null &&
+        row.compass_session_id !== null &&
+        row.compass_session_id === current.compassSessionId
+      );
     }
 
     findByUserCode(): Promise<AdapterPayload | undefined> {

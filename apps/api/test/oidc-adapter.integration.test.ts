@@ -248,8 +248,43 @@ describe('PgOidcAdapter', () => {
 
     const found = await new Adapter('Session').findByUid(uid);
     expect(found).toMatchObject({ jti, uid });
+    // La interacción sí se encuentra sin la cookie de Compass; la sesión del proveedor no (ver abajo).
+    const interactionId = `int-${crypto.randomUUID()}`;
+    const interactionUid = crypto.randomUUID();
+    await new Adapter('Interaction').upsert(
+      interactionId,
+      { jti: interactionId, uid: interactionUid, params: { client_id: fixture.clientId } },
+      600,
+    );
     asClient();
-    expect(await new Adapter('Session').findByUid(uid)).toMatchObject({ jti });
+    expect(await new Adapter('Interaction').findByUid(interactionUid)).toMatchObject({
+      jti: interactionId,
+    });
+  });
+
+  it('no sirve la sesión del proveedor sin la sesión de Compass a la que está ligada (L8)', async () => {
+    const fixture = await seedFixture('oidc-session-link');
+    asBrowser(fixture);
+    const uid = crypto.randomUUID();
+    const jti = `sess-${crypto.randomUUID()}`;
+    await new Adapter('Session').upsert(jti, { jti, uid, accountId: fixture.user }, 3600);
+
+    // Sin cookie de Compass (por ejemplo, una llamada de cliente o la cookie del proveedor sola).
+    asClient();
+    expect(await new Adapter('Session').findByUid(uid)).toBeUndefined();
+    expect(await new Adapter('Session').find(jti)).toBeUndefined();
+
+    // Con la cookie de otra sesión de Compass de la misma organización.
+    ambientContext = {
+      organizationId: fixture.organization,
+      compassSessionId: crypto.randomUUID(),
+      userId: fixture.user,
+    };
+    expect(await new Adapter('Session').findByUid(uid)).toBeUndefined();
+    expect(await new Adapter('Session').find(jti)).toBeUndefined();
+
+    asBrowser(fixture);
+    expect(await new Adapter('Session').find(jti)).toMatchObject({ jti, uid });
   });
 
   it('sirve el cliente activo con su secreto y no sirve uno deshabilitado', async () => {
