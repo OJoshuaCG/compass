@@ -31,7 +31,7 @@
 | T2  | S15          | inline    | hecho (`pnpm add` exacta, lockfile +31 paquetes) | `63c9c92` |
 | T3  | S6, S8, S15  | inline    | hecho (migración 0045, pruebas de BD 42/42) | `31f43a6` |
 | T4  | S6, S7       | inline    | hecho (pruebas unitarias 37/37; `PgSigningKeyStore` sin prueba de integración, va en T10) | ver commit |
-| T5  | S8, S9       | inline    | pendiente | — |
+| T5  | S8, S9       | inline    | núcleo hecho (dominio, casos de uso, puertos, 96 pruebas); falta infraestructura PG y controlador | ver commit |
 | T6  | S1-S3, S7, S10 | inline  | pendiente | — |
 | T7  | S6           | inline    | pendiente | — |
 | T8  | S1, S11, S13 | inline    | pendiente | — |
@@ -58,3 +58,5 @@
 - **L3** (2026-11-18): se detienen las tareas que tocan diseño hasta que la persona dueña responda las preguntas de clientes, claves de firma, acceso por cliente y consentimiento.
 - **L4** (2026-11-18, la persona dueña): «Sin problema puedes proceder con las decisiones recomendadas». Quedan fijadas 1A (solo la Raíz registra clientes, por API), 2A (emisor único, claves de firma en `oidc_signing_keys` sin organización), 3A (personas activas de la organización del cliente, `max_rank` opcional) y 4A (consentimiento solo para clientes `is_external`). Ver ADR 0052. Se levanta el bloqueo de L3.
 - **L5** (2026-11-18): `db/tests/auth-functions.test.ts` ya estaba desactualizado antes de 0045 (no listaba las 5 funciones del worker de correo entrante); se corrige con la lista real y se distingue qué rol ejecuta cada función.
+- **L6** (2026-11-18, supuesto): `sso.clients.manage` ya existe con techo 1 (Raíz y Administrador, reautenticación reciente; `plan.md` §276), lo que contradice «solo la Raíz» de la decisión 1A. Se usa el permiso existente para no tocar el catálogo de acceso (ruta protegida y migración de techos) y se endurece lo riesgoso: marcar `allowPrivateNetworkBackchannel` exige además `org.settings` (solo Raíz). Reversible: bastaría exigir `org.settings` en todo `ManageOidcClients`.
+- **L7** (2026-11-18): el secreto del cliente se empaqueta en `secret_ciphertext` como `versión DEK (4) | nonce (12) | cifrado`; así no se edita la migración 0045. El recifrado de DEK (ADR 0040) aún no cubre `oidc_clients`: las versiones viejas de DEK siguen abriendo, pero queda pendiente añadirlo a `ReencryptIntegrationSecrets` antes de retirar DEKs.

@@ -1,0 +1,10 @@
+/**
+ * Borrado de concesiones OIDC (`oidc_payloads`). Corre en la transacción del llamador, bajo aislamiento
+ * por filas, para que la revocación y la auditoría confirmen juntas (ADR 0051 §3).
+ */
+export interface GrantStore {
+  /** Borra todo lo ligado a esas sesiones de Compass. Devuelve cuántas filas se borraron. */
+  deleteBySessions(sessionIds: readonly string[]): Promise<number>;
+  /** Borra todo lo de una persona, tenga o no sesión viva (desactivar o suspender, ADR 0051 §3). */
+  deleteByUser(userId: string): Promise<number>;
+}

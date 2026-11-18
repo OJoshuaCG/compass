@@ -86,6 +86,8 @@ const STATUS_BY_CODE: Readonly<Record<ErrorCode, number>> = {
   [ErrorCode.NOT_FOUND]: 404,
   [ErrorCode.RATE_LIMITED]: 429,
   [ErrorCode.INTERNAL]: 500,
+  [ErrorCode.FEDERATION_CLIENT_ID_CONFLICT]: 409,
+  [ErrorCode.FEDERATION_CLIENT_DISABLED]: 409,
   [ErrorCode.CRYPTO_DECRYPT_FAILED]: 500,
   [ErrorCode.CRYPTO_KMS_UNAVAILABLE]: 503,
   [ErrorCode.CRYPTO_UNKNOWN_DEK_VERSION]: 500,

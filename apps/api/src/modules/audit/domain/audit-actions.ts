@@ -130,6 +130,12 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'integration.test_sent': ['kind', 'outcome'],
   // Canales de las alertas de infraestructura de la Raíz (migración 0034): solo booleanos y la versión.
   'integration.alert_settings_updated': ['infraEmail', 'infraTelegram', 'version'],
+  // Proveedor OIDC (ADR 0052). Solo el `client_id` público y banderas: nunca el secreto, las URI ni tokens.
+  'oidc_client.created': ['clientId', 'isExternal', 'allowRefreshTokens', 'maxRank'],
+  'oidc_client.secret_rotated': ['clientId'],
+  'oidc_client.disabled': ['clientId'],
+  // Concesiones borradas porque la sesión o la persona dejó de valer (ADR 0051 §3).
+  'oidc.grants_revoked': ['reason', 'count'],
   'audit.chain_verified': ['checked'],
   'auth.login_failed': [],
   'auth.login_password_verified': [],

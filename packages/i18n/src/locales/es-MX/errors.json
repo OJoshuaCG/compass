@@ -62,6 +62,8 @@
   "NOT_FOUND": "No se encontró el recurso solicitado.",
   "RATE_LIMITED": "Demasiados intentos. Espera un momento antes de reintentar.",
   "INTERNAL": "Error interno del servidor. Si persiste, comparte el ID de solicitud con soporte.",
+  "FEDERATION.CLIENT_ID_CONFLICT": "El identificador de cliente generado ya existe. Inténtalo de nuevo.",
+  "FEDERATION.CLIENT_DISABLED": "La aplicación está deshabilitada y ya no se puede modificar.",
   "CRYPTO.DECRYPT_FAILED": "No se pudo descifrar el secreto.",
   "CRYPTO.KMS_UNAVAILABLE": "El servicio de claves no está disponible por ahora.",
   "CRYPTO.UNKNOWN_DEK_VERSION": "El secreto usa una versión de clave desconocida.",
