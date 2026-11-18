@@ -27,9 +27,9 @@
 | ID  | Specs        | Ruta      | Estado    | Commit |
 | --- | ------------ | --------- | --------- | ------ |
 | T0  | —            | inline    | hecho     | spike en ADR 0050, `aab87ee` |
-| T1  | S14, S15     | inline    | bloqueada por preguntas (ver Log L3) | — |
+| T1  | S14, S15     | inline    | hecho (ADR 0052, decisiones 1A-4A) | ver commit de esta unidad |
 | T2  | S15          | inline    | hecho (`pnpm add` exacta, lockfile +31 paquetes) | ver commit de esta unidad |
-| T3  | S6, S8, S15  | inline    | pendiente | — |
+| T3  | S6, S8, S15  | inline    | en pruebas (migración 0045) | — |
 | T4  | S6, S7       | inline    | pendiente | — |
 | T5  | S8, S9       | inline    | pendiente | — |
 | T6  | S1-S3, S7, S10 | inline  | pendiente | — |
@@ -56,3 +56,5 @@
 - **L1** (2026-11-18, la persona dueña): «Adelante con lo necesario, sin problema puedes llevar a cabo todas las tareas necesarias y planeadas. SI tienes alguna pregunta, hazla de una vez».
 - **L2** (2026-11-18): spike repetido con `oidc-provider` 9.13.3: criterios 1-5 y 6a OK, igual que con 9.15.0. Mapa de la API hecho por un explorador de solo lectura (módulos, sesiones, outbox, migraciones, CSP, crypto, web).
 - **L3** (2026-11-18): se detienen las tareas que tocan diseño hasta que la persona dueña responda las preguntas de clientes, claves de firma, acceso por cliente y consentimiento.
+- **L4** (2026-11-18, la persona dueña): «Sin problema puedes proceder con las decisiones recomendadas». Quedan fijadas 1A (solo la Raíz registra clientes, por API), 2A (emisor único, claves de firma en `oidc_signing_keys` sin organización), 3A (personas activas de la organización del cliente, `max_rank` opcional) y 4A (consentimiento solo para clientes `is_external`). Ver ADR 0052. Se levanta el bloqueo de L3.
+- **L5** (2026-11-18): `db/tests/auth-functions.test.ts` ya estaba desactualizado antes de 0045 (no listaba las 5 funciones del worker de correo entrante); se corrige con la lista real y se distingue qué rol ejecuta cada función.
