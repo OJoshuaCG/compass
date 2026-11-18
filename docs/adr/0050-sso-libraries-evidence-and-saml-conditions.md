@@ -52,6 +52,28 @@ El ADR 0018 y `docs/backend.md` §16 exigen un spike porque `oidc-provider` est�
 6. Las cabeceras y la CSP del proyecto siguen intactas en las rutas de `oidc-provider` y el adaptador a PostgreSQL respeta el aislamiento por organización (política de filas).
 7. Una actualización de versión mayor se simula y se comprueba que el arranque falla si no se reconocen los cambios incompatibles, como documenta el paquete.
 
+### Resultado del spike (2026-11-18)
+
+Se ejecutó con `oidc-provider` 9.15.0, `fastify` 5.12.8 y `@fastify/middie` 9.3.6 (todas MIT), en un directorio temporal fuera del repositorio, con un adaptador en memoria y sin PostgreSQL. Las pantallas de login y consentimiento las servía una ruta propia de Fastify que usaba una sesión simulada de Compass.
+
+| Criterio | Resultado | Qué se comprobó |
+| --- | --- | --- |
+| 1 | Pasa | Authorization Code con PKCE obligatorio; el login reutiliza la sesión simulada, sin sesión propia del paquete más allá de la suya. |
+| 2 | Pasa | `redirect_uri` casi igual (barra final) rechazado con 400; `response_type=id_token` rechazado; `grant_type=password` devuelve `unsupported_grant_type`. |
+| 3 | Pasa | Rotación correcta; reusar un token ya rotado devuelve 400 y el token hijo también deja de servir. |
+| 4 | Pasa | Cierre iniciado por la aplicación y aviso back-channel recibido con `sid` y `events`. Ver la advertencia de abajo. |
+| 5 | Pasa | Tras revocar las concesiones de la persona y dejar de resolver su cuenta: refresco 400, `userinfo` 401 e introspección `active: false`. |
+| 6 | **Parcial** | Las cabeceras puestas antes del paquete sobreviven en sus rutas (se probó con `middie`). **No se probó** el adaptador a PostgreSQL ni el aislamiento por filas: requiere base de datos y queda para el primer encargo de implementación. |
+| 7 | Pasa | Un `ack` desactualizado de una función experimental hace fallar el arranque con `TypeError`. Con `ack` ausente el paquete solo avisa y arranca, así que la guarda solo funciona si el código fija el `ack` explícitamente. |
+
+**Hallazgos que cambian el diseño:**
+
+- El paquete incluye protección contra SSRF y bloquea los avisos back-channel hacia IP de uso especial (loopback, redes privadas). Si las aplicaciones internas de la empresa viven en red privada, el aviso fallaría. La decisión de permitir destinos privados (con una lista explícita de clientes) debe tomarla una persona antes de implementar; en el spike se desactivó con un `fetch` propio, solo en pruebas.
+- El `fetch` configurable del paquete permite esa sustitución, pero el dispatcher de SSRF no tiene opción propia: quitarlo es una decisión de seguridad, no un ajuste.
+- Debe fijarse `jwks` propias (el paquete avisa del uso de claves de desarrollo) y los `ttl` de sesión, concesión, interacción y tokens, que por defecto toman valores genéricos y chocarían con el ADR 0051.
+
+Conclusión: el criterio de salida **no se declara cumplido** hasta probar el punto 6 con PostgreSQL. No hay motivo, con lo visto, para reabrir la comparación con Ory Hydra.
+
 ## Plan de salida de `oidc-provider`
 
 `oidc-provider` tiene un solo mantenedor. No se descarta, pero se reduce el costo de dejarlo:
