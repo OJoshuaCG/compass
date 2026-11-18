@@ -188,6 +188,26 @@ export class AuthController {
     unwrap(await this.secondFactor.reauthenticate(body.code));
   }
 
+  /**
+   * Reautenticación que pide una aplicación OIDC (ADR 0051 §5): renueva `mfa_at`, no la ventana de
+   * 5 minutos de las acciones sensibles. Las opciones de llave de acceso son las de `reauth/passkey/options`.
+   */
+  @Post('sso-reauth')
+  @HttpCode(204)
+  async ssoReauthenticate(
+    @Body(new ZodValidationPipe(reauthRequestSchema)) body: ReauthRequest,
+  ): Promise<void> {
+    unwrap(await this.secondFactor.ssoReauthenticate(body.code));
+  }
+
+  @Post('sso-reauth/passkey/verify')
+  @HttpCode(204)
+  async ssoReauthPasskeyVerify(
+    @Body(new ZodValidationPipe(reauthPasskeyRequestSchema)) body: ReauthPasskeyRequest,
+  ): Promise<void> {
+    unwrap(await this.secondFactor.ssoReauthenticateWithPasskey(body.response));
+  }
+
   /** Paso 1 de la reautenticación con llave de acceso (sesión completa, ADR 0033). */
   @Post('reauth/passkey/options')
   @HttpCode(200)

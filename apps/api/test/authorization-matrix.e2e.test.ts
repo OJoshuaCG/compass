@@ -50,6 +50,12 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
   'POST /auth/reauth': 'full-session',
   'POST /auth/reauth/passkey/options': 'full-session',
   'POST /auth/reauth/passkey/verify': 'full-session',
+  'GET /sso/clients': 'full-session',
+  'POST /sso/clients': 'full-session',
+  'POST /sso/clients/:id/rotate-secret': 'full-session',
+  'POST /sso/clients/:id/disable': 'full-session',
+  'POST /auth/sso-reauth': 'full-session',
+  'POST /auth/sso-reauth/passkey/verify': 'full-session',
 
   'GET /me': 'full-session',
   'GET /me/passkeys': 'full-session',

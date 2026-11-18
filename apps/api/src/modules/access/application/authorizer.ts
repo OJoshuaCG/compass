@@ -16,6 +16,7 @@ import type { AuditLog } from '../../audit/index.js';
 import { decide } from '../domain/decision.js';
 import type { DenialGrouper } from './denial-grouper.js';
 import type { Decision, DenyReason } from '../domain/decision.js';
+import { meetsMaxRank } from '../domain/client-entry.js';
 import { effectivePermissions } from '../domain/effective-permissions.js';
 import type { Obligation } from '../domain/permission-catalog.js';
 import type { RoleRepository } from './ports/role-repository.js';
@@ -48,6 +49,9 @@ const DENY_CODE = {
 
 /** Acción de solo lectura que no es un permiso del catálogo; solo se usa para etiquetar la auditoría. */
 const DIRECTORY_VIEW = 'directory.view';
+
+/** Entrada a una aplicación OIDC; igual que `directory.view`, solo etiqueta la auditoría de la negación. */
+const SSO_ENTRY = 'sso.entry';
 
 export class Authorizer {
   constructor(private readonly deps: AuthorizerDeps) {}
@@ -128,6 +132,20 @@ export class Authorizer {
   }
 
   /**
+   * Entrada de la persona autenticada a una aplicación OIDC (ADR 0052, decisión 3A): persona activa de
+   * la organización del contexto y, si el cliente fija `maxRank`, con ese rango o uno de mayor
+   * autoridad. Se niega por defecto y la negación se audita como cualquier otra.
+   */
+  async requireClientEntry(maxRank: number | null): Promise<UserRecord> {
+    const actor = await this.requireActiveMember();
+    if (!meetsMaxRank(actor.rank, maxRank)) {
+      await this.recordDenial({ code: DENY_CODE.PERMISSION, permission: SSO_ENTRY });
+      throw new DomainError(DENY_CODE.PERMISSION, 'Action not allowed');
+    }
+    return actor;
+  }
+
+  /**
    * Audita una negación que decidió una regla de negocio fuera del motor (matriz de creación,
    * no escalamiento de roles). Corre en transacción independiente, igual que las del motor.
    */
@@ -146,7 +164,7 @@ export class Authorizer {
 
   private async recordDenial(input: {
     readonly code: ErrorCode;
-    readonly permission: Permission | typeof DIRECTORY_VIEW;
+    readonly permission: Permission | typeof DIRECTORY_VIEW | typeof SSO_ENTRY;
     readonly targetUserId?: UserId;
     readonly targetAccountId?: string;
     readonly targetViewId?: string;

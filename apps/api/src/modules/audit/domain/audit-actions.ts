@@ -157,6 +157,9 @@ export const AUDIT_METADATA_ALLOWLIST: Readonly<Record<string, readonly string[]
   'auth.totp_enrolled': [],
   'auth.reauthenticated': [],
   'auth.reauthenticated_passkey': [],
+  // Reautenticación pedida por una aplicación OIDC (prompt=login o max_age): renueva mfa_at.
+  'auth.sso_reauthenticated': [],
+  'auth.sso_reauthenticated_passkey': [],
   'auth.reauth_failed': [],
   'auth.logout': [],
   'auth.session_revoked': [],
