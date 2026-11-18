@@ -31,8 +31,8 @@
 | T2  | S15          | inline    | hecho (`pnpm add` exacta, lockfile +31 paquetes) | `63c9c92` |
 | T3  | S6, S8, S15  | inline    | hecho (migración 0045, pruebas de BD 42/42) | `31f43a6` |
 | T4  | S6, S7       | inline    | hecho (pruebas unitarias 37/37; `PgSigningKeyStore` sin prueba de integración, va en T10) | `04eb252` |
-| T5  | S8, S9       | inline    | hecho (núcleo `b190b22`; almacenes PG con prueba de integración 5/5, controlador `sso/clients`, contratos y cableado) | ver commit |
-| T6  | S1-S3, S7, S10 | inline  | pendiente | — |
+| T5  | S8, S9       | inline    | hecho (núcleo `b190b22`; almacenes PG con prueba de integración 5/5, controlador `sso/clients`, contratos y cableado) | `e4b1b81` |
+| T6  | S1-S3, S7, S10 | inline  | hecho (adaptador PG 8/8 contra PostgreSQL; fábrica del proveedor 2/2) | ver commit |
 | T7  | S6           | inline    | pendiente | — |
 | T8  | S1, S11, S13 | inline    | pendiente | — |
 | T9  | S4, S5, S9, S12 | inline | pendiente | — |
@@ -60,3 +60,5 @@
 - **L5** (2026-11-18): `db/tests/auth-functions.test.ts` ya estaba desactualizado antes de 0045 (no listaba las 5 funciones del worker de correo entrante); se corrige con la lista real y se distingue qué rol ejecuta cada función.
 - **L6** (2026-11-18, supuesto): `sso.clients.manage` ya existe con techo 1 (Raíz y Administrador, reautenticación reciente; `plan.md` §276), lo que contradice «solo la Raíz» de la decisión 1A. Se usa el permiso existente para no tocar el catálogo de acceso (ruta protegida y migración de techos) y se endurece lo riesgoso: marcar `allowPrivateNetworkBackchannel` exige además `org.settings` (solo Raíz). Reversible: bastaría exigir `org.settings` en todo `ManageOidcClients`.
 - **L7** (2026-11-18): el secreto del cliente se empaqueta en `secret_ciphertext` como `versión DEK (4) | nonce (12) | cifrado`; así no se edita la migración 0045. El recifrado de DEK (ADR 0040) aún no cubre `oidc_clients`: las versiones viejas de DEK siguen abriendo, pero queda pendiente añadirlo a `ReencryptIntegrationSecrets` antes de retirar DEKs.
+- **L8** (2026-11-18, supuesto): el adaptador conserva el `jti` de Sesión e Interacción en el contenido (el paquete las busca por `uid` y necesita el identificador original para volver a guardarlas); el resto de tokens guarda solo el hash. La cookie de la sesión del proveedor no es el único factor: T8 debe exigir además la cookie de la sesión de Compass ligada (`compass_session_id`).
+- **L9** (2026-11-18, supuesto): los id token se firman con ES256 por omisión (parámetro `idTokenSigningAlg`). Si algún cliente candidato (AWS, Kubernetes, Jenkins) solo acepta RS256, basta rotar a una clave RS256 y cambiar el parámetro. Sin funciones experimentales activas no hay `ack` que fijar (S7).
