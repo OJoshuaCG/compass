@@ -7,6 +7,8 @@ import { RotateDataKey } from '../modules/maintenance/index.js';
 import { DataKeyController } from '../modules/maintenance/interface/data-key.controller.js';
 import { PersonRolesController } from '../modules/access/interface/person-roles.controller.js';
 import { RolesController } from '../modules/access/interface/roles.controller.js';
+import { ManageOidcClients } from '../modules/federation/index.js';
+import { OidcClientsController } from '../modules/federation/interface/oidc-clients.controller.js';
 import { IdempotencyInterceptor, IdempotencyService } from '../modules/idempotency/index.js';
 import {
   ListDirectory,
@@ -125,6 +127,7 @@ export class AppModule {
       { provide: ListManaged, useValue: container.listManaged },
       { provide: ManageUsers, useValue: container.manageUsers },
       { provide: ManageGroups, useValue: container.manageGroups },
+      { provide: ManageOidcClients, useValue: container.manageOidcClients },
       { provide: ManageRootTransfer, useValue: container.manageRootTransfer },
       { provide: REQUEST_CONTEXT_RUNNER, useValue: container.requestContext },
       { provide: APP_GUARD, useClass: RateLimitGuard },
@@ -179,6 +182,7 @@ export class AppModule {
         UsersController,
         RootTransferController,
         GroupsController,
+        OidcClientsController,
         PlatformsController,
         AccountsController,
         SavedViewsController,

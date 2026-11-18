@@ -27,6 +27,12 @@ import {
   SecretCipher,
 } from '../modules/crypto/index.js';
 import type { KeyManagementPort } from '../modules/crypto/index.js';
+import {
+  ManageOidcClients,
+  PgGrantStore,
+  PgOidcClientStore,
+  RevokeGrants,
+} from '../modules/federation/index.js';
 import { IdempotencyService, PgIdempotencyStore } from '../modules/idempotency/index.js';
 import { PgOrganizationLister, RotateDataKey } from '../modules/maintenance/index.js';
 import {
@@ -789,6 +795,19 @@ export function buildContainer(options: ContainerOptions) {
       finalizer: rootTransferFinalizer,
     }),
     tenantScope: scope,
+    manageOidcClients: new ManageOidcClients({
+      context: requestContext,
+      uow,
+      authorizer,
+      clients: new PgOidcClientStore(uow),
+      cipher,
+      random: primitives,
+      newId: () => ids.next(),
+      audit,
+      clock,
+    }),
+    // Lo consumen las cascadas de revocación (ADR 0051 §3); se cablea en la tarea T9.
+    revokeGrants: new RevokeGrants(new PgGrantStore(uow)),
     manageGroups: new ManageGroups({
       context: requestContext,
       uow,

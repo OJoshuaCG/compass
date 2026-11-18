@@ -8,3 +8,5 @@ export { RevokeGrants } from './application/revoke-grants.js';
 export type { GrantStore } from './application/ports/grant-store.js';
 export type { OidcClientStore, NewOidcClient } from './application/ports/oidc-client-store.js';
 export type { OidcClientRecord, ClientRank } from './domain/oidc-client.js';
+export { PgOidcClientStore } from './infrastructure/pg-oidc-client-store.js';
+export { PgGrantStore } from './infrastructure/pg-grant-store.js';
