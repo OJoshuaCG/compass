@@ -11,7 +11,11 @@
 import type { TransactionProvider } from '../../organization/index.js';
 import type { OidcClientRecord, OidcClientStatus } from '../domain/oidc-client.js';
 import { isClientRank } from '../domain/oidc-client.js';
-import type { NewOidcClient, OidcClientStore } from '../application/ports/oidc-client-store.js';
+import type {
+  NewOidcClient,
+  OidcClientLookup,
+  OidcClientStore,
+} from '../application/ports/oidc-client-store.js';
 
 interface OidcClientRow {
   readonly id: string;
@@ -50,7 +54,7 @@ const toRecord = (row: OidcClientRow): OidcClientRecord => ({
   createdAt: row.created_at,
 });
 
-export class PgOidcClientStore implements OidcClientStore {
+export class PgOidcClientStore implements OidcClientStore, OidcClientLookup {
   constructor(private readonly transactions: TransactionProvider) {}
 
   async insert(client: NewOidcClient): Promise<OidcClientRecord | null> {
@@ -88,6 +92,17 @@ export class PgOidcClientStore implements OidcClientStore {
       .current()
       .query<OidcClientRow>(`select ${CLIENT_COLUMNS} from oidc_clients order by created_at, id`);
     return result.rows.map(toRecord);
+  }
+
+  async findActiveByClientId(clientId: string): Promise<OidcClientRecord | null> {
+    const result = await this.transactions
+      .current()
+      .query<OidcClientRow>(
+        `select ${CLIENT_COLUMNS} from oidc_clients where client_id = $1 and status = 'active'`,
+        [clientId],
+      );
+    const row = result.rows[0];
+    return row === undefined ? null : toRecord(row);
   }
 
   async findForUpdate(id: string): Promise<OidcClientRecord | null> {

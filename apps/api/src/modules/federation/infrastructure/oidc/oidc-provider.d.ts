@@ -24,7 +24,56 @@ declare module 'oidc-provider' {
     readonly [option: string]: unknown;
   }
 
+  /** Interacción en curso (login o consentimiento) tal como la entrega `interactionDetails`. */
+  export interface InteractionDetails {
+    readonly uid: string;
+    /** Segundos Unix en que el proveedor abrió la interacción. */
+    readonly iat: number;
+    readonly params: Readonly<Record<string, unknown>>;
+    readonly prompt: {
+      readonly name: string;
+      readonly details: Readonly<Record<string, unknown>>;
+    };
+    readonly session?: { readonly accountId?: string };
+  }
+
+  export interface InteractionResult {
+    readonly login?: {
+      readonly accountId: string;
+      readonly acr?: string;
+      readonly amr?: readonly string[];
+      /** `auth_time` en segundos Unix. */
+      readonly ts?: number;
+      readonly remember?: boolean;
+    };
+    readonly consent?: { readonly grantId: string };
+    readonly error?: string;
+    readonly error_description?: string;
+  }
+
+  export interface GrantInstance {
+    addOIDCScope(scope: string): void;
+    addOIDCClaims(claims: readonly string[]): void;
+    addResourceScope(resource: string, scope: string): void;
+    save(): Promise<string>;
+  }
+
+  export interface GrantConstructor {
+    new (properties: { accountId: string; clientId: string }): GrantInstance;
+  }
+
   export default class Provider {
+    interactionDetails(
+      request: IncomingMessage,
+      response: ServerResponse,
+    ): Promise<InteractionDetails>;
+    interactionFinished(
+      request: IncomingMessage,
+      response: ServerResponse,
+      result: InteractionResult,
+      options?: { readonly mergeWithLastSubmission?: boolean },
+    ): Promise<void>;
+    readonly Grant: GrantConstructor;
     constructor(issuer: string, configuration: ProviderConfiguration);
     callback(): (request: IncomingMessage, response: ServerResponse) => void;
     readonly issuer: string;
