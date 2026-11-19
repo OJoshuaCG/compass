@@ -325,8 +325,10 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         const grantId = stringField(payload, 'grantId');
         if (grantId === null) throw new OidcStorageError('Token without grant');
         const result = await transactions.current().query<GrantOwnerRow>(
+          // `for share`: si la revocación está borrando este Grant en otra transacción, espera a que confirme y
+          // reevalúa (sin fila = revocado). Sin el bloqueo nacería un token huérfano tras el cierre de sesión.
           `select user_id, compass_session_id from oidc_payloads
-            where model = $1 and key_hash = $2 and expires_at > now()`,
+            where model = $1 and key_hash = $2 and expires_at > now() for share`,
           [GRANT_MODEL, hashKey(grantId)],
         );
         const owner = result.rows[0];
@@ -371,12 +373,12 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
     ): Promise<Date> {
       const requested = new Date(clock.now().getTime() + expiresInSeconds * 1000);
       if (compassSessionId === null) return requested;
-      const result = await transactions
-        .current()
-        .query<SessionExpiryRow>(
-          `select expires_at from sessions where id = $1 and revoked_at is null and expires_at > now()`,
-          [compassSessionId],
-        );
+      const result = await transactions.current().query<SessionExpiryRow>(
+        // `for share`: serializa con la revocación de la sesión (misma razón que el Grant en `resolveOwner`).
+        `select expires_at from sessions
+            where id = $1 and revoked_at is null and expires_at > now() for share`,
+        [compassSessionId],
+      );
       const session = result.rows[0];
       if (session === undefined) throw new OidcStorageError('Compass session is no longer alive');
       return session.expires_at < requested ? session.expires_at : requested;

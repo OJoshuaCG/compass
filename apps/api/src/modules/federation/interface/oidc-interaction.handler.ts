@@ -188,6 +188,12 @@ export class OidcInteractionHandler {
   ): Promise<void> {
     const { provider } = this.deps;
     const { request, response } = input;
+    // Igual que al iniciar sesión: sin segundo factor vigente no se emite identidad ni se concede nada, aunque
+    // la sesión lo haya perdido (`clearMfa`) con la pantalla de consentimiento ya abierta.
+    if (principal.mfaAt === null) {
+      badRequest(response);
+      return;
+    }
     const details = await provider.interactionDetails(request, response);
     const clientId = details.params['client_id'];
     if (typeof clientId !== 'string' || details.prompt.name !== 'consent') {

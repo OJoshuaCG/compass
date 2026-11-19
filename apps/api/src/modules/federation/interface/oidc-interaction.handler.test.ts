@@ -279,6 +279,7 @@ describe('OidcInteractionHandler', () => {
         { entry: external, details: details({ ...consentDetails, session: { accountId: 'x' } }) },
       ],
       ['una interacción que no pide consentimiento', { entry: external, details: details() }],
+      ['una sesión sin segundo factor', { entry: external, principal: principal({ mfaAt: null }) }],
     ] as const)('rechaza con 400 y sin conceder: %s', async (_name, scenario) => {
       const { done, response, finished, grantAll } = run({
         consentAction: 'allow',
