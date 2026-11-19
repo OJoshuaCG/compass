@@ -1,3 +1,4 @@
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { ok } from '../src/shared/kernel/index.js';
@@ -341,5 +342,110 @@ describe('PgOidcAdapter', () => {
 
   it('falla fuerte con un modelo no habilitado', () => {
     expect(() => new Adapter('DeviceCode')).toThrow('Unsupported');
+  });
+});
+
+// SENSIBLE (revisión humana): prueba de aislamiento y revocación bajo concurrencia real. Una conexión de
+// administrador abre la revocación y la deja SIN confirmar mientras el adaptador (rol de la aplicación)
+// intenta emitir. Si el adaptador no tomara `for share`, leería el estado anterior a la revocación y dejaría
+// un token huérfano que sobrevive al cierre de sesión (T11, L23).
+describe('PgOidcAdapter: carrera entre la revocación y la emisión', () => {
+  /** Tiempo que se espera para comprobar que la emisión sigue bloqueada tras la revocación sin confirmar. */
+  const BLOCKED_PROBE_MS = 400;
+
+  const settlesWithin = async (
+    pending: Promise<unknown>,
+    milliseconds: number,
+  ): Promise<boolean> => {
+    const timeout = new Promise<'timeout'>((resolve) => {
+      setTimeout(() => {
+        resolve('timeout');
+      }, milliseconds);
+    });
+    const outcome = await Promise.race([
+      pending.then(
+        () => 'settled' as const,
+        () => 'settled' as const,
+      ),
+      timeout,
+    ]);
+    return outcome === 'settled';
+  };
+
+  async function openRevoker(): Promise<Client> {
+    const revoker = new Client({ connectionString: db.adminUrl });
+    await revoker.connect();
+    await revoker.query('begin');
+    return revoker;
+  }
+
+  it('no emite un token de acceso mientras se revoca su concesión: espera, reevalúa y no deja huérfano', async () => {
+    const fixture = await seedFixture('oidc-race-grant');
+    const grantId = `grant-${crypto.randomUUID()}`;
+    await createGrant(fixture, grantId);
+    asClient();
+    const revoker = await openRevoker();
+    try {
+      await revoker.query(
+        `delete from oidc_payloads where model = 'Grant' and compass_session_id = $1`,
+        [fixture.session],
+      );
+
+      const issuing = new Adapter('AccessToken').upsert(
+        `at-${crypto.randomUUID()}`,
+        { grantId, clientId: fixture.clientId },
+        300,
+      );
+      const issuingOutcome = issuing.then(
+        () => 'issued' as const,
+        (error: unknown) => (error instanceof Error ? error.message : 'unknown'),
+      );
+
+      // La emisión debe quedar bloqueada mientras la revocación no confirme.
+      expect(await settlesWithin(issuingOutcome, BLOCKED_PROBE_MS)).toBe(false);
+      await revoker.query('commit');
+
+      expect(await issuingOutcome).toBe('Grant was revoked');
+    } finally {
+      await revoker.end();
+    }
+    const orphans = await db.admin.query(
+      `select 1 from oidc_payloads where model = 'AccessToken' and organization_id = $1`,
+      [fixture.organization],
+    );
+    expect(orphans.rows).toHaveLength(0);
+  });
+
+  it('no guarda una sesión del proveedor mientras se revoca la sesión de Compass', async () => {
+    const fixture = await seedFixture('oidc-race-session');
+    asBrowser(fixture);
+    const revoker = await openRevoker();
+    try {
+      await revoker.query(`update sessions set revoked_at = now() where id = $1`, [
+        fixture.session,
+      ]);
+
+      const saving = new Adapter('Session').upsert(
+        `sess-${crypto.randomUUID()}`,
+        { accountId: fixture.user, uid: crypto.randomUUID() },
+        3600,
+      );
+      const savingOutcome = saving.then(
+        () => 'saved' as const,
+        (error: unknown) => (error instanceof Error ? error.message : 'unknown'),
+      );
+
+      expect(await settlesWithin(savingOutcome, BLOCKED_PROBE_MS)).toBe(false);
+      await revoker.query('commit');
+
+      expect(await savingOutcome).toContain('no longer alive');
+    } finally {
+      await revoker.end();
+    }
+    const orphans = await db.admin.query(
+      `select 1 from oidc_payloads where model = 'Session' and organization_id = $1`,
+      [fixture.organization],
+    );
+    expect(orphans.rows).toHaveLength(0);
   });
 });
