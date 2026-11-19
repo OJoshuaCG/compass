@@ -95,7 +95,11 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
       provider: options.oidcProvider,
       ...(options.oidcInteraction === undefined
         ? {}
-        : { interaction: options.oidcInteraction, sessionCookieName: SESSION_COOKIE }),
+        : {
+            interaction: options.oidcInteraction,
+            sessionCookieName: SESSION_COOKIE,
+            appOrigin: options.appOrigin ?? 'http://localhost:5173',
+          }),
       staticHeaders: { 'permissions-policy': PERMISSIONS_POLICY },
     });
   }

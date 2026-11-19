@@ -121,7 +121,7 @@ export async function buildOidcWiring(
           if (client === null) return { allowed: false, isExternal: false };
           try {
             await authorizer.requireClientEntry(client.maxRank);
-            return { allowed: true, isExternal: client.isExternal };
+            return { allowed: true, isExternal: client.isExternal, clientName: client.name };
           } catch (error) {
             // La negación ya quedó auditada por el autorizador; cualquier otro error se propaga.
             if (error instanceof DomainError)

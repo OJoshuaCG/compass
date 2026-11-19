@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { COMPASS_MFA_ACR, OidcInteractionHandler } from './oidc-interaction.handler.js';
 import type {
+  ConsentAction,
   InteractionEntryCheck,
   InteractionPrincipal,
   OidcInteractionDeps,
@@ -54,6 +55,7 @@ interface Scenario {
   readonly clientOrganization?: string | null;
   readonly entry?: InteractionEntryCheck;
   readonly token?: string | undefined;
+  readonly consentAction?: ConsentAction;
 }
 
 function run(scenario: Scenario = {}) {
@@ -87,13 +89,17 @@ function run(scenario: Scenario = {}) {
   };
   const response = new FakeResponse();
   const handler = new OidcInteractionHandler(deps);
-  const done = handler.handle({
+  const input = {
     request: {} as IncomingMessage,
     response: response as unknown as ServerResponse,
     uid: 'uid-1',
     sessionToken: 'token' in scenario ? scenario.token : 'cookie-token',
     requestId: 'req-1',
-  });
+  };
+  const done =
+    scenario.consentAction === undefined
+      ? handler.handle(input)
+      : handler.handleConsent(input, scenario.consentAction);
   return { done, response, finished, checkEntry, grantAll };
 }
 
@@ -211,6 +217,78 @@ describe('OidcInteractionHandler', () => {
       await done;
       expect(response.statusCode).toBe(400);
       expect(grantAll).not.toHaveBeenCalled();
+    });
+  });
+  describe('pantalla de consentimiento', () => {
+    const consentDetails = details({
+      prompt: { name: 'consent', details: { missingOIDCScope: ['openid', 'email'] } },
+    });
+    const external: InteractionEntryCheck = {
+      allowed: true,
+      isExternal: true,
+      clientName: 'Grafana',
+    };
+
+    it('describe quién pide acceso y qué scopes, sin guardar en caché', async () => {
+      const { done, response, finished } = run({
+        consentAction: 'describe',
+        details: consentDetails,
+        entry: external,
+      });
+      await done;
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['Cache-Control']).toBe('no-store');
+      expect(JSON.parse(response.body)).toEqual({
+        clientName: 'Grafana',
+        scopes: ['openid', 'email'],
+      });
+      expect(finished).toEqual([]);
+    });
+
+    it('allow concede lo pedido y cierra la interacción', async () => {
+      const { done, finished, grantAll } = run({
+        consentAction: 'allow',
+        details: consentDetails,
+        entry: external,
+      });
+      await done;
+      expect(grantAll).toHaveBeenCalledTimes(1);
+      expect(finished).toEqual([{ consent: { grantId: 'grant-1' } }]);
+    });
+
+    it('deny termina en access_denied sin conceder', async () => {
+      const { done, finished, grantAll } = run({
+        consentAction: 'deny',
+        details: consentDetails,
+        entry: external,
+      });
+      await done;
+      expect(grantAll).not.toHaveBeenCalled();
+      expect(finished).toEqual([
+        { error: 'access_denied', error_description: expect.any(String) as string },
+      ]);
+    });
+
+    it.each([
+      ['sin sesión de Compass', { token: undefined, entry: external }],
+      ['un cliente interno', { entry: { allowed: true, isExternal: false } }],
+      ['un rango insuficiente', { entry: { allowed: false, isExternal: true } }],
+      ['otra organización', { entry: external, clientOrganization: 'org-2' }],
+      [
+        'una cuenta distinta en la sesión del proveedor',
+        { entry: external, details: details({ ...consentDetails, session: { accountId: 'x' } }) },
+      ],
+      ['una interacción que no pide consentimiento', { entry: external, details: details() }],
+    ] as const)('rechaza con 400 y sin conceder: %s', async (_name, scenario) => {
+      const { done, response, finished, grantAll } = run({
+        consentAction: 'allow',
+        details: consentDetails,
+        ...scenario,
+      });
+      await done;
+      expect(response.statusCode).toBe(400);
+      expect(grantAll).not.toHaveBeenCalled();
+      expect(finished).toEqual([]);
     });
   });
 });

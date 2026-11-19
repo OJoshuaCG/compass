@@ -33,13 +33,17 @@ export interface OidcInteractionRoute {
     requestId: string,
     work: () => void,
   ): Promise<void>;
-  handle(input: {
-    readonly request: IncomingMessage;
-    readonly response: ServerResponse;
-    readonly uid: string;
-    readonly sessionToken: string | undefined;
-    readonly requestId: string;
-  }): Promise<void>;
+  handle(input: InteractionRouteInput): Promise<void>;
+  /** Pantalla de consentimiento de un cliente externo: describe lo pedido o registra la decisión. */
+  handleConsent(input: InteractionRouteInput, action: 'describe' | 'allow' | 'deny'): Promise<void>;
+}
+
+interface InteractionRouteInput {
+  readonly request: IncomingMessage;
+  readonly response: ServerResponse;
+  readonly uid: string;
+  readonly sessionToken: string | undefined;
+  readonly requestId: string;
 }
 
 export interface MountOidcProviderOptions {
@@ -47,6 +51,8 @@ export interface MountOidcProviderOptions {
   readonly interaction?: OidcInteractionRoute;
   /** Cookie de sesión de Compass, que solo la ruta de interacción lee (la del proveedor no basta, L8). */
   readonly sessionCookieName?: string;
+  /** Origen del navegador: las decisiones de consentimiento (POST) solo se aceptan desde él. */
+  readonly appOrigin?: string;
   /** Cabeceras propias del proyecto que el `onSend` de Fastify no aplicará a una respuesta entregada. */
   readonly staticHeaders: Readonly<Record<string, string>>;
 }
@@ -97,6 +103,43 @@ export async function mountOidcProvider(
           });
         },
       );
+    }
+
+    if (interaction !== undefined && sessionCookieName !== undefined) {
+      const consentInput = (
+        request: FastifyRequest<{ Params: { uid: string } }>,
+        reply: FastifyReply,
+      ): InteractionRouteInput => ({
+        request: request.raw,
+        response: reply.raw,
+        uid: request.params.uid,
+        sessionToken: request.cookies[sessionCookieName],
+        requestId: request.id,
+      });
+      // Detalle para la pantalla de consentimiento: la cookie `_interaction` solo viaja bajo esta ruta.
+      scope.get<{ Params: { uid: string } }>(
+        `${OIDC_ROUTE_PREFIX}/interaction/:uid/consent`,
+        (request, reply) => {
+          prepare(request, reply);
+          void interaction.handleConsent(consentInput(request, reply), 'describe');
+        },
+      );
+      for (const decision of ['allow', 'deny'] as const) {
+        scope.post<{ Params: { uid: string } }>(
+          `${OIDC_ROUTE_PREFIX}/interaction/:uid/consent/${decision}`,
+          (request, reply) => {
+            prepare(request, reply);
+            // Defensa en profundidad contra CSRF además de SameSite=Lax: el origen debe ser el de la SPA.
+            if (options.appOrigin === undefined || request.headers.origin !== options.appOrigin) {
+              reply.raw.statusCode = 403;
+              reply.raw.setHeader('Content-Type', 'text/plain; charset=utf-8');
+              reply.raw.end('Forbidden');
+              return;
+            }
+            void interaction.handleConsent(consentInput(request, reply), decision);
+          },
+        );
+      }
     }
 
     if (interaction !== undefined && sessionCookieName !== undefined) {

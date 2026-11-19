@@ -29,6 +29,7 @@ const SSO_REAUTH_PATH = '/sso/reauth';
 const SSO_CONSENT_PATH = '/sso/consent';
 
 const HTTP_FOUND = 302;
+const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
 
 export interface InteractionPrincipal {
@@ -41,7 +42,17 @@ export interface InteractionPrincipal {
 export interface InteractionEntryCheck {
   readonly allowed: boolean;
   readonly isExternal: boolean;
+  /** Nombre que la persona ve en la pantalla de consentimiento. */
+  readonly clientName?: string;
 }
+
+/** Lo que la pantalla de consentimiento muestra: quién pide acceso y a qué. */
+export interface ConsentDescription {
+  readonly clientName: string;
+  readonly scopes: readonly string[];
+}
+
+export type ConsentAction = 'describe' | 'allow' | 'deny';
 
 export interface OidcInteractionDeps {
   readonly provider: InteractionProvider<IncomingMessage, ServerResponse>;
@@ -85,6 +96,14 @@ const badRequest = (response: ServerResponse): void => {
 const readPromptNames = (params: InteractionDetails['params']): readonly string[] => {
   const prompt = params['prompt'];
   return typeof prompt === 'string' ? prompt.split(' ').filter((name) => name !== '') : [];
+};
+
+/** Scopes que el cliente pide y la persona aún no concedió, como los reporta el proveedor. */
+const readMissingScopes = (details: InteractionDetails): readonly string[] => {
+  const missing = details.prompt.details['missingOIDCScope'];
+  return Array.isArray(missing)
+    ? missing.filter((scope): scope is string => typeof scope === 'string')
+    : [];
 };
 
 const readMaxAgeSeconds = (params: InteractionDetails['params']): number | null => {
@@ -131,6 +150,87 @@ export class OidcInteractionHandler {
         return Promise.resolve();
       },
     );
+  }
+
+  /**
+   * Pantalla de consentimiento de un cliente externo (ADR 0052, decisión 4A). `describe` devuelve lo que se
+   * muestra; `allow` y `deny` cierran la interacción. Solo vale con la sesión de Compass que inició la
+   * interacción y solo para un cliente externo en el rango permitido: cualquier otra cosa es un 400 genérico.
+   */
+  async handleConsent(input: InteractionRequest, action: ConsentAction): Promise<void> {
+    const { response } = input;
+    try {
+      const principal =
+        input.sessionToken === undefined || input.sessionToken === ''
+          ? null
+          : await this.deps.authenticate(input.sessionToken, input.requestId);
+      if (principal === null) {
+        badRequest(response);
+        return;
+      }
+      await this.deps.runWithAmbient(
+        {
+          organizationId: principal.organizationId,
+          compassSessionId: principal.sessionId,
+          userId: principal.userId,
+        },
+        () => this.handleConsentWithSession(input, principal, action),
+      );
+    } catch {
+      if (!response.headersSent) badRequest(response);
+    }
+  }
+
+  private async handleConsentWithSession(
+    input: InteractionRequest,
+    principal: InteractionPrincipal,
+    action: ConsentAction,
+  ): Promise<void> {
+    const { provider } = this.deps;
+    const { request, response } = input;
+    const details = await provider.interactionDetails(request, response);
+    const clientId = details.params['client_id'];
+    if (typeof clientId !== 'string' || details.prompt.name !== 'consent') {
+      badRequest(response);
+      return;
+    }
+    // La cuenta de la sesión del proveedor debe ser la de la sesión de Compass, igual que al conceder.
+    if (details.session?.accountId !== principal.userId) {
+      badRequest(response);
+      return;
+    }
+    const clientOrganizationId = await this.deps.resolveClientOrganization(clientId);
+    if (clientOrganizationId === null || clientOrganizationId !== principal.organizationId) {
+      badRequest(response);
+      return;
+    }
+    const entry = await this.deps.checkEntry(principal, clientId, input.requestId);
+    // Un cliente interno nunca pasa por esta pantalla: se concede solo. Tampoco se pregunta a quien no puede entrar.
+    if (!entry.allowed || !consentRequired(entry.isExternal)) {
+      badRequest(response);
+      return;
+    }
+
+    if (action === 'describe') {
+      const description: ConsentDescription = {
+        clientName: entry.clientName ?? clientId,
+        scopes: readMissingScopes(details),
+      };
+      response.statusCode = HTTP_OK;
+      response.setHeader('Content-Type', 'application/json; charset=utf-8');
+      response.setHeader('Cache-Control', 'no-store');
+      response.end(JSON.stringify(description));
+      return;
+    }
+    if (action === 'deny') {
+      await provider.interactionFinished(request, response, {
+        error: 'access_denied',
+        error_description: 'The person denied the request',
+      });
+      return;
+    }
+    const grantId = await provider.grantAll(details, principal.userId, clientId);
+    await provider.interactionFinished(request, response, { consent: { grantId } });
   }
 
   async handle(input: InteractionRequest): Promise<void> {

@@ -18,6 +18,7 @@ let root: EnrolledSession;
 let rootUserId: string;
 let clientId: string;
 let clientSecret: string;
+let externalClientId: string;
 
 const base64Url = (data: Buffer): string => data.toString('base64url');
 
@@ -28,13 +29,28 @@ class Browser {
   constructor(private readonly compassCookie: () => string | null) {}
 
   async get(path: string, options: { withCompass: boolean }) {
+    return this.send('GET', path, options);
+  }
+
+  async post(path: string, options: { withCompass: boolean; origin?: string }) {
+    return this.send('POST', path, options);
+  }
+
+  private async send(
+    method: 'GET' | 'POST',
+    path: string,
+    options: { withCompass: boolean; origin?: string },
+  ) {
     const cookies = [...this.jar].map(([name, value]) => `${name}=${value}`);
     const compass = this.compassCookie();
     if (options.withCompass && compass !== null) cookies.push(`${SESSION_COOKIE}=${compass}`);
     const response = await env.app.inject({
-      method: 'GET',
+      method,
       url: path,
-      headers: { ...(cookies.length > 0 ? { cookie: cookies.join('; ') } : {}) },
+      headers: {
+        ...(cookies.length > 0 ? { cookie: cookies.join('; ') } : {}),
+        ...(options.origin === undefined ? {} : { origin: options.origin }),
+      },
     });
     for (const cookie of response.cookies) {
       if (cookie.value === '') this.jar.delete(cookie.name);
@@ -90,15 +106,22 @@ beforeAll(async () => {
   expect(registered.status).toBe(201);
   clientId = registered.body.data.client.clientId;
   clientSecret = registered.body.data.clientSecret;
+
+  const external = await root.client.post<{ data: { client: { clientId: string } } }>(
+    '/sso/clients',
+    { name: 'Partner Portal', redirectUris: [REDIRECT_URI], isExternal: true },
+  );
+  expect(external.status).toBe(201);
+  externalClientId = external.body.data.client.clientId;
 });
 
 afterAll(async () => {
   await env.close();
 });
 
-const authorizationUrl = (codeChallenge: string): string => {
+const authorizationUrl = (codeChallenge: string, forClientId: string = clientId): string => {
   const query = new URLSearchParams({
-    client_id: clientId,
+    client_id: forClientId,
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
     scope: 'openid profile email',
@@ -243,5 +266,87 @@ describe('OIDC authorization code flow', () => {
     const first = await exchange();
     expect(first.statusCode, first.body).toBe(200);
     expect((await exchange()).statusCode).toBe(400);
+  });
+});
+
+describe('OIDC consent screen for external clients', () => {
+  /** Recorre autorización y login hasta que el proveedor manda a la pantalla de consentimiento. */
+  const reachConsent = async (browser: Browser) => {
+    const authorize = await browser.get(authorizationUrl('x'.repeat(43), externalClientId), {
+      withCompass: false,
+    });
+    const login = await browser.get(locationPath(authorize.headers['location']), {
+      withCompass: true,
+    });
+    const consentStep = await browser.get(locationPath(login.headers['location']), {
+      withCompass: true,
+    });
+    const prompt = await browser.get(locationPath(consentStep.headers['location']), {
+      withCompass: true,
+    });
+    expect(prompt.statusCode).toBe(302);
+    const target = new URL(locationPath(prompt.headers['location']), 'http://app.test');
+    expect(target.pathname).toBe('/sso/consent');
+    const uid = target.searchParams.get('uid') ?? '';
+    return { uid, consentPath: `/oidc/interaction/${uid}/consent` };
+  };
+
+  it('describes the request, and allow ends with an authorization code', async () => {
+    const browser = new Browser(() => root.client.cookie);
+    const { consentPath } = await reachConsent(browser);
+
+    const description = await browser.get(consentPath, { withCompass: true });
+    expect(description.statusCode, description.body).toBe(200);
+    expect(description.headers['cache-control']).toBe('no-store');
+    expect(description.json<{ clientName: string; scopes: string[] }>()).toEqual({
+      clientName: 'Partner Portal',
+      scopes: expect.arrayContaining(['openid']) as string[],
+    });
+
+    const allow = await browser.post(`${consentPath}/allow`, {
+      withCompass: true,
+      origin: 'http://app.test',
+    });
+    expect(allow.statusCode, allow.body).toBe(303);
+    const resume = await browser.get(locationPath(allow.headers['location']), {
+      withCompass: true,
+    });
+    expect(resume.statusCode).toBe(303);
+    const callback = new URL(String(resume.headers['location']));
+    expect(callback.searchParams.get('code')).not.toBeNull();
+  });
+
+  it('deny returns access_denied to the client without a code', async () => {
+    const browser = new Browser(() => root.client.cookie);
+    const { consentPath } = await reachConsent(browser);
+
+    const deny = await browser.post(`${consentPath}/deny`, {
+      withCompass: true,
+      origin: 'http://app.test',
+    });
+    expect(deny.statusCode, deny.body).toBe(303);
+    const resume = await browser.get(locationPath(deny.headers['location']), {
+      withCompass: true,
+    });
+    const callback = new URL(String(resume.headers['location']));
+    expect(callback.searchParams.get('error')).toBe('access_denied');
+    expect(callback.searchParams.get('code')).toBeNull();
+  });
+
+  it('refuses a decision from a foreign origin or without the Compass session', async () => {
+    const browser = new Browser(() => root.client.cookie);
+    const { consentPath } = await reachConsent(browser);
+
+    const foreign = await browser.post(`${consentPath}/allow`, {
+      withCompass: true,
+      origin: 'http://evil.test',
+    });
+    const anonymous = await browser.post(`${consentPath}/allow`, {
+      withCompass: false,
+      origin: 'http://app.test',
+    });
+
+    expect(foreign.statusCode).toBe(403);
+    expect(anonymous.statusCode).toBe(400);
   });
 });
