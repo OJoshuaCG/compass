@@ -26,3 +26,4 @@ export { SigningKeyService } from './application/signing-key-service.js';
 export type { SigningKeySet } from './application/signing-key-service.js';
 export { NodeSigningKeyGenerator } from './infrastructure/node-signing-key-generator.js';
 export { PgSigningKeyStore } from './infrastructure/pg-signing-key-store.js';
+export { NodeJwtSigner } from './infrastructure/node-jwt-signer.js';

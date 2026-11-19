@@ -23,6 +23,7 @@ import {
   DataKeyResolver,
   DekCache,
   NodeCryptoPrimitives,
+  NodeJwtSigner,
   NodeSigningKeyGenerator,
   PgDataKeyRepository,
   PgSigningKeyStore,
@@ -36,9 +37,13 @@ import { buildOidcWiring } from './oidc-wiring.js';
 import type { OidcWiringSettings } from './oidc-wiring.js';
 import {
   ManageOidcClients,
+  BACKCHANNEL_LOGOUT_EVENT_TYPE,
+  GuardedBackchannelLogoutSender,
+  PgBackchannelLogoutQueue,
   PgGrantStore,
   PgOidcClientStore,
   RevokeGrants,
+  SendBackchannelLogout,
 } from '../modules/federation/index.js';
 import { IdempotencyService, PgIdempotencyStore } from '../modules/idempotency/index.js';
 import { PgOrganizationLister, RotateDataKey } from '../modules/maintenance/index.js';
@@ -210,6 +215,11 @@ export interface ContainerOptions {
   readonly outboxPollIntervalMs?: number;
   /** `FIRST_SETUP_TOKEN` (ADR 0046): sin valor, la ruta de configuración inicial queda cerrada. */
   readonly firstSetupToken?: string;
+  /**
+   * Redes privadas (IP o CIDR) a las que pueden avisar los clientes OIDC marcados con
+   * `allowPrivateNetworkBackchannel`; ver `OIDC_BACKCHANNEL_PRIVATE_NETWORKS`. Vacío: ninguna.
+   */
+  readonly oidcBackchannelPrivateNetworks?: readonly string[];
 }
 
 /** Pausa por defecto entre pasadas del publicador; la configuración de la API la sobrescribe. */
@@ -308,7 +318,7 @@ export function buildContainer(options: ContainerOptions) {
   // identity
   const lookup = new PgPreAuthLookup(pool);
   // Cerrar o revocar una sesión borra sus concesiones OIDC y lo audita en la misma transacción (ADR 0051 §3).
-  const revokeGrants = new RevokeGrants(new PgGrantStore(uow));
+  const revokeGrants = new RevokeGrants(new PgGrantStore(uow), new PgBackchannelLogoutQueue(uow));
   const sessionRepository = new GrantRevokingSessionRepository({
     inner: new PgSessionRepository(uow),
     grants: revokeGrants,
@@ -363,6 +373,34 @@ export function buildContainer(options: ContainerOptions) {
   // `outboxPoller.start()`. Un tipo sin manejador espera pendiente, sin gastar intentos, hasta que se registre.
   const outboxHandlers = new OutboxHandlerRegistry();
   const outboxDeliveryReceipts = new PgOutboxDeliveryReceipts(uow, uow);
+  // Claves de firma del emisor OIDC: las usan el proveedor (id token) y el aviso de logout por canal trasero.
+  const signingKeys = new SigningKeyService({
+    store: new PgSigningKeyStore(pool),
+    generator: new NodeSigningKeyGenerator(),
+    envelope: new PlatformEnvelope({ kms, primitives }),
+  });
+  // Aviso de logout a las aplicaciones (ADR 0052): la dirección la escribe una persona de la organización,
+  // así que pasa por guardias de red. El segundo guardia admite solo las redes privadas del despliegue.
+  const backchannelPrivateGuard = new NetworkGuard(async (host) => {
+    const records = await resolveDnsRecords(host, { all: true });
+    return records.map((record) => record.address);
+  }, options.oidcBackchannelPrivateNetworks ?? []);
+  const jwtSigner = new NodeJwtSigner(signingKeys);
+  const sendBackchannelLogout = new SendBackchannelLogout({
+    issuer: options.webauthn.origin,
+    clients: new PgOidcClientStore(uow),
+    signer: { sign: (claims) => jwtSigner.sign(claims, 'logout+jwt') },
+    sender: new GuardedBackchannelLogoutSender(
+      new GuardedHttpsClient(outboundHostGuard, createNodeHttpsTransport()),
+      new GuardedHttpsClient(backchannelPrivateGuard, createNodeHttpsTransport()),
+    ),
+    deliveries: outboxDeliveryReceipts,
+    ids,
+    clock,
+  });
+  outboxHandlers.register(BACKCHANNEL_LOGOUT_EVENT_TYPE, (event) =>
+    sendBackchannelLogout.handle({ eventId: event.id, payload: event.payload }),
+  );
   // Aviso a la Raíz por superar el tope de revelaciones (ADR 0031, R2a). Usa el puerto de correo existente.
   const notifyRevealLimitExceeded = new NotifyRevealLimitExceeded({
     directory,
@@ -834,11 +872,7 @@ export function buildContainer(options: ContainerOptions) {
           sessions,
           authorizer,
           directory,
-          signingKeys: new SigningKeyService({
-            store: new PgSigningKeyStore(pool),
-            generator: new NodeSigningKeyGenerator(),
-            envelope: new PlatformEnvelope({ kms, primitives }),
-          }),
+          signingKeys,
         },
         settings,
       ),

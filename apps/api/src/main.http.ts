@@ -70,6 +70,7 @@ const container = buildContainer({
       : new LogMailer(logger, config.APP_ORIGIN, config.NODE_ENV),
   logger,
   outboxPollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
+  oidcBackchannelPrivateNetworks: config.OIDC_BACKCHANNEL_PRIVATE_NETWORKS,
   ...(config.FIRST_SETUP_TOKEN === undefined ? {} : { firstSetupToken: config.FIRST_SETUP_TOKEN }),
 });
 // Proveedor OIDC (SSO): solo con `OIDC_ENABLED=true`. Falla al arrancar si las claves de firma no abren.

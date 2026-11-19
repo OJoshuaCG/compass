@@ -94,6 +94,20 @@ const envSchema = z
       ),
     /** Algoritmo de firma de los id token; debe coincidir con el de la clave activa (ADR 0052, L9). */
     OIDC_ID_TOKEN_ALG: z.enum(['ES256', 'RS256']).default('ES256'),
+    /**
+     * Redes privadas (IP o CIDR, separadas por comas) a las que pueden avisar de un logout los clientes OIDC
+     * marcados `allowPrivateNetworkBackchannel`. Vacío por defecto: solo direcciones públicas. Bucle local,
+     * link-local y multicast no se permiten aunque aparezcan aquí. Cada entrada se valida en `NetworkGuard`.
+     */
+    OIDC_BACKCHANNEL_PRIVATE_NETWORKS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter((entry) => entry !== ''),
+      ),
     /** Pausa entre pasadas del publicador. Mínimo 500 ms para no saturar la base; máximo 60 s para acotar la latencia. */
     OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(500).max(60000).default(5000),
   })

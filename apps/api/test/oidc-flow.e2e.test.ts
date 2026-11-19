@@ -391,6 +391,16 @@ describe('OIDC revocation cascade', () => {
     );
     expect(Number(audited.rows[0]?.n)).toBeGreaterThan(0);
 
+    // Y deja encolado el aviso de logout a la aplicación, con solo identificadores (nunca el token firmado).
+    const queued = await env.adminPool.query<{ payload: Record<string, unknown> }>(
+      `select payload from outbox_events where type = 'oidc.backchannel_logout'`,
+    );
+    expect(queued.rows.length).toBeGreaterThan(0);
+    for (const row of queued.rows) {
+      expect(Object.keys(row.payload).sort()).toEqual(['clientId', 'sid']);
+    }
+    expect(queued.rows.some((row) => row.payload['clientId'] === clientId)).toBe(true);
+
     const exchange = await env.app.inject({
       method: 'POST',
       url: '/oidc/token',

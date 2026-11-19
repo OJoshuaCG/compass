@@ -17,3 +17,9 @@ export { createOidcProvider } from './infrastructure/oidc/create-oidc-provider.j
 export { createInteractionProvider } from './infrastructure/oidc/interaction-provider.js';
 export { OidcInteractionHandler } from './interface/oidc-interaction.handler.js';
 export type { InteractionPrincipal } from './interface/oidc-interaction.handler.js';
+export { SendBackchannelLogout } from './application/send-backchannel-logout.js';
+export type { BackchannelLogoutDeliveries } from './application/send-backchannel-logout.js';
+export type { LogoutTokenSigner } from './application/ports/logout-token-signer.js';
+export { BACKCHANNEL_LOGOUT_EVENT_TYPE } from './domain/backchannel-logout.js';
+export { PgBackchannelLogoutQueue } from './infrastructure/pg-backchannel-logout-queue.js';
+export { GuardedBackchannelLogoutSender } from './infrastructure/guarded-backchannel-logout-sender.js';
