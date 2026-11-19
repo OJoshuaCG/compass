@@ -128,9 +128,9 @@ describe('integrations: structure', () => {
 
   it('keeps status and archived_at consistent', async () => {
     expect(await integrationOutcome(a, { status: 'archived' })).toBe(CHECK_VIOLATION);
-    expect(await integrationOutcome(a, { status: 'active', archivedAt: new Date().toISOString() })).toBe(
-      CHECK_VIOLATION,
-    );
+    expect(
+      await integrationOutcome(a, { status: 'active', archivedAt: new Date().toISOString() }),
+    ).toBe(CHECK_VIOLATION);
     expect(
       await integrationOutcome(a, { status: 'archived', archivedAt: new Date().toISOString() }),
     ).toBe(NO_FAILURE);
@@ -203,7 +203,12 @@ describe('integrations: privileges and isolation', () => {
       expect(outcome, column).toBe(NO_PRIVILEGE);
     }
     expect(
-      await sqlState(app, "update integrations set name = 'Renombrada' where id = $1", [integrationId], a.orgId),
+      await sqlState(
+        app,
+        "update integrations set name = 'Renombrada' where id = $1",
+        [integrationId],
+        a.orgId,
+      ),
     ).toBe(NO_FAILURE);
   });
 

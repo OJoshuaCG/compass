@@ -349,9 +349,7 @@ export class SecondFactor {
       }
       await this.markReauthenticated(sessions, sessionId, clock.now(), target);
       await this.clearFailures(user.id);
-      await audit.record(
-        this.event(REAUTH_PASSKEY_ACTION[target], 'success', user.id, requestId),
-      );
+      await audit.record(this.event(REAUTH_PASSKEY_ACTION[target], 'success', user.id, requestId));
       return ok(undefined);
     });
   }

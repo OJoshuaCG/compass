@@ -1,4 +1,8 @@
-import { isValidRevealReason, REVEAL_REASON_MAX_LENGTH, REVEAL_REASON_MIN_LENGTH } from '@iam/contracts';
+import {
+  isValidRevealReason,
+  REVEAL_REASON_MAX_LENGTH,
+  REVEAL_REASON_MIN_LENGTH,
+} from '@iam/contracts';
 
 const MILLISECONDS_PER_SECOND = 1000;
 
