@@ -16,6 +16,10 @@ export class RevokeGrants {
     return this.store.deleteBySessions(sessionIds);
   }
 
+  async forUserExceptSession(userId: string, keepSessionId: string): Promise<number> {
+    return this.store.deleteByUserExceptSession(userId, keepSessionId);
+  }
+
   async forUser(userId: string): Promise<number> {
     return this.store.deleteByUser(userId);
   }

@@ -5,6 +5,8 @@
 export interface GrantStore {
   /** Borra todo lo ligado a esas sesiones de Compass. Devuelve cuántas filas se borraron. */
   deleteBySessions(sessionIds: readonly string[]): Promise<number>;
+  /** Borra lo de la persona ligado a cualquier sesión de Compass salvo la indicada (cambio de contraseña). */
+  deleteByUserExceptSession(userId: string, keepSessionId: string): Promise<number>;
   /** Borra todo lo de una persona, tenga o no sesión viva (desactivar o suspender, ADR 0051 §3). */
   deleteByUser(userId: string): Promise<number>;
 }

@@ -22,6 +22,17 @@ export class PgGrantStore implements GrantStore {
     return result.rowCount ?? 0;
   }
 
+  async deleteByUserExceptSession(userId: string, keepSessionId: string): Promise<number> {
+    // `is distinct from` conserva también las filas sin sesión ligada: no pertenecen a «la otra sesión».
+    const result = await this.transactions
+      .current()
+      .query(
+        `delete from oidc_payloads where user_id = $1 and compass_session_id is distinct from $2::uuid`,
+        [userId, keepSessionId],
+      );
+    return result.rowCount ?? 0;
+  }
+
   async deleteByUser(userId: string): Promise<number> {
     const result = await this.transactions
       .current()

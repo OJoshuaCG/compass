@@ -31,6 +31,7 @@ import {
   SigningKeyService,
 } from '../modules/crypto/index.js';
 import type { KeyManagementPort } from '../modules/crypto/index.js';
+import { GrantRevokingSessionRepository } from './grant-revoking-session-repository.js';
 import { buildOidcWiring } from './oidc-wiring.js';
 import type { OidcWiringSettings } from './oidc-wiring.js';
 import {
@@ -306,7 +307,14 @@ export function buildContainer(options: ContainerOptions) {
 
   // identity
   const lookup = new PgPreAuthLookup(pool);
-  const sessionRepository = new PgSessionRepository(uow);
+  // Cerrar o revocar una sesión borra sus concesiones OIDC y lo audita en la misma transacción (ADR 0051 §3).
+  const revokeGrants = new RevokeGrants(new PgGrantStore(uow));
+  const sessionRepository = new GrantRevokingSessionRepository({
+    inner: new PgSessionRepository(uow),
+    grants: revokeGrants,
+    audit,
+    context: requestContext,
+  });
   const credentials = new PgCredentialRepository(uow);
   // Transferencia de la Raíz: el cierre (a mano o por el proceso periódico) comparte este ensamblaje.
   const rootTransferStore = new PgRootTransferStore(uow);
@@ -834,8 +842,7 @@ export function buildContainer(options: ContainerOptions) {
         },
         settings,
       ),
-    // Lo consumen las cascadas de revocación (ADR 0051 §3); se cablea en la tarea T9.
-    revokeGrants: new RevokeGrants(new PgGrantStore(uow)),
+    revokeGrants,
     manageGroups: new ManageGroups({
       context: requestContext,
       uow,

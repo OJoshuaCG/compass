@@ -350,3 +350,61 @@ describe('OIDC consent screen for external clients', () => {
     expect(anonymous.statusCode).toBe(400);
   });
 });
+
+describe('OIDC revocation cascade', () => {
+  it('closing the Compass session makes an issued authorization code unusable (ADR 0051 §3)', async () => {
+    const browser = new Browser(() => root.client.cookie);
+    const verifier = base64Url(randomBytes(32));
+    const challenge = base64Url(createHash('sha256').update(verifier).digest());
+    const authorize = await browser.get(authorizationUrl(challenge), { withCompass: false });
+    const login = await browser.get(locationPath(authorize.headers['location']), {
+      withCompass: true,
+    });
+    const consentStep = await browser.get(locationPath(login.headers['location']), {
+      withCompass: true,
+    });
+    const consent = await browser.get(locationPath(consentStep.headers['location']), {
+      withCompass: true,
+    });
+    const resume = await browser.get(locationPath(consent.headers['location']), {
+      withCompass: true,
+    });
+    const code = new URL(String(resume.headers['location'])).searchParams.get('code') ?? '';
+    expect(code).not.toBe('');
+
+    const rowsFor = async (): Promise<number> => {
+      const result = await env.adminPool.query<{ n: string }>(
+        `select count(*) as n from oidc_payloads where user_id = $1`,
+        [rootUserId],
+      );
+      return Number(result.rows[0]?.n ?? '0');
+    };
+    expect(await rowsFor()).toBeGreaterThan(0);
+
+    // Es la última prueba del archivo: cerrar la sesión de la Raíz no afecta a las anteriores.
+    expect((await root.client.post('/auth/logout', {})).status).toBe(204);
+
+    // La cascada borra las filas de verdad (no basta con que ya no valgan) y deja rastro auditado.
+    expect(await rowsFor()).toBe(0);
+    const audited = await env.adminPool.query<{ n: string }>(
+      `select count(*) as n from audit_events where action = 'oidc.grants_revoked'`,
+    );
+    expect(Number(audited.rows[0]?.n)).toBeGreaterThan(0);
+
+    const exchange = await env.app.inject({
+      method: 'POST',
+      url: '/oidc/token',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+      },
+      payload: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: REDIRECT_URI,
+        code_verifier: verifier,
+      }).toString(),
+    });
+    expect(exchange.statusCode, exchange.body).toBe(400);
+  });
+});

@@ -4,7 +4,11 @@ import { RevokeGrants } from './revoke-grants.js';
 
 describe('RevokeGrants', () => {
   it('no toca la base si no hay sesiones', async () => {
-    const store = { deleteBySessions: vi.fn(), deleteByUser: vi.fn() };
+    const store = {
+      deleteBySessions: vi.fn(),
+      deleteByUser: vi.fn(),
+      deleteByUserExceptSession: vi.fn(),
+    };
     expect(await new RevokeGrants(store).forSessions([])).toBe(0);
     expect(store.deleteBySessions).not.toHaveBeenCalled();
   });
@@ -13,11 +17,14 @@ describe('RevokeGrants', () => {
     const store = {
       deleteBySessions: vi.fn(() => Promise.resolve(3)),
       deleteByUser: vi.fn(() => Promise.resolve(5)),
+      deleteByUserExceptSession: vi.fn(() => Promise.resolve(2)),
     };
     const revoke = new RevokeGrants(store);
     expect(await revoke.forSessions(['s1', 's2'])).toBe(3);
     expect(store.deleteBySessions).toHaveBeenCalledWith(['s1', 's2']);
     expect(await revoke.forUser('u1')).toBe(5);
     expect(store.deleteByUser).toHaveBeenCalledWith('u1');
+    expect(await revoke.forUserExceptSession('u1', 's9')).toBe(2);
+    expect(store.deleteByUserExceptSession).toHaveBeenCalledWith('u1', 's9');
   });
 });
