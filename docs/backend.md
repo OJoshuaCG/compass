@@ -35,7 +35,7 @@ Matices para que no se vuelva ceremonia:
 
 - **CQRS ligero** (plan): los _comandos_ pasan por el dominio; las _consultas_ de listado leen proyecciones SQL directas, siempre con el filtro de acceso.
 - **Un puerto existe cuando hay una razón real** (infraestructura externa o algo que se simula en pruebas). No se crean interfaces para clases internas con una sola implementación.
-- Los módulos "futuros" (`federation`, `broker`) nacen como carpetas con puertos y sin adaptadores, como indica el plan.
+- Los módulos "futuros" (`broker`) nacen como carpetas con puertos y sin adaptadores, como indica el plan. `federation` ya tiene adaptadores (§3.9).
 
 ### 3.2 Capas y regla de dependencia
 
@@ -187,6 +187,16 @@ El guard de permisos como "primera barrera" (§7.2) **no está implementado**: h
 2. **Previsualizar.** La persona invitada abre el enlace y consulta, con el token en el cuerpo de una petición (nunca en la URL), el correo y el rango. Una invitación inexistente, vencida, usada o revocada responde igual.
 3. **Aceptar.** Se valida la contraseña (mínimo 12 caracteres, sin reglas de composición, rechazo de comunes y de datos personales). En una transacción se bloquea la invitación, se revalida que siga vigente, que quien invitó siga activo y que todavía pueda otorgar los roles; se crea el usuario como invitado con quien invita como creador y responsable; se asigna la plantilla de su rango más los roles pedidos; se marca la invitación como usada y se emite una sesión parcial. Cualquier falla se ve igual que una invitación inválida.
 4. **Segundo factor.** Con la sesión parcial, la persona pide el secreto (se guarda cifrado y sin verificar), confirma con un código, el sistema emite 10 códigos de recuperación (solo se guarda su hash), activa a la persona y marca la sesión con el segundo factor cumplido.
+
+### 3.9 Módulo `federation`: proveedor OIDC (fase 2)
+
+Compass es un proveedor OpenID Connect (ADR 0050 a 0052; seguimiento en `odd/tasks/phase-2-oidc-sso.md`). El paquete `oidc-provider` (Koa) se monta dentro de Fastify en un ámbito encapsulado bajo `/oidc`, solo con `OIDC_ENABLED=true`.
+
+- **Almacenamiento**: un adaptador propio guarda todo en `oidc_payloads` (con aislamiento por filas) y los clientes en `oidc_clients`. Las claves de firma viven en `oidc_signing_keys`, sin organización, y solo se alcanzan por funciones `auth.*`; la clave privada va cifrada por `PlatformEnvelope`.
+- **Interacciones**: el inicio de sesión reutiliza la sesión de Compass (cookie) y su segundo factor; si hace falta volver a verificar a la persona (`prompt=login` o `max_age`), pasa por `/sso/reauth`. Solo los clientes marcados como externos piden consentimiento (`/sso/consent`); las decisiones exigen `Origin` igual a `APP_ORIGIN`.
+- **Una sola sesión** (ADR 0051): cada concesión nace ligada a una sesión de Compass y su vencimiento se recorta al de ella. Cerrar o revocar esa sesión, cambiar la contraseña, desactivar o suspender a la persona borra sus concesiones en la misma transacción y lo audita (`oidc.grants_revoked`); lo hace un decorador del repositorio de sesiones en la raíz de composición. Leer un token de acceso o de refresco cuenta como actividad de la sesión, sin mover el tope absoluto de 12 horas.
+- **Aviso de cierre de sesión por canal trasero**: al revocar se encola en el outbox un evento `oidc.backchannel_logout` por cada aplicación con sesión abierta (solo `clientId` y `sid`). El manejador firma el `logout_token` en cada intento (`NodeJwtSigner`, módulo de criptografía) y lo envía con un cliente HTTPS con guardia SSRF: solo `https`, sin redirecciones y con el host validado. Los clientes marcados con red privada permitida usan un segundo guardia limitado por `OIDC_BACKCHANNEL_PRIVATE_NETWORKS` (vacío por defecto). Las fallas de red, 408, 429 y 5xx se reintentan; el resto va a cuarentena.
+- **Qué no hace la biblioteca**: no se usa su envío de logout (se saltaría el guardia SSRF ni el outbox).
 
 ## 4. Dominio
 
@@ -579,5 +589,5 @@ Pendientes de fases posteriores:
 - [x] **Vistas guardadas de «Mis cuentas»** (`odd/tasks/vault-search.md`, T5): tabla `saved_account_views` (migración 0036) y rutas `GET`, `POST` y `DELETE /account-views/:id` (`ManageSavedViews`). Cada persona guarda hasta `MAX_SAVED_VIEWS` (10) búsquedas propias (texto y/o filtro rápido); el nombre es único por persona sin distinguir mayúsculas. La política de filas filtra solo por organización y el aislamiento por persona va en el SQL (`where user_id = $actor`, el borrado ajeno responde 404). El máximo se serializa con `pg_advisory_xact_lock` por persona, porque contar e insertar sin candado permitía rebasarlo con altas simultáneas. Una vista guarda criterios, no resultados: al aplicarla el listado vuelve a pasar por el acceso efectivo. No escribe auditoría (preferencia personal). El texto de búsqueda se guarda en claro en la vista de su dueña. Sin prueba con una segunda organización.
 - [ ] **Generador de OpenAPI** desde Zod: aprobar la dependencia.
 - [ ] **Versión de PostgreSQL**: decidido pasar a la 18 (2026-10-28); las pruebas aún usan 17. Falta subir la imagen y verificar las migraciones. Los UUIDv7 los sigue generando la función propia hasta que se decida usar la nativa.
-- [ ] **`oidc-provider` sobre Fastify** (fase 2): está basado en Koa; validar con un _spike_ antes de comprometerse.
+- [x] **`oidc-provider` sobre Fastify** (fase 2): validado con un _spike_ y montado en un ámbito encapsulado (§3.9).
 - [ ] **Trabajos en segundo plano multi-organización**: se necesita un camino para listar organizaciones sin contexto (función de listado propuesta en `docs/database.md` §7.5).
