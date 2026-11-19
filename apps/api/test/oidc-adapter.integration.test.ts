@@ -144,6 +144,33 @@ describe('PgOidcAdapter', () => {
     expect(row.rows[0]).toEqual({ user_id: fixture.user, compass_session_id: fixture.session });
   });
 
+  it('leer un token de acceso cuenta como actividad de la sesión sin mover su vencimiento (S12)', async () => {
+    const fixture = await seedFixture('oidc-activity');
+    const grantId = `grant-${crypto.randomUUID()}`;
+    await createGrant(fixture, grantId);
+    asClient();
+    const tokenId = `at-${crypto.randomUUID()}`;
+    await new Adapter('AccessToken').upsert(tokenId, { grantId, clientId: fixture.clientId }, 300);
+    await db.admin.query(
+      `update sessions set last_seen_at = now() - interval '20 minutes' where id = $1`,
+      [fixture.session],
+    );
+    const before = await db.admin.query<{ expires_at: Date }>(
+      `select expires_at from sessions where id = $1`,
+      [fixture.session],
+    );
+
+    await new Adapter('AccessToken').find(tokenId);
+
+    const after = await db.admin.query<{ idle_seconds: string; expires_at: Date }>(
+      `select extract(epoch from now() - last_seen_at) as idle_seconds, expires_at
+         from sessions where id = $1`,
+      [fixture.session],
+    );
+    expect(Number(after.rows[0]?.idle_seconds)).toBeLessThan(60);
+    expect(after.rows[0]?.expires_at).toEqual(before.rows[0]?.expires_at);
+  });
+
   it('recorta el vencimiento al de la sesión de Compass', async () => {
     const fixture = await seedFixture('oidc-clip', '10 minutes');
     const grantId = `grant-${crypto.randomUUID()}`;

@@ -40,6 +40,11 @@ const STORED_MODELS: readonly string[] = [
 /** Modelos que nacen de una concesión: heredan persona y sesión de su Grant. */
 const GRANT_BOUND_MODELS: readonly string[] = ['AccessToken', 'AuthorizationCode', 'RefreshToken'];
 
+/** Modelos cuya lectura indica que una aplicación está en uso (userinfo y refresco). */
+const APPLICATION_ACTIVITY_MODELS: readonly string[] = ['AccessToken', 'RefreshToken'];
+/** Igual que `SESSION_TOUCH_INTERVAL_MS` de identidad (60 s): evita una escritura por cada lectura. */
+const SESSION_ACTIVITY_MIN_INTERVAL_SECONDS = 60;
+
 export interface PgOidcAdapterDeps {
   readonly scope: TenantScope;
   readonly transactions: TransactionProvider;
@@ -134,6 +139,7 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         );
         const row = result.rows[0];
         if (row === undefined || !this.sessionMatchesCompassSession(row)) return undefined;
+        await this.recordApplicationActivity(row.compass_session_id);
         return toProviderPayload(row, id);
       });
     }
@@ -329,6 +335,22 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         return { userId: owner.user_id, compassSessionId: owner.compass_session_id };
       }
       return { userId: null, compassSessionId: null };
+    }
+
+    /**
+     * Usar una aplicación cuenta como actividad de la sesión de Compass (ADR 0051 D1, S12): un token de
+     * acceso o de refresco que se lee mantiene viva la sesión ligada. Solo mueve `last_seen_at`; `expires_at`
+     * no cambia, así que el tope absoluto de 12 horas sigue mandando. Una escritura por minuto como mucho.
+     */
+    private async recordApplicationActivity(compassSessionId: string | null): Promise<void> {
+      if (compassSessionId === null || !APPLICATION_ACTIVITY_MODELS.includes(this.model)) return;
+      const now = clock.now();
+      await transactions.current().query(
+        `update sessions set last_seen_at = $2
+          where id = $1 and revoked_at is null and expires_at > $2
+            and last_seen_at <= $2 - make_interval(secs => $3)`,
+        [compassSessionId, now, SESSION_ACTIVITY_MIN_INTERVAL_SECONDS],
+      );
     }
 
     private async compassSessionIsAlive(compassSessionId: string | null): Promise<boolean> {
