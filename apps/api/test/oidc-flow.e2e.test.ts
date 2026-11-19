@@ -269,6 +269,33 @@ describe('OIDC authorization code flow', () => {
   });
 });
 
+describe('OIDC forced reauthentication (max_age)', () => {
+  it('sends a stale second factor to /sso/reauth and completes after renewing it', async () => {
+    const browser = new Browser(() => root.client.cookie);
+    const url = `${authorizationUrl('x'.repeat(43))}&max_age=60`;
+    // El reloj de la prueba controla la antigüedad del segundo factor de la sesión de Compass.
+    env.clock.advance(120_000);
+
+    const authorize = await browser.get(url, { withCompass: false });
+    const interactionPath = locationPath(authorize.headers['location']);
+    const stale = await browser.get(interactionPath, { withCompass: true });
+
+    expect(stale.statusCode, stale.body).toBe(302);
+    const target = new URL(locationPath(stale.headers['location']), 'http://app.test');
+    expect(target.pathname).toBe('/sso/reauth');
+    expect(target.searchParams.get('uid')).toBe(interactionPath.split('/').pop());
+
+    const renewed = await root.client.post('/auth/sso-reauth', {
+      code: freshTotp(root.secret, env.clock),
+    });
+    expect(renewed.status).toBe(204);
+
+    const fresh = await browser.get(interactionPath, { withCompass: true });
+    expect(fresh.statusCode, fresh.body).toBe(303);
+    expect(locationPath(fresh.headers['location'])).not.toContain('/sso/reauth');
+  });
+});
+
 describe('OIDC consent screen for external clients', () => {
   /** Recorre autorización y login hasta que el proveedor manda a la pantalla de consentimiento. */
   const reachConsent = async (browser: Browser) => {
