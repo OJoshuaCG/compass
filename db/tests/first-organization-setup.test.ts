@@ -125,8 +125,8 @@ describe('migration 0028: concurrent calls', () => {
         clients.map((client, index) =>
           sqlState(client, 'select auth.create_first_organization($1, $2, $3)', [
             randomUUID(),
-            `Race ${index}`,
-            `race-${index}`,
+            `Race ${String(index)}`,
+            `race-${String(index)}`,
           ]),
         ),
       );

@@ -51,7 +51,7 @@ async function expectNoHorizontalPageScroll(page: Page, screenName: string): Pro
         .slice(0, 6)
         .map((element) => {
           const box = element.getBoundingClientRect();
-          return `${element.tagName.toLowerCase()}.${element.className.toString().slice(0, 60)} right=${String(Math.round(box.right))}`;
+          return `${element.tagName.toLowerCase()}.${(element.getAttribute('class') ?? '').slice(0, 60)} right=${String(Math.round(box.right))}`;
         }),
     };
   });
