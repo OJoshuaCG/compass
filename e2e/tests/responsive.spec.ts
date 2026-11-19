@@ -201,6 +201,26 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
     await page.setViewportSize(PHONE_VIEWPORT);
   });
 
+  test('the SSO invalid-request state fits at phone, tablet and landscape widths', async () => {
+    test.setTimeout(120_000);
+    // Sin `uid` ambas pantallas muestran el estado de solicitud inválida: es alcanzable sin pila OIDC.
+    // El flujo con solicitud real (formulario TOTP, consentimiento) no se puede montar sin un proveedor.
+    const viewports = [{ name: 'phone 375', ...PHONE_VIEWPORT }, ...OTHER_VIEWPORTS];
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      for (const route of ['/sso/reauth', '/sso/consent']) {
+        await page.goto(route);
+        await expect(
+          page.getByRole('heading', { level: 1, name: 'This request is not valid' }),
+        ).toBeVisible();
+        const screenName = `${route} invalid request (${viewport.name})`;
+        await expectNoHorizontalPageScroll(page, screenName);
+        await expectTouchTargetsLargeEnough(page, screenName);
+      }
+    }
+    await page.setViewportSize(PHONE_VIEWPORT);
+  });
+
   test('the menu opens as a drawer over the content, navigates and closes', async () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
