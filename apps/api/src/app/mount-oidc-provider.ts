@@ -147,13 +147,19 @@ export async function mountOidcProvider(
       // sesión de Compass de quien navega (L8): el navegador envía la cookie en esta navegación de primer nivel.
       scope.all(`${OIDC_ROUTE_PREFIX}/auth/*`, (request, reply) => {
         prepare(request, reply);
-        void interaction.runUnderCompassSession(
-          request.cookies[sessionCookieName],
-          request.id,
-          () => {
+        interaction
+          .runUnderCompassSession(request.cookies[sessionCookieName], request.id, () => {
             handle(request.raw, reply.raw);
-          },
-        );
+          })
+          .catch(() => {
+            // Sin este manejo, un fallo aquí sería un rechazo sin atender que puede tumbar el proceso.
+            // La respuesta es genérica: nada del error llega al navegador.
+            if (!reply.raw.headersSent) {
+              reply.raw.statusCode = 500;
+              reply.raw.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            }
+            reply.raw.end('Internal Server Error');
+          });
       });
     }
 

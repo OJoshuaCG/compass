@@ -33,10 +33,14 @@ const consentActions: string[] = [];
 /** Cookies de Compass con las que se reanudó una autorización. */
 const resumeTokens: (string | undefined)[] = [];
 
+/** Cookie con la que la ruta de mentira falla, para probar que el rechazo se atiende. */
+const FAILING_SESSION_TOKEN = 'failing-token';
+
 /** Ruta de interacción de mentira: devuelve el `uid` y la cookie de Compass que le llegaron. */
 const echoInteraction: OidcInteractionRoute = {
   runUnderCompassSession: (sessionToken, _requestId, work) => {
     resumeTokens.push(sessionToken);
+    if (sessionToken === FAILING_SESSION_TOKEN) return Promise.reject(new Error('boom'));
     work();
     return Promise.resolve();
   },
@@ -117,6 +121,18 @@ describe('mountOidcProvider', () => {
 
     expect(resumeTokens).toEqual(['compass-token']);
     expect(response.json<{ url: string }>().url).toBe('/oidc/auth/abc123');
+  });
+
+  it('answers a generic 500 when resuming an authorization fails, without leaking the error', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/oidc/auth/abc123',
+      cookies: { '__Host-session': FAILING_SESSION_TOKEN },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.body).toBe('Internal Server Error');
+    expect(response.body).not.toContain('boom');
   });
 
   it('still delivers the rest of /oidc to the provider when interactions are mounted', async () => {
