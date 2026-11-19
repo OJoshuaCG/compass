@@ -82,22 +82,33 @@ describe('migration 0023: inbound permissions for existing system roles', () => 
       ).rows;
       const find = (organizationId: string, name: string) =>
         roles.find((role) => role.organization_id === organizationId && role.name === name);
+      // Cada migración posterior que toca un rol de sistema agrega un permiso y sube la versión en 1 (las que
+      // alcanzan a estos roles sembrados, como 0023 y 0037). Derivar la versión de los permisos agregados evita
+      // fijar a mano cuántas migraciones posteriores tocan el rol, número que cambia con cada una nueva.
+      const expectedVersion = (seededPermissions: string[], role: RoleRow | undefined): number =>
+        1 + (role?.permissions.length ?? 0) - seededPermissions.length;
 
       // Administrador: los tres. Líder: lectura y configuración, nunca restablecimientos. Operador: solo lectura.
       expect(find(orgId, 'Administrator')?.permissions).toEqual(
         expect.arrayContaining([READ_CODES, CONFIGURE, REVEAL_RESET]),
       );
-      expect(find(orgId, 'Administrator')?.version).toBe(4);
+      expect(find(orgId, 'Administrator')?.version).toBe(
+        expectedVersion(rootLike, find(orgId, 'Administrator')),
+      );
       expect(find(orgId, 'Leader')?.permissions).toEqual(
         expect.arrayContaining([READ_CODES, CONFIGURE]),
       );
       expect(find(orgId, 'Leader')?.permissions).not.toContain(REVEAL_RESET);
-      expect(find(orgId, 'Leader')?.version).toBe(3);
+      expect(find(orgId, 'Leader')?.version).toBe(
+        expectedVersion(leaderLike, find(orgId, 'Leader')),
+      );
       expect(find(otherOrgId, 'Leader')?.permissions).toContain(CONFIGURE);
       expect(find(orgId, 'Operator')?.permissions).toContain(READ_CODES);
       expect(find(orgId, 'Operator')?.permissions).not.toContain(CONFIGURE);
       expect(find(orgId, 'Operator')?.permissions).not.toContain(REVEAL_RESET);
-      expect(find(orgId, 'Operator')?.version).toBe(2);
+      expect(find(orgId, 'Operator')?.version).toBe(
+        expectedVersion(operatorLike, find(orgId, 'Operator')),
+      );
 
       // Un rol personalizado jamás recibe un permiso sin una concesión explícita de una persona.
       expect(find(orgId, 'Custom with everything')?.permissions).toEqual(rootLike);
