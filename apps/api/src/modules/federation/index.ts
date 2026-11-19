@@ -5,6 +5,9 @@ export type {
   RegisteredOidcClient,
 } from './application/manage-oidc-clients.js';
 export { RevokeGrants } from './application/revoke-grants.js';
+export { ReencryptOidcClientSecrets } from './application/reencrypt-oidc-client-secrets.js';
+export type { OidcClientSecretStore } from './application/ports/oidc-client-secret-store.js';
+export { PgOidcClientSecretStore } from './infrastructure/pg-oidc-client-secret-store.js';
 export type { GrantStore } from './application/ports/grant-store.js';
 export type { OidcClientStore, NewOidcClient } from './application/ports/oidc-client-store.js';
 export type { OidcClientRecord, ClientRank } from './domain/oidc-client.js';
