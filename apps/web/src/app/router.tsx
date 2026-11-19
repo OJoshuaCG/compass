@@ -19,6 +19,7 @@ import {
   invitationSearchSchema,
   mfaSearchSchema,
   returnToSearchSchema,
+  ssoInteractionSearchSchema,
   usersSearchSchema,
 } from '../routes/search-schemas';
 
@@ -42,6 +43,30 @@ const appLayout = createRoute({
   id: '_app',
   beforeLoad: ({ context, location }) => requireSession(context.queryClient, location.href),
   component: AppLayout,
+});
+
+// Pantallas que el proveedor OIDC abre en el navegador: exigen sesión completa (la guarda lleva
+// al login con `returnTo` y vuelve aquí) pero usan el marco público, sin menú lateral: son pasos
+// de un flujo de otra aplicación, no navegación de Compass.
+const ssoLayout = createRoute({
+  getParentRoute: () => rootRoute,
+  id: '_sso',
+  beforeLoad: ({ context, location }) => requireSession(context.queryClient, location.href),
+  component: PublicLayout,
+});
+
+const ssoReauthRoute = createRoute({
+  getParentRoute: () => ssoLayout,
+  path: '/sso/reauth',
+  validateSearch: ssoInteractionSearchSchema,
+  component: lazyRouteComponent(() => import('../features/sso-interaction'), 'SsoReauthRoute'),
+});
+
+const ssoConsentRoute = createRoute({
+  getParentRoute: () => ssoLayout,
+  path: '/sso/consent',
+  validateSearch: ssoInteractionSearchSchema,
+  component: lazyRouteComponent(() => import('../features/sso-interaction'), 'SsoConsentRoute'),
 });
 
 // Pantallas de acceso: cada una en su fragmento (el login no descarga el directorio).
@@ -242,6 +267,7 @@ const routeTree = rootRoute.addChildren([
     invitationRoute,
     firstSetupRoute,
   ]),
+  ssoLayout.addChildren([ssoReauthRoute, ssoConsentRoute]),
   appLayout.addChildren([
     homeRoute,
     usersRoute,

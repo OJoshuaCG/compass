@@ -57,3 +57,12 @@ export const usersSearchSchema = z.object({
     .catch(25),
   q: z.string().max(200).optional().catch(undefined),
 });
+
+/**
+ * Interacción del proveedor OIDC (`?uid=`). El router interpreta como JSON los valores de la
+ * query, así que un `uid` solo de dígitos llegaría como número: se vuelve a texto. La forma
+ * válida (largo y alfabeto) la comprueba la pantalla, que muestra su propio estado de error.
+ */
+export const ssoInteractionSearchSchema = z.object({
+  uid: z.union([z.string(), z.number()]).transform(String).optional().catch(undefined),
+});

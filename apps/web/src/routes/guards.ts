@@ -4,6 +4,8 @@ import { redirect } from '@tanstack/react-router';
 
 import { sessionQueryOptions } from '../shared/auth';
 
+import { PROVIDER_PATH_PREFIX } from './return-navigation';
+
 /**
  * Guardas de ruta según el estado de la sesión (`/me`). El estado se resuelve con Query (por
  * lo que se comparte con `useMe`) y la ruta de retorno viaja como parámetro de búsqueda.
@@ -42,7 +44,17 @@ export async function requirePendingState(
   returnTo: string | undefined,
 ): Promise<void> {
   const state = await queryClient.query(sessionQueryOptions());
-  if (state.kind === 'authenticated') return go('/');
+  if (state.kind === 'authenticated') {
+    // Quien ya tenía sesión y llega al login desde el proveedor OIDC (`returnTo=/oidc/...`) debe
+    // volver a él: mandarlo al inicio dejaría la solicitud de la otra aplicación sin resolver.
+    // La ruta es del proveedor, no de la SPA, así que se navega con página completa; `returnTo`
+    // ya pasó `isSafeReturnTo` en el esquema de búsqueda de la ruta.
+    if (returnTo?.startsWith(PROVIDER_PATH_PREFIX) === true) {
+      globalThis.location.assign(returnTo);
+      return;
+    }
+    return go('/');
+  }
   if (step === 'login') return;
   if (state.kind === 'anonymous') return go('/login', returnTo);
   // Con el cambio pendiente el segundo factor aún no se puede usar: se vuelve a la contraseña.
