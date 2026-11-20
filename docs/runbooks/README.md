@@ -25,6 +25,7 @@ Tipo de documento: how-to (guías de tarea para operadores con experiencia).
 | [Programar la purga de filas vencidas](purge-expired.md) | Primer despliegue: programar `purge-expired` cada hora y vigilar su salida | Borrador |
 | [Programar el ancla externa de la auditoría](anchor-audit.md) | Primer despliegue: crear y verificar el bucket inmutable, programar `anchor-audit` una vez al día y vigilar su salida | Borrador |
 | [Programar el sondeo de correo entrante](inbound-poll.md) | Activar `inbound-poll` cada minuto y vigilar su salida | Borrador |
+| [Rotar las claves de firma OIDC](rotate-oidc-signing-keys.md) | Rotación planeada o ante sospecha de compromiso de la clave de firma de SSO (dos pasos: publicar y retirar) | Borrador |
 
 ## Convenciones
 

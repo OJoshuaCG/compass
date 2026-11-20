@@ -127,6 +127,23 @@ describe('SigningKeyService', () => {
     expect((await service.loadKeySet()).publicJwks).toHaveLength(1);
   });
 
+  it('listActiveKeys devuelve solo kid y algoritmo, de la más antigua a la más nueva', async () => {
+    const { service } = setup();
+    const first = await service.rotate('RS256');
+    const second = await service.rotate('ES256');
+
+    const summaries = await service.listActiveKeys();
+
+    expect(summaries).toEqual([
+      { kid: first, algorithm: 'RS256' },
+      { kid: second, algorithm: 'ES256' },
+    ]);
+    // Ni la clave pública ni el sobre cifrado salen por este método: es lo que se imprime en la consola.
+    for (const summary of summaries) {
+      expect(Object.keys(summary).sort()).toEqual(['algorithm', 'kid']);
+    }
+  });
+
   it('un sobre copiado a otra fila (otro kid) no abre', async () => {
     const { service, store } = setup();
     await service.rotate();

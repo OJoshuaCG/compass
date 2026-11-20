@@ -23,7 +23,8 @@
     "anchor-audit": "node dist/main.anchor-audit.js",
     "inbound-poll": "node dist/main.inbound-poll.js",
     "sync-system-roles": "node dist/main.sync-system-roles.js",
-    "reencrypt": "node dist/main.reencrypt.js"
+    "reencrypt": "node dist/main.reencrypt.js",
+    "signing-keys": "node dist/main.signing-keys.js"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "3.1155.0",

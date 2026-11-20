@@ -26,6 +26,11 @@ export interface SigningKeySet {
   readonly publicJwks: readonly Jwk[];
 }
 
+export interface SigningKeySummary {
+  readonly kid: string;
+  readonly algorithm: SigningAlgorithm;
+}
+
 export interface SigningKeyServiceDeps {
   readonly store: SigningKeyStore;
   readonly generator: SigningKeyGenerator;
@@ -77,6 +82,15 @@ export class SigningKeyService {
       );
     }
     return this.deps.store.retire(kid);
+  }
+
+  /**
+   * Lista las claves activas con solo su `kid` y algoritmo, de la más antigua a la más nueva.
+   * No abre ningún sobre ni devuelve la JWK pública: sirve para la consola de operación.
+   */
+  async listActiveKeys(): Promise<readonly SigningKeySummary[]> {
+    const active = await this.deps.store.listActive();
+    return active.map((key) => ({ kid: key.kid, algorithm: key.algorithm }));
   }
 
   async loadKeySet(): Promise<SigningKeySet> {
