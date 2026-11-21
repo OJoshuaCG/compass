@@ -437,6 +437,87 @@ describe('migración 0046: audit_events particionada por mes', () => {
     }
   });
 
+  it('audit_create_month_partition rechaza un nombre ocupado por una tabla que no es la partición adjunta de ese mes', async () => {
+    const { db } = await convertWithPriorData();
+    const admin = await connect(db.adminUrl);
+    try {
+      const lastMonth = await lastPartitionMonth(admin);
+      const squatted = await admin.query<{ month: string; name: string }>(
+        `select to_char(($1::date + interval '1 month'), 'YYYY-MM-DD') as month,
+                'audit_events_p' || to_char(($1::date + interval '1 month'), 'YYYYMM') as name`,
+        [lastMonth],
+      );
+      const month = squatted.rows[0]?.month ?? '';
+      const name = squatted.rows[0]?.name ?? '';
+
+      // Una tabla común con el nombre esperado, fuera de audit_events.
+      await admin.query(`create table ${name} (id integer)`);
+      expect(await sqlState(admin, 'select audit_create_month_partition($1::date)', [month])).toBe(
+        INVALID_PARAMETER,
+      );
+      await admin.query(`drop table ${name}`);
+
+      // Una partición separada (DETACH) de audit_events: tampoco cuenta como el mes cubierto.
+      await admin.query(`select audit_create_month_partition('${month}')`);
+      await admin.query(`alter table audit_events detach partition ${name}`);
+      expect(await sqlState(admin, 'select audit_create_month_partition($1::date)', [month])).toBe(
+        INVALID_PARAMETER,
+      );
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('audit_create_month_partition rechaza una partición con el nombre del mes pero otro rango', async () => {
+    const { db } = await convertWithPriorData();
+    const admin = await connect(db.adminUrl);
+    try {
+      const lastMonth = await lastPartitionMonth(admin);
+      const wrongRange = await admin.query<{
+        month: string;
+        name: string;
+        start: string;
+        end: string;
+      }>(
+        `select to_char(($1::date + interval '1 month'), 'YYYY-MM-DD') as month,
+                'audit_events_p' || to_char(($1::date + interval '1 month'), 'YYYYMM') as name,
+                to_char(($1::date + interval '2 month'), 'YYYY-MM-DD') as start,
+                to_char(($1::date + interval '3 month'), 'YYYY-MM-DD') as end`,
+        [lastMonth],
+      );
+      const row = wrongRange.rows[0];
+      const name = row?.name ?? '';
+      const rangeStart = row?.start ?? '';
+      const rangeEnd = row?.end ?? '';
+      // Misma etiqueta de mes en el nombre, pero cubre otro mes.
+      await admin.query(
+        `create table ${name} partition of audit_events
+           for values from ('${rangeStart}+00') to ('${rangeEnd}+00')`,
+      );
+      expect(
+        await sqlState(admin, 'select audit_create_month_partition($1::date)', [row?.month]),
+      ).toBe(INVALID_PARAMETER);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('audit_create_month_partition reconoce una partición existente aunque la sesión use otra zona horaria', async () => {
+    const { db } = await convertWithPriorData();
+    const admin = await connect(db.adminUrl);
+    try {
+      const lastMonth = await lastPartitionMonth(admin);
+      await admin.query("set time zone 'America/Mexico_City'");
+      const again = await admin.query<{ name: string }>(
+        'select audit_create_month_partition($1::date) as name',
+        [lastMonth],
+      );
+      expect(again.rows[0]?.name).toBe(`audit_events_p${lastMonth.slice(0, 7).replace('-', '')}`);
+    } finally {
+      await admin.end();
+    }
+  });
+
   it('audit_create_month_partition exige el primer día del mes y no la ejecuta iam_app', async () => {
     const { db } = await convertWithPriorData();
     const admin = await connect(db.adminUrl);

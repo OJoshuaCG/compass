@@ -108,8 +108,9 @@ revoke update, delete, truncate on audit_events from public;
 revoke update, delete, truncate on audit_events from current_user;
 
 -- 3. Particiones mensuales. Devuelve el nombre de la partición, haya sido creada ahora o ya existiera.
---    Si el mes ya lo cubre otra partición (p. ej. el mes en curso, cubierto por la legada) falla con
---    un error claro en lugar de un conflicto de rangos. Pertenece al rol de migraciones: iam_app no
+--    Si el mes ya lo cubre otra partición (p. ej. el mes en curso, cubierto por la legada), o si el
+--    nombre está ocupado por algo que no es la partición de ese mes, falla con un error claro
+--    (22023) en lugar de un conflicto de rangos. Pertenece al rol de migraciones: iam_app no
 --    puede ejecutarla.
 create function audit_create_month_partition(p_month date) returns text
   language plpgsql
@@ -119,19 +120,37 @@ declare
   v_name text;
   v_from timestamptz;
   v_to   timestamptz;
+  v_existing_bound text;
 begin
   if p_month is null or p_month <> date_trunc('month', p_month)::date then
     raise exception 'p_month debe ser el primer día de un mes' using errcode = '22023';
   end if;
 
   v_name := 'audit_events_p' || to_char(p_month, 'YYYYMM');
-  if to_regclass(format('public.%I', v_name)) is not null then
-    return v_name;
-  end if;
 
   -- Los meses son meses UTC, independientes del TimeZone de la sesión.
   v_from := p_month::timestamp at time zone 'UTC';
   v_to := (p_month + interval '1 month')::timestamp at time zone 'UTC';
+
+  -- Un nombre ocupado solo cuenta como «mes ya cubierto» si es una partición adjunta de audit_events
+  -- con exactamente el rango de ese mes. Una tabla común, una partición separada o una con otro
+  -- rango no cubren el mes: devolver su nombre haría creer que la auditoría puede escribir ahí
+  -- cuando el insert fallaría cerrado. El texto del rango se compara tal como lo imprime PostgreSQL
+  -- para la zona horaria de la sesión (el mismo formato en ambos lados).
+  if to_regclass(format('public.%I', v_name)) is not null then
+    select pg_get_expr(c.relpartbound, c.oid)
+      into v_existing_bound
+      from pg_class c
+      join pg_inherits i on i.inhrelid = c.oid
+     where c.oid = to_regclass(format('public.%I', v_name))
+       and i.inhparent = 'public.audit_events'::regclass;
+
+    if v_existing_bound is distinct from format('FOR VALUES FROM (%L) TO (%L)', v_from, v_to) then
+      raise exception 'la relación % existe pero no es la partición adjunta de audit_events para el mes %',
+        v_name, p_month using errcode = '22023';
+    end if;
+    return v_name;
+  end if;
 
   -- Clona del padre: índices, llave primaria y los disparadores de encadenado y de solo anexar.
   begin

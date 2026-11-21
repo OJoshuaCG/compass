@@ -13,7 +13,9 @@ La migración deja la partición legada más 24 meses por adelantado. Con el rol
 `select audit_create_month_partition('AAAA-MM-01');`
 
 - El argumento debe ser el primer día de un mes; la función devuelve el nombre `audit_events_pAAAAMM`.
-- Si la partición ya existe devuelve su nombre; si el mes ya lo cubre otra partición (el mes de la migración lo cubre la legada) falla con `22023`.
+- Si la partición del mes ya existe y está adjunta a `audit_events` con exactamente el rango de ese mes, devuelve su nombre. Si el mes ya lo cubre otra partición (el mes de la migración lo cubre la legada), o si el nombre `audit_events_pAAAAMM` está ocupado por algo que no es esa partición (una tabla común, una partición separada o una con otro rango), falla con `22023`.
+- Ante un `22023` por nombre ocupado: revisar qué es esa relación (`\d audit_events_pAAAAMM`) y, si no tiene datos de auditoría que conservar, renombrarla o eliminarla con el rol de migraciones antes de repetir la llamada. Una partición creada a mano no recibe los índices únicos, `FORCE RLS` ni los permisos de la función: créala siempre con ella.
+- Dos llamadas simultáneas para el mismo mes pueden hacer que una falle con «la relación ya existe»; repetir la llamada, que entonces devuelve el nombre.
 - Cada partición nace con `FORCE RLS`, sus dos políticas, el disparador de `TRUNCATE`, índices únicos propios y sin permisos para `iam_app`.
 - Conviene hacerlo en una ventana de poco tráfico: crear la partición toma bloqueos sobre la tabla padre (a confirmar en el ensayo en staging).
 
