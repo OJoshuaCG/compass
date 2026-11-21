@@ -84,6 +84,13 @@ beforeAll(async () => {
     join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
     join pg_attribute at on at.attrelid = c.oid and at.attname = 'organization_id' and not at.attisdropped
     where c.relkind in ('r', 'p')
+      -- Las particiones de audit_events (legada y mensuales) se alcanzan solo por la tabla padre; su RLS,
+      -- políticas y privilegios se prueban en audit-partitioning.test.ts. Cualquier otra partición
+      -- sigue sujeta a esta revisión.
+      and not exists (
+        select 1 from pg_inherits i
+        where i.inhrelid = c.oid and i.inhparent = 'public.audit_events'::regclass
+      )
     order by c.relname`);
   tenantTables = rows.map((r) => r.relname);
 });

@@ -147,3 +147,10 @@ Relación con el [ADR 0042](0042-audit-chain-external-anchoring.md): el ancla ho
 - El volumen real de eventos por mes (no hay cifra; se supuso bajo por el tamaño de la plataforma).
 - Si el destino alternativo del archivo soporta Object Lock en modo de cumplimiento.
 - La respuesta del área legal.
+
+## Implementación del particionado (2026-11-20)
+
+- **Aceptación de la excepción de unicidad**: Jor-El (el bot de Orca, cuya respuesta cuenta como decisión de la persona dueña desde el 2026-11-20) aceptó que `seq` deje de ser único en toda la base y que la tabla actual pase a ser la primera partición con `ATTACH`, solo en local o staging. Condiciones: índice único por partición, candado por organización al asignar `seq`, verificación diaria de la cadena, prueba de concurrencia que intente duplicar `seq` entre particiones, CHECK de rango validado antes del `ATTACH`, ensayo en copia local o staging y ningún `DROP`, `DELETE` ni `TRUNCATE`.
+- **Qué se hizo** (migración `0046`, pruebas en `db/tests/audit-partitioning.test.ts`): ver [`docs/database.md`](../database.md) §8.5. `id` corre la misma suerte que `seq`: único por partición, no en toda la base.
+- **Riesgo conocido**: `created_at` es la clave de partición y el disparador de encadenado la sobrescribe tras esperar el candado de la organización; si esa espera cruza la medianoche UTC del día 1, el insert falla cerrado (23514) y la aplicación debe reintentar.
+- **Pendiente**: ensayo en staging con datos reales, tarea programada que cree particiones y la verificación diaria de la cadena (runbook), revisión humana de las pruebas marcadas SENSIBLE, y el retiro de particiones (`audit_chain_checkpoints`, rol de archivado, exportación inmutable), que no forma parte de esta migración.
