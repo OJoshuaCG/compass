@@ -28,3 +28,18 @@ Programar una tarea que avise cuando queden menos de **6 meses** de partición p
 ## Fallo en el límite de mes
 
 Un insert que espere el candado de su organización a través de la medianoche UTC del día 1 puede fallar con `23514` (el evento se enruta al mes que termina y se fecha en el siguiente). La aplicación debe reintentarlo; la ocurrencia es rara.
+
+## Ensayo local de la migración (2026-11-21)
+
+Una sola corrida en PostgreSQL 18 (contenedor local), 2 000 000 de eventos sintéticos (4 organizaciones, cadena válida generada por el disparador real), sin red. No sustituye el ensayo en staging con datos reales.
+
+| Medida | Antes | Después (25 particiones) |
+| --- | --- | --- |
+| Migración `0046` completa | n/a | 7,8 s |
+| Bloqueo máximo visto por una consulta a `audit_events` durante la migración | n/a | 7,8 s (toda la migración) |
+| `audit_verify_chain()` con 500 000 eventos de una organización | 9,4 s | 6,7 s |
+| Insert de un evento (media / p95) | 5,6 ms / 23 ms | 4,5 ms / 8,5 ms |
+
+- La migración corre en una sola transacción: durante todo ese tiempo `audit_events` no responde (ni lectura ni escritura). Con 2 millones de eventos son unos 8 s; con más volumen crece, probablemente de forma lineal (suposición, no medida). Conviene correrla en una ventana de mantenimiento.
+- No se observó degradación del insert ni de `audit_verify_chain()` con 25 particiones. Los eventos de la prueba están todos en la partición legada, así que no mide el reparto entre varias particiones con datos. Es una sola corrida, con ruido.
+- No se midió el bloqueo de `audit_create_month_partition` en línea (sigue pendiente en staging).
