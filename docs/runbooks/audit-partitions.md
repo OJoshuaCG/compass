@@ -21,11 +21,21 @@ La migración deja la partición legada más 24 meses por adelantado. Con el rol
 
 ## Alerta de margen
 
-Programar una tarea que avise cuando queden menos de **6 meses** de partición por delante. Pendiente de programar (Ops).
+El comando `pnpm --filter @iam/api audit-partitions` (en producción, `node dist/main.audit-partitions.js`) deja creados los 24 meses por delante y avisa si el margen previo ya era menor de **6 meses**. Corre con el rol de migraciones: define `MIGRATION_DATABASE_URL`, nunca `iam_app`. Es idempotente y no retira particiones.
+
+- Salida: `Particiones creadas: N; margen antes: X meses; margen ahora: Y meses`. Con el margen previo bajo el mínimo imprime `ALERTA` en el error estándar; si crear un mes falla, imprime solo el nombre y el código del error.
+- Código de salida `1` si hubo alerta o fallo; `0` si todo bien. Un fallo no deja huecos: se detiene en el primer mes que falla y la siguiente corrida continúa desde ahí.
+- Se corre al menos una vez al mes. Programarlo (cron) y conectar su alerta a un canal es decisión de Ops: el comando no se programa solo ni se conecta a nada.
+- El último mes se lee del nombre `audit_events_pAAAAMM` de las particiones adjuntas; una partición hecha a mano con ese nombre pero otro rango no pasa inadvertida (la creación falla con `22023`).
 
 ## Verificación diaria de la cadena
 
-`seq` ya no es único por restricción en toda la base: lo garantizan el candado por organización y `audit_verify_chain()`. Ejecutar `audit_verify_chain()` cada día por organización; cualquier valor distinto de nulo es un `seq` repetido, saltado o un hash roto, y se trata como incidente ([compromiso](compromised-user-or-server-response.md)). Pendiente de programar (Ops).
+`seq` ya no es único por restricción en toda la base: lo garantizan el candado por organización y `audit_verify_chain()`. Ejecutar cada día `pnpm --filter @iam/api verify-audit-chain` (en producción, `node dist/main.verify-audit-chain.js`), que corre `audit_verify_chain()` por organización con el rol de la aplicación (`DATABASE_URL`). Solo lee: no escribe auditoría ni alertas.
+
+- Salida: `Organizaciones: N; cadenas válidas: V; cadenas rotas: R; organizaciones sin verificar: F`. Por cada cadena rota, en el error estándar, el identificador opaco de la organización y el primer `seq` roto; nunca hashes ni contenido de eventos.
+- Código de salida `1` si alguna cadena está rota o alguna organización no se pudo verificar. «Sin verificar» es un error al leer (tiempo, conexión), no una cadena rota: repetir antes de escalar.
+- Una cadena rota es un `seq` repetido, saltado o un hash roto, y se trata como incidente ([compromiso](compromised-user-or-server-response.md)).
+- Recorre la cadena completa de cada organización (unos 7 s por 500 000 eventos en el ensayo local): correrlo en una ventana de poco tráfico. Programarlo (cron) y conectar su alerta es decisión de Ops: el comando no se programa solo.
 
 ## Fallo en el límite de mes
 

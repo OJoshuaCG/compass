@@ -35,3 +35,17 @@ export {
   AuditAnchorPublishError,
   S3AuditAnchorPublisher,
 } from './infrastructure/s3-audit-anchor-publisher.js';
+export { VerifyAuditChains } from './application/verify-audit-chains.js';
+export type {
+  BrokenChain,
+  ChainVerificationFailure,
+  ChainsVerificationSummary,
+} from './application/verify-audit-chains.js';
+export {
+  AUDIT_PARTITION_MIN_RUNWAY_MONTHS,
+  AUDIT_PARTITION_TARGET_AHEAD_MONTHS,
+  EnsureAuditPartitions,
+} from './application/ensure-audit-partitions.js';
+export type { PartitionSummary } from './application/ensure-audit-partitions.js';
+export type { AuditPartitionAdmin } from './application/ports/audit-partition-ports.js';
+export { PgAuditPartitionAdmin } from './infrastructure/pg-audit-partition-admin.js';
