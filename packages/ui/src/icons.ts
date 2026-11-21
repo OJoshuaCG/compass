@@ -12,6 +12,8 @@ export {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Clock,
   Compass,
   Copy,

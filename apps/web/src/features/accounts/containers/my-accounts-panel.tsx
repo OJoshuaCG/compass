@@ -6,7 +6,7 @@ import {
   type Platform,
   type SavedAccountView,
 } from '@iam/contracts';
-import { Button } from '@iam/ui';
+import { ChevronsDownUp, ChevronsUpDown, IconButton } from '@iam/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -126,16 +126,24 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
             tag={table.tag}
             onTagChange={table.onTagChange}
           >
-            <Button
+            <IconButton
               variant="secondary"
               size="sm"
+              label={allExpanded ? t('tree.collapseAll') : t('tree.expandAll')}
+              // El nombre accesible es el mismo texto; el título lo muestra al pasar el cursor.
+              title={allExpanded ? t('tree.collapseAll') : t('tree.expandAll')}
+              icon={
+                allExpanded ? (
+                  <ChevronsDownUp className="size-4" />
+                ) : (
+                  <ChevronsUpDown className="size-4" />
+                )
+              }
               disabled={table.rows.length === 0}
               onClick={() => {
                 setExpanded(allExpanded ? new Set() : new Set(visibleIds));
               }}
-            >
-              {allExpanded ? t('tree.collapseAll') : t('tree.expandAll')}
-            </Button>
+            />
             <SavedViewsBar
               views={savedViews}
               activeViewId={activeView?.id}
