@@ -365,3 +365,69 @@ describe('DataTable states', () => {
     });
   });
 });
+
+describe('DataTable row expansion', () => {
+  function Expandable({ initial = [] as string[] }: { initial?: string[] }) {
+    const [open, setOpen] = useState<ReadonlySet<string>>(new Set(initial));
+    return (
+      <DataTable<Row>
+        columns={columns}
+        rows={rows}
+        getRowId={(row) => row.id}
+        status="success"
+        onSortChange={() => undefined}
+        limit={25}
+        onLimitChange={() => undefined}
+        pagination={{ hasPrevious: false, hasNext: false, onPrevious: vi.fn(), onNext: vi.fn() }}
+        emptyState={<p>Empty</p>}
+        caption="People"
+        labels={labels}
+        expansion={{
+          expandedIds: open,
+          column: 'Details',
+          toggleLabel: (row, expanded) => `${expanded ? 'Hide' : 'Show'} ${row.name}`,
+          renderDetail: (row) => <p>Detail of {row.name}</p>,
+          onToggle: (row) => {
+            setOpen((current) => {
+              const next = new Set(current);
+              if (next.has(row.id)) next.delete(row.id);
+              else next.add(row.id);
+              return next;
+            });
+          },
+        }}
+      />
+    );
+  }
+
+  it('shows a toggle per row, closed by default and without mounting the detail', () => {
+    render(<Expandable />);
+    const toggle = screen.getByRole('button', { name: 'Show Ada' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Detail of Ada')).toBeNull();
+  });
+
+  it('opens and closes one row with the mouse or the keyboard', async () => {
+    const user = userEvent.setup();
+    render(<Expandable />);
+    await user.click(screen.getByRole('button', { name: 'Show Ada' }));
+    expect(screen.getByText('Detail of Ada')).toBeInTheDocument();
+    expect(screen.queryByText('Detail of Grace')).toBeNull();
+    const open = screen.getByRole('button', { name: 'Hide Ada' });
+    expect(open).toHaveAttribute('aria-expanded', 'true');
+    open.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.queryByText('Detail of Ada')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show Ada' })).toHaveFocus();
+  });
+
+  it('has no accessibility violations with a row open', async () => {
+    const { container } = render(<Expandable initial={['1']} />);
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  it('keeps the table flat when no expansion is given', () => {
+    setup();
+    expect(screen.queryByRole('button', { name: /Show/ })).toBeNull();
+  });
+});

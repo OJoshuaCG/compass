@@ -1,4 +1,4 @@
-import type { AccountListItem, Permission, Platform } from '@iam/contracts';
+import type { AccountListItem, Credential, Permission, Platform } from '@iam/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -868,5 +868,125 @@ describe('accounts screen in English', () => {
     expect(await screen.findByRole('table', { name: en.caption })).toBeInTheDocument();
     await rowsLoaded();
     expect(screen.getByText(en['level.MANAGE'])).toBeInTheDocument();
+  });
+});
+
+describe('accounts tree', () => {
+  const credentialFixture = (overrides: Partial<Credential>): Credential => ({
+    id: 'c0000000-0000-4000-8000-000000000001',
+    accountId: MANAGED_ID,
+    label: 'micorreox',
+    kind: 'password_totp',
+    lastRotatedAt: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  });
+  const credentialsPath = (id: string) => `/accounts/${id}/credentials`;
+  const showLabel = (name: string) => withName(es.accounts['tree.show'], name);
+  const hideLabel = (name: string) => withName(es.accounts['tree.hide'], name);
+
+  function setupTree(extra: Record<string, Parameters<typeof stubApi>[0][string]> = {}) {
+    return setup({
+      [`GET ${credentialsPath(MANAGED_ID)}`]: jsonResponse({
+        data: [
+          credentialFixture({}),
+          credentialFixture({
+            id: 'c0000000-0000-4000-8000-000000000002',
+            label: 'recuperación',
+            kind: 'totp_only',
+            lastRotatedAt: '2026-02-01T00:00:00.000Z',
+          }),
+        ],
+      }),
+      [`GET ${credentialsPath(EDITABLE_ID)}`]: jsonResponse({ data: [] }),
+      [`GET ${credentialsPath(VIEWABLE_ID)}`]: jsonResponse({ data: [] }),
+      ...extra,
+    });
+  }
+
+  it('starts closed and asks for nothing until a row is opened', async () => {
+    const user = userEvent.setup();
+    const api = setupTree();
+    renderApp('/accounts');
+    await rowsLoaded();
+    const toggle = screen.getByRole('button', { name: showLabel('Nómina') });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(api.callsTo('GET', credentialsPath(MANAGED_ID))).toHaveLength(0);
+
+    await user.click(toggle);
+    const list = await screen.findByRole('list', {
+      name: withName(es.accounts['tree.listLabel'], 'Nómina'),
+    });
+    expect(within(list).getByText('micorreox')).toBeInTheDocument();
+    expect(within(list).getByText('recuperación')).toBeInTheDocument();
+    expect(within(list).getByText(es.accounts['tree.kind.password_totp'])).toBeInTheDocument();
+    expect(within(list).getByText(es.accounts['tree.rotatedNever'])).toBeInTheDocument();
+    expect(api.callsTo('GET', credentialsPath(MANAGED_ID))).toHaveLength(1);
+    expect(api.callsTo('GET', credentialsPath(EDITABLE_ID))).toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: hideLabel('Nómina') }));
+    expect(screen.queryByText('micorreox')).toBeNull();
+  });
+
+  it('expands and collapses every account on the page with one button', async () => {
+    const user = userEvent.setup();
+    const api = setupTree();
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: es.accounts['tree.expandAll'] }));
+    await screen.findByText('micorreox');
+    for (const name of ['Nómina', 'Marketing', 'Soporte']) {
+      expect(screen.getByRole('button', { name: hideLabel(name) })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    }
+    await waitFor(() => {
+      expect(api.callsTo('GET', credentialsPath(EDITABLE_ID))).toHaveLength(1);
+      expect(api.callsTo('GET', credentialsPath(VIEWABLE_ID))).toHaveLength(1);
+    });
+
+    await user.click(screen.getByRole('button', { name: es.accounts['tree.collapseAll'] }));
+    expect(screen.queryByText('micorreox')).toBeNull();
+    expect(screen.getByRole('button', { name: showLabel('Marketing') })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('says so when an account has no credentials', async () => {
+    const user = userEvent.setup();
+    setupTree();
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: showLabel('Marketing') }));
+    expect(await screen.findByText(es.accounts['tree.empty'])).toBeInTheDocument();
+  });
+
+  it('shows a retryable error without breaking the rest of the list', async () => {
+    const user = userEvent.setup();
+    let fail = true;
+    setupTree({
+      [`GET ${credentialsPath(MANAGED_ID)}`]: () =>
+        fail ? problem(500, 'INTERNAL_ERROR') : jsonResponse({ data: [credentialFixture({})] }),
+    });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: showLabel('Nómina') }));
+    const alert = await screen.findByRole('alert');
+    expect(screen.getByText('Marketing')).toBeInTheDocument();
+    fail = false;
+    await user.click(within(alert).getByRole('button', { name: es.common['actions.retry'] }));
+    expect(await screen.findByText('micorreox')).toBeInTheDocument();
+  });
+
+  it('has no accessibility violations with a row open', async () => {
+    const user = userEvent.setup();
+    setupTree();
+    const { container } = renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: showLabel('Nómina') }));
+    await screen.findByText('micorreox');
+    expect(await axeViolations(container)).toEqual([]);
   });
 });

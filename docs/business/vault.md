@@ -162,6 +162,7 @@ Está integrado en la interfaz y en la API.
 - Al escribir etiquetas, el sistema sugiere las que ya existen para no duplicar variantes como «Marca MX» y «marca mx». Solo sugiere etiquetas de cuentas a las que la persona tiene acceso: nadie descubre etiquetas de cuentas que no puede ver.
 - La búsqueda **siempre** muestra solo lo que la persona puede ver según su acceso efectivo; nunca se cargan registros ajenos para descartarlos después.
 - Se puede buscar por usuario exacto de la plataforma sin que el sistema guarde el usuario en claro.
+- En la lista de cuentas, cada cuenta se puede abrir para ver sus credenciales debajo (etiqueta, tipo y fecha de la última rotación), y hay botones para abrir o cerrar todas las de la página. Las credenciales se piden al abrir la cuenta. Ahí nunca se muestran el usuario ni la contraseña: esos se piden en la pantalla de la cuenta, con la confirmación de identidad y la auditoría de siempre.
 - Cada persona puede guardar vistas propias. El plan menciona de ejemplo "Mis cuentas", "Sin 2FA" y "Por rotar".
 - Quien tiene el permiso de inventario puede consultar las cuentas de toda la organización, solo con datos descriptivos. Desde el 7 de noviembre de 2026 la pantalla de Cuentas ya no muestra esa vista: el permiso sigue vigente y el Inicio muestra cuántas cuentas hay en el inventario.
 

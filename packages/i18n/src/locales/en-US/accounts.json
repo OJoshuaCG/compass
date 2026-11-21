@@ -78,5 +78,20 @@
   "views.deleteTitle": "Delete the view {{name}}?",
   "views.deleteDescription": "Only the saved view is deleted. Your accounts and access do not change.",
   "views.deleteConfirm": "Delete view",
-  "views.deleteToast": "The view {{name}} was deleted."
+  "views.deleteToast": "The view {{name}} was deleted.",
+  "tree.column": "Credentials",
+  "tree.show": "Show the credentials of {{name}}",
+  "tree.hide": "Hide the credentials of {{name}}",
+  "tree.expandAll": "Expand all",
+  "tree.collapseAll": "Collapse all",
+  "tree.listLabel": "Credentials of {{name}}",
+  "tree.loading": "Loading credentials…",
+  "tree.empty": "This account has no credentials yet.",
+  "tree.error": "The credentials could not be loaded.",
+  "tree.kind.password": "Password",
+  "tree.kind.password_totp": "Password and second factor",
+  "tree.kind.totp_only": "Second factor only",
+  "tree.rotated": "Last rotated: {{date}}",
+  "tree.rotatedNever": "Never rotated",
+  "tree.open": "Open account"
 }

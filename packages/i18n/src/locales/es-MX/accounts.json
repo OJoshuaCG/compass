@@ -78,5 +78,20 @@
   "views.deleteTitle": "¿Borrar la vista {{name}}?",
   "views.deleteDescription": "Solo se borra la vista guardada. Tus cuentas y accesos no cambian.",
   "views.deleteConfirm": "Borrar vista",
-  "views.deleteToast": "Se borró la vista {{name}}."
+  "views.deleteToast": "Se borró la vista {{name}}.",
+  "tree.column": "Credenciales",
+  "tree.show": "Mostrar las credenciales de {{name}}",
+  "tree.hide": "Ocultar las credenciales de {{name}}",
+  "tree.expandAll": "Expandir todo",
+  "tree.collapseAll": "Contraer todo",
+  "tree.listLabel": "Credenciales de {{name}}",
+  "tree.loading": "Cargando las credenciales…",
+  "tree.empty": "Esta cuenta aún no tiene credenciales.",
+  "tree.error": "No se pudieron cargar las credenciales.",
+  "tree.kind.password": "Contraseña",
+  "tree.kind.password_totp": "Contraseña y segundo factor",
+  "tree.kind.totp_only": "Solo segundo factor",
+  "tree.rotated": "Última rotación: {{date}}",
+  "tree.rotatedNever": "Sin rotar",
+  "tree.open": "Abrir cuenta"
 }

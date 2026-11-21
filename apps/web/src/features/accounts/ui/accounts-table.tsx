@@ -14,6 +14,7 @@ import {
   SquarePen,
   StatusBadge,
   type Column,
+  type RowExpansion,
 } from '@iam/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useMemo, type ReactNode } from 'react';
@@ -82,6 +83,14 @@ export type AccountsTableProps = {
   onClearFilters?: () => void;
   /** Zona horaria del perfil para la fecha exacta del último cambio. */
   timeZone?: string | undefined;
+  /** Lista en árbol: qué cuentas están abiertas y qué se pinta debajo de cada una. */
+  tree?:
+    | {
+        expandedIds: ReadonlySet<string>;
+        onToggle: (account: AccountListItem) => void;
+        renderDetail: (account: AccountListItem) => ReactNode;
+      }
+    | undefined;
 };
 
 /**
@@ -104,6 +113,7 @@ export function AccountsTable({
   hasActiveFilters = false,
   onClearFilters,
   timeZone,
+  tree,
 }: AccountsTableProps) {
   const { t } = useTranslation('accounts');
   const labels = useDataTableLabels();
@@ -181,6 +191,16 @@ export function AccountsTable({
     return [nameColumn, platformColumn, levelColumn, lastChangedColumn, statusColumn];
   }, [platformsById, t, timeZone]);
 
+  const expansion: RowExpansion<AccountListItem> | undefined =
+    tree === undefined
+      ? undefined
+      : {
+          ...tree,
+          column: t('tree.column'),
+          toggleLabel: (row, expanded) =>
+            t(expanded ? 'tree.hide' : 'tree.show', { name: row.displayName }),
+        };
+
   return (
     <DataTable<AccountListItem>
       caption={t('caption')}
@@ -199,6 +219,7 @@ export function AccountsTable({
       labels={labels}
       emptyState={<EmptyState title={t('empty.title')} description={t('empty.description')} />}
       errorState={{ message: errorMessage, onRetry }}
+      expansion={expansion}
       rowActions={(row) => {
         const name = row.displayName;
         // Escritorio: botones de solo ícono con su nombre al pasar el cursor. Móvil: un menú

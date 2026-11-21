@@ -308,6 +308,7 @@ La tabla es presentacional: no hace peticiones. Recibe estas entradas:
 | Estado vacío | Contenido que se muestra cuando no hay filas |
 | Estado de error | Mensaje y acción de reintento (opcional) |
 | Acciones por fila | Menú opcional para cada fila |
+| Filas desplegables | Opcional (lista en árbol): qué filas están abiertas, la función que alterna una fila, el contenido de la fila abierta y los nombres accesibles del botón. La tabla pinta un botón con `aria-expanded` al inicio de cada fila y monta el detalle solo mientras la fila está abierta, así el detalle puede pedir sus datos al montarse. Quien la usa decide qué filas están abiertas y puede ofrecer «expandir todo» y «contraer todo» |
 | Leyenda | Obligatoria: describe la tabla para lectores de pantalla |
 
 Un hook estándar de consulta de tablas, en `shared/api`, une la URL, el cursor y TanStack Query, de modo que cada pantalla solo declara columnas y endpoint.

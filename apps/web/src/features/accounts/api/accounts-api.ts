@@ -2,6 +2,7 @@ import {
   accountListItemSchema,
   accountSchema,
   accountTagsResponseSchema,
+  credentialSchema,
   platformSchema,
   savedAccountViewSchema,
   type CreateAccountRequest,
@@ -23,6 +24,8 @@ export const accountsKeys = {
   tags: () => [...accountsKeys.all, 'tags'] as const,
   /** Vistas guardadas de la persona: no cuelgan de `lists()` porque no se recargan con las cuentas. */
   savedViews: () => [...accountsKeys.all, 'saved-views'] as const,
+  /** Credenciales de una cuenta para la lista en árbol: solo metadatos, nunca usuario ni contraseña. */
+  credentials: (accountId: string) => [...accountsKeys.all, 'credentials', accountId] as const,
 };
 
 /**
@@ -98,4 +101,25 @@ export function createSavedView(
 /** `DELETE /account-views/:id` (204): solo vistas propias; 404 si ya no existe. */
 export function deleteSavedView(id: string, client: ApiClient = apiClient) {
   return client.delete(`/account-views/${id}`, noContentSchema);
+}
+
+const credentialsResponseSchema = z.object({ data: z.array(credentialSchema) });
+
+/**
+ * `GET /accounts/:id/credentials`: metadatos de las credenciales de una cuenta (etiqueta, tipo,
+ * fechas). Es el mismo listado de la pantalla de la cuenta; aquí solo alimenta el árbol de Cuentas.
+ */
+export async function fetchAccountCredentials(
+  accountId: string,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+) {
+  const response = await client.get(
+    `/accounts/${accountId}/credentials`,
+    credentialsResponseSchema,
+    {
+      ...(signal === undefined ? {} : { signal }),
+    },
+  );
+  return response.data;
 }
