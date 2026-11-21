@@ -39,7 +39,11 @@ function AccountTags({ tags }: { tags: readonly string[] }) {
     <ul className="mt-1 flex flex-wrap gap-1">
       {tags.slice(0, VISIBLE_TAGS).map((tag) => (
         <li key={tag}>
-          <Badge>{tag}</Badge>
+          <Badge>
+            {/* El # es solo visual: el lector de pantalla lee el nombre de la etiqueta. */}
+            <span aria-hidden="true">#</span>
+            {tag}
+          </Badge>
         </li>
       ))}
       {hidden.length > 0 ? (

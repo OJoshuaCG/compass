@@ -32,6 +32,7 @@ export function TagSuggestions({ suggestions, onPick }: TagSuggestionsProps) {
               onPick(tag);
             }}
           >
+            <span aria-hidden="true">#</span>
             {tag}
           </Button>
         ))}
