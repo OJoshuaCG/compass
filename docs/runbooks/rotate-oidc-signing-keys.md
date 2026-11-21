@@ -14,7 +14,7 @@ Cambiar la clave con la que Compass firma los tokens de inicio de sesión único
 - `rotate [ES256|RS256]`: agrega una clave nueva (por defecto `ES256`) **sin retirar ninguna**.
 - `retire <kid>`: retira esa clave. Se niega a retirar la última activa (`CRYPTO.LAST_SIGNING_KEY`).
 
-Cada acción imprime **una línea JSON** con `action`, `kid`, `alg`, `at` (hora UTC) y `os_user` (usuario del sistema operativo que lo ejecutó). Nunca imprime ni registra la clave privada ni material derivado de ella.
+Cada acción imprime **una línea JSON** con `event` (siempre `oidc_signing_key`), `action`, `kid`, `alg`, `at` (hora UTC) y `os_user` (usuario del sistema operativo que lo ejecutó). Nunca imprime ni registra la clave privada ni material derivado de ella.
 
 ## Precondiciones
 
@@ -36,7 +36,7 @@ Cada acción imprime **una línea JSON** con `action`, `kid`, `alg`, `at` (hora 
 ## Salida y alertas
 
 - Código `0`: la acción se hizo y la línea JSON está en la salida estándar.
-- Código `1`: no se hizo nada (o la clave ya no estaba activa); el mensaje sale por stderr con un código estable (`USAGE`, `SIGNING_KEY_NOT_FOUND`, `CRYPTO.KMS_UNAVAILABLE`, `CRYPTO.LAST_SIGNING_KEY`). Una acción fallida no imprime línea JSON.
+- Código `1`: no se hizo nada (o la clave ya no estaba activa); el mensaje sale por stderr y una acción fallida no imprime línea JSON. Los errores propios del comando salen como `CÓDIGO: mensaje` con `USAGE` (argumentos inválidos) o `SIGNING_KEY_NOT_FOUND` (el `kid` no está activo). Los demás salen como `Falló la operación (CÓDIGO)` con `CRYPTO.KMS_UNAVAILABLE` o `CRYPTO.LAST_SIGNING_KEY`, o con el nombre del error si no trae código; nunca se imprimen detalles internos.
 
 ## Verificación
 
