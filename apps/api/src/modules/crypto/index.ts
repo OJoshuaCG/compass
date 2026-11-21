@@ -13,3 +13,16 @@ export { LocalKeyManagement } from './infrastructure/local-key-management.js';
 export { NodeCryptoPrimitives } from './infrastructure/node-crypto-primitives.js';
 export { PgDataKeyRepository } from './infrastructure/pg-data-key-repository.js';
 export { sha256Hex } from './infrastructure/sha256.js';
+export { PlatformEnvelope, PLATFORM_ENCRYPTION_CONTEXT } from './application/platform-envelope.js';
+export type {
+  GeneratedSigningKey,
+  Jwk,
+  SigningAlgorithm,
+  SigningKeyGenerator,
+  SigningKeyStore,
+  StoredSigningKey,
+} from './application/ports/signing-keys.js';
+export { SigningKeyService } from './application/signing-key-service.js';
+export type { SigningKeySet } from './application/signing-key-service.js';
+export { NodeSigningKeyGenerator } from './infrastructure/node-signing-key-generator.js';
+export { PgSigningKeyStore } from './infrastructure/pg-signing-key-store.js';

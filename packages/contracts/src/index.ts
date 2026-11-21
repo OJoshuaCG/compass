@@ -397,3 +397,15 @@ export type {
   UpdateSmtpSettingsRequest,
   UpdateTelegramIntegrationRequest,
 } from './integrations.js';
+
+export {
+  OIDC_CLIENT_MAX_RANKS,
+  oidcClientSchema,
+  oidcClientWithSecretSchema,
+  registerOidcClientRequestSchema,
+} from './oidc-clients.js';
+export type {
+  OidcClient,
+  OidcClientWithSecret,
+  RegisterOidcClientRequest,
+} from './oidc-clients.js';

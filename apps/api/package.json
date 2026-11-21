@@ -47,6 +47,7 @@
     "imapflow": "2.9.1",
     "jose": "6.2.12",
     "nodemailer": "10.1.7",
+    "oidc-provider": "9.13.3",
     "otplib": "13.5.0",
     "pg": "8.23.1",
     "pino": "10.4.0",
