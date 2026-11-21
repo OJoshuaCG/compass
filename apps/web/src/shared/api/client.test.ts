@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ApiError, NETWORK_ERROR_CODE } from './api-error';
+import { ApiError, isReauthCancelled, NETWORK_ERROR_CODE } from './api-error';
 import { createApiClient } from './client';
 
 const schema = z.object({ ok: z.boolean() });
@@ -211,6 +211,17 @@ describe('api client reauthentication and session expiry', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('does not mark a second AUTHZ.REAUTH_REQUIRED as cancelled by the user', async () => {
+    const fetchImpl = sequence(
+      jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403),
+      jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403),
+    );
+    const client = createApiClient({ fetchImpl, onReauthRequired: () => Promise.resolve(true) });
+    const error = await client.post('/things', schema).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(isReauthCancelled(error)).toBe(false);
+  });
+
   it('throws the original error without retrying when the user cancels', async () => {
     const fetchImpl = sequence(jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403));
     const client = createApiClient({ fetchImpl, onReauthRequired: () => Promise.resolve(false) });
@@ -218,6 +229,14 @@ describe('api client reauthentication and session expiry', () => {
       code: 'AUTHZ.REAUTH_REQUIRED',
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks the error as cancelled when the user cancels the identity check', async () => {
+    const fetchImpl = sequence(jsonResponse(problemBody(403, 'AUTHZ.REAUTH_REQUIRED'), 403));
+    const client = createApiClient({ fetchImpl, onReauthRequired: () => Promise.resolve(false) });
+    const error = await client.post('/things', schema).catch((caught: unknown) => caught);
+    expect(isReauthCancelled(error)).toBe(true);
+    expect(isReauthCancelled(new Error('x'))).toBe(false);
   });
 
   it('does not reauthenticate other 403 errors or when skipReauth is set', async () => {

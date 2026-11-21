@@ -3,7 +3,7 @@ import { Button, CopyButton, Dialog, FormField, PasswordInput, Spinner } from '@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError, useRateLimitCooldown } from '../../../shared/api';
+import { ApiError, isReauthCancelled, useRateLimitCooldown } from '../../../shared/api';
 import { ErrorAlert } from '../../../shared/i18n';
 import { revealCredentialPassword } from '../api/credentials-api';
 import {
@@ -218,6 +218,11 @@ export function RevealPasswordDialog({ ref }: RevealPasswordDialogProps) {
       (error: unknown) => {
         if (requestIdRef.current !== requestId) return;
         inFlightRef.current = false;
+        // Cancelar la confirmación de identidad es una decisión, no una falla: se cierra sin alerta.
+        if (isReauthCancelled(error)) {
+          setPhase({ kind: 'closed' });
+          return;
+        }
         setPhase({ kind: 'error', credential, error });
       },
     );

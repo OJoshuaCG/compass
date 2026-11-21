@@ -705,7 +705,7 @@ describe('reveal password', () => {
     expect(revealCalls(api)).toHaveLength(2);
   });
 
-  it('shows the re-authentication message when the user cancels the identity check', async () => {
+  it('closes the reveal dialog without an alert when the user cancels the identity check', async () => {
     const user = userEvent.setup();
     const api = setup({
       level: 'VIEW',
@@ -715,9 +715,11 @@ describe('reveal password', () => {
     await clickReveal(user);
     const reauth = await screen.findByRole('dialog', { name: es.common['reauth.title'] });
     await user.click(within(reauth).getByRole('button', { name: es.common['actions.cancel'] }));
-    expect(
-      await screen.findByText(new RegExp(es.errors['AUTHZ.REAUTH_REQUIRED'])),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByText(new RegExp(es.errors['AUTHZ.REAUTH_REQUIRED']))).toBeNull();
     expect(revealCalls(api)).toHaveLength(1);
   });
 
