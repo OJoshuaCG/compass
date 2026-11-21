@@ -42,8 +42,11 @@ function AccountTags({ tags }: { tags: readonly string[] }) {
         <li key={tag}>
           <Badge>
             {/* El # es solo visual: el lector de pantalla lee el nombre de la etiqueta. */}
-            <span aria-hidden="true">#</span>
-            {tag}
+            {/* Un solo elemento: el contenedor es flex y separaría el # del nombre. */}
+            <span>
+              <span aria-hidden="true">#</span>
+              {tag}
+            </span>
           </Badge>
         </li>
       ))}

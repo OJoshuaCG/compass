@@ -32,8 +32,11 @@ export function TagSuggestions({ suggestions, onPick }: TagSuggestionsProps) {
               onPick(tag);
             }}
           >
-            <span aria-hidden="true">#</span>
-            {tag}
+            {/* Un solo elemento: el contenedor es flex y separaría el # del nombre. */}
+            <span>
+              <span aria-hidden="true">#</span>
+              {tag}
+            </span>
           </Button>
         ))}
       </div>
