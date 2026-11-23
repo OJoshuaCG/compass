@@ -20,6 +20,7 @@ import {
   SigningKeyOperations,
   SigningKeyService,
   formatSigningKeyRecord,
+  operatorAuditActor,
   parseSigningKeyArguments,
 } from './modules/crypto/index.js';
 import type { SigningKeyRecord } from './modules/crypto/index.js';
@@ -50,6 +51,7 @@ try {
 
   const pool = new Pool({ connectionString: config.DATABASE_URL, max: 1 });
   try {
+    const operatingSystemUser = userInfo().username;
     const operations = new SigningKeyOperations({
       service: new SigningKeyService({
         store: new PgSigningKeyStore(pool),
@@ -58,9 +60,11 @@ try {
           kms: createKeyManagement(config),
           primitives: new NodeCryptoPrimitives(),
         }),
+        // El mismo usuario queda en la línea JSON del ticket y en `platform_audit_events`.
+        actor: operatorAuditActor(operatingSystemUser),
       }),
       clock: new SystemClock(),
-      operator: userInfo().username,
+      operator: operatingSystemUser,
     });
 
     if (command.action === 'list') printRecords(await operations.list());

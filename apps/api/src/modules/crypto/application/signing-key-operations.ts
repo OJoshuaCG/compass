@@ -1,11 +1,9 @@
 /**
  * Operaciones de la consola de claves de firma OIDC (runbook `rotate-oidc-signing-keys`).
  *
- * Auditoría (decisión del dueño, 2026-11-20, opción A): este comando NO escribe en la tabla de
- * auditoría; cada acción devuelve un registro de una sola línea (acción, kid, algoritmo, hora UTC y
- * usuario del sistema operativo) que la persona operadora adjunta al ticket de cambio.
- * TODO(ocarrasco, bloqueante antes de activar SSO en producción): reemplazar este registro por una
- * tabla de auditoría de plataforma (opción C); sin organización no cabe en `audit_events`.
+ * Auditoría: el servicio escribe cada alta y retiro en `platform_audit_events` (opción C, ADR 0052)
+ * con el actor `os:<usuario>`. Además, cada acción devuelve un registro de una sola línea (acción,
+ * kid, algoritmo, hora UTC y usuario del sistema operativo) que la persona operadora adjunta al ticket.
  *
  * Nunca se imprime ni se devuelve material de la clave privada.
  */

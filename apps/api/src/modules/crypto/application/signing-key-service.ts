@@ -16,6 +16,18 @@ import type {
   StoredSigningKey,
 } from './ports/signing-keys.js';
 
+/** Actor de la clave inicial que crea el arranque de la API cuando todavía no hay ninguna (`ensureActiveKey`). */
+export const API_PROCESS_AUDIT_ACTOR = 'system:api-process';
+
+/** Actor de las acciones del comando de operación: el usuario del sistema operativo de quien lo ejecuta. */
+export const operatorAuditActor = (osUsername: string): string => {
+  // Sin usuario el actor quedaría como `os:` y la auditoría no nombraría a nadie.
+  if (osUsername.trim() === '') {
+    throw new Error('The operating system user name for the audit actor is empty');
+  }
+  return `os:${osUsername}`;
+};
+
 const DEFAULT_ALGORITHM: SigningAlgorithm = 'ES256';
 const PRIVATE_KEY_PURPOSE_PREFIX = 'oidc-signing-key';
 
@@ -35,6 +47,11 @@ export interface SigningKeyServiceDeps {
   readonly store: SigningKeyStore;
   readonly generator: SigningKeyGenerator;
   readonly envelope: PlatformEnvelope;
+  /**
+   * Quién hace los cambios, para la auditoría de plataforma: `os:<usuario>` en el comando de operación y
+   * `system:api-process` en el arranque de la API. No puede ir vacío.
+   */
+  readonly actor: string;
 }
 
 /** El contexto de cifrado se ata al `kid` y al algoritmo: un sobre copiado a otra fila no abre. */
@@ -42,7 +59,13 @@ const purposeFor = (kid: string, algorithm: SigningAlgorithm): string =>
   `${PRIVATE_KEY_PURPOSE_PREFIX}|${kid}|${algorithm}`;
 
 export class SigningKeyService {
-  constructor(private readonly deps: SigningKeyServiceDeps) {}
+  constructor(private readonly deps: SigningKeyServiceDeps) {
+    // Falla al construir y no al rotar: sin actor la base de datos rechazaría el cambio de todos modos,
+    // pero un error al arrancar se ve de inmediato y uno a mitad de una rotación no.
+    if (deps.actor.trim() === '') {
+      throw new Error('SigningKeyService requires a non-empty audit actor');
+    }
+  }
 
   /** Crea la primera clave si todavía no hay ninguna activa. Idempotente. */
   async ensureActiveKey(): Promise<void> {
@@ -59,12 +82,15 @@ export class SigningKeyService {
         purposeFor(generated.kid, generated.algorithm),
         serialized,
       );
-      await this.deps.store.add({
-        kid: generated.kid,
-        algorithm: generated.algorithm,
-        publicJwk: generated.publicJwk,
-        privateJwkCiphertext,
-      });
+      await this.deps.store.add(
+        {
+          kid: generated.kid,
+          algorithm: generated.algorithm,
+          publicJwk: generated.publicJwk,
+          privateJwkCiphertext,
+        },
+        this.deps.actor,
+      );
     } finally {
       serialized.fill(0);
     }
@@ -81,7 +107,7 @@ export class SigningKeyService {
         'The last active signing key cannot be retired',
       );
     }
-    return this.deps.store.retire(kid);
+    return this.deps.store.retire(kid, this.deps.actor);
   }
 
   /**

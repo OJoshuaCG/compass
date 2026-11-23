@@ -30,7 +30,14 @@ export interface StoredSigningKey {
 export interface SigningKeyStore {
   /** Claves activas, de la más antigua a la más nueva. */
   listActive(): Promise<readonly StoredSigningKey[]>;
-  add(key: StoredSigningKey): Promise<void>;
-  /** Devuelve `false` si la clave no existe o ya estaba retirada. */
-  retire(kid: string): Promise<boolean>;
+  /**
+   * Guarda la clave y deja su fila en la auditoría de plataforma (`platform_audit_events`) en la misma
+   * sentencia: si no se puede auditar, la clave no se guarda. `actor` es quien la añade.
+   */
+  add(key: StoredSigningKey, actor: string): Promise<void>;
+  /**
+   * Devuelve `false` si la clave no existe o ya estaba retirada (y entonces no audita nada). Si la retira,
+   * audita con `actor` en la misma sentencia.
+   */
+  retire(kid: string, actor: string): Promise<boolean>;
 }

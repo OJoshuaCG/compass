@@ -21,6 +21,7 @@ function setup(operator = OPERATOR) {
     store,
     generator: new NodeSigningKeyGenerator(),
     envelope: new PlatformEnvelope({ kms, primitives: new NodeCryptoPrimitives() }),
+    actor: `os:${operator}`,
   });
   const operations = new SigningKeyOperations({ service, clock, operator });
   return { kms, store, clock, service, operations };
@@ -137,8 +138,8 @@ describe('SigningKeyOperations.retire', () => {
     await service.rotate();
     // Simula la carrera: el almacén ya no tiene la clave cuando se intenta retirar.
     const originalRetire = store.retire.bind(store);
-    store.retire = async (kid: string): Promise<boolean> => {
-      await originalRetire(kid);
+    store.retire = async (kid: string, actor: string): Promise<boolean> => {
+      await originalRetire(kid, actor);
       return false;
     };
 

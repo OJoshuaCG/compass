@@ -48,9 +48,13 @@ Cada acción imprime **una línea JSON** con `event` (siempre `oidc_signing_key`
 - Antes del paso 5: retira la clave **nueva** con `retire <kid nuevo>` y reinicia la API; la vieja nunca dejó de firmar.
 - Después del paso 5 no se puede recuperar la clave retirada: se rota otra nueva y se repite el procedimiento.
 
-## Limitación conocida (bloqueante antes de producción)
+## Auditoría
 
-Este comando **no escribe en la auditoría de la plataforma**: la única evidencia es la línea JSON adjunta al ticket. Decisión del dueño del 2026-11-20 (opción A), válida solo mientras `OIDC_ENABLED` siga apagado. Antes de activar SSO en producción hay que crear una tabla de auditoría de plataforma (opción C) y que este comando escriba en ella.
+Cada `rotate` y cada `retire` escriben, en la misma sentencia que el cambio de la clave, una fila en `platform_audit_events` (`oidc_signing_key.added` o `oidc_signing_key.retired`, con el kid, el algoritmo y el actor `os:<usuario>`). La tabla es solo de inserción, también para el administrador, y nunca contiene material de claves. La clave inicial que crea el arranque de la API queda con el actor `system:api-process`. La línea JSON del ticket se conserva como evidencia complementaria.
+
+## Orden de despliegue de la migración 0047
+
+La migración 0047 reemplaza las firmas de `auth.add_oidc_signing_key` y `auth.retire_oidc_signing_key`. Aplícala y despliega la API nueva juntas: una API anterior que arranque sin clave activa fallaría al crear la clave inicial. El actor lo envía quien llama; la tabla confía en el proceso de la API y no puede probar la identidad por sí sola.
 
 ## Historial de ensayos
 

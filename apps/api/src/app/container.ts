@@ -20,6 +20,7 @@ import {
 } from '../modules/access/index.js';
 import { PgAuditEventRepository, RecordAuditEvent } from '../modules/audit/index.js';
 import {
+  API_PROCESS_AUDIT_ACTOR,
   DataKeyResolver,
   DekCache,
   NodeCryptoPrimitives,
@@ -378,6 +379,8 @@ export function buildContainer(options: ContainerOptions) {
     store: new PgSigningKeyStore(pool),
     generator: new NodeSigningKeyGenerator(),
     envelope: new PlatformEnvelope({ kms, primitives }),
+    // El proceso de la API solo crea la clave inicial si no hay ninguna; la rotación la hace el comando.
+    actor: API_PROCESS_AUDIT_ACTOR,
   });
   // Aviso de logout a las aplicaciones (ADR 0052): la dirección la escribe una persona de la organización,
   // así que pasa por guardias de red. El segundo guardia admite solo las redes privadas del despliegue.

@@ -1,7 +1,7 @@
 /**
  * Invariantes de seguridad
- * - `oidc_signing_keys` no se toca directamente (`iam_app` no tiene `GRANT`): solo por las funciones
- *   `auth.*` de la migración 0045, que fijan el esquema y limitan lo que se puede hacer.
+ * - `oidc_signing_keys` y `platform_audit_events` no se tocan directamente (`iam_app` no tiene `GRANT`): solo
+ *   por las funciones `auth.*` (migraciones 0045 y 0047), que fijan el esquema y limitan lo que se puede hacer.
  * - Solo se maneja el sobre cifrado; la clave privada en claro nunca llega a este archivo.
  */
 import type { Pool } from 'pg';
@@ -42,19 +42,21 @@ export class PgSigningKeyStore implements SigningKeyStore {
     }));
   }
 
-  async add(key: StoredSigningKey): Promise<void> {
-    await this.database.query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4)', [
+  // La función escribe la clave y su fila de `platform_audit_events` en una sola sentencia (migración 0047).
+  async add(key: StoredSigningKey, actor: string): Promise<void> {
+    await this.database.query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4, $5)', [
       key.kid,
       key.algorithm,
       JSON.stringify(key.publicJwk),
       Buffer.from(key.privateJwkCiphertext),
+      actor,
     ]);
   }
 
-  async retire(kid: string): Promise<boolean> {
+  async retire(kid: string, actor: string): Promise<boolean> {
     const { rows } = await this.database.query<{ retired: boolean }>(
-      'select auth.retire_oidc_signing_key($1) as retired',
-      [kid],
+      'select auth.retire_oidc_signing_key($1, $2) as retired',
+      [kid, actor],
     );
     return rows[0]?.retired === true;
   }

@@ -22,7 +22,11 @@ export type {
   SigningKeyStore,
   StoredSigningKey,
 } from './application/ports/signing-keys.js';
-export { SigningKeyService } from './application/signing-key-service.js';
+export {
+  API_PROCESS_AUDIT_ACTOR,
+  SigningKeyService,
+  operatorAuditActor,
+} from './application/signing-key-service.js';
 export type { SigningKeySet } from './application/signing-key-service.js';
 export { NodeSigningKeyGenerator } from './infrastructure/node-signing-key-generator.js';
 export { PgSigningKeyStore } from './infrastructure/pg-signing-key-store.js';

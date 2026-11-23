@@ -6,7 +6,9 @@ import { NodeSigningKeyGenerator } from '../infrastructure/node-signing-key-gene
 import { FakeKeyManagement } from '../testing/fake-key-management.js';
 import { InMemorySigningKeyStore } from '../testing/in-memory-signing-key-store.js';
 import { PlatformEnvelope } from './platform-envelope.js';
-import { SigningKeyService } from './signing-key-service.js';
+import { SigningKeyService, operatorAuditActor } from './signing-key-service.js';
+
+const TEST_ACTOR = 'os:test-operator';
 
 function setup() {
   const kms = new FakeKeyManagement();
@@ -16,6 +18,7 @@ function setup() {
     store,
     generator: new NodeSigningKeyGenerator(),
     envelope,
+    actor: TEST_ACTOR,
   });
   return { kms, store, envelope, service };
 }
@@ -150,7 +153,69 @@ describe('SigningKeyService', () => {
     await service.rotate();
     const [one, two] = await store.listActive();
     if (one === undefined || two === undefined) throw new Error('Se esperaban dos claves');
-    await store.add({ ...one, kid: two.kid, privateJwkCiphertext: one.privateJwkCiphertext });
+    await store.add(
+      { ...one, kid: two.kid, privateJwkCiphertext: one.privateJwkCiphertext },
+      TEST_ACTOR,
+    );
     await expect(service.loadKeySet()).rejects.toMatchObject({ code: 'CRYPTO.DECRYPT_FAILED' });
+  });
+});
+
+// La auditoría de plataforma la escribe la base de datos junto con el cambio (migración 0047); aquí se
+// comprueba que el servicio entrega siempre el actor y que lo que no ocurrió no se audita.
+describe('SigningKeyService: auditoría de plataforma', () => {
+  it('cada alta (incluida la clave inicial) llega al almacén con el actor del servicio', async () => {
+    const { service, store } = setup();
+    await service.ensureActiveKey();
+    const second = await service.rotate('RS256');
+
+    expect(
+      store.auditEvents.map((event) => ({ action: event.action, actor: event.actor })),
+    ).toEqual([
+      { action: 'added', actor: TEST_ACTOR },
+      { action: 'added', actor: TEST_ACTOR },
+    ]);
+    expect(store.auditEvents[1]?.kid).toBe(second);
+  });
+
+  it('un retiro llega al almacén con el actor del servicio', async () => {
+    const { service, store } = setup();
+    const first = await service.rotate();
+    await service.rotate();
+    await service.retire(first);
+
+    const retired = store.auditEvents.filter((event) => event.action === 'retired');
+    expect(retired).toEqual([{ action: 'retired', kid: first, actor: TEST_ACTOR }]);
+  });
+
+  it('no audita un retiro rechazado por ser la última clave ni uno de una clave inexistente', async () => {
+    const { service, store } = setup();
+    const only = await service.rotate();
+    await expect(service.retire(only)).rejects.toMatchObject({ code: 'CRYPTO.LAST_SIGNING_KEY' });
+    expect(await service.retire('no-such-kid')).toBe(false);
+
+    expect(store.auditEvents.filter((event) => event.action === 'retired')).toEqual([]);
+  });
+
+  it('se niega a construirse sin actor: no hay rotación sin quién la hizo', () => {
+    const { store, envelope } = setup();
+    for (const blank of ['', '   ']) {
+      expect(
+        () =>
+          new SigningKeyService({
+            store,
+            generator: new NodeSigningKeyGenerator(),
+            envelope,
+            actor: blank,
+          }),
+      ).toThrow(/actor/i);
+    }
+  });
+});
+
+describe('operatorAuditActor', () => {
+  it('une el prefijo os: con el usuario y se niega con un usuario vacío', () => {
+    expect(operatorAuditActor('ops')).toBe('os:ops');
+    expect(() => operatorAuditActor('  ')).toThrow();
   });
 });
