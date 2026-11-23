@@ -92,7 +92,6 @@ export function InboundViewSettingsPage() {
   return (
     <>
       <PageHeader
-        eyebrow={t('nav.group.vault', { ns: 'common' })}
         title={t('viewSettings.title', { ns: 'inbound' })}
         description={t('viewSettings.description', { ns: 'inbound' })}
         actions={

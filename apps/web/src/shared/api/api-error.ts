@@ -82,3 +82,18 @@ export class ApiError extends Error {
     return new ApiError({ status: 0, code: NETWORK_ERROR_CODE, title: 'Network error' });
   }
 }
+
+/**
+ * Errores `AUTHZ.REAUTH_REQUIRED` que terminaron porque la persona canceló la confirmación de
+ * identidad. Cancelar es una decisión suya, no una falla: quien llamó puede cerrarse sin alertar.
+ * Un segundo `REAUTH_REQUIRED` tras reautenticar no se marca y se sigue mostrando como error.
+ */
+const reauthCancelled = new WeakSet<object>();
+
+export function markReauthCancelled(error: ApiError): void {
+  reauthCancelled.add(error);
+}
+
+export function isReauthCancelled(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && reauthCancelled.has(error);
+}

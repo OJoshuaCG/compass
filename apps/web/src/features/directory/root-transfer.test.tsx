@@ -124,7 +124,9 @@ describe('root transfer page', () => {
     expect(
       await screen.findByText(es.directory['rootTransfer.status.pending_acceptance']),
     ).toBeVisible();
-    expect(screen.queryByRole('group')).toBeNull();
+    expect(
+      screen.queryByRole('group', { name: es.directory['rootTransfer.propose.legend'] }),
+    ).toBeNull();
   });
 
   it('shows a server rejection on the proposal without leaving the form', async () => {
@@ -143,7 +145,9 @@ describe('root transfer page', () => {
     );
 
     expect(await screen.findByRole('alert')).toBeVisible();
-    expect(screen.getByRole('group')).toBeVisible();
+    expect(
+      screen.getByRole('group', { name: es.directory['rootTransfer.propose.legend'] }),
+    ).toBeVisible();
   });
 
   it('tells an Administrator there is nothing in progress and offers no proposal form', async () => {
@@ -152,7 +156,9 @@ describe('root transfer page', () => {
     await pageTitle();
 
     expect(await screen.findByText(es.directory['rootTransfer.none'])).toBeVisible();
-    expect(screen.queryByRole('group')).toBeNull();
+    expect(
+      screen.queryByRole('group', { name: es.directory['rootTransfer.propose.legend'] }),
+    ).toBeNull();
   });
 
   it('shows the open transfer with names and status, and lets the Root cancel but not accept', async () => {
@@ -242,7 +248,9 @@ describe('root transfer page', () => {
       expect(api.callsTo('DELETE', TRANSFER_PATH)).toHaveLength(1);
     });
     expect(await screen.findByText(es.directory['rootTransfer.cancelled'])).toBeInTheDocument();
-    expect(await screen.findByRole('group')).toBeVisible();
+    expect(
+      await screen.findByRole('group', { name: es.directory['rootTransfer.propose.legend'] }),
+    ).toBeVisible();
   });
 
   it('treats a 404 on cancel as already cancelled', async () => {
@@ -263,7 +271,9 @@ describe('root transfer page', () => {
       within(dialog).getByRole('button', { name: es.directory['rootTransfer.cancel.confirm'] }),
     );
 
-    expect(await screen.findByRole('group')).toBeVisible();
+    expect(
+      await screen.findByRole('group', { name: es.directory['rootTransfer.propose.legend'] }),
+    ).toBeVisible();
   });
 
   it('answers as a missing route to anyone below Administrator', async () => {

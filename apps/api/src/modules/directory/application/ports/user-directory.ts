@@ -35,6 +35,8 @@ export interface DirectoryRow {
 export interface ManagedRow extends DirectoryRow {
   readonly status: UserStatus;
   readonly managedBy: UserId | null;
+  /** Nombre visible del responsable; `null` si no tiene. */
+  readonly managerName: string | null;
 }
 
 export interface ManagedPage {

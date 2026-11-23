@@ -33,6 +33,13 @@ export const managedUserSchema = z.object({
   rank: rankSchema,
   status: userStatusSchema,
   managedBy: z.uuid().nullable(),
+  /** Nombre visible del responsable; `null` si no tiene (la Raíz). */
+  managerName: z.string().nullable(),
+  /**
+   * Nombres de los roles vigentes, sin el rol personal. `null` cuando quien consulta no podría verlos
+   * uno por uno (le falta `user.invite` o no gestiona a esa persona): no es lo mismo que "sin roles".
+   */
+  roleNames: z.array(z.string()).nullable(),
 });
 export type ManagedUser = z.infer<typeof managedUserSchema>;
 

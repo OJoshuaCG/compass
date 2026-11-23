@@ -1,5 +1,5 @@
 import type { Rank, UserStatus } from '@iam/contracts';
-import { Card, EmptyState, Spinner } from '@iam/ui';
+import { EmptyState, Panel, Spinner } from '@iam/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -49,6 +49,8 @@ export function HierarchyPanel({ actor }: HierarchyPanelProps) {
       rank: actor.rank,
       status: 'active',
       managedBy: null,
+      managerName: null,
+      roleNames: null,
     },
     children: hierarchy.directReports,
   };
@@ -61,24 +63,23 @@ export function HierarchyPanel({ actor }: HierarchyPanelProps) {
           description={t('hierarchy.empty.description', { ns: 'directory' })}
         />
       ) : (
-        <Card>
+        <div className="rounded-lg border border-border bg-surface p-5 shadow-card">
           <HierarchyTree nodes={[actorNode]} rankLabel={rankLabel} statusLabel={statusLabel} />
-        </Card>
+        </div>
       )}
       {hierarchy.detached.length > 0 ? (
-        <Card>
-          <h3 className="font-medium text-text">
-            {t('hierarchy.detached.title', { ns: 'directory' })}
-          </h3>
-          <p className="mb-3 text-sm text-text-secondary">
-            {t('hierarchy.detached.description', { ns: 'directory' })}
-          </p>
-          <HierarchyTree
-            nodes={hierarchy.detached}
-            rankLabel={rankLabel}
-            statusLabel={statusLabel}
-          />
-        </Card>
+        <Panel title={t('hierarchy.detached.title', { ns: 'directory' })}>
+          <div className="flex flex-col gap-3 p-5">
+            <p className="text-sm text-text-secondary">
+              {t('hierarchy.detached.description', { ns: 'directory' })}
+            </p>
+            <HierarchyTree
+              nodes={hierarchy.detached}
+              rankLabel={rankLabel}
+              statusLabel={statusLabel}
+            />
+          </div>
+        </Panel>
       ) : null}
     </div>
   );

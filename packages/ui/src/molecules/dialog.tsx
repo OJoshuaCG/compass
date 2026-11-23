@@ -2,6 +2,7 @@ import * as RadixDialog from '@radix-ui/react-dialog';
 import type { ReactNode } from 'react';
 
 import { X } from '../icons';
+import { cn } from '../lib/cn';
 
 export type DialogProps = {
   open: boolean;
@@ -10,6 +11,11 @@ export type DialogProps = {
   description: string;
   /** Nombre accesible del botón de cierre (ya traducido). */
   closeLabel: string;
+  /**
+   * `side`: panel a la altura completa pegado al borde final, para consultar el detalle de un
+   * elemento sin perder de vista la lista. Mismo comportamiento modal que el centrado.
+   */
+  placement?: 'center' | 'side';
   children: ReactNode;
 };
 
@@ -23,6 +29,7 @@ export function Dialog({
   title,
   description,
   closeLabel,
+  placement = 'center',
   children,
 }: DialogProps) {
   return (
@@ -34,7 +41,15 @@ export function Dialog({
             y abajo (la utilidad `max-h-dvh` lo pegaba a los bordes) y `dvh` se encoge con el teclado
             virtual donde el viewport lo permite. `overscroll-contain` evita arrastrar la página de
             detrás al llegar al final de un contenido largo. */}
-        <RadixDialog.Content className="fixed inset-x-4 z-50 top-1/2 mx-auto max-h-[calc(100dvh-2rem)] max-w-md -translate-y-1/2 overflow-y-auto overscroll-contain glass rounded-lg p-6">
+        <RadixDialog.Content
+          className={cn(
+            // Cristal: es una capa flotante (ADR 0049); el panel lateral solo redondea su borde libre.
+            'fixed z-50 overflow-y-auto overscroll-contain glass p-6',
+            placement === 'side'
+              ? 'inset-y-0 end-0 w-full max-w-md rounded-s-lg'
+              : 'inset-x-4 top-1/2 mx-auto max-h-[calc(100dvh-2rem)] max-w-md -translate-y-1/2 rounded-lg',
+          )}
+        >
           <RadixDialog.Title className="pe-8 font-heading text-lg break-words text-text">
             {title}
           </RadixDialog.Title>

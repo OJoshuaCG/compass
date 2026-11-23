@@ -55,7 +55,10 @@ export class UsersController {
       cursor: query.cursor,
     });
     return {
-      data: page.rows.map((row) => ({ ...row })),
+      data: page.rows.map((row) => ({
+        ...row,
+        roleNames: row.roleNames === null ? null : [...row.roleNames],
+      })),
       page: { nextCursor: page.nextCursor, limit: query.limit },
     };
   }

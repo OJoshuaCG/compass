@@ -40,7 +40,9 @@ function setup(catalog: Parameters<typeof stubApi>[0][string]) {
 }
 
 async function openPermissionsTab(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('cell', { name: 'Soporte' });
+  await screen.findByRole('link', {
+    name: es.roles['card.openLabel'].replace('{{name}}', 'Soporte'),
+  });
   await user.click(screen.getByRole('tab', { name: es.roles['tabs.permissions'] }));
 }
 
@@ -48,7 +50,9 @@ describe('roles screen tabs', () => {
   it('starts on the roles tab and does not request the catalog until the other tab is chosen', async () => {
     const api = setup(jsonResponse({ data: CATALOG }));
     renderApp('/roles');
-    await screen.findByRole('cell', { name: 'Soporte' });
+    await screen.findByRole('link', {
+      name: es.roles['card.openLabel'].replace('{{name}}', 'Soporte'),
+    });
     expect(screen.getByRole('tab', { name: es.roles['tabs.roles'] })).toHaveAttribute(
       'aria-selected',
       'true',

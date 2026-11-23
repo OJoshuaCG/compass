@@ -95,7 +95,9 @@ const EXPECTED_ROUTES: Readonly<Record<string, Access>> = {
 
   'GET /platforms': 'full-session',
   'GET /accounts': 'full-session',
+  'GET /accounts/tags': 'full-session',
   'GET /accounts/inventory': 'full-session',
+  'GET /accounts/inventory/tags': 'full-session',
   'GET /account-views': 'full-session',
   'POST /account-views': 'full-session',
   'DELETE /account-views/:id': 'full-session',

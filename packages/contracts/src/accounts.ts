@@ -20,7 +20,9 @@ export const platformSchema = z.object({
 export type Platform = z.infer<typeof platformSchema>;
 
 const MAX_TAGS = 20;
-const tagSchema = safeText({ max: 50, min: 1 });
+/** Una etiqueta de cuenta: texto libre de organización y búsqueda (sin efecto en el acceso). */
+export const accountTagSchema = safeText({ max: 50, min: 1 });
+const tagSchema = accountTagSchema;
 
 export const accountSchema = z.object({
   id: z.uuid(),
@@ -61,21 +63,35 @@ export type AccountListFilter = z.infer<typeof accountListFilterSchema>;
 
 const ACCOUNT_SEARCH_MAX_LENGTH = 100;
 
-/** Listados de cuentas: orden fijo por nombre, con búsqueda de texto y un filtro rápido opcionales. */
+/**
+ * Listados de cuentas: orden fijo por nombre, con búsqueda de texto, filtro rápido y etiqueta
+ * opcionales. `tag` compara la etiqueta completa, distinguiendo mayúsculas, como se guardó.
+ */
 export const accountListQuerySchema = fixedOrderPageQuerySchema.extend({
   q: safeText({ max: ACCOUNT_SEARCH_MAX_LENGTH, min: 1 }).optional(),
   filter: accountListFilterSchema.optional(),
+  tag: tagSchema.optional(),
 });
 export type AccountListQuery = z.infer<typeof accountListQuerySchema>;
 
 /**
- * Inventario: solo búsqueda de texto. Los filtros rápidos usan datos de credenciales, que el inventario
- * no debe revelar; `strict` hace que pedir `filter` falle en vez de ignorarse en silencio.
+ * Inventario: búsqueda de texto y etiqueta. Los filtros rápidos usan datos de credenciales, que el
+ * inventario no debe revelar; `strict` hace que pedir `filter` falle en vez de ignorarse en silencio.
  */
 export const inventoryListQuerySchema = fixedOrderPageQuerySchema
-  .extend({ q: safeText({ max: ACCOUNT_SEARCH_MAX_LENGTH, min: 1 }).optional() })
+  .extend({
+    q: safeText({ max: ACCOUNT_SEARCH_MAX_LENGTH, min: 1 }).optional(),
+    tag: tagSchema.optional(),
+  })
   .strict();
 export type InventoryListQuery = z.infer<typeof inventoryListQuerySchema>;
+
+/**
+ * Etiquetas distintas en uso, ordenadas sin distinguir mayúsculas. En `GET /accounts/tags` salen solo
+ * de las cuentas con acceso efectivo; en `GET /accounts/inventory/tags`, de todo el inventario.
+ */
+export const accountTagsResponseSchema = z.object({ data: z.array(z.string()) });
+export type AccountTagsResponse = z.infer<typeof accountTagsResponseSchema>;
 
 export const createAccountRequestSchema = z.object({
   platformId: z.uuid(),

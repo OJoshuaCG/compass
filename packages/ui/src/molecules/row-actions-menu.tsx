@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 
 import { IconButton } from '../atoms/icon-button';
 import { Ellipsis } from '../icons';
@@ -10,6 +10,8 @@ export type RowActionItem = {
   onSelect: () => void;
   /** `danger` para acciones destructivas (el container decide si además pide confirmación). */
   tone?: 'default' | 'danger';
+  /** Ícono decorativo a la izquierda del texto; el texto sigue siendo el nombre accesible. */
+  icon?: ReactNode;
 };
 
 export type RowActionsMenuProps = {

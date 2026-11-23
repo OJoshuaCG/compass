@@ -2,30 +2,25 @@ import {
   AlertTriangle,
   AppShell,
   ArrowRightLeft,
-  Bell,
   BrandMark,
   House,
   IconButton,
-  Inbox,
-  KeyRound,
-  Layers,
   LayoutGrid,
+  Lock,
   LogOut,
-  Monitor,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Mail,
   NavGroup,
   navItemClass,
   navItemIconClass,
-  ShieldCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
   SIDEBAR_ID,
-  SlidersHorizontal,
-  UserCog,
   UserMenu,
   Users,
-  UsersRound,
+  type LucideIcon,
 } from '@iam/ui';
-import { Link, Outlet } from '@tanstack/react-router';
+import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -35,46 +30,77 @@ import { LanguageSwitcher } from '../shared/i18n';
 import { useSidebarVisibility } from '../shared/layout';
 import { ThemeSwitcher } from '../shared/theme';
 
-// El estado activo se dibuja desde `aria-current` (ver `navItemClass`), que el enrutador fija.
-const activeProps = { 'aria-current': 'page' } as const;
+import { SectionNav, type SectionLink } from './section-nav';
 
-type NavLinkProps = {
-  to: string;
-  icon: ReactNode;
-  label: string;
+/** La ruta actual cae en `path` o en alguna de sus subrutas (`/accounts/:id/...`). */
+const isWithin = (pathname: string, path: string) =>
+  pathname === path || pathname.startsWith(`${path}/`);
+
+/**
+ * Entrada del menú lateral con las clases de `NavItem` (ADR 0049). `paths` son las rutas que la
+ * dejan marcada: una sección (Personas, Configuración) agrupa varias pantallas y sigue activa en
+ * cualquiera de ellas. El aspecto activo sale de `aria-current`, como en `navItemClass`.
+ */
+function NavLink({
+  to,
+  paths = [to],
+  icon: Icon,
+  exact,
+  onNavigate,
+  children,
+}: {
+  to:
+    | '/'
+    | '/users'
+    | '/security'
+    | '/accounts'
+    | '/catalog'
+    | '/inbound'
+    | '/inbound/sources'
+    | '/root-transfer'
+    | '/credential-health';
+  paths?: readonly string[];
+  icon: LucideIcon;
   exact?: boolean;
   /** Se llama al activar el enlace; el menú lo usa para plegarse en móvil. */
   onNavigate: () => void;
-};
-
-/** Enlace del menú lateral: el `Link` del enrutador con las clases compartidas de `NavItem`. */
-function NavLink({ to, icon, label, exact = false, onNavigate }: NavLinkProps) {
+  children: ReactNode;
+}) {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const active = exact === true ? pathname === to : paths.some((path) => isWithin(pathname, path));
   return (
     <li>
       <Link
         to={to}
         className={navItemClass}
-        activeProps={activeProps}
-        activeOptions={{ exact }}
+        aria-current={active ? 'page' : undefined}
         onClick={onNavigate}
       >
         <span aria-hidden="true" className={navItemIconClass}>
-          {icon}
+          <Icon className="size-5" />
         </span>
-        {label}
+        {children}
       </Link>
     </li>
   );
 }
 
+const VAULT_PATHS = ['/accounts', '/vault'] as const;
+const PEOPLE_PATHS = ['/users', '/groups', '/roles'] as const;
+const SETTINGS_PATHS = ['/security', '/sessions', '/audit', '/alerts'] as const;
+const INBOUND_PATHS = ['/inbound'] as const;
+
 /** Rango máximo (número) que ve el enlace de la transferencia de la Raíz: la Raíz y los Administradores. */
 const MAX_RANK_TO_SEE_ROOT_TRANSFER = 1;
 
-/** Marco de la app autenticada: barra superior, navegación agrupada y contenido. */
+/** Marco de la app autenticada (ADR 0049): barra superior de cristal y menú lateral por grupos. */
 export function AppLayout() {
   const { t } = useTranslation('common');
   const me = useMe();
   const canManageRoles = usePermission('role.manage');
+  const canReadAllAudit = usePermission('audit.read_all');
+  const canReadScopeAudit = usePermission('audit.read_scope');
+  const canReadAudit = canReadAllAudit || canReadScopeAudit;
   // Solo comodidad: el enlace se ofrece a quien puede leer códigos; el servidor decide siempre.
   const canReadInboundCodes = usePermission('inbound.read_codes');
   // Solo comodidad: el enlace de configurar fuentes se ofrece con `inbound.configure`; el servidor decide.
@@ -89,10 +115,45 @@ export function AppLayout() {
   const sidebarState = useSidebarVisibility(me?.user.id);
   const sidebarVisible: boolean = sidebarState.visible;
   const closeSidebar: () => void = sidebarState.close;
-  const showCatalog: boolean = import.meta.env.DEV;
-  // El grupo Acceso se oculta entero cuando ninguno de sus enlaces aplica a la persona.
-  const showAccessGroup: boolean =
-    canManageRoles || canManageInfraAlerts || canSeeRootTransfer || showCatalog;
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  // Pestañas de cada sección, como en el diseño: Personas (usuarios y roles) y Configuración
+  // (seguridad y sesiones). Una sección con una sola pantalla no muestra pestañas.
+  const peopleLinks: SectionLink[] = [
+    { to: '/users', label: t('nav.users') },
+    // Sin permiso previo: la lista ya llega acotada por el servidor a lo que la persona ve.
+    { to: '/groups', label: t('nav.groups') },
+    ...(canManageRoles ? [{ to: '/roles' as const, label: t('nav.roles') }] : []),
+  ];
+  const settingsLinks: SectionLink[] = [
+    { to: '/security', label: t('nav.security') },
+    { to: '/sessions', label: t('nav.sessions') },
+    // Vista previa con eventos ficticios: solo en desarrollo hasta que exista la lectura (R1).
+    ...(import.meta.env.DEV && canReadAudit
+      ? [{ to: '/audit' as const, label: t('nav.audit') }]
+      : []),
+    ...(canManageInfraAlerts ? [{ to: '/alerts' as const, label: t('nav.alerts') }] : []),
+  ];
+  // Códigos de acceso: leerlos y configurar sus fuentes y vistas son pantallas hermanas.
+  const inboundLinks: SectionLink[] = [
+    ...(canReadInboundCodes
+      ? [{ to: '/inbound' as const, label: t('nav.inbound'), exact: true }]
+      : []),
+    ...(canConfigureInbound
+      ? [
+          { to: '/inbound/sources' as const, label: t('nav.inboundSources') },
+          { to: '/inbound/view-settings' as const, label: t('nav.inboundViewSettings') },
+        ]
+      : []),
+  ];
+  const section = PEOPLE_PATHS.some((path) => isWithin(pathname, path))
+    ? { label: t('nav.sectionsOf', { section: t('nav.people') }), links: peopleLinks }
+    : SETTINGS_PATHS.some((path) => isWithin(pathname, path))
+      ? { label: t('nav.sectionsOf', { section: t('nav.settings') }), links: settingsLinks }
+      : INBOUND_PATHS.some((path) => isWithin(pathname, path))
+        ? { label: t('nav.sectionsOf', { section: t('nav.codes') }), links: inboundLinks }
+        : undefined;
+
   return (
     <AppShell
       skipLinkLabel={t('nav.skipToContent')}
@@ -153,120 +214,61 @@ export function AppLayout() {
       sidebar={
         <nav aria-label={t('nav.label')} className="flex flex-col gap-5">
           <NavGroup label={t('nav.group.workspace')}>
-            <NavLink
-              onNavigate={closeSidebar}
-              to="/"
-              exact
-              icon={<House className="size-5" />}
-              label={t('nav.home')}
-            />
-            <NavLink
-              onNavigate={closeSidebar}
-              to="/users"
-              icon={<Users className="size-5" />}
-              label={t('nav.users')}
-            />
-            {/* Sin permiso previo: la lista ya llega acotada por el servidor a lo que la persona ve. */}
-            <NavLink
-              onNavigate={closeSidebar}
-              to="/groups"
-              icon={<UsersRound className="size-5" />}
-              label={t('nav.groups')}
-            />
-            <NavLink
-              onNavigate={closeSidebar}
-              to="/sessions"
-              icon={<Monitor className="size-5" />}
-              label={t('nav.sessions')}
-            />
+            <NavLink onNavigate={closeSidebar} to="/" exact icon={House}>
+              {t('nav.home')}
+            </NavLink>
+            <NavLink onNavigate={closeSidebar} to="/users" paths={PEOPLE_PATHS} icon={Users}>
+              {t('nav.people')}
+            </NavLink>
+          </NavGroup>
+          <NavGroup label={t('nav.group.vault')}>
+            {/* La vista previa del diseño (/vault, solo en desarrollo) no tiene entrada propia. */}
+            <NavLink onNavigate={closeSidebar} to="/accounts" paths={VAULT_PATHS} icon={Lock}>
+              {t('nav.vault')}
+            </NavLink>
+            {canReadInboundCodes || canConfigureInbound ? (
+              <NavLink
+                onNavigate={closeSidebar}
+                to={canReadInboundCodes ? '/inbound' : '/inbound/sources'}
+                paths={INBOUND_PATHS}
+                icon={Mail}
+              >
+                {t('nav.codes')}
+              </NavLink>
+            ) : null}
+            {canViewCredentialHealth ? (
+              <NavLink onNavigate={closeSidebar} to="/credential-health" icon={AlertTriangle}>
+                {t('nav.credentialHealth')}
+              </NavLink>
+            ) : null}
+          </NavGroup>
+          <NavGroup label={t('nav.group.access')}>
             <NavLink
               onNavigate={closeSidebar}
               to="/security"
-              icon={<ShieldCheck className="size-5" />}
-              label={t('nav.security')}
-            />
-          </NavGroup>
-          <NavGroup label={t('nav.group.vault')}>
-            <NavLink
-              onNavigate={closeSidebar}
-              to="/accounts"
-              icon={<KeyRound className="size-5" />}
-              label={t('nav.accounts')}
-            />
-            {canReadInboundCodes ? (
-              // Exacto: «Fuentes» y «Vistas» cuelgan de /inbound y no deben marcar también «Códigos».
-              <NavLink
-                onNavigate={closeSidebar}
-                to="/inbound"
-                exact
-                icon={<Inbox className="size-5" />}
-                label={t('nav.inbound')}
-              />
+              paths={SETTINGS_PATHS}
+              icon={Settings}
+            >
+              {t('nav.settings')}
+            </NavLink>
+            {canSeeRootTransfer ? (
+              <NavLink onNavigate={closeSidebar} to="/root-transfer" icon={ArrowRightLeft}>
+                {t('nav.rootTransfer')}
+              </NavLink>
             ) : null}
-            {canConfigureInbound ? (
-              <>
-                <NavLink
-                  onNavigate={closeSidebar}
-                  to="/inbound/sources"
-                  icon={<Layers className="size-5" />}
-                  label={t('nav.inboundSources')}
-                />
-                <NavLink
-                  onNavigate={closeSidebar}
-                  to="/inbound/view-settings"
-                  icon={<SlidersHorizontal className="size-5" />}
-                  label={t('nav.inboundViewSettings')}
-                />
-              </>
-            ) : null}
-            {canViewCredentialHealth ? (
-              <NavLink
-                onNavigate={closeSidebar}
-                to="/credential-health"
-                icon={<AlertTriangle className="size-5" />}
-                label={t('nav.credentialHealth')}
-              />
+            {import.meta.env.DEV ? (
+              <NavLink onNavigate={closeSidebar} to="/catalog" icon={LayoutGrid}>
+                {t('nav.catalog')}
+              </NavLink>
             ) : null}
           </NavGroup>
-          {showAccessGroup ? (
-            <NavGroup label={t('nav.group.access')}>
-              {canManageRoles ? (
-                <NavLink
-                  onNavigate={closeSidebar}
-                  to="/roles"
-                  icon={<UserCog className="size-5" />}
-                  label={t('nav.roles')}
-                />
-              ) : null}
-              {canManageInfraAlerts ? (
-                <NavLink
-                  onNavigate={closeSidebar}
-                  to="/alerts"
-                  icon={<Bell className="size-5" />}
-                  label={t('nav.alerts')}
-                />
-              ) : null}
-              {canSeeRootTransfer ? (
-                <NavLink
-                  onNavigate={closeSidebar}
-                  to="/root-transfer"
-                  icon={<ArrowRightLeft className="size-5" />}
-                  label={t('nav.rootTransfer')}
-                />
-              ) : null}
-              {showCatalog ? (
-                <NavLink
-                  onNavigate={closeSidebar}
-                  to="/catalog"
-                  icon={<LayoutGrid className="size-5" />}
-                  label={t('nav.catalog')}
-                />
-              ) : null}
-            </NavGroup>
-          ) : null}
         </nav>
       }
     >
+      {/* Las pestañas de la sección van sobre el contenido: la barra superior es global. */}
+      {section !== undefined && section.links.length > 1 ? (
+        <SectionNav label={section.label} links={section.links} />
+      ) : null}
       <Outlet />
     </AppShell>
   );

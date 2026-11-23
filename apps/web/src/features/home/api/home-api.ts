@@ -1,9 +1,4 @@
-import {
-  accountListItemSchema,
-  managedUserSchema,
-  MAX_PAGE_LIMIT,
-  sessionSummarySchema,
-} from '@iam/contracts';
+import { accountListItemSchema, managedUserSchema, MAX_PAGE_LIMIT } from '@iam/contracts';
 
 import { apiClient, createListFetcher, type FetchPage } from '../../../shared/api';
 import { summaryCountOf, type SummaryCount } from '../model/summary-count';
@@ -13,23 +8,20 @@ export const homeKeys = {
   all: ['home'] as const,
   managedCount: () => [...homeKeys.all, 'managed-count'] as const,
   inventoryCount: () => [...homeKeys.all, 'inventory-count'] as const,
-  sessionsCount: () => [...homeKeys.all, 'sessions-count'] as const,
 };
 
-// Se declaran fetchers propios en vez de importar los de otros features: la regla de capas solo
-// permite entrar a un feature por su `index.ts`, y el inicio solo necesita contar filas.
+// Fetchers propios en vez de importar los de otros features: el inicio solo necesita contar filas
+// y así no comparte la forma de su caché con las tablas.
 const fetchManagedPage = createListFetcher(apiClient, '/users/managed', managedUserSchema);
 const fetchInventoryPage = createListFetcher(
   apiClient,
   '/accounts/inventory',
   accountListItemSchema,
 );
-const fetchSessionsPage = createListFetcher(apiClient, '/me/sessions', sessionSummarySchema);
 
 /**
  * Una sola página del tamaño máximo: ningún listado devuelve total (ver `summaryCountOf`), así que
- * el conteo es exacto solo si todo cabe en ella. Pedir más páginas multiplicaría las peticiones de
- * la pantalla de entrada por una cifra que de todos modos podría no ser exacta.
+ * el conteo es exacto solo si todo cabe en ella.
  */
 async function countFirstPage<T>(
   fetchPage: FetchPage<T>,
@@ -44,12 +36,7 @@ export function fetchManagedCount(signal: AbortSignal): Promise<SummaryCount> {
   return countFirstPage(fetchManagedPage, signal);
 }
 
-/** `GET /accounts/inventory` (exige `vault.inventory.read`): cuentas del inventario. */
+/** `GET /accounts/inventory` (exige `vault.inventory.read`): cuentas activas del inventario. */
 export function fetchInventoryCount(signal: AbortSignal): Promise<SummaryCount> {
   return countFirstPage(fetchInventoryPage, signal);
-}
-
-/** `GET /me/sessions`: sesiones vivas de quien consulta. */
-export function fetchSessionsCount(signal: AbortSignal): Promise<SummaryCount> {
-  return countFirstPage(fetchSessionsPage, signal);
 }

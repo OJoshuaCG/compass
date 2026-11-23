@@ -1,4 +1,4 @@
-export { ApiError, NETWORK_ERROR_CODE } from './api-error';
+export { ApiError, isReauthCancelled, NETWORK_ERROR_CODE } from './api-error';
 export {
   apiClient,
   createApiClient,

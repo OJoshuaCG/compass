@@ -49,11 +49,7 @@ export function InboundViewSettingsTable({
 
   const columns = useMemo<Column<InboundConfigurableView>[]>(
     () => [
-      {
-        id: 'name',
-        header: t('viewSettings.col.name'),
-        cell: (row) => <span className="font-medium text-text">{row.name}</span>,
-      },
+      { id: 'name', header: t('viewSettings.col.name'), cell: (row) => row.name },
       {
         id: 'source',
         header: t('viewSettings.col.source'),
@@ -67,16 +63,12 @@ export function InboundViewSettingsTable({
       {
         id: 'level',
         header: t('viewSettings.col.level'),
-        cell: (row) => <Badge dot>{t(`level.${row.level}`)}</Badge>,
+        cell: (row) => <Badge>{t(`level.${row.level}`)}</Badge>,
       },
       {
         id: 'createdAt',
         header: t('viewSettings.col.createdAt'),
-        cell: (row) => (
-          <span className="font-mono text-text-secondary">
-            {formatDateTime(row.createdAt, i18n.language, timeZone)}
-          </span>
-        ),
+        cell: (row) => formatDateTime(row.createdAt, i18n.language, timeZone),
       },
     ],
     [i18n.language, sourceNames, t, timeZone],

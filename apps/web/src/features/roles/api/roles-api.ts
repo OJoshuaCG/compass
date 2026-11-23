@@ -1,7 +1,9 @@
 import {
+  MAX_PAGE_LIMIT,
   permissionCatalogEntrySchema,
   roleSchema,
   type CreateRoleRequest,
+  type Role,
   type UpdateRoleRequest,
 } from '@iam/contracts';
 import { z } from 'zod';
@@ -12,11 +14,31 @@ import { apiClient, createListFetcher, noContentSchema, type ApiClient } from '.
 export const rolesKeys = {
   all: ['roles'] as const,
   list: () => [...rolesKeys.all, 'list'] as const,
+  detail: (id: string) => [...rolesKeys.all, 'detail', id] as const,
   permissionCatalog: () => [...rolesKeys.all, 'permission-catalog'] as const,
 };
 
 /** `GET /roles?cursor=&limit=`: plantillas del sistema primero y luego las personalizadas por nombre. */
 export const fetchRolesPage = createListFetcher(apiClient, '/roles', roleSchema);
+
+/** Tope de páginas al buscar un rol: los roles de una organización caben de sobra. */
+const MAX_ROLE_PAGES = 50;
+
+/**
+ * Un rol por id para el editor. La API no tiene `GET /roles/:id`, así que se recorre el listado
+ * página por página; `null` si no está (archivado, de otra organización o inexistente).
+ */
+export async function fetchRole(id: string, signal: AbortSignal): Promise<Role | null> {
+  let cursor: string | undefined;
+  for (let pageNumber = 0; pageNumber < MAX_ROLE_PAGES; pageNumber += 1) {
+    const page = await fetchRolesPage({ limit: MAX_PAGE_LIMIT, cursor }, signal);
+    const found = page.data.find((role) => role.id === id);
+    if (found !== undefined) return found;
+    if (page.page.nextCursor === null) break;
+    cursor = page.page.nextCursor;
+  }
+  return null;
+}
 
 /** `POST /roles` (201, exige `role.manage`): 409 nombre repetido, 403 escalamiento. */
 export function createRole(body: CreateRoleRequest, client: ApiClient = apiClient) {

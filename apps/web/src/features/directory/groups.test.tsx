@@ -155,10 +155,12 @@ describe('groups list', () => {
     expect(api.callsTo('GET', GROUPS_PATH).length).toBeGreaterThanOrEqual(2);
   });
 
-  it('is reachable from the sidebar menu', async () => {
+  it('is reachable from the People section of the menu', async () => {
     const user = userEvent.setup();
     setup();
     renderApp('/');
+    // En dev, Grupos es una pestaña de la sección Personas, junto a Usuarios y Roles.
+    await user.click(await screen.findByRole('link', { name: es.common['nav.people'] }));
     await user.click(await screen.findByRole('link', { name: es.common['nav.groups'] }));
 
     expect(await pageTitle()).toBeVisible();

@@ -10,6 +10,8 @@ const person = (overrides: Partial<ManagedUser>): ManagedUser => ({
   rank: 1,
   status: 'active',
   managedBy: null,
+  managerName: null,
+  roleNames: null,
   ...overrides,
 });
 

@@ -214,7 +214,6 @@ export function CredentialImportPage() {
       <PageHeader
         title={t('import.title', { ns: 'credentials' })}
         description={t('import.description', { ns: 'credentials' })}
-        eyebrow={t('nav.group.vault', { ns: 'common' })}
       />
     </>
   );

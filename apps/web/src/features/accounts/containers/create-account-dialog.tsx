@@ -1,5 +1,5 @@
 import { ErrorCode } from '@iam/contracts';
-import { Button, Dialog, FormField, Input, NativeSelect } from '@iam/ui';
+import { Button, Dialog, FormField, Input, NativeSelect, PlatformTile } from '@iam/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useForm, useWatch } from 'react-hook-form';
@@ -13,8 +13,16 @@ import {
 } from '../../../shared/api';
 import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
 import { accountsKeys, createAccount } from '../api/accounts-api';
-import { accountFormSchema, buildCreateBody, type AccountFormValues } from '../model/account-form';
+import {
+  accountFormSchema,
+  addSuggestedTag,
+  buildCreateBody,
+  suggestTags,
+  type AccountFormValues,
+} from '../model/account-form';
+import { TagSuggestions } from '../ui/tag-suggestions';
 
+import { useAccountTags } from './use-account-tags';
 import { usePlatforms } from './use-platforms';
 
 type CreateAccountFormProps = {
@@ -37,6 +45,7 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
     register,
     handleSubmit,
     setError,
+    setValue,
     control,
     formState: { errors },
   } = useForm<AccountFormValues>({
@@ -45,6 +54,10 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
   });
   const platformId = useWatch({ control, name: 'platformId' });
   const displayName = useWatch({ control, name: 'displayName' });
+  const tags = useWatch({ control, name: 'tags' });
+  // Sugerencias solo de las cuentas con acceso efectivo (lo decide el servidor, opción A).
+  const tagsQuery = useAccountTags();
+  const selectedPlatform = platforms.find((platform) => platform.id === platformId);
 
   async function submit(values: AccountFormValues) {
     const result = await action.run(values);
@@ -98,18 +111,28 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
         })}
       >
         {(field) => (
-          <NativeSelect
-            {...field}
-            {...register('platformId')}
-            invalid={field['aria-invalid'] === true}
-          >
-            <option value="">{t('create.platformPlaceholder', { ns: 'accounts' })}</option>
-            {platforms.map((platform) => (
-              <option key={platform.id} value={platform.id}>
-                {platform.name}
-              </option>
-            ))}
-          </NativeSelect>
+          // Un select nativo no admite imágenes: el logotipo de la elegida se muestra a su lado.
+          <div className="flex items-center gap-3">
+            {selectedPlatform !== undefined ? (
+              <PlatformTile
+                slug={selectedPlatform.isGlobal ? selectedPlatform.slug : undefined}
+                fallback={selectedPlatform.name}
+              />
+            ) : null}
+            <NativeSelect
+              {...field}
+              {...register('platformId')}
+              invalid={field['aria-invalid'] === true}
+              className="flex-1"
+            >
+              <option value="">{t('create.platformPlaceholder', { ns: 'accounts' })}</option>
+              {platforms.map((platform) => (
+                <option key={platform.id} value={platform.id}>
+                  {platform.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         )}
       </FormField>
       <FormField
@@ -157,6 +180,15 @@ function CreateAccountForm({ onCancel, onCreated }: CreateAccountFormProps) {
           />
         )}
       </FormField>
+      <TagSuggestions
+        suggestions={suggestTags(tagsQuery.data ?? [], tags)}
+        onPick={(tag) => {
+          setValue('tags', addSuggestedTag(tags, tag, tagsQuery.data ?? []), {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+        }}
+      />
       <div className="flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           {t('actions.cancel', { ns: 'common' })}

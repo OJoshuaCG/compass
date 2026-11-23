@@ -12,6 +12,7 @@ export {
   type Column,
   type DataTableLabels,
   type DataTableProps,
+  type RowExpansion,
   type TableSort,
 } from './data-table';
 export { PageHeader, type PageHeaderProps } from './page-header';

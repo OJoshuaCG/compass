@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { Avatar, initialsOf } from '../atoms/avatar';
 import { BrandMark } from '../atoms/brand-mark';
-import { AppShell, SIDEBAR_ID } from '../organisms/app-shell';
 import { axeViolations } from '../test/axe';
 
 import { Card, CardBody, CardHeader } from './card';
@@ -158,32 +157,5 @@ describe('UserMenu', () => {
     expect(item).toHaveAttribute('aria-busy', 'true');
     await user.click(item);
     expect(onLogout).not.toHaveBeenCalled();
-  });
-});
-
-describe('AppShell sidebar visibility', () => {
-  const renderShell = (sidebarHidden = false) =>
-    render(
-      <AppShell
-        sidebar={<nav aria-label="Main">links</nav>}
-        header={<span>Compass</span>}
-        skipLinkLabel="Skip"
-        sidebarHidden={sidebarHidden}
-      >
-        content
-      </AppShell>,
-    );
-
-  it('shows the sidebar by default (backwards compatible)', () => {
-    renderShell();
-    expect(screen.getByRole('navigation', { name: 'Main' })).toBeVisible();
-    expect(document.getElementById(SIDEBAR_ID)).not.toHaveAttribute('hidden');
-  });
-
-  it('hides the sidebar from the page and the accessibility tree but keeps the content', () => {
-    renderShell(true);
-    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
-    expect(document.getElementById(SIDEBAR_ID)).toHaveAttribute('hidden');
-    expect(screen.getByRole('main')).toHaveTextContent('content');
   });
 });

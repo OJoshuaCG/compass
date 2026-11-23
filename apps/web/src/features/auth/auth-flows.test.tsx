@@ -8,6 +8,9 @@ import { es, expectNoSecretsStored, field } from '../../test/helpers';
 import { renderApp } from '../../test/render-app';
 import { openUserMenu } from '../../test/user-menu';
 
+/** Nombre de `meFixture()`: el botón del menú de la persona se llama como ella. */
+const ME_DISPLAY_NAME = meFixture().user.displayName;
+
 type Stage = 'anonymous' | 'mfa' | 'enrollment' | 'full';
 
 /** `/me` que cambia según la etapa que fijan las demás respuestas (como lo haría el servidor). */
@@ -29,9 +32,6 @@ function sessionApi(initial: Stage) {
   };
   return { state, handlers };
 }
-
-/** Nombre de `meFixture()`: el botón del menú de la persona se llama como ella. */
-const ME_DISPLAY_NAME = meFixture().user.displayName;
 
 const SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 const OTPAUTH = `otpauth://totp/Compass:ana@example.com?secret=${SECRET}&issuer=Compass`;
@@ -58,6 +58,7 @@ describe('login -> MFA', () => {
     await screen.findByRole('heading', { level: 1, name: es.auth['login.title'] });
     expect(await axeViolations(container)).toEqual([]);
     await user.type(field(es.auth['login.email']), 'Ana@Example.com');
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.type(field(es.auth['login.password']), 'correct horse battery');
     await user.click(screen.getByRole('button', { name: es.auth['login.submit'] }));
 
@@ -88,6 +89,7 @@ describe('login -> MFA', () => {
       await screen.findByLabelText(new RegExp(`^${es.auth['login.email']}`)),
       'a@b.co',
     );
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.type(field(es.auth['login.password']), 'whatever');
     await user.click(screen.getByRole('button', { name: es.auth['login.submit'] }));
 
@@ -98,14 +100,44 @@ describe('login -> MFA', () => {
     expect(router.state.location.pathname).toBe('/login');
   });
 
-  it('validates the form with translated messages and sends nothing', async () => {
+  it('validates each step with translated messages and sends nothing', async () => {
     const user = userEvent.setup();
     const { handlers } = sessionApi('anonymous');
     const api = stubApi(handlers);
     renderApp('/login');
+    // Paso 1: sin correo no se avanza.
+    await user.click(await screen.findByRole('button', { name: es.auth['login.continue'] }));
+    expect(await screen.findAllByText(es.common['validation.required'])).toHaveLength(1);
+    expect(screen.queryByLabelText(new RegExp(`^${es.auth['login.password']}`))).toBeNull();
+    // Paso 2: sin contraseña no se envía.
+    await user.type(field(es.auth['login.email']), 'a@b.co');
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.click(await screen.findByRole('button', { name: es.auth['login.submit'] }));
-    expect(await screen.findAllByText(es.common['validation.required'])).toHaveLength(2);
+    expect(await screen.findAllByText(es.common['validation.required'])).toHaveLength(1);
     expect(api.callsTo('POST', '/auth/login')).toHaveLength(0);
+  });
+
+  it('shows the email on the password step and goes back with Change, keeping it', async () => {
+    const user = userEvent.setup();
+    const { handlers } = sessionApi('anonymous');
+    stubApi(handlers);
+    renderApp('/login');
+    await user.type(
+      await screen.findByLabelText(new RegExp(`^${es.auth['login.email']}`)),
+      'ana@example.com',
+    );
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: es.auth['login.passwordTitle'] }),
+    ).toBeVisible();
+    expect(screen.getByText('ana@example.com')).toBeVisible();
+    // El foco llega al campo de la contraseña.
+    expect(field(es.auth['login.password'])).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: es.auth['login.changeLabel'] }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: es.auth['login.title'] }),
+    ).toBeVisible();
+    expect(field(es.auth['login.email'])).toHaveValue('ana@example.com');
   });
 
   it('disables the submit button during a 429 and shows the wait time', async () => {
@@ -120,6 +152,7 @@ describe('login -> MFA', () => {
       await screen.findByLabelText(new RegExp(`^${es.auth['login.email']}`)),
       'a@b.co',
     );
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.type(field(es.auth['login.password']), 'whatever');
     await user.click(screen.getByRole('button', { name: es.auth['login.submit'] }));
 
@@ -139,6 +172,7 @@ describe('login -> MFA', () => {
       await screen.findByLabelText(new RegExp(`^${es.auth['login.email']}`)),
       'a@b.co',
     );
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.type(field(es.auth['login.password']), 'whatever');
     await user.click(screen.getByRole('button', { name: es.auth['login.submit'] }));
     expect(await screen.findByRole('alert')).toHaveTextContent('req-test-1');
@@ -160,6 +194,7 @@ describe('login -> MFA', () => {
       await screen.findByLabelText(new RegExp(`^${es.auth['login.email']}`)),
       'a@b.co',
     );
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.type(field(es.auth['login.password']), 'whatever');
     await user.click(screen.getByRole('button', { name: es.auth['login.submit'] }));
     await screen.findByRole('heading', { level: 1, name: es.auth['enroll.title'] });
@@ -533,19 +568,6 @@ describe('session expiry and logout', () => {
         .getAll()
         .every((query) => query.queryKey[0] === 'session'),
     ).toBe(true);
-  });
-
-  it('shows the name and rank of the person in the user menu before offering to sign out', async () => {
-    const user = userEvent.setup();
-    const { handlers } = sessionApi('full');
-    stubApi(handlers);
-    renderApp('/');
-    await screen.findByRole('heading', { level: 1, name: es.common['home.title'] });
-    await openUserMenu(user, ME_DISPLAY_NAME);
-    const menu = await screen.findByRole('menu');
-    expect(menu).toHaveTextContent(ME_DISPLAY_NAME);
-    expect(menu).toHaveTextContent(es.common[`rank.${String(meFixture().user.rank)}` as 'rank.1']);
-    expect(screen.getByRole('menuitem', { name: es.common['actions.logout'] })).toBeInTheDocument();
   });
 
   it('keeps the session and warns when the server does not confirm the logout', async () => {

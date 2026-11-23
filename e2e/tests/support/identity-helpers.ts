@@ -71,9 +71,11 @@ export async function signInWithPassword(
   password: string,
 ): Promise<void> {
   await page.goto('/login');
+  // Acceso en dos pasos: primero el correo y luego la contraseña.
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('textbox', { name: 'Password', exact: true }).fill(password);
   await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('textbox', { name: 'Password', exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
 /** Pantalla de cambio obligatorio: sustituye la contraseña inicial por una propia. */
@@ -108,17 +110,6 @@ export async function completeEnrollment(
   return { secret, recoveryCodes };
 }
 
-/** Abre el menú de la persona (el botón con menú de la barra superior) y devuelve su acción de salir. */
-export async function openUserMenu(page: Page): Promise<void> {
-  await page.getByRole('banner').locator('button[aria-haspopup="menu"]').click();
-}
-
-/** Cierra la sesión desde el menú de la persona, que reúne su nombre, su rango y esta acción. */
-export async function signOut(page: Page): Promise<void> {
-  await openUserMenu(page);
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
-}
-
 export async function storageDump(page: Page): Promise<string> {
   return page.evaluate(() => {
     const read = (storage: Storage): Record<string, string | null> =>
@@ -143,13 +134,13 @@ export async function signInAsRoot(page: Page): Promise<string> {
     await changeInitialPassword(page, PASSWORD, ROOT_PASSWORD);
     const enrolled = await completeEnrollment(page);
     rememberRootSecret(enrolled.secret);
-    await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Vault', exact: true })).toBeVisible();
     return enrolled.secret;
   }
   await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
   await page.getByLabel('Verification code').fill(await freshCode(knownSecret));
   await page.getByRole('button', { name: 'Verify' }).click();
-  await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Vault', exact: true })).toBeVisible();
   return knownSecret;
 }
 

@@ -1,5 +1,4 @@
 export { Alert, type AlertProps } from './alert';
-export { Card, CardBody, CardHeader } from './card';
 export { CodeInput, type CodeInputProps } from './code-input';
 export { CopyButton, type CopyButtonProps } from './copy-button';
 export { Dialog, type DialogProps } from './dialog';
@@ -13,7 +12,9 @@ export {
   type PaginationLabels,
   type PaginationProps,
 } from './pagination';
+export { Panel, type PanelProps } from './panel';
 export { SearchInput, type SearchInputProps } from './search-input';
+export { StatCard, type StatCardProps } from './stat-card';
 export { SortableHeader, type SortableHeaderProps, type SortDirection } from './sortable-header';
 export { StatusBadge, type Status, type StatusBadgeProps } from './status-badge';
 export { PasswordInput, type PasswordInputProps } from './password-input';
@@ -21,8 +22,8 @@ export { StrengthMeter, type StrengthLevel, type StrengthMeterProps } from './st
 export { ToastViewport, type ToastItem, type ToastViewportProps } from './toast';
 export { RadioGroup, type RadioGroupProps, type RadioOption } from './radio-group';
 export { RowActionsMenu, type RowActionItem, type RowActionsMenuProps } from './row-actions-menu';
-export { UserMenu, type UserMenuAction, type UserMenuProps } from './user-menu';
 export { Tabs, type TabItem, type TabsProps } from './tabs';
+export { UserMenu, type UserMenuAction, type UserMenuProps } from './user-menu';
 export {
   NavGroup,
   NavItem,
@@ -31,3 +32,4 @@ export {
   type NavGroupProps,
   type NavItemProps,
 } from './nav-item';
+export { Card, CardBody, CardHeader } from './card';

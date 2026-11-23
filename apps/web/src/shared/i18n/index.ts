@@ -11,3 +11,4 @@ export { useErrorMessage } from './use-error-message';
 
 export { useValidationMessage } from './use-validation-message';
 export { ErrorAlert, type ErrorAlertProps } from './error-alert';
+export { useRoleLabel } from './use-role-label';

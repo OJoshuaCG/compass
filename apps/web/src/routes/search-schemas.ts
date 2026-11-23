@@ -58,6 +58,11 @@ export const usersSearchSchema = z.object({
   q: z.string().max(200).optional().catch(undefined),
 });
 
+/** "Nuevo rol": `?from=` es el rol que se duplica; un valor que no es UUID se descarta. */
+export const roleEditorSearchSchema = z.object({
+  from: z.uuid().optional().catch(undefined),
+});
+
 /**
  * Interacción del proveedor OIDC (`?uid=`). El router interpreta como JSON los valores de la
  * query, así que un `uid` solo de dígitos llegaría como número: se vuelve a texto. La forma

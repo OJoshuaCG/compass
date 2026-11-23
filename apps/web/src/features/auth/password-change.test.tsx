@@ -62,6 +62,7 @@ describe('login -> password change', () => {
       await screen.findByLabelText(new RegExp(`^${es.auth['login.email']}`)),
       'root@example.com',
     );
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.type(field(es.auth['login.password']), CURRENT);
     await user.click(screen.getByRole('button', { name: es.auth['login.submit'] }));
     await screen.findByRole('heading', { level: 1, name: es.auth['passwordChange.title'] });

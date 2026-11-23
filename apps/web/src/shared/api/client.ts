@@ -1,7 +1,7 @@
 import { ErrorCode } from '@iam/contracts';
 import type { z } from 'zod';
 
-import { ApiError } from './api-error';
+import { ApiError, markReauthCancelled } from './api-error';
 import { reauthCoordinator } from './reauth-coordinator';
 import { emitSessionExpired } from './session-events';
 
@@ -196,7 +196,10 @@ export function createApiClient(config: ApiClientConfig = {}): ApiClient {
       // Si el usuario cancela se propaga el error original; si reautentica, un único reintento:
       // un segundo REAUTH_REQUIRED se muestra como error en vez de abrir el diálogo en bucle.
       const reauthenticated = await onReauthRequired();
-      if (!reauthenticated) throw error;
+      if (!reauthenticated) {
+        markReauthCancelled(error);
+        throw error;
+      }
       return attempt(method, path, schema, options, idempotencyKey);
     }
   }

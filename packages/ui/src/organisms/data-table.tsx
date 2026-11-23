@@ -1,7 +1,9 @@
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Button } from '../atoms/button';
+import { IconButton } from '../atoms/icon-button';
+import { ChevronDown, ChevronRight } from '../icons';
 import { Skeleton } from '../atoms/skeleton';
 import { cn } from '../lib/cn';
 import { EmptyState } from '../molecules/empty-state';
@@ -34,6 +36,21 @@ export type DataTableLabels = {
   emptyFiltered: { title: string; description: string; clear: string };
 };
 
+/**
+ * Filas desplegables (lista en árbol): cada fila ofrece un botón que abre un detalle debajo. El
+ * estado de qué filas están abiertas es del container, que así puede ofrecer «expandir todo».
+ */
+export type RowExpansion<T> = {
+  expandedIds: ReadonlySet<string>;
+  onToggle: (row: T) => void;
+  /** Contenido de la fila abierta; solo se pinta (y se monta) mientras está abierta. */
+  renderDetail: (row: T) => ReactNode;
+  /** Nombre accesible del botón de cada fila, ya traducido. */
+  toggleLabel: (row: T, expanded: boolean) => string;
+  /** Encabezado (solo para lectores de pantalla) de la columna del botón. */
+  column: string;
+};
+
 export type DataTableProps<T extends object> = {
   columns: Column<T>[];
   rows: T[];
@@ -55,6 +72,8 @@ export type DataTableProps<T extends object> = {
   emptyState: ReactNode;
   errorState?: { message: string; onRetry: () => void } | undefined;
   rowActions?: ((row: T) => ReactNode) | undefined;
+  /** Filas desplegables; sin ella la tabla es plana. */
+  expansion?: RowExpansion<T> | undefined;
   /** Obligatoria: describe la tabla a los lectores de pantalla. */
   caption: string;
   labels: DataTableLabels;
@@ -98,6 +117,7 @@ export function DataTable<T extends object>({
   emptyState,
   errorState,
   rowActions,
+  expansion,
   caption,
   labels,
   hasActiveFilters = false,
@@ -139,7 +159,7 @@ export function DataTable<T extends object>({
     };
   }, []);
   const columnById = new Map(columns.map((column) => [column.id, column]));
-  const colSpan = columns.length + (rowActions ? 1 : 0);
+  const colSpan = columns.length + (rowActions ? 1 : 0) + (expansion ? 1 : 0);
   const hasSortableColumns = columns.some((column) => column.sortKey !== undefined);
 
   const offset = pagination.offset ?? 0;
@@ -197,6 +217,11 @@ export function DataTable<T extends object>({
                 <td role="presentation" aria-hidden="true" className="hidden px-4 max-md:block">
                   {labels.sortBy}
                 </td>
+                {expansion ? (
+                  <th scope="col" role="columnheader" className="w-10 px-2 py-3 max-md:sr-only">
+                    <span className="sr-only">{expansion.column}</span>
+                  </th>
+                ) : null}
                 {group.headers.map((header) => {
                   const column = columnById.get(header.column.id);
                   const sortKey = column?.sortKey;
@@ -304,42 +329,86 @@ export function DataTable<T extends object>({
               </tr>
             ) : null}
             {status === 'success'
-              ? table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    role="row"
-                    className="border-b border-border last:border-b-0 hover:bg-raised max-md:block max-md:px-4 max-md:py-3"
-                  >
-                    {row.getAllCells().map((cell) => (
-                      <td
-                        key={cell.id}
-                        role="cell"
-                        data-label={columnById.get(cell.column.id)?.header}
-                        // `content-[attr(data-label)]` es un valor arbitrario inevitable: Tailwind
-                        // no tiene utilidad semántica para `attr()`. Pinta la etiqueta de la
-                        // columna en móvil sin duplicar el DOM (§4.1, regla 8).
-                        className={cn(
-                          // `wrap-anywhere` y no `break-words`: en un contenedor flex solo el primero
-                          // reduce el ancho mínimo, así los valores largos (hashes, correos) se parten.
-                          'px-5 py-3.5 text-text wrap-anywhere max-md:min-w-0',
-                          columnById.get(cell.column.id)?.align === 'end' && 'text-end',
-                          'max-md:flex max-md:items-baseline max-md:justify-between max-md:gap-4 max-md:px-4 max-md:py-1.5 max-md:text-end',
-                          'max-md:before:shrink-0 max-md:before:content-[attr(data-label)] max-md:before:text-start max-md:before:font-mono max-md:before:text-xs max-md:before:text-text-muted max-md:before:uppercase',
-                        )}
+              ? table.getRowModel().rows.map((row) => {
+                  const expanded = expansion?.expandedIds.has(row.id) === true;
+                  const detailId = `row-detail-${row.id}`;
+                  return (
+                    <Fragment key={row.id}>
+                      <tr
+                        role="row"
+                        className="border-b border-border last:border-b-0 hover:bg-raised max-md:block max-md:px-4 max-md:py-3"
                       >
-                        <table.FlexRender cell={cell} />
-                      </td>
-                    ))}
-                    {rowActions ? (
-                      <td
-                        role="cell"
-                        className="px-5 py-3.5 text-end max-md:flex max-md:justify-end max-md:border-t max-md:border-border max-md:px-4 max-md:py-2"
-                      >
-                        {rowActions(row.original)}
-                      </td>
-                    ) : null}
-                  </tr>
-                ))
+                        {expansion ? (
+                          <td
+                            role="cell"
+                            className="w-10 px-2 py-3.5 max-md:flex max-md:justify-end max-md:px-0 max-md:py-0"
+                          >
+                            <IconButton
+                              variant="ghost"
+                              size="sm"
+                              label={expansion.toggleLabel(row.original, expanded)}
+                              icon={
+                                expanded ? (
+                                  <ChevronDown className="size-4" />
+                                ) : (
+                                  <ChevronRight className="size-4" />
+                                )
+                              }
+                              aria-expanded={expanded}
+                              aria-controls={expanded ? detailId : undefined}
+                              onClick={() => {
+                                expansion.onToggle(row.original);
+                              }}
+                            />
+                          </td>
+                        ) : null}
+                        {row.getAllCells().map((cell) => (
+                          <td
+                            key={cell.id}
+                            role="cell"
+                            data-label={columnById.get(cell.column.id)?.header}
+                            // `content-[attr(data-label)]` es un valor arbitrario inevitable: Tailwind
+                            // no tiene utilidad semántica para `attr()`. Pinta la etiqueta de la
+                            // columna en móvil sin duplicar el DOM (§4.1, regla 8).
+                            className={cn(
+                              // `wrap-anywhere` y no `break-words`: en un contenedor flex solo el primero
+                              // reduce el ancho mínimo, así los valores largos (hashes, correos) se parten.
+                              'px-5 py-3.5 text-text wrap-anywhere max-md:min-w-0',
+                              columnById.get(cell.column.id)?.align === 'end' && 'text-end',
+                              'max-md:flex max-md:items-baseline max-md:justify-between max-md:gap-4 max-md:px-4 max-md:py-1.5 max-md:text-end',
+                              'max-md:before:shrink-0 max-md:before:content-[attr(data-label)] max-md:before:text-start max-md:before:font-mono max-md:before:text-xs max-md:before:text-text-muted max-md:before:uppercase',
+                            )}
+                          >
+                            <table.FlexRender cell={cell} />
+                          </td>
+                        ))}
+                        {rowActions ? (
+                          <td
+                            role="cell"
+                            className="px-5 py-3.5 text-end max-md:flex max-md:justify-end max-md:border-t max-md:border-border max-md:px-4 max-md:py-2"
+                          >
+                            {rowActions(row.original)}
+                          </td>
+                        ) : null}
+                      </tr>
+                      {expanded ? (
+                        <tr
+                          role="row"
+                          className="border-b border-border bg-raised last:border-b-0 max-md:block"
+                        >
+                          <td
+                            id={detailId}
+                            colSpan={colSpan}
+                            role="cell"
+                            className="px-5 py-3 max-md:block max-md:px-4"
+                          >
+                            {expansion.renderDetail(row.original)}
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })
               : null}
           </tbody>
         </table>

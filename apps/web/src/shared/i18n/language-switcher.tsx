@@ -1,52 +1,50 @@
-import { LOCALES, isLocale, type Locale } from '@iam/i18n';
-import { IconButton } from '@iam/ui';
+import { LOCALES, isLocale } from '@iam/i18n';
+import { cn } from '@iam/ui';
 import { useTranslation } from 'react-i18next';
 
 import { changeLocale } from './setup';
 
-/** "es-MX" -> "ES": el código ISO 639-1 del idioma, que es lo único que cabe en el botón. */
-export function languageCode(locale: Locale): string {
-  const [languageSubtag] = locale.split('-');
-  return (languageSubtag ?? locale).toUpperCase();
-}
-
-/** Idioma que sigue al actual en `LOCALES`; tras el último se vuelve al primero. */
-function nextLocaleAfter(current: Locale): Locale {
-  const currentIndex: number = LOCALES.indexOf(current);
-  const nextIndex: number = (currentIndex + 1) % LOCALES.length;
-  return LOCALES[nextIndex] ?? LOCALES[0];
-}
-
 /**
- * Botón compacto de la barra que alterna el idioma. Muestra el código del idioma ACTIVO (ES / EN),
- * con el mismo tamaño que el botón de tema; su nombre accesible dice a cuál cambia. Recuerda la
- * elección (ver `locale-storage`).
+ * Selector de idioma es-MX / en-US como el diseño de Compass: una píldora con un botón por idioma
+ * (ES | EN) y el activo resaltado. Recuerda la elección (ver `locale-storage`).
+ *
+ * Accesibilidad: es un grupo con nombre ("Idioma") de botones con `aria-pressed`. El texto visible es
+ * el código corto; el nombre accesible es el nombre del idioma en su propio idioma, que empieza con
+ * ese código (WCAG 2.5.3), y `lang` hace que el lector de pantalla lo pronuncie bien (WCAG 3.1.2).
  */
 export function LanguageSwitcher() {
   const { t, i18n } = useTranslation('common');
-  const current: Locale = isLocale(i18n.language) ? i18n.language : LOCALES[0];
-  const next: Locale = nextLocaleAfter(current);
-  // El nombre del idioma destino se pinta en su propio idioma, como en los catálogos.
-  const switchToLabel: string = t('language.switchTo', {
-    language: t(`language.${next}`, { lng: next }),
-  });
-  // WCAG 2.5.3 (la etiqueta contiene el nombre visible): el nombre accesible empieza con el código que
-  // se ve en el botón, para que quien dicta "EN" o ve el texto encuentre el mismo control.
-  const label: string = `${languageCode(current)}: ${switchToLabel}`;
+  const current = isLocale(i18n.language) ? i18n.language : LOCALES[0];
   return (
-    <IconButton
-      variant="secondary"
-      size="md"
-      label={label}
-      // El código es del idioma activo; `lang` evita que el lector lo pronuncie con otra voz (WCAG 3.1.2).
-      icon={
-        <span lang={current} className="text-xs font-semibold tracking-wide">
-          {languageCode(current)}
-        </span>
-      }
-      onClick={() => {
-        void changeLocale(i18n, next);
-      }}
-    />
+    <div
+      role="group"
+      aria-label={t('language.label')}
+      className="flex gap-0.5 rounded-full border border-border-strong bg-surface p-0.5"
+    >
+      {LOCALES.map((locale) => {
+        const active = locale === current;
+        const name = t(`language.${locale}`, { lng: locale });
+        return (
+          <button
+            key={locale}
+            type="button"
+            lang={locale}
+            aria-label={name}
+            title={name}
+            aria-pressed={active}
+            onClick={() => {
+              if (!active) void changeLocale(i18n, locale);
+            }}
+            className={cn(
+              'h-7 min-w-10 rounded-full px-3 text-sm font-semibold transition-colors duration-fast',
+              active ? 'bg-accent-solid text-on-accent' : 'text-text-muted hover:text-text',
+            )}
+          >
+            {/* Código corto derivado del locale (es-MX → ES): no es texto de interfaz. */}
+            {locale.slice(0, 2).toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
   );
 }

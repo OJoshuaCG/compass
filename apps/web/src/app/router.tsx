@@ -15,10 +15,13 @@ import { HomePage } from '../routes/home-page';
 import { NotFoundPage, RootNotFound } from '../routes/not-found-page';
 import { PublicLayout } from '../routes/public-layout';
 import { RootLayout } from '../routes/root-layout';
+import { auditPreviewSearchSchema } from '../routes/audit-preview-search';
+import { vaultPreviewSearchSchema } from '../routes/vault-preview-search';
 import {
   invitationSearchSchema,
   mfaSearchSchema,
   returnToSearchSchema,
+  roleEditorSearchSchema,
   ssoInteractionSearchSchema,
   usersSearchSchema,
 } from '../routes/search-schemas';
@@ -164,6 +167,19 @@ const rolesRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/roles-route'), 'RolesRoute'),
 });
 
+const newRoleRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/roles/new',
+  validateSearch: roleEditorSearchSchema,
+  component: lazyRouteComponent(() => import('../routes/roles-route'), 'NewRoleRoute'),
+});
+
+const roleRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/roles/$roleId',
+  component: lazyRouteComponent(() => import('../routes/roles-route'), 'RoleRoute'),
+});
+
 const accountsRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/accounts',
@@ -257,6 +273,40 @@ const catalogRoute = createRoute({
   component: lazyRouteComponent(loadCatalog, 'CatalogRoutePage'),
 });
 
+// Vista previa de la bóveda (diseño de Compass con datos ficticios), también solo en desarrollo:
+// la bóveda real es la fase 1b y llegará con su API (B01). En producción responde 404.
+const loadVaultPreview = import.meta.env.DEV
+  ? () => import('../routes/vault-preview-route-page')
+  : () => Promise.resolve({ VaultPreviewRoutePage: NotFoundPage });
+
+const vaultPreviewRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/vault',
+  validateSearch: vaultPreviewSearchSchema,
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    if (!import.meta.env.DEV) throw notFound();
+  },
+  component: lazyRouteComponent(loadVaultPreview, 'VaultPreviewRoutePage'),
+});
+
+// Vista previa de la auditoría (diseño de Compass con eventos ficticios), solo en desarrollo: la
+// lectura real de auditoría es la tarea R1. En producción responde 404.
+const loadAuditPreview = import.meta.env.DEV
+  ? () => import('../routes/audit-preview-route-page')
+  : () => Promise.resolve({ AuditPreviewRoutePage: NotFoundPage });
+
+const auditPreviewRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/audit',
+  validateSearch: auditPreviewSearchSchema,
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    if (!import.meta.env.DEV) throw notFound();
+  },
+  component: lazyRouteComponent(loadAuditPreview, 'AuditPreviewRoutePage'),
+});
+
 // Rutas en código (sin file-based routing): el árbol es explícito y revisable.
 const routeTree = rootRoute.addChildren([
   publicLayout.addChildren([
@@ -277,6 +327,8 @@ const routeTree = rootRoute.addChildren([
     rootTransferRoute,
     groupsRoute,
     rolesRoute,
+    newRoleRoute,
+    roleRoute,
     accountsRoute,
     credentialsRoute,
     credentialImportRoute,
@@ -288,6 +340,8 @@ const routeTree = rootRoute.addChildren([
     inboundSourcesRoute,
     inboundViewSettingsRoute,
     catalogRoute,
+    vaultPreviewRoute,
+    auditPreviewRoute,
   ]),
 ]);
 

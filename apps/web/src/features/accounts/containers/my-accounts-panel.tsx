@@ -2,9 +2,11 @@ import {
   ACCOUNT_LIST_FILTERS,
   type Account,
   type AccountListFilter,
+  type AccountListItem,
   type Platform,
   type SavedAccountView,
 } from '@iam/contracts';
+import { ChevronsDownUp, ChevronsUpDown, IconButton } from '@iam/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,9 +20,11 @@ import { AccountsTable } from '../ui/accounts-table';
 import { AccountsToolbar } from '../ui/accounts-toolbar';
 import { SavedViewsBar } from '../ui/saved-views-bar';
 
+import { AccountCredentialsDetail } from './account-credentials-detail';
 import { DeleteSavedViewDialog } from './delete-saved-view-dialog';
 import { SaveViewDialog } from './save-view-dialog';
 import { useAccountListTable } from './use-account-list-table';
+import { useAccountTags } from './use-account-tags';
 
 export type MyAccountsPanelProps = {
   platforms: readonly Platform[];
@@ -50,6 +54,20 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
     queryKey: accountsKeys.mine(),
     fetchPage: fetchAccountsPage,
   });
+  const tagsQuery = useAccountTags();
+
+  // Cuentas abiertas del árbol. Solo cuentan las que siguen en pantalla: al cambiar de página o de
+  // búsqueda, «expandir todo» no arrastra ids de filas que ya no están.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const visibleIds = new Set(table.rows.map((row) => row.id));
+  const expandedVisible = new Set([...expanded].filter((id) => visibleIds.has(id)));
+  const allExpanded = table.rows.length > 0 && expandedVisible.size === table.rows.length;
+  const toggleExpanded = (account: AccountListItem) => {
+    const next = new Set(expandedVisible);
+    if (next.has(account.id)) next.delete(account.id);
+    else next.add(account.id);
+    setExpanded(next);
+  };
 
   const savedViewsQuery = useQuery({
     queryKey: accountsKeys.savedViews(),
@@ -77,7 +95,6 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
   return (
     <>
       <AccountsTable
-        variant="mine"
         accounts={table.rows}
         platforms={platforms}
         status={table.status}
@@ -92,14 +109,41 @@ export function MyAccountsPanel({ platforms, onEdit, onArchive }: MyAccountsPane
         hasActiveFilters={table.hasActiveFilters}
         onClearFilters={table.clearFilters}
         timeZone={timeZone}
+        tree={{
+          expandedIds: expandedVisible,
+          onToggle: toggleExpanded,
+          renderDetail: (account) => (
+            <AccountCredentialsDetail accountId={account.id} accountName={account.displayName} />
+          ),
+        }}
         toolbar={
           <AccountsToolbar
             searchDraft={table.draft}
             onSearchChange={table.setDraft}
             filter={toAccountListFilter(table.filter)}
             onFilterChange={table.onFilterChange}
-            showQuickFilters
+            tags={tagsQuery.data ?? []}
+            tag={table.tag}
+            onTagChange={table.onTagChange}
           >
+            <IconButton
+              variant="secondary"
+              size="sm"
+              label={allExpanded ? t('tree.collapseAll') : t('tree.expandAll')}
+              // El nombre accesible es el mismo texto; el título lo muestra al pasar el cursor.
+              title={allExpanded ? t('tree.collapseAll') : t('tree.expandAll')}
+              icon={
+                allExpanded ? (
+                  <ChevronsDownUp className="size-4" />
+                ) : (
+                  <ChevronsUpDown className="size-4" />
+                )
+              }
+              disabled={table.rows.length === 0}
+              onClick={() => {
+                setExpanded(allExpanded ? new Set() : new Set(visibleIds));
+              }}
+            />
             <SavedViewsBar
               views={savedViews}
               activeViewId={activeView?.id}

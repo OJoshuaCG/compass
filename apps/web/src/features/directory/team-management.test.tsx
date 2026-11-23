@@ -21,6 +21,8 @@ const MANAGED: ManagedUser[] = [
     rank: 0,
     status: 'active',
     managedBy: null,
+    managerName: null,
+    roleNames: null,
   },
   {
     id: LUIS_ID,
@@ -28,7 +30,9 @@ const MANAGED: ManagedUser[] = [
     email: 'luis@example.com',
     rank: 3,
     status: 'active',
-    managedBy: null,
+    managedBy: ANA_ID,
+    managerName: 'Ana Admin',
+    roleNames: ['Soporte', 'Redes sociales'],
   },
   {
     id: MARTA_ID,
@@ -37,6 +41,8 @@ const MANAGED: ManagedUser[] = [
     rank: 3,
     status: 'suspended',
     managedBy: null,
+    managerName: null,
+    roleNames: [],
   },
   {
     id: '55555555-5555-4555-8555-555555555555',
@@ -45,6 +51,8 @@ const MANAGED: ManagedUser[] = [
     rank: 3,
     status: 'deactivated',
     managedBy: null,
+    managerName: null,
+    roleNames: null,
   },
 ];
 
@@ -153,8 +161,8 @@ describe('team management table', () => {
     teamApi();
     const { container } = renderApp(TEAM_URL);
     const table = await screen.findByRole('table', { name: es.directory['team.caption'] });
-    expect(await within(table).findByRole('cell', { name: 'Luis Gómez' })).toBeInTheDocument();
-    expect(within(table).getByRole('cell', { name: 'marta@example.com' })).toBeInTheDocument();
+    expect(await within(table).findByText('Luis Gómez')).toBeInTheDocument();
+    expect(within(table).getByText('marta@example.com')).toBeInTheDocument();
     for (const status of ['active', 'suspended', 'deactivated'] as const) {
       expect(
         within(table).getAllByText(es.directory[`team.status.${status}`]).length,
@@ -163,11 +171,50 @@ describe('team management table', () => {
     expect(await axeViolations(container)).toEqual([]);
   });
 
+  it('shows the responsible and the roles, telling "no roles" apart from "not visible"', async () => {
+    teamApi();
+    renderApp(TEAM_URL);
+    const table = await screen.findByRole('table', { name: es.directory['team.caption'] });
+    const rowOf = async (name: string) =>
+      (await within(table).findByText(name)).closest('tr') as HTMLElement;
+
+    const luis = within(await rowOf('Luis Gómez'));
+    expect(luis.getByText('Ana Admin')).toBeInTheDocument();
+    expect(luis.getByText('Soporte, Redes sociales')).toBeInTheDocument();
+
+    expect(
+      within(await rowOf('Marta Ruiz')).getByText(es.directory['team.roles.none']),
+    ).toBeInTheDocument();
+    // `null`: no se pueden ver sus roles; se lee como tal, no como "sin roles".
+    const baja = within(await rowOf('Baja Previa'));
+    expect(baja.getByText(es.directory['team.roles.hidden'])).toBeInTheDocument();
+    expect(baja.queryByText(es.directory['team.roles.none'])).toBeNull();
+    expect(baja.getByText(es.directory['team.manager.none'])).toBeInTheDocument();
+  });
+
+  it('draws the avatar with the initials of the first two words of the name', async () => {
+    teamApi();
+    renderApp(TEAM_URL);
+    const table = await screen.findByRole('table', { name: es.directory['team.caption'] });
+    const luis = (await within(table).findByText('Luis Gómez')).closest('tr') as HTMLElement;
+    expect(within(luis).getByText('LG')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  // El correo ya no tiene encabezado propio: ordenar por él dejaría la tabla sin indicador visible.
+  it('drops a sort by email inherited from the URL', async () => {
+    const api = teamApi();
+    renderApp(`${TEAM_URL}&sort=email&dir=desc`);
+    await screen.findByText('Luis Gómez');
+    const last = managedCalls(api).at(-1);
+    expect(last?.search.get('sort')).toBeNull();
+    expect(last?.search.get('dir')).toBeNull();
+  });
+
   it('sends sort, limit and q from the URL to /users/managed and writes sort changes back', async () => {
     const user = userEvent.setup();
     const api = teamApi();
     const { router } = renderApp(`${TEAM_URL}&sort=rank&dir=desc&limit=50&q=lu`);
-    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    await screen.findByText('Luis Gómez');
     expect(Object.fromEntries(managedCalls(api).at(-1)?.search ?? [])).toEqual({
       sort: 'rank',
       dir: 'desc',
@@ -175,12 +222,12 @@ describe('team management table', () => {
       q: 'lu',
     });
     const table = screen.getByRole('table');
-    await user.click(within(table).getByRole('button', { name: es.directory['users.col.email'] }));
+    await user.click(within(table).getByRole('button', { name: es.directory['team.col.person'] }));
     await waitFor(() => {
-      expect(router.state.location.search).toMatchObject({ view: 'team', sort: 'email' });
+      expect(router.state.location.search).toMatchObject({ view: 'team', sort: 'displayName' });
     });
     await waitFor(() => {
-      expect(managedCalls(api).at(-1)?.search.get('sort')).toBe('email');
+      expect(managedCalls(api).at(-1)?.search.get('sort')).toBe('displayName');
     });
   });
 
@@ -197,7 +244,7 @@ describe('team management table', () => {
     expect(await screen.findByText(new RegExp(es.errors['AUTHZ.PERMISSION']))).toBeInTheDocument();
     fail = false;
     await user.click(screen.getByRole('button', { name: es.common['actions.retry'] }));
-    expect(await screen.findByRole('cell', { name: 'Luis Gómez' })).toBeInTheDocument();
+    expect(await screen.findByText('Luis Gómez')).toBeInTheDocument();
   });
 });
 
@@ -205,7 +252,7 @@ describe('row actions menu', () => {
   it('has no menu for Root nor for deactivated people', async () => {
     teamApi();
     renderApp(TEAM_URL);
-    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    await screen.findByText('Luis Gómez');
     const rowMenu = (name: string) =>
       screen.queryByRole('button', {
         name: es.directory['team.rowMenu'].replace('{{name}}', name),
@@ -247,7 +294,7 @@ describe('row actions menu', () => {
     const user = userEvent.setup();
     teamApi({}, { permissions: ['user.update'] });
     renderApp(TEAM_URL);
-    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    await screen.findByText('Luis Gómez');
     // Luis está activa: con solo `user.update` no hay nada que ofrecerle (no hay menú).
     expect(
       screen.queryByRole('button', {
@@ -312,7 +359,7 @@ describe('close sessions', () => {
     const user = userEvent.setup();
     const api = teamApi({ [closeUrl]: noContent() });
     renderApp(TEAM_URL);
-    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    await screen.findByText('Luis Gómez');
     const before = managedCalls(api).length;
     await choose(user, 'Luis Gómez');
     const dialog = await screen.findByRole('dialog', {
@@ -364,7 +411,7 @@ describe('suspend and reactivate', () => {
     const user = userEvent.setup();
     const api = teamApi({ [`POST /users/${LUIS_ID}/suspend`]: noContent() });
     renderApp(TEAM_URL);
-    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    await screen.findByText('Luis Gómez');
     const before = managedCalls(api).length;
     await chooseAction(user, 'Luis Gómez', 'team.action.suspend');
     expect(
@@ -384,7 +431,7 @@ describe('suspend and reactivate', () => {
     const user = userEvent.setup();
     const api = teamApi({ [`POST /users/${MARTA_ID}/reactivate`]: noContent() });
     renderApp(TEAM_URL);
-    await screen.findByRole('cell', { name: 'Marta Ruiz' });
+    await screen.findByText('Marta Ruiz');
     const before = managedCalls(api).length;
     await chooseAction(user, 'Marta Ruiz', 'team.action.reactivate');
     expect(
@@ -526,7 +573,7 @@ describe('change rank', () => {
       { rank: 0 },
     );
     renderApp(TEAM_URL);
-    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    await screen.findByText('Luis Gómez');
     const before = managedCalls(api).length;
     await chooseAction(user, 'Luis Gómez', 'team.action.changeRank');
     const dialog = await screen.findByRole('dialog', { name: es.directory['rank.title'] });
@@ -654,6 +701,8 @@ describe('change rank: reason, warning and result', () => {
     rank: 2,
     status: 'active',
     managedBy: null,
+    managerName: null,
+    roleNames: null,
   };
   const DEMOTION_RESULT = {
     removedRoles: [
@@ -775,7 +824,7 @@ describe('change rank: reason, warning and result', () => {
     const user = userEvent.setup();
     const api = leaderApi(() => jsonResponse(DEMOTION_RESULT));
     renderApp(TEAM_URL);
-    await screen.findByRole('cell', { name: 'Lía Líder' });
+    await screen.findByText('Lía Líder');
     const before = managedCalls(api).length;
     const dialog = await openLeaderDialog(user);
     await user.type(
@@ -951,7 +1000,7 @@ describe('transfer manager', () => {
     const user = userEvent.setup();
     const api = transferApi({ [`POST /users/${LUIS_ID}/manager`]: noContent() });
     renderApp(TEAM_URL);
-    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    await screen.findByText('Luis Gómez');
     const before = managedCalls(api).length;
     await chooseAction(user, 'Luis Gómez', 'team.action.transfer');
     const dialog = await screen.findByRole('dialog', { name: es.directory['transfer.title'] });
@@ -996,7 +1045,7 @@ describe('English locale', () => {
     teamApi();
     renderApp(TEAM_URL, 'en-US');
     expect(await screen.findByRole('tab', { name: 'Team management' })).toBeInTheDocument();
-    await screen.findByRole('cell', { name: 'Luis Gómez' });
+    await screen.findByText('Luis Gómez');
     expect(screen.getAllByText('Suspended').length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: 'Actions for Luis Gómez' }));
     expect(await screen.findByRole('menuitem', { name: 'Deactivate' })).toBeInTheDocument();

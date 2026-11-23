@@ -1,6 +1,8 @@
 import {
   accountListItemSchema,
   accountSchema,
+  accountTagsResponseSchema,
+  credentialSchema,
   platformSchema,
   savedAccountViewSchema,
   type CreateAccountRequest,
@@ -14,30 +16,34 @@ import { apiClient, createListFetcher, noContentSchema, type ApiClient } from '.
 /** Fábrica de claves de las cuentas (docs/frontend.md §7.3). */
 export const accountsKeys = {
   all: ['accounts'] as const,
-  /** Prefijo de los dos listados: una mutación invalida ambos de una vez. */
+  /** Prefijo de los listados: una mutación los invalida de una vez. */
   lists: () => [...accountsKeys.all, 'list'] as const,
   mine: () => [...accountsKeys.lists(), 'mine'] as const,
-  inventory: () => [...accountsKeys.lists(), 'inventory'] as const,
   platforms: () => [...accountsKeys.all, 'platforms'] as const,
+  /** Etiquetas en uso: cambian con cada alta, edición o archivo, igual que los listados. */
+  tags: () => [...accountsKeys.all, 'tags'] as const,
   /** Vistas guardadas de la persona: no cuelgan de `lists()` porque no se recargan con las cuentas. */
   savedViews: () => [...accountsKeys.all, 'saved-views'] as const,
+  /** Credenciales de una cuenta para la lista en árbol: solo metadatos, nunca usuario ni contraseña. */
+  credentials: (accountId: string) => [...accountsKeys.all, 'credentials', accountId] as const,
 };
 
 /**
- * `GET /accounts?cursor=&limit=&q=&filter=`: las cuentas a las que quien consulta accede, cada una con
+ * `GET /accounts?cursor=&limit=&q=&filter=&tag=`: las cuentas a las que quien consulta accede, cada una con
  * `myLevel` y el semáforo de antigüedad de su contraseña.
  */
 export const fetchAccountsPage = createListFetcher(apiClient, '/accounts', accountListItemSchema);
 
 /**
- * `GET /accounts/inventory?cursor=&limit=&q=` (exige `vault.inventory.read`): solo metadatos, con
- * `myLevel` en `null` y la antigüedad en `unknown`. Sin filtros rápidos: el servidor los rechaza.
+ * `GET /accounts/tags`: etiquetas distintas en uso, ya ordenadas. Salen solo de cuentas con acceso
+ * efectivo: nunca revelan etiquetas de cuentas ajenas.
  */
-export const fetchInventoryPage = createListFetcher(
-  apiClient,
-  '/accounts/inventory',
-  accountListItemSchema,
-);
+export async function fetchAccountTags(signal?: AbortSignal, client: ApiClient = apiClient) {
+  const response = await client.get('/accounts/tags', accountTagsResponseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+  return response.data;
+}
 
 const platformsResponseSchema = z.object({ data: z.array(platformSchema) });
 
@@ -95,4 +101,25 @@ export function createSavedView(
 /** `DELETE /account-views/:id` (204): solo vistas propias; 404 si ya no existe. */
 export function deleteSavedView(id: string, client: ApiClient = apiClient) {
   return client.delete(`/account-views/${id}`, noContentSchema);
+}
+
+const credentialsResponseSchema = z.object({ data: z.array(credentialSchema) });
+
+/**
+ * `GET /accounts/:id/credentials`: metadatos de las credenciales de una cuenta (etiqueta, tipo,
+ * fechas). Es el mismo listado de la pantalla de la cuenta; aquí solo alimenta el árbol de Cuentas.
+ */
+export async function fetchAccountCredentials(
+  accountId: string,
+  signal?: AbortSignal,
+  client: ApiClient = apiClient,
+) {
+  const response = await client.get(
+    `/accounts/${accountId}/credentials`,
+    credentialsResponseSchema,
+    {
+      ...(signal === undefined ? {} : { signal }),
+    },
+  );
+  return response.data;
 }

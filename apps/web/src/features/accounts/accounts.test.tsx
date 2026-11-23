@@ -1,7 +1,7 @@
-import type { AccountListItem, Permission, Platform } from '@iam/contracts';
+import type { AccountListItem, Credential, Permission, Platform } from '@iam/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { axeViolations } from '../../test/axe';
 import { jsonResponse, meFixture, noContent, problem, stubApi } from '../../test/fake-api';
@@ -14,7 +14,6 @@ const MANAGED_ID = '22222222-2222-4222-8222-222222222221';
 const EDITABLE_ID = '22222222-2222-4222-8222-222222222222';
 const VIEWABLE_ID = '22222222-2222-4222-8222-222222222223';
 const NEW_ID = '22222222-2222-4222-8222-222222222224';
-const INVENTORY_ID = '22222222-2222-4222-8222-222222222225';
 
 const PLATFORMS: Platform[] = [
   {
@@ -66,12 +65,6 @@ const VIEWABLE = accountFixture({
   tags: [],
   myLevel: 'VIEW',
 });
-const INVENTORY_ACCOUNT = accountFixture({
-  id: INVENTORY_ID,
-  displayName: 'Tesorería',
-  myLevel: null,
-  passwordAge: 'unknown',
-});
 
 const ALL_ACCOUNT_PERMISSIONS: Permission[] = [
   'account.create',
@@ -100,7 +93,7 @@ function setup(
 }
 
 /** La tabla se pinta ya en su estado de carga: se espera a que lleguen las filas. */
-const rowsLoaded = () => screen.findByRole('cell', { name: 'Nómina' });
+const rowsLoaded = () => screen.findByText('Nómina');
 
 describe('accounts navigation', () => {
   it('shows the nav link to every active member and reaches the screen', async () => {
@@ -108,9 +101,31 @@ describe('accounts navigation', () => {
     setup({}, []);
     const user = userEvent.setup();
     const { router } = renderApp('/');
-    await user.click(await screen.findByRole('link', { name: es.common['nav.accounts'] }));
+    await user.click(await screen.findByRole('link', { name: es.common['nav.vault'] }));
     await rowsLoaded();
     expect(router.state.location.pathname).toBe('/accounts');
+  });
+});
+
+describe('accounts platform logos', () => {
+  it('draws the logo of a global platform and letters for an organization one, even with a brand slug', async () => {
+    setup({
+      'GET /platforms': jsonResponse({
+        data: [
+          { ...PLATFORMS[0], name: 'Instagram', slug: 'instagram' },
+          // Una plataforma propia no toma el logotipo de una marca real aunque repita su slug.
+          { ...PLATFORMS[1], name: 'Insta interna', slug: 'instagram' },
+        ],
+      }),
+    });
+    renderApp('/accounts');
+    await rowsLoaded();
+    const table = screen.getByRole('table', { name: es.accounts.caption });
+    const globalRow = within(table).getByRole('row', { name: /Nómina/ });
+    const orgRow = within(table).getByRole('row', { name: /Marketing/ });
+    expect(globalRow.querySelector('svg[fill="currentColor"] path')).not.toBeNull();
+    expect(orgRow.querySelector('svg[fill="currentColor"] path')).toBeNull();
+    expect(orgRow).toHaveTextContent('IN');
   });
 });
 
@@ -178,45 +193,14 @@ describe('accounts table', () => {
   });
 });
 
-describe('inventory', () => {
-  it('hides the inventory tab without vault.inventory.read and never requests it', async () => {
-    const api = setup();
+describe('inventory view', () => {
+  it('is no longer offered, even with vault.inventory.read, and is never requested', async () => {
+    const api = setup({}, [...ALL_ACCOUNT_PERMISSIONS, 'vault.inventory.read']);
     renderApp('/accounts');
     await rowsLoaded();
-    expect(screen.queryByRole('tab', { name: es.accounts['tabs.inventory'] })).toBeNull();
+    expect(screen.queryByRole('tab')).toBeNull();
     expect(api.callsTo('GET', '/accounts/inventory')).toHaveLength(0);
-  });
-
-  it('shows the inventory with metadata only and no actions', async () => {
-    const user = userEvent.setup();
-    const api = setup({ 'GET /accounts/inventory': page([INVENTORY_ACCOUNT]) }, [
-      ...ALL_ACCOUNT_PERMISSIONS,
-      'vault.inventory.read',
-    ]);
-    const { container } = renderApp('/accounts');
-    await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    await screen.findByRole('cell', { name: 'Tesorería' });
-    const table = screen.getByRole('table', { name: es.accounts['inventory.caption'] });
-    const headers = within(table)
-      .getAllByRole('columnheader')
-      .map((header) => header.textContent);
-    expect(headers).not.toContain(es.accounts['col.level']);
-    expect(screen.queryByRole('button', { name: editLabel('Tesorería') })).toBeNull();
-    expect(screen.queryByRole('button', { name: archiveLabel('Tesorería') })).toBeNull();
-    expect(api.callsTo('GET', '/accounts/inventory')).toHaveLength(1);
-    expect(await axeViolations(container)).toEqual([]);
-  });
-
-  it('shows a permission-denied error from the server in the inventory', async () => {
-    const user = userEvent.setup();
-    setup({ 'GET /accounts/inventory': problem(403, 'AUTHZ.PERMISSION') }, [
-      'vault.inventory.read',
-    ]);
-    renderApp('/accounts');
-    await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(es.errors['AUTHZ.PERMISSION']);
+    expect(api.callsTo('GET', '/accounts/inventory/tags')).toHaveLength(0);
   });
 });
 
@@ -264,7 +248,7 @@ describe('create account', () => {
     expect(call?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('cell', { name: 'Marketing' })).toBeInTheDocument();
+      expect(screen.getByText('Marketing')).toBeInTheDocument();
     });
   });
 
@@ -399,7 +383,7 @@ describe('edit account', () => {
     expect(call?.headers.get('Idempotency-Key')).toBeTruthy();
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.getByRole('cell', { name: 'Nómina 2' })).toBeInTheDocument();
+      expect(screen.getByText('Nómina 2')).toBeInTheDocument();
     });
   });
 
@@ -548,7 +532,7 @@ describe('archive account', () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(accountsCalls(api).length).toBeGreaterThan(before);
-      expect(screen.queryByRole('cell', { name: 'Nómina' })).toBeNull();
+      expect(screen.queryByText('Nómina')).toBeNull();
     });
   });
 
@@ -645,19 +629,6 @@ describe('password age indicator', () => {
     expect(screen.getByText(/hace 6 meses/)).toBeInTheDocument();
     expect(await axeViolations(container)).toEqual([]);
   });
-
-  it('shows "no data" in the inventory, which hides credential information', async () => {
-    const user = userEvent.setup();
-    setup({ 'GET /accounts/inventory': page([INVENTORY_ACCOUNT]) }, [
-      ...ALL_ACCOUNT_PERMISSIONS,
-      'vault.inventory.read',
-    ]);
-    renderApp('/accounts');
-    await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    await screen.findByRole('cell', { name: 'Tesorería' });
-    expect(screen.getByText(es.accounts['passwordAge.unknown'])).toBeInTheDocument();
-  });
 });
 
 describe('account search and quick filters', () => {
@@ -699,22 +670,192 @@ describe('account search and quick filters', () => {
       expect(accountsCalls(api).at(-1)?.search.has('filter')).toBe(false);
     });
   });
+});
 
-  it('offers search but no quick filters in the inventory, and never sends a filter there', async () => {
-    const user = userEvent.setup();
-    const api = setup({ 'GET /accounts/inventory': page([INVENTORY_ACCOUNT]) }, [
-      ...ALL_ACCOUNT_PERMISSIONS,
-      'vault.inventory.read',
-    ]);
+describe('account tags', () => {
+  const TAGS = jsonResponse({ data: ['finanzas', 'Marca MX', 'rh'] });
+  const tagFilter = () => screen.getByRole('combobox', { name: es.accounts['filter.tagLabel'] });
+  const addTagLabel = (tag: string) =>
+    es.accounts['form.tagsSuggestionAdd'].replace('{{tag}}', tag);
+
+  it('shows the tags of each account and summarizes the ones that do not fit', async () => {
+    setup({
+      'GET /accounts': page([
+        MANAGED,
+        { ...EDITABLE, tags: ['uno', 'dos', 'tres', 'cuatro', 'cinco'] },
+      ]),
+    });
     renderApp('/accounts');
     await rowsLoaded();
-    await user.click(screen.getByRole('tab', { name: es.accounts['tabs.inventory'] }));
-    await screen.findByRole('cell', { name: 'Tesorería' });
-    expect(screen.getByRole('searchbox', { name: es.accounts['search.label'] })).toBeVisible();
-    expect(screen.queryByRole('group', { name: es.accounts['filter.label'] })).toBeNull();
-    for (const call of api.callsTo('GET', '/accounts/inventory')) {
-      expect(call.search.has('filter')).toBe(false);
-    }
+    const managedRow = screen.getByRole('row', { name: /Nómina/ });
+    expect(within(managedRow).getByText('rh')).toBeInTheDocument();
+    const crowdedRow = screen.getByRole('row', { name: /Marketing/ });
+    expect(within(crowdedRow).getByText('tres')).toBeInTheDocument();
+    expect(within(crowdedRow).queryByText('cuatro')).toBeNull();
+    expect(within(crowdedRow).getByText('+2')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('filters by an existing tag and goes back to all tags', async () => {
+    const user = userEvent.setup();
+    const api = setup({ 'GET /accounts/tags': TAGS });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await within(tagFilter()).findByRole('option', { name: 'Marca MX' });
+    await user.selectOptions(tagFilter(), 'Marca MX');
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.get('tag')).toBe('Marca MX');
+    });
+    await user.selectOptions(tagFilter(), es.accounts['filter.tagAll']);
+    await waitFor(() => {
+      expect(accountsCalls(api).at(-1)?.search.has('tag')).toBe(false);
+    });
+  });
+
+  it('hides the tag filter while no account has tags', async () => {
+    setup({ 'GET /accounts/tags': jsonResponse({ data: [] }) });
+    renderApp('/accounts');
+    await rowsLoaded();
+    expect(screen.queryByRole('combobox', { name: es.accounts['filter.tagLabel'] })).toBeNull();
+  });
+
+  it('suggests existing tags while creating and adds the chosen one', async () => {
+    const user = userEvent.setup();
+    setup({ 'GET /accounts/tags': TAGS });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: es.accounts['create.open'] }));
+    const dialog = await screen.findByRole('dialog', { name: es.accounts['create.title'] });
+    await within(dialog).findByRole('button', { name: addTagLabel('Marca MX') });
+
+    await user.type(field(es.accounts['form.tags']), 'marca');
+    expect(within(dialog).queryByRole('button', { name: addTagLabel('rh') })).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: addTagLabel('Marca MX') }));
+    expect(field(es.accounts['form.tags'])).toHaveValue('Marca MX, ');
+    // Una etiqueta ya elegida deja de sugerirse.
+    expect(within(dialog).queryByRole('button', { name: addTagLabel('Marca MX') })).toBeNull();
+    expect(await axeViolations(dialog)).toEqual([]);
+  });
+
+  it('does not suggest a tag the account already has while editing', async () => {
+    const user = userEvent.setup();
+    setup({ 'GET /accounts/tags': TAGS });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: editLabel('Nómina') }));
+    const dialog = await screen.findByRole('dialog', {
+      name: withName(es.accounts['edit.title'], 'Nómina'),
+    });
+    await within(dialog).findByRole('button', { name: addTagLabel('finanzas') });
+    expect(within(dialog).queryByRole('button', { name: addTagLabel('rh') })).toBeNull();
+  });
+
+  it('reloads the tags after creating an account', async () => {
+    const user = userEvent.setup();
+    const api = setup({
+      'GET /accounts/tags': TAGS,
+      'POST /accounts': jsonResponse(accountFixture({ id: NEW_ID, displayName: 'Nueva' }), 201),
+    });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await waitFor(() => {
+      expect(api.callsTo('GET', '/accounts/tags')).toHaveLength(1);
+    });
+    await user.click(screen.getByRole('button', { name: es.accounts['create.open'] }));
+    const dialog = await screen.findByRole('dialog', { name: es.accounts['create.title'] });
+    await within(dialog).findByRole('option', { name: 'GitHub' });
+    await user.selectOptions(field(es.accounts['create.platform']), PLATFORM_ID);
+    await user.type(field(es.accounts['form.name']), 'Nueva');
+    await user.click(within(dialog).getByRole('button', { name: es.accounts['create.submit'] }));
+    await waitFor(() => {
+      expect(api.callsTo('GET', '/accounts/tags').length).toBeGreaterThan(1);
+    });
+  });
+});
+
+describe('account row actions by screen size', () => {
+  const menuLabel = (name: string) => withName(es.accounts['action.menuLabel'], name);
+
+  it('shows icon buttons named for screen readers and titled for the mouse on desktop', async () => {
+    setup();
+    renderApp('/accounts');
+    await rowsLoaded();
+    const edit = screen.getByRole('button', { name: editLabel('Nómina') });
+    expect(edit).toHaveAttribute('title', es.accounts['action.edit']);
+    expect(edit).not.toHaveTextContent(es.accounts['action.edit']);
+    expect(
+      screen.getByRole('link', { name: withName(es.accounts['action.shareLabel'], 'Nómina') }),
+    ).toHaveAttribute('title', es.accounts['action.share']);
+    expect(screen.queryByRole('button', { name: menuLabel('Nómina') })).toBeNull();
+  });
+
+  it('groups the actions in a menu on narrow screens, archive last and set apart', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: false,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+    const user = userEvent.setup();
+    setup();
+    renderApp('/accounts');
+    await rowsLoaded();
+    expect(screen.queryByRole('button', { name: editLabel('Nómina') })).toBeNull();
+
+    const trigger = await waitFor(() => {
+      const button = screen.getByRole('button', { name: menuLabel('Nómina') });
+      expect(button).toBeEnabled();
+      return button;
+    });
+    await user.click(trigger);
+    const menu = await screen.findByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      es.accounts['action.credentials'],
+      es.accounts['action.share'],
+      es.accounts['action.edit'],
+      es.accounts['action.archive'],
+    ]);
+    expect(within(menu).getByRole('separator')).toBeInTheDocument();
+
+    await user.click(within(menu).getByRole('menuitem', { name: es.accounts['action.edit'] }));
+    expect(
+      await screen.findByRole('dialog', { name: withName(es.accounts['edit.title'], 'Nómina') }),
+    ).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it('only offers the actions the row allows in the menu', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: false,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+    const user = userEvent.setup();
+    setup();
+    renderApp('/accounts');
+    await rowsLoaded();
+    const trigger = await waitFor(() => {
+      const button = screen.getByRole('button', { name: menuLabel('Soporte') });
+      expect(button).toBeEnabled();
+      return button;
+    });
+    await user.click(trigger);
+    const menu = await screen.findByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual([es.accounts['action.credentials'], es.accounts['action.share']]);
+    expect(within(menu).queryByRole('separator')).toBeNull();
+    vi.unstubAllGlobals();
   });
 });
 
@@ -727,5 +868,125 @@ describe('accounts screen in English', () => {
     expect(await screen.findByRole('table', { name: en.caption })).toBeInTheDocument();
     await rowsLoaded();
     expect(screen.getByText(en['level.MANAGE'])).toBeInTheDocument();
+  });
+});
+
+describe('accounts tree', () => {
+  const credentialFixture = (overrides: Partial<Credential>): Credential => ({
+    id: 'c0000000-0000-4000-8000-000000000001',
+    accountId: MANAGED_ID,
+    label: 'micorreox',
+    kind: 'password_totp',
+    lastRotatedAt: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  });
+  const credentialsPath = (id: string) => `/accounts/${id}/credentials`;
+  const showLabel = (name: string) => withName(es.accounts['tree.show'], name);
+  const hideLabel = (name: string) => withName(es.accounts['tree.hide'], name);
+
+  function setupTree(extra: Record<string, Parameters<typeof stubApi>[0][string]> = {}) {
+    return setup({
+      [`GET ${credentialsPath(MANAGED_ID)}`]: jsonResponse({
+        data: [
+          credentialFixture({}),
+          credentialFixture({
+            id: 'c0000000-0000-4000-8000-000000000002',
+            label: 'recuperación',
+            kind: 'totp_only',
+            lastRotatedAt: '2026-02-01T00:00:00.000Z',
+          }),
+        ],
+      }),
+      [`GET ${credentialsPath(EDITABLE_ID)}`]: jsonResponse({ data: [] }),
+      [`GET ${credentialsPath(VIEWABLE_ID)}`]: jsonResponse({ data: [] }),
+      ...extra,
+    });
+  }
+
+  it('starts closed and asks for nothing until a row is opened', async () => {
+    const user = userEvent.setup();
+    const api = setupTree();
+    renderApp('/accounts');
+    await rowsLoaded();
+    const toggle = screen.getByRole('button', { name: showLabel('Nómina') });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(api.callsTo('GET', credentialsPath(MANAGED_ID))).toHaveLength(0);
+
+    await user.click(toggle);
+    const list = await screen.findByRole('list', {
+      name: withName(es.accounts['tree.listLabel'], 'Nómina'),
+    });
+    expect(within(list).getByText('micorreox')).toBeInTheDocument();
+    expect(within(list).getByText('recuperación')).toBeInTheDocument();
+    expect(within(list).getByText(es.accounts['tree.kind.password_totp'])).toBeInTheDocument();
+    expect(within(list).getByText(es.accounts['tree.rotatedNever'])).toBeInTheDocument();
+    expect(api.callsTo('GET', credentialsPath(MANAGED_ID))).toHaveLength(1);
+    expect(api.callsTo('GET', credentialsPath(EDITABLE_ID))).toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: hideLabel('Nómina') }));
+    expect(screen.queryByText('micorreox')).toBeNull();
+  });
+
+  it('expands and collapses every account on the page with one button', async () => {
+    const user = userEvent.setup();
+    const api = setupTree();
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: es.accounts['tree.expandAll'] }));
+    await screen.findByText('micorreox');
+    for (const name of ['Nómina', 'Marketing', 'Soporte']) {
+      expect(screen.getByRole('button', { name: hideLabel(name) })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    }
+    await waitFor(() => {
+      expect(api.callsTo('GET', credentialsPath(EDITABLE_ID))).toHaveLength(1);
+      expect(api.callsTo('GET', credentialsPath(VIEWABLE_ID))).toHaveLength(1);
+    });
+
+    await user.click(screen.getByRole('button', { name: es.accounts['tree.collapseAll'] }));
+    expect(screen.queryByText('micorreox')).toBeNull();
+    expect(screen.getByRole('button', { name: showLabel('Marketing') })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('says so when an account has no credentials', async () => {
+    const user = userEvent.setup();
+    setupTree();
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: showLabel('Marketing') }));
+    expect(await screen.findByText(es.accounts['tree.empty'])).toBeInTheDocument();
+  });
+
+  it('shows a retryable error without breaking the rest of the list', async () => {
+    const user = userEvent.setup();
+    let fail = true;
+    setupTree({
+      [`GET ${credentialsPath(MANAGED_ID)}`]: () =>
+        fail ? problem(500, 'INTERNAL_ERROR') : jsonResponse({ data: [credentialFixture({})] }),
+    });
+    renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: showLabel('Nómina') }));
+    const alert = await screen.findByRole('alert');
+    expect(screen.getByText('Marketing')).toBeInTheDocument();
+    fail = false;
+    await user.click(within(alert).getByRole('button', { name: es.common['actions.retry'] }));
+    expect(await screen.findByText('micorreox')).toBeInTheDocument();
+  });
+
+  it('has no accessibility violations with a row open', async () => {
+    const user = userEvent.setup();
+    setupTree();
+    const { container } = renderApp('/accounts');
+    await rowsLoaded();
+    await user.click(screen.getByRole('button', { name: showLabel('Nómina') }));
+    await screen.findByText('micorreox');
+    expect(await axeViolations(container)).toEqual([]);
   });
 });

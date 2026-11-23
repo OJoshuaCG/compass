@@ -1,2 +1,2 @@
-/** Fachada pública del feature `home`: cifras reales y accesos directos de la pantalla de inicio. */
-export { HomeSummary } from './containers/home-summary';
+/** Fachada pública del feature `home`: la pantalla de Inicio. */
+export { HomePage } from './containers/home-page';

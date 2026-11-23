@@ -58,11 +58,12 @@ function setup(healthResponse: Response) {
   });
 }
 
+// En `dev` cada credencial es una tarjeta con su título como encabezado, no una fila de tabla.
 const rowOf = async (label: string) =>
   within(
     await screen
-      .findByRole('cell', { name: label })
-      .then((cell) => cell.closest('tr') as HTMLElement),
+      .findByRole('heading', { name: label })
+      .then((heading) => heading.closest('section') as HTMLElement),
   );
 
 describe('credential health', () => {
@@ -100,9 +101,8 @@ describe('credential health', () => {
     const { container } = renderApp(PAGE);
 
     expect(await screen.findByText(copy['health.unavailable'])).toBeInTheDocument();
-    const table = screen.getByRole('table', { name: copy.caption });
-    expect(within(table).getByRole('cell', { name: 'Portal débil' })).toBeInTheDocument();
-    expect(within(table).getByRole('cell', { name: 'Portal sano' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Portal débil' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Portal sano' })).toBeInTheDocument();
     expect(await axeViolations(container)).toEqual([]);
   });
 });

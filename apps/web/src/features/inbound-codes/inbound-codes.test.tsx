@@ -100,10 +100,10 @@ afterEach(() => {
 });
 
 describe('navigation', () => {
-  it('offers the access codes link only with the inbound.read_codes permission', async () => {
+  it('offers the codes section in the menu only with the inbound.read_codes permission', async () => {
     setup();
     renderApp('/');
-    const link = await screen.findByRole('link', { name: es.common['nav.inbound'] });
+    const link = await screen.findByRole('link', { name: es.common['nav.codes'] });
     expect(link).toHaveAttribute('href', '/inbound');
   });
 
@@ -127,7 +127,7 @@ describe('navigation', () => {
     stubApi({ 'GET /me': jsonResponse(meFixture({ permissions: [], rank: 1 })) });
     renderApp('/');
     await screen.findByRole('navigation', { name: es.common['nav.label'] });
-    expect(screen.queryByRole('link', { name: es.common['nav.inbound'] })).toBeNull();
+    expect(screen.queryByRole('link', { name: es.common['nav.codes'] })).toBeNull();
   });
 });
 

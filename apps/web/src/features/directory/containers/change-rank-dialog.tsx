@@ -14,7 +14,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError, useAsyncAction, useRateLimitCooldown } from '../../../shared/api';
-import { ErrorAlert, useValidationMessage } from '../../../shared/i18n';
+import { ErrorAlert, useRoleLabel, useValidationMessage } from '../../../shared/i18n';
 import { useLazyCatalog } from '../../../shared/i18n/use-lazy-catalog';
 import { formatDateTime } from '../../../shared/lib';
 import { teamApi } from '../api/team-api';
@@ -176,6 +176,7 @@ type ChangeRankResultProps = {
  */
 function ChangeRankResult({ person, change, onAcknowledge }: ChangeRankResultProps) {
   const { t, i18n } = useTranslation(['directory', 'common', 'shares']);
+  const roleLabel = useRoleLabel();
   const { removedRoles, assignedRole, templateSkipped, sharedAccounts, sharedAccountCount } =
     change.response;
   // El diálogo no tiene otro control que reciba el foco al desmontarse el formulario: se lleva aquí.
@@ -207,7 +208,11 @@ function ChangeRankResult({ person, change, onAcknowledge }: ChangeRankResultPro
       </section>
       {assignedRole !== null ? (
         <p className="text-sm text-text-secondary">
-          {t('rank.result.assignedRole', { ns: 'directory', role: assignedRole.name })}
+          {t('rank.result.assignedRole', {
+            ns: 'directory',
+            // Siempre es la plantilla del sistema del nuevo rango: se muestra traducida.
+            role: roleLabel({ name: assignedRole.name, isSystem: true }),
+          })}
         </p>
       ) : null}
       {templateSkipped ? (

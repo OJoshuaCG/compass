@@ -1,9 +1,9 @@
 import type { Rank, UserStatus } from '@iam/contracts';
+import { Badge } from '@iam/ui';
 
 import type { HierarchyNode } from '../model/build-hierarchy';
 
 import { PersonCell } from './person-cell';
-import { RankBadge } from './rank-badge';
 
 export type HierarchyTreeProps = {
   nodes: readonly HierarchyNode[];
@@ -28,7 +28,7 @@ export function HierarchyTree({ nodes, rankLabel, statusLabel }: HierarchyTreePr
         <li key={node.person.id}>
           <div className="flex flex-wrap items-center gap-3 rounded-md px-2 py-1.5">
             <PersonCell displayName={node.person.displayName} />
-            <RankBadge rank={node.person.rank} label={rankLabel(node.person.rank)} />
+            <Badge>{rankLabel(node.person.rank)}</Badge>
             {node.person.status !== UNMARKED_STATUS ? (
               <span className="text-sm text-text-secondary">{statusLabel(node.person.status)}</span>
             ) : null}

@@ -11,7 +11,6 @@ import {
   ROOT_PASSWORD,
   sessionCookie,
   signInWithPassword,
-  signOut,
   storageDump,
   watchSecurityViolations,
 } from './support/identity-helpers.js';
@@ -87,9 +86,9 @@ test.describe
 
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await expect(page.getByRole('banner').locator('button[aria-haspopup="menu"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 
-    await signOut(page);
+    await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/login/);
     expect(await sessionCookie(context)).toBeUndefined();
 
@@ -115,10 +114,10 @@ test.describe
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await page.getByRole('link', { name: 'Users', exact: true }).click();
+    await page.getByRole('link', { name: 'People' }).click();
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Invite user' }).click();
+    await page.getByRole('button', { name: 'Invite person' }).click();
     await page.getByLabel('Email address').fill('operator@e2e.test');
     await page.getByLabel('Rank').selectOption({ label: 'Operator' });
     await page.getByRole('button', { name: 'Send invitation' }).click();
@@ -143,7 +142,7 @@ test.describe
     await guest.getByRole('textbox', { name: 'Password', exact: true }).fill(PASSWORD);
     await guest.getByRole('button', { name: 'Create account' }).click();
     const guestEnrollment = await completeEnrollment(guest);
-    await expect(guest.getByRole('banner').locator('button[aria-haspopup="menu"]')).toBeVisible();
+    await expect(guest.getByRole('button', { name: 'Sign out' })).toBeVisible();
     // La persona nueva aparece en el directorio de la Raíz.
     expect(await storageDump(guest)).not.toContain(guestEnrollment.secret);
 
@@ -163,7 +162,7 @@ test.describe
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await page.getByRole('link', { name: 'Users', exact: true }).click();
+    await page.getByRole('link', { name: 'People' }).click();
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
 
     const table = page.getByRole('table', { name: 'User directory' });
@@ -183,7 +182,7 @@ test.describe
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await page.getByRole('link', { name: 'Users', exact: true }).click();
+    await page.getByRole('link', { name: 'People' }).click();
     await page.getByRole('tab', { name: 'Team management' }).click();
 
     const table = page.getByRole('table', { name: 'People you manage' });
@@ -231,7 +230,7 @@ test.describe
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await page.getByRole('link', { name: 'Security', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings' }).click();
     await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
     await expect(page.getByText('You have no passkeys yet')).toBeVisible();
 
@@ -244,18 +243,18 @@ test.describe
     await dialog.getByLabel('Verification code').fill(await freshCode(rootSecret));
     await dialog.getByRole('button', { name: 'Confirm' }).click();
     await expect(page.getByText('The passkey Chrome virtual key was added.')).toBeVisible();
-    const table = page.getByRole('table', { name: 'Your passkeys' });
+    const table = page.getByRole('list', { name: 'Your passkeys' });
     await expect(table.getByText('Chrome virtual key')).toBeVisible();
 
     // Nuevo inicio de sesión: contraseña y, en lugar del código, la llave de acceso.
-    await signOut(page);
+    await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/login/);
     await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
     await page.getByRole('button', { name: 'Use a passkey' }).click();
-    await expect(page.getByRole('link', { name: 'Users', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'People' })).toBeVisible();
     await expect(page).not.toHaveURL(/\/login/);
 
-    await page.getByRole('link', { name: 'Security', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings' }).click();
     await expect(table.getByText('Chrome virtual key')).toBeVisible();
     expect(violations).toEqual([]);
   });
@@ -263,9 +262,13 @@ test.describe
   test('the language can be switched and the choice survives a reload', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
-    await page.getByRole('button', { name: 'Switch to Español (México)' }).click();
+    await page.getByRole('button', { name: 'Español (México)' }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeHidden();
     await page.reload();
-    await expect(page.getByRole('button', { name: /Cambiar a English/ })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Idioma' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Español (México)' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });

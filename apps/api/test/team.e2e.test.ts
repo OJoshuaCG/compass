@@ -110,6 +110,130 @@ describe('the managed list shows only the people under your responsibility', () 
   });
 });
 
+// SENSIBLE (revisión humana): los roles solo se ven con `user.invite` sobre la persona (AC-11).
+describe('roles and responsible in the managed list', () => {
+  let o1Id: string;
+  const managedRowOf = async (who: EnrolledSession, email: string) => {
+    const response = await who.client.get<{ data: ManagedUser[] }>(
+      `/users/managed?limit=50&q=${encodeURIComponent(email)}`,
+    );
+    expect(response.status).toBe(200);
+    return response.body.data.find((user) => user.email === email);
+  };
+  const insertRole = async (input: {
+    name: string;
+    permissions: string[];
+    archived?: boolean;
+    personalUserId?: string;
+  }) =>
+    (
+      await env.db.admin.query<{ id: string }>(
+        `insert into roles (organization_id, name, permissions, created_by, archived_at, personal_user_id)
+         values ($1, $2, $3, $4, $5, $6) returning id`,
+        [
+          orgId,
+          input.name,
+          input.permissions,
+          rootId,
+          input.archived === true ? new Date() : null,
+          input.personalUserId ?? null,
+        ],
+      )
+    ).rows[0]?.id ?? '';
+  const assign = (userId: string, roleId: string) =>
+    env.db.admin.query(
+      'insert into user_roles (organization_id, user_id, role_id, granted_by) values ($1, $2, $3, $4)',
+      [orgId, userId, roleId, rootId],
+    );
+
+  beforeAll(async () => {
+    o1Id = await idOf('o1@team.test');
+    await assign(
+      o1Id,
+      await insertRole({ name: 'Soporte N1', permissions: ['credential.use_totp'] }),
+    );
+    await assign(
+      o1Id,
+      await insertRole({
+        name: 'Rol archivado',
+        permissions: ['credential.use_totp'],
+        archived: true,
+      }),
+    );
+    await assign(
+      o1Id,
+      await insertRole({
+        name: 'Rol personal de o1',
+        permissions: ['credential.use_totp'],
+        personalUserId: o1Id,
+      }),
+    );
+  });
+
+  it('shows the live roles, never the archived or personal ones, and the responsible name', async () => {
+    const o1 = await managedRowOf(root, 'o1@team.test');
+    expect(o1?.roleNames).toEqual(expect.arrayContaining(['Soporte N1']));
+    expect(o1?.roleNames).not.toContain('Rol archivado');
+    expect(o1?.roleNames).not.toContain('Rol personal de o1');
+    const leaderName = (
+      await env.db.admin.query<{ display_name: string }>(
+        'select display_name from users where email = $1',
+        ['l1@team.test'],
+      )
+    ).rows[0]?.display_name;
+    expect(o1?.managerName).toBe(leaderName);
+  });
+
+  it('a Leader with user.invite sees the roles of their own reports', async () => {
+    expect((await managedRowOf(leader1, 'o1@team.test'))?.roleNames).toContain('Soporte N1');
+  });
+
+  // Un ascenso puede dejar a alguien del mismo rango dentro del subárbol: se lista, pero ya no se
+  // gestiona (`canManage` exige rango inferior), así que sus roles no se ven.
+  it('lists a same-rank person of the subtree but hides their roles', async () => {
+    await env.db.admin.query('update users set rank = 2 where id = $1', [o1Id]);
+    try {
+      const o1 = await managedRowOf(leader1, 'o1@team.test');
+      expect(o1).toBeDefined();
+      expect(o1?.rank).toBe(2);
+      expect(o1?.roleNames).toBeNull();
+    } finally {
+      await env.db.admin.query('update users set rank = 3 where id = $1', [o1Id]);
+    }
+    expect((await managedRowOf(leader1, 'o1@team.test'))?.roleNames).toContain('Soporte N1');
+  });
+
+  it('names the responsible of everyone listed', async () => {
+    const response = await adminA.client.get<{ data: ManagedUser[] }>('/users/managed?limit=50');
+    for (const user of response.body.data) expect(user.managerName).not.toBeNull();
+  });
+
+  it('without user.invite the list still answers, but the roles come as null', async () => {
+    const leaderId = await idOf('l3@team.test');
+    const original = (
+      await env.db.admin.query<{ role_id: string }>(
+        'select role_id from user_roles where user_id = $1',
+        [leaderId],
+      )
+    ).rows;
+    const noInvite = await insertRole({
+      name: 'Sin invitar',
+      permissions: ['credential.use_totp'],
+    });
+    await env.db.admin.query('delete from user_roles where user_id = $1', [leaderId]);
+    await assign(leaderId, noInvite);
+    try {
+      const o2 = await managedRowOf(leader3, 'o2@team.test');
+      expect(o2).toBeDefined();
+      expect(o2?.roleNames).toBeNull();
+      expect(o2?.status).toBe('active');
+    } finally {
+      await env.db.admin.query('delete from user_roles where user_id = $1', [leaderId]);
+      for (const { role_id } of original) await assign(leaderId, role_id);
+    }
+  });
+});
+
 describe('suspend and reactivate', () => {
   it('suspending closes the sessions of the person at once and is audited', async () => {
     const target = await idOf('o1@team.test');

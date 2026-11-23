@@ -105,7 +105,7 @@ describe('collapsible sidebar', () => {
     setup();
     renderApp('/');
     await user.click(await screen.findByRole('button', { name: es.common['nav.showMenu'] }));
-    await user.click(screen.getByRole('link', { name: es.common['nav.sessions'] }));
+    await user.click(screen.getByRole('link', { name: es.common['nav.vault'] }));
     expect(
       await screen.findByRole('button', { name: es.common['nav.showMenu'] }),
     ).toBeInTheDocument();
@@ -151,7 +151,7 @@ describe('collapsible sidebar', () => {
     const user = userEvent.setup();
     setup();
     renderApp('/');
-    await user.click(await screen.findByRole('link', { name: es.common['nav.sessions'] }));
+    await user.click(await screen.findByRole('link', { name: es.common['nav.vault'] }));
     expect(screen.getByRole('navigation', { name: navigationName })).toBeInTheDocument();
   });
 });

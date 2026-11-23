@@ -8,6 +8,7 @@ import type {
   Account,
   AccountListItem,
   AccountListQuery,
+  AccountTagsResponse,
   CreateAccountRequest,
   InventoryListQuery,
   Platform,
@@ -76,9 +77,20 @@ export class AccountsController {
   ): Promise<AccountPage> {
     const page = await this.manageAccounts.listMine(
       { limit: query.limit, cursor: query.cursor ?? null },
-      { text: query.q, filter: query.filter },
+      { text: query.q, filter: query.filter, tag: query.tag },
     );
     return toAccountPage(page, query.limit);
+  }
+
+  // Las rutas fijas van antes de `:id` para que "tags" o "inventory" no se lean como identificadores.
+  @Get('tags')
+  async tags(): Promise<AccountTagsResponse> {
+    return { data: [...(await this.manageAccounts.listMyTags())] };
+  }
+
+  @Get('inventory/tags')
+  async inventoryTags(): Promise<AccountTagsResponse> {
+    return { data: [...(await this.manageAccounts.listInventoryTags())] };
   }
 
   // Declarado antes de `:id` para que "inventory" no se lea como un identificador.
@@ -88,7 +100,7 @@ export class AccountsController {
   ): Promise<AccountPage> {
     const page = await this.manageAccounts.listInventory(
       { limit: query.limit, cursor: query.cursor ?? null },
-      { text: query.q },
+      { text: query.q, tag: query.tag },
     );
     return toAccountPage(page, query.limit);
   }

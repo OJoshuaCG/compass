@@ -6,7 +6,6 @@ import {
   freshCode,
   signInAsRoot,
   signInWithPassword,
-  signOut,
   watchSecurityViolations,
 } from './support/identity-helpers.js';
 
@@ -34,7 +33,7 @@ test('a sensitive action can be re-authenticated with a passkey instead of a cod
 
   // Primera llave: aún no hay ninguna, así que la reautenticación se hace con el código.
   const rootSecret = await signInAsRoot(page);
-  await page.getByRole('link', { name: 'Security', exact: true }).click();
+  await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
   await page.getByRole('button', { name: 'Add passkey' }).click();
   await page.getByLabel('Passkey name').fill('Reauth first key');
@@ -46,13 +45,13 @@ test('a sensitive action can be re-authenticated with a passkey instead of a cod
   await expect(page.getByText('The passkey Reauth first key was added.')).toBeVisible();
 
   // Sesión nueva: iniciar sesión no cuenta como reautenticación reciente, y la persona ya tiene llave.
-  await signOut(page);
+  await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/login/);
   await signInWithPassword(page, ROOT_EMAIL, ROOT_PASSWORD);
   await page.getByRole('button', { name: 'Use a passkey' }).click();
-  await expect(page.getByRole('link', { name: 'Users', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'People' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Security', exact: true }).click();
+  await page.getByRole('link', { name: 'Settings' }).click();
   // Quitar una llave es otra acción sensible. No se registra una segunda llave: el servidor excluye las
   // credenciales ya registradas (`excludeCredentials`) y el mismo autenticador no puede crear otra.
   await page.getByRole('button', { name: 'Remove the passkey Reauth first key' }).click();
