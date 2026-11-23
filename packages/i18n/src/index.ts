@@ -25,7 +25,7 @@ export const resources = {
 /**
  * Catálogos que NO viajan en el JavaScript inicial: se descargan con la pantalla que los usa
  * (docs/frontend.md §12). `directory` solo hace falta en `/users`; `sessions`, en `/sessions` y en
- * el diálogo "Cerrar sesiones" de la gestión del equipo; `roles`, en `/roles`; `security`, en `/security`; `accounts`, en `/accounts`; `credentials`, en `/accounts/:id/credentials`; `shares`, en `/accounts/:id/shares`; `inbound`, en `/inbound` y `/inbound/views/:viewId`; `sso`, en `/sso/reauth` y `/sso/consent`. Cada cargador trae los dos idiomas.
+ * el diálogo "Cerrar sesiones" de la gestión del equipo; `roles`, en `/roles`; `security`, en `/security`; `accounts`, en `/accounts`; `credentials`, en `/accounts/:id/credentials`; `shares`, en `/accounts/:id/shares`; `inbound`, en `/inbound` y `/inbound/views/:viewId`; `sso`, en `/sso/reauth` y `/sso/consent`; `oidcClients`, en `/sso/clients`. Cada cargador trae los dos idiomas.
  */
 export const LAZY_NAMESPACES = [
   'directory',
@@ -38,6 +38,7 @@ export const LAZY_NAMESPACES = [
   'inbound',
   'integrations',
   'sso',
+  'oidcClients',
 ] as const;
 export type LazyNamespace = (typeof LAZY_NAMESPACES)[number];
 export type LazyCatalog = Record<Locale, Record<string, string>>;
@@ -111,6 +112,12 @@ export const loadSsoCatalog = () =>
     import('./locales/en-US/sso.json', { with: { type: 'json' } }),
   );
 
+export const loadOidcClientsCatalog = () =>
+  bothLocales(
+    import('./locales/es-MX/oidc-clients.json', { with: { type: 'json' } }),
+    import('./locales/en-US/oidc-clients.json', { with: { type: 'json' } }),
+  );
+
 export const lazyCatalogLoaders: Record<LazyNamespace, () => Promise<LazyCatalog>> = {
   directory: loadDirectoryCatalog,
   sessions: loadSessionsCatalog,
@@ -122,6 +129,7 @@ export const lazyCatalogLoaders: Record<LazyNamespace, () => Promise<LazyCatalog
   inbound: loadInboundCatalog,
   integrations: loadIntegrationsCatalog,
   sso: loadSsoCatalog,
+  oidcClients: loadOidcClientsCatalog,
 };
 
 export type CommonKey = keyof (typeof resources)['es-MX']['common'];

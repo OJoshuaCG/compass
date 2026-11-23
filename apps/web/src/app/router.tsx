@@ -161,6 +161,12 @@ const rootTransferRoute = createRoute({
   component: lazyRouteComponent(() => import('../routes/root-transfer-route'), 'RootTransferRoute'),
 });
 
+const oidcClientsRoute = createRoute({
+  getParentRoute: () => appLayout,
+  path: '/sso/clients',
+  component: lazyRouteComponent(() => import('../routes/oidc-clients-route'), 'OidcClientsRoute'),
+});
+
 const rolesRoute = createRoute({
   getParentRoute: () => appLayout,
   path: '/roles',
@@ -326,6 +332,7 @@ const routeTree = rootRoute.addChildren([
     alertsRoute,
     rootTransferRoute,
     groupsRoute,
+    oidcClientsRoute,
     rolesRoute,
     newRoleRoute,
     roleRoute,
