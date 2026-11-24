@@ -1,10 +1,11 @@
 /**
  * Invariantes de seguridad
- * - `oidc_signing_keys` no se toca directamente (`iam_app` no tiene `GRANT`): solo por las funciones
- *   `auth.*` de la migración 0045, que fijan el esquema y limitan lo que se puede hacer.
+ * - `oidc_signing_keys` y `platform_audit_events` no se tocan directamente (`iam_app` no tiene `GRANT`): solo
+ *   por las funciones `auth.*` (migraciones 0045 y 0047), que fijan el esquema y limitan lo que se puede hacer.
  * - Solo se maneja el sobre cifrado; la clave privada en claro nunca llega a este archivo.
  */
-import type { TransactionProvider } from '../../organization/index.js';
+import type { Pool } from 'pg';
+
 import type {
   Jwk,
   SigningAlgorithm,
@@ -19,15 +20,20 @@ interface SigningKeyRow {
   readonly private_jwk_ciphertext: Buffer;
 }
 
+/**
+ * Lo único que el almacén necesita de la base: ejecutar una sentencia. Las claves de firma no pertenecen a
+ * ninguna organización, así que se usa el pool directamente (sin transacción con `app.org_id`); cada
+ * operación es una sola función `auth.*`, atómica por sí misma.
+ */
+export type SigningKeyDatabase = Pick<Pool, 'query'>;
+
 export class PgSigningKeyStore implements SigningKeyStore {
-  constructor(private readonly transactions: TransactionProvider) {}
+  constructor(private readonly database: SigningKeyDatabase) {}
 
   async listActive(): Promise<readonly StoredSigningKey[]> {
-    const { rows } = await this.transactions
-      .current()
-      .query<SigningKeyRow>(
-        'select kid, alg, public_jwk, private_jwk_ciphertext from auth.list_oidc_signing_keys()',
-      );
+    const { rows } = await this.database.query<SigningKeyRow>(
+      'select kid, alg, public_jwk, private_jwk_ciphertext from auth.list_oidc_signing_keys()',
+    );
     return rows.map((row) => ({
       kid: row.kid,
       algorithm: row.alg,
@@ -36,21 +42,22 @@ export class PgSigningKeyStore implements SigningKeyStore {
     }));
   }
 
-  async add(key: StoredSigningKey): Promise<void> {
-    await this.transactions
-      .current()
-      .query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4)', [
-        key.kid,
-        key.algorithm,
-        JSON.stringify(key.publicJwk),
-        Buffer.from(key.privateJwkCiphertext),
-      ]);
+  // La función escribe la clave y su fila de `platform_audit_events` en una sola sentencia (migración 0047).
+  async add(key: StoredSigningKey, actor: string): Promise<void> {
+    await this.database.query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4, $5)', [
+      key.kid,
+      key.algorithm,
+      JSON.stringify(key.publicJwk),
+      Buffer.from(key.privateJwkCiphertext),
+      actor,
+    ]);
   }
 
-  async retire(kid: string): Promise<boolean> {
-    const { rows } = await this.transactions
-      .current()
-      .query<{ retired: boolean }>('select auth.retire_oidc_signing_key($1) as retired', [kid]);
+  async retire(kid: string, actor: string): Promise<boolean> {
+    const { rows } = await this.database.query<{ retired: boolean }>(
+      'select auth.retire_oidc_signing_key($1, $2) as retired',
+      [kid, actor],
+    );
     return rows[0]?.retired === true;
   }
 }

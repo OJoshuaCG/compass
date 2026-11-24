@@ -13,7 +13,7 @@ Los contadores de intentos fallidos (por correo en el ingreso y por usuario en e
 La plataforma se despliega y se soporta con **una sola instancia de la API**. No se incorpora Redis ahora.
 
 - La restricción se declara y se hace cumplir: el runbook de instancia única deja de ser un borrador de limitación y pasa a ser la configuración de despliegue vigente, y J1 añade un guardarraíl de arranque que impide que dos instancias convivan.
-- Escalar horizontalmente, poner un balanceador con réplicas o activar el autoescalado exige antes **una decisión nueva** que incorpore Redis (contadores y límite por IP compartidos). El dueño ya dejó dicho que usar Redis es aceptable cuando se considere necesario, por lo que esta decisión no lo descarta: lo difiere.
+- Escalar horizontalmente, poner un balanceador con réplicas o activar el autoescalado exige antes **una decisión nueva** que incorpore Redis (contadores y límite por IP compartidos). El dueño ya dejó dicho que usar Redis es aceptable cuando se considere necesario, por lo que esta decisión, en su redacción original, no lo descartaba: lo difería. **Enmienda (2026-11-17):** el dueño descartó Redis. La instancia única deja de ser una restricción transitoria y pasa a ser la operación definitiva; escalar a varias instancias exigiría reabrir esta decisión. El nombre del archivo conserva «until-redis» para no romper los enlaces.
 - Mientras tanto, la limitación conocida se mantiene documentada: un reinicio borra los contadores de bloqueo.
 
 ## Alternativas consideradas

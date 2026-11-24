@@ -68,6 +68,46 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    /**
+     * Proveedor OIDC de Compass (ADR 0050-0052): SSO para las aplicaciones registradas. Apagado salvo que se
+     * active expresamente. Se compara el texto, igual que `OUTBOX_WORKER_ENABLED`.
+     */
+    OIDC_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    /**
+     * Claves que firman las cookies del proveedor, separadas por comas (la primera firma, las demás solo
+     * verifican para poder rotar). Cada una de al menos 32 caracteres, p. ej. `openssl rand -base64 36`.
+     * Obligatoria con `OIDC_ENABLED=true`. Es un secreto: no se registra.
+     */
+    OIDC_COOKIE_KEYS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value === undefined
+          ? []
+          : value
+              .split(',')
+              .map((key) => key.trim())
+              .filter((key) => key !== ''),
+      ),
+    /** Algoritmo de firma de los id token; debe coincidir con el de la clave activa (ADR 0052, L9). */
+    OIDC_ID_TOKEN_ALG: z.enum(['ES256', 'RS256']).default('ES256'),
+    /**
+     * Redes privadas (IP o CIDR, separadas por comas) a las que pueden avisar de un logout los clientes OIDC
+     * marcados `allowPrivateNetworkBackchannel`. Vacío por defecto: solo direcciones públicas. Bucle local,
+     * link-local y multicast no se permiten aunque aparezcan aquí. Cada entrada se valida en `NetworkGuard`.
+     */
+    OIDC_BACKCHANNEL_PRIVATE_NETWORKS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter((entry) => entry !== ''),
+      ),
     /** Pausa entre pasadas del publicador. Mínimo 500 ms para no saturar la base; máximo 60 s para acotar la latencia. */
     OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(500).max(60000).default(5000),
   })
@@ -92,6 +132,18 @@ const envSchema = z
         message: 'smtp is required in production',
       });
     }
+    if (env.OIDC_ENABLED) {
+      const validKeys =
+        env.OIDC_COOKIE_KEYS.length > 0 &&
+        env.OIDC_COOKIE_KEYS.every((key) => key.length >= MIN_OIDC_COOKIE_KEY_LENGTH);
+      if (!validKeys) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['OIDC_COOKIE_KEYS'],
+          message: 'at least one key of 32 characters or more is required',
+        });
+      }
+    }
     if (env.KMS_ADAPTER === 'aws') {
       for (const key of ['AWS_KMS_KEY_ID', 'AWS_REGION'] as const) {
         if (env[key] === undefined)
@@ -108,6 +160,9 @@ const envSchema = z
       });
     }
   });
+
+/** Longitud mínima de cada clave de cookie del proveedor OIDC (mismo mínimo que `FIRST_SETUP_TOKEN`). */
+const MIN_OIDC_COOKIE_KEY_LENGTH = 32;
 
 export type Config = z.infer<typeof envSchema>;
 

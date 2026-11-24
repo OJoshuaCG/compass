@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { isSafeReturnTo, returnToSchema, usersSearchSchema } from './search-schemas';
+import {
+  isSafeReturnTo,
+  returnToSchema,
+  ssoInteractionSearchSchema,
+  usersSearchSchema,
+} from './search-schemas';
 
 describe('returnTo validation', () => {
-  it.each(['/users', '/users?limit=50&q=ana', '/a/b#frag'])('accepts internal path %s', (value) => {
-    expect(returnToSchema.parse(value)).toBe(value);
-  });
+  it.each(['/users', '/users?limit=50&q=ana', '/a/b#frag', '/oidc/interaction/aB3_-xYz09'])(
+    'accepts internal path %s',
+    (value) => {
+      expect(returnToSchema.parse(value)).toBe(value);
+    },
+  );
 
   it.each([
     '/\t/evil.com',
@@ -33,4 +41,21 @@ describe('usersSearchSchema view', () => {
     expect(usersSearchSchema.parse({ view: 'admin' }).view).toBeUndefined();
     expect(usersSearchSchema.parse({}).view).toBeUndefined();
   });
+});
+
+describe('ssoInteractionSearchSchema', () => {
+  it('keeps the uid as text', () => {
+    expect(ssoInteractionSearchSchema.parse({ uid: 'aB3_-xYz09' })).toEqual({ uid: 'aB3_-xYz09' });
+  });
+
+  it('turns a uid the router parsed as a number back into text', () => {
+    expect(ssoInteractionSearchSchema.parse({ uid: 123456 })).toEqual({ uid: '123456' });
+  });
+
+  it.each([{}, { uid: null }, { uid: { a: 1 } }, { uid: ['x'] }])(
+    'falls back to no uid for %j',
+    (search) => {
+      expect(ssoInteractionSearchSchema.parse(search).uid).toBeUndefined();
+    },
+  );
 });

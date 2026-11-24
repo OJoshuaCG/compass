@@ -12,6 +12,8 @@ const UNIQUE_VIOLATION = '23505';
 const FOREIGN_KEY_VIOLATION = '23503';
 const NO_PRIVILEGE = '42501';
 const CIPHERTEXT = '\\x00112233445566778899aabbccddeeff';
+// Desde la migración 0047 toda alta o retiro de clave de firma lleva su actor (platform-audit.test.ts).
+const SIGNING_KEY_ACTOR = 'os:db-test';
 const ONE_HOUR_FROM_NOW_SQL = "now() + interval '1 hour'";
 
 let admin: Client;
@@ -218,11 +220,12 @@ describe('oidc_signing_keys (tabla de plataforma)', () => {
   });
 
   it('añade, lista y retira claves solo por las funciones', async () => {
-    await app.query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4)', [
+    await app.query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4, $5)', [
       'signing-key-one',
       'ES256',
       '{"kty":"EC"}',
       CIPHERTEXT,
+      SIGNING_KEY_ACTOR,
     ]);
     const listed = await app.query<{ kid: string; alg: string }>(
       'select kid, alg from auth.list_oidc_signing_keys()',
@@ -230,32 +233,34 @@ describe('oidc_signing_keys (tabla de plataforma)', () => {
     expect(listed.rows).toContainEqual({ kid: 'signing-key-one', alg: 'ES256' });
 
     const retired = await app.query<{ retire_oidc_signing_key: boolean }>(
-      'select auth.retire_oidc_signing_key($1)',
-      ['signing-key-one'],
+      'select auth.retire_oidc_signing_key($1, $2)',
+      ['signing-key-one', SIGNING_KEY_ACTOR],
     );
     expect(retired.rows[0]?.retire_oidc_signing_key).toBe(true);
     const after = await app.query('select kid from auth.list_oidc_signing_keys()');
     expect(after.rows.map((row: { kid: string }) => row.kid)).not.toContain('signing-key-one');
     const again = await app.query<{ retire_oidc_signing_key: boolean }>(
-      'select auth.retire_oidc_signing_key($1)',
-      ['signing-key-one'],
+      'select auth.retire_oidc_signing_key($1, $2)',
+      ['signing-key-one', SIGNING_KEY_ACTOR],
     );
     expect(again.rows[0]?.retire_oidc_signing_key).toBe(false);
   });
 
   it('rechaza un identificador de clave repetido', async () => {
-    await app.query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4)', [
+    await app.query('select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4, $5)', [
       'signing-key-dup',
       'RS256',
       '{"kty":"RSA"}',
       CIPHERTEXT,
+      SIGNING_KEY_ACTOR,
     ]);
     expect(
-      await sqlState(app, 'select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4)', [
+      await sqlState(app, 'select auth.add_oidc_signing_key($1, $2, $3::jsonb, $4, $5)', [
         'signing-key-dup',
         'RS256',
         '{"kty":"RSA"}',
         CIPHERTEXT,
+        SIGNING_KEY_ACTOR,
       ]),
     ).toBe(UNIQUE_VIOLATION);
   });

@@ -29,7 +29,7 @@ Un repositorio, una imagen de contenedor y varios puntos de entrada en `apps/api
 | Alta de organizaciones | `main.provision.ts` | Existe | Comando de operaciones, con conexión de administración; nunca desde una petición HTTP (ver el [runbook](runbooks/provision-organization.md)) |
 | Worker | `main.worker.ts` | Planeado, no existe | Procesará colas BullMQ y publicará el outbox (`outbox_events`); rotaciones, expiraciones, recifrado y purga de datos temporales |
 
-El plan habla de "dos procesos (API y worker)" más las migraciones como paso previo de despliegue. La misma imagen sirve a todos con comandos de arranque distintos. Mientras no existan Redis ni el worker, el sistema debe operar con una sola instancia de la API ([runbook](runbooks/single-instance-operation.md)). Los módulos solo se hablan por fachadas públicas o eventos, lo que permite separar uno en su propio servicio más adelante sin reescribirlo.
+El plan habla de "dos procesos (API y worker)" más las migraciones como paso previo de despliegue. La misma imagen sirve a todos con comandos de arranque distintos. El dueño descartó Redis (2026-11-17): el sistema opera con una sola instancia de la API ([runbook](runbooks/single-instance-operation.md)). Los módulos solo se hablan por fachadas públicas o eventos, lo que permite separar uno en su propio servicio más adelante sin reescribirlo.
 
 ## 2. Contexto y contenedores
 
@@ -50,7 +50,7 @@ flowchart LR
   end
 
   pg[("PostgreSQL<br/>fuente de verdad, RLS")]
-  redis[("Redis<br/>contadores, colas, sesiones calientes<br/>sin material criptográfico")]
+  redis[("Redis (descartado, instancia única)<br/>diseño original: contadores, colas, sesiones calientes<br/>sin material criptográfico")]
   kms["KMS<br/>KEK por organización"]
   secrets["Gestor de secretos<br/>credenciales de infraestructura"]
   mail["Correo saliente<br/>invitaciones y alertas"]
@@ -334,7 +334,7 @@ Vigentes tras la fase 1a. El detalle técnico está en [`backend.md`](backend.md
 | --- | --- |
 | Passkeys (WebAuthn) | **Resuelta** ([ADR 0028](adr/0028-passkeys-optional-enforcement-later.md)): opcionales para todos. Sigue abierta la configuración para exigirlas a la Raíz y a los Administradores |
 | Cambio de la contraseña inicial de la Raíz | **Resuelto**: obligatorio en el primer ingreso |
-| Redis para límites de intentos y por IP | Pendiente. Hoy en memoria de cada instancia; el sistema debe operar con una sola instancia hasta incorporarlo ([runbook](runbooks/single-instance-operation.md)) |
+| Redis para límites de intentos y por IP | Descartado por el dueño (2026-11-17). Los contadores viven en la memoria de la única instancia; escalar a varias exige reabrir la decisión ([runbook](runbooks/single-instance-operation.md)) |
 | Proveedor de correo | **Resuelto** para invitaciones y el aviso de códigos de emergencia: SMTP del dominio propio. Faltan los avisos de dispositivo nuevo, baja del factor de aplicación y regeneración de códigos |
 | Idempotencia de peticiones que crean recursos | **Resuelta** ([ADR 0029](adr/0029-idempotency-reservation-and-ownership.md)); falta la purga de filas vencidas |
 | Recuperación de la Raíz que olvida su contraseña y pierde sus factores | Sin solución en el sistema; falta un procedimiento de operaciones |

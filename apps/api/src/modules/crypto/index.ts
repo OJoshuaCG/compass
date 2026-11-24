@@ -22,7 +22,24 @@ export type {
   SigningKeyStore,
   StoredSigningKey,
 } from './application/ports/signing-keys.js';
-export { SigningKeyService } from './application/signing-key-service.js';
+export {
+  API_PROCESS_AUDIT_ACTOR,
+  SigningKeyService,
+  operatorAuditActor,
+} from './application/signing-key-service.js';
 export type { SigningKeySet } from './application/signing-key-service.js';
 export { NodeSigningKeyGenerator } from './infrastructure/node-signing-key-generator.js';
 export { PgSigningKeyStore } from './infrastructure/pg-signing-key-store.js';
+export { NodeJwtSigner } from './infrastructure/node-jwt-signer.js';
+export {
+  parseSigningKeyArguments,
+  SIGNING_KEY_USAGE,
+} from './application/signing-key-arguments.js';
+export type { SigningKeyCommand } from './application/signing-key-arguments.js';
+export { SigningKeyCommandError } from './application/signing-key-command-error.js';
+export {
+  SigningKeyOperations,
+  formatSigningKeyRecord,
+} from './application/signing-key-operations.js';
+export type { SigningKeyRecord } from './application/signing-key-operations.js';
+export type { SigningKeySummary } from './application/signing-key-service.js';

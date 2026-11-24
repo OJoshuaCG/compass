@@ -256,5 +256,6 @@
   "nav.inboundViewSettings": "Code views",
   "nav.credentialHealth": "Credential health",
   "nav.alerts": "Infrastructure alerts",
-  "nav.rootTransfer": "Root transfer"
+  "nav.rootTransfer": "Root transfer",
+  "nav.ssoClients": "Applications (SSO)"
 }

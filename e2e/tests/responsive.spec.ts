@@ -51,7 +51,7 @@ async function expectNoHorizontalPageScroll(page: Page, screenName: string): Pro
         .slice(0, 6)
         .map((element) => {
           const box = element.getBoundingClientRect();
-          return `${element.tagName.toLowerCase()}.${element.className.toString().slice(0, 60)} right=${String(Math.round(box.right))}`;
+          return `${element.tagName.toLowerCase()}.${(element.getAttribute('class') ?? '').slice(0, 60)} right=${String(Math.round(box.right))}`;
         }),
     };
   });
@@ -196,6 +196,26 @@ test.describe.serial('Responsive at phone width (signed in as Root)', () => {
         await page.waitForLoadState('networkidle');
         await expect(page.locator('table[aria-busy="true"]')).toHaveCount(0);
         await expectNoHorizontalPageScroll(page, `${route} (${viewport.name})`);
+      }
+    }
+    await page.setViewportSize(PHONE_VIEWPORT);
+  });
+
+  test('the SSO invalid-request state fits at phone, tablet and landscape widths', async () => {
+    test.setTimeout(120_000);
+    // Sin `uid` ambas pantallas muestran el estado de solicitud inválida: es alcanzable sin pila OIDC.
+    // El flujo con solicitud real (formulario TOTP, consentimiento) no se puede montar sin un proveedor.
+    const viewports = [{ name: 'phone 375', ...PHONE_VIEWPORT }, ...OTHER_VIEWPORTS];
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      for (const route of ['/sso/reauth', '/sso/consent']) {
+        await page.goto(route);
+        await expect(
+          page.getByRole('heading', { level: 1, name: 'This request is not valid' }),
+        ).toBeVisible();
+        const screenName = `${route} invalid request (${viewport.name})`;
+        await expectNoHorizontalPageScroll(page, screenName);
+        await expectTouchTargetsLargeEnough(page, screenName);
       }
     }
     await page.setViewportSize(PHONE_VIEWPORT);

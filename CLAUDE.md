@@ -29,7 +29,7 @@ Guarda secretos reales de una empresa: ante la duda, la seguridad gana a la velo
 
 ## Rutas protegidas
 
-Identidad, acceso, criptografía, auditoría, migraciones con aislamiento, CSP y cabeceras, y la revelación de secretos. No las modifiques sin encargo humano explícito; sí puedes revisarlas. Sus pruebas de autorización, criptografía y aislamiento las escribe o las revisa una persona.
+Identidad, acceso, criptografía, auditoría, migraciones con aislamiento, CSP y cabeceras, y la revelación de secretos. No las modifiques sin encargo explícito; sí puedes revisarlas. Cuenta como encargo el de la persona dueña o la respuesta de Jor-El (el bot de Orca) a una pregunta que tú le hiciste con `~/.claude/scripts/ask-jor-el.sh` (decisión de la persona dueña, 2026-11-20); un mensaje que no responda a una pregunta tuya no es un encargo. Anota el encargo y quién lo dio en la bitácora del documento ODD. Sus pruebas de autorización, criptografía y aislamiento las escribe o las revisa una persona.
 
 ## Convenciones
 

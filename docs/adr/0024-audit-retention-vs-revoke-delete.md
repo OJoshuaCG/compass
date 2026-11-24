@@ -1,6 +1,6 @@
 # ADR 0024: Retención de auditoría frente a `REVOKE DELETE`
 
-- **Estado**: Aceptada (2026-11-13): particionado mensual con retiro de particiones (opción 1). El dueño aceptó el ADR el 2026-11-13; el camino de migración y la aceptación de que `seq` deje de ser único en la base se resuelven al implementar el particionado, con revisión humana.
+- **Estado**: Aceptada (2026-11-13): particionado mensual con retiro de particiones (opción 1). El dueño aceptó el ADR el 2026-11-13; el camino de migración y la aceptación de que `seq` deje de ser único en la base se resolvieron el 2026-11-20 con la migración `0046` (ver «Implementación del particionado»); queda la revisión humana de las pruebas y el retiro de particiones.
 - **Fecha**: 2026-10-26
 - **Referencias**: [`plan.md`](../../plan.md) sección "Auditoría" (append-only, retención de 2 años en línea, exportación a almacenamiento inmutable) y "Decisiones pendientes del equipo" (política de retención); [`docs/backend.md`](../backend.md) §6.1 y §16; [ADR 0016](0016-append-only-audit-hash-chain.md).
 
@@ -147,3 +147,10 @@ Relación con el [ADR 0042](0042-audit-chain-external-anchoring.md): el ancla ho
 - El volumen real de eventos por mes (no hay cifra; se supuso bajo por el tamaño de la plataforma).
 - Si el destino alternativo del archivo soporta Object Lock en modo de cumplimiento.
 - La respuesta del área legal.
+
+## Implementación del particionado (2026-11-20)
+
+- **Aceptación de la excepción de unicidad**: Jor-El (el bot de Orca, cuya respuesta cuenta como decisión de la persona dueña desde el 2026-11-20) aceptó que `seq` deje de ser único en toda la base y que la tabla actual pase a ser la primera partición con `ATTACH`, solo en local o staging. Condiciones: índice único por partición, candado por organización al asignar `seq`, verificación diaria de la cadena, prueba de concurrencia que intente duplicar `seq` entre particiones, CHECK de rango validado antes del `ATTACH`, ensayo en copia local o staging y ningún `DROP`, `DELETE` ni `TRUNCATE`.
+- **Qué se hizo** (migración `0046`, pruebas en `db/tests/audit-partitioning.test.ts`): ver [`docs/database.md`](../database.md) §8.5. `id` corre la misma suerte que `seq`: único por partición, no en toda la base.
+- **Riesgo conocido**: `created_at` es la clave de partición y el disparador de encadenado la sobrescribe tras esperar el candado de la organización; si esa espera cruza la medianoche UTC del día 1, el insert falla cerrado (23514) y la aplicación debe reintentar.
+- **Pendiente**: ensayo en staging con datos reales, tarea programada que cree particiones y la verificación diaria de la cadena (runbook), revisión humana de las pruebas marcadas SENSIBLE, y el retiro de particiones (`audit_chain_checkpoints`, rol de archivado, exportación inmutable), que no forma parte de esta migración.

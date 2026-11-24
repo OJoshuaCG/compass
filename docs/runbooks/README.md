@@ -17,7 +17,7 @@ Tipo de documento: how-to (guías de tarea para operadores con experiencia).
 | [Usar un código de emergencia](use-emergency-code.md) | La Raíz perdió su segundo factor y conserva su contraseña | Borrador |
 | [Recuperar a la Raíz sin contraseña ni factores](recover-root.md) | La Raíz perdió contraseña y factores: control dual de los dos custodios y códigos de emergencia nuevos | Borrador |
 | [Configurar y comprobar el correo](configure-mail.md) | Primer despliegue, cambio de servidor SMTP o invitaciones que no llegan | Borrador |
-| [Operar con una sola instancia](single-instance-operation.md) | Todo despliegue, hasta que los contadores de intentos pasen a Redis | Borrador |
+| [Operar con una sola instancia](single-instance-operation.md) | Todo despliegue (permanente: Redis descartado el 2026-11-17) | Borrador |
 | [Caída total con sobres sellados](total-outage.md) | Pérdida de toda la plataforma: restaurar, recuperar a la Raíz y abrir los sobres de las cuentas críticas | Borrador |
 | [Pérdida o borrado de la KEK](kek-loss.md) | La clave del KMS se perdió, se deshabilitó o tiene el borrado programado | Borrador |
 | [Restaurar con el KMS](restore-with-kms.md) | Tras restaurar la base, comprobar que la clave correcta abre las DEK | Borrador |
@@ -25,6 +25,8 @@ Tipo de documento: how-to (guías de tarea para operadores con experiencia).
 | [Programar la purga de filas vencidas](purge-expired.md) | Primer despliegue: programar `purge-expired` cada hora y vigilar su salida | Borrador |
 | [Programar el ancla externa de la auditoría](anchor-audit.md) | Primer despliegue: crear y verificar el bucket inmutable, programar `anchor-audit` una vez al día y vigilar su salida | Borrador |
 | [Programar el sondeo de correo entrante](inbound-poll.md) | Activar `inbound-poll` cada minuto y vigilar su salida | Borrador |
+| [Rotar las claves de firma OIDC](rotate-oidc-signing-keys.md) | Rotación planeada o ante sospecha de compromiso de la clave de firma de SSO (dos pasos: publicar y retirar) | Borrador |
+| [Particiones de auditoría](audit-partitions.md) | Crear meses nuevos de `audit_events`, alerta de margen y verificación diaria de la cadena | Borrador |
 
 ## Convenciones
 

@@ -25,6 +25,8 @@ export interface AuthenticatedPrincipal {
   readonly userId: UserId;
   readonly userStatus: 'invited' | 'active';
   readonly mfaVerified: boolean;
+  /** Momento del segundo factor: de aquí sale `auth_time` hacia las aplicaciones OIDC (ADR 0051 §5). */
+  readonly mfaAt: Date | null;
   readonly reauthAt: Date | null;
   readonly expiresAt: Date;
 }
@@ -121,6 +123,7 @@ export class SessionService {
       userId: row.userId,
       userStatus: row.userStatus,
       mfaVerified: row.mfaAt !== null,
+      mfaAt: row.mfaAt,
       reauthAt: row.reauthAt,
       expiresAt: row.expiresAt,
     };

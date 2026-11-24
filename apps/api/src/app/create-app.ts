@@ -9,7 +9,8 @@ import { uuidv7 } from 'uuidv7';
 import { ProblemDetailsFilter } from '../shared/http/problem-details.filter.js';
 import { AppModule } from './app.module.js';
 import { mountOidcProvider } from './mount-oidc-provider.js';
-import type { OidcCallbackProvider } from './mount-oidc-provider.js';
+import type { OidcCallbackProvider, OidcInteractionRoute } from './mount-oidc-provider.js';
+import { SESSION_COOKIE } from '../modules/identity/index.js';
 import { serveWebApp } from './serve-web.js';
 import type { Container } from './container.js';
 import { toFastifyTrustProxy } from './trust-proxy.js';
@@ -66,6 +67,8 @@ export interface CreateAppOptions {
   readonly webDistDir?: string;
   /** Proveedor OIDC ya construido; si se indica, se monta antes que la SPA (ADR 0050). */
   readonly oidcProvider?: OidcCallbackProvider;
+  /** Rutas de login y consentimiento del proveedor; sin ellas el proveedor no puede autenticar a nadie. */
+  readonly oidcInteraction?: OidcInteractionRoute;
 }
 
 export async function createApp(options: CreateAppOptions): Promise<NestFastifyApplication> {
@@ -90,6 +93,13 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
   if (options.oidcProvider !== undefined) {
     await mountOidcProvider(app, {
       provider: options.oidcProvider,
+      ...(options.oidcInteraction === undefined
+        ? {}
+        : {
+            interaction: options.oidcInteraction,
+            sessionCookieName: SESSION_COOKIE,
+            appOrigin: options.appOrigin ?? 'http://localhost:5173',
+          }),
       staticHeaders: { 'permissions-policy': PERMISSIONS_POLICY },
     });
   }

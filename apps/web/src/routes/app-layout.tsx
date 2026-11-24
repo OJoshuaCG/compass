@@ -5,6 +5,7 @@ import {
   BrandMark,
   House,
   IconButton,
+  KeyRound,
   LayoutGrid,
   Lock,
   LogOut,
@@ -58,6 +59,7 @@ function NavLink({
     | '/inbound'
     | '/inbound/sources'
     | '/root-transfer'
+    | '/sso/clients'
     | '/credential-health';
   paths?: readonly string[];
   icon: LucideIcon;
@@ -109,6 +111,8 @@ export function AppLayout() {
   const canViewCredentialHealth = usePermission('credential.view_health');
   // Solo comodidad: el enlace de alertas de infraestructura se ofrece con `alerts.infra.manage`; el servidor decide.
   const canManageInfraAlerts = usePermission('alerts.infra.manage');
+  // Solo comodidad: el enlace de las aplicaciones SSO se ofrece con `sso.clients.manage`; el servidor decide.
+  const canManageSsoClients = usePermission('sso.clients.manage');
   // Solo comodidad: la transferencia de la Raíz la ven la Raíz y los Administradores; el servidor decide.
   const canSeeRootTransfer = me !== undefined && me.user.rank <= MAX_RANK_TO_SEE_ROOT_TRANSFER;
   const { logout, pending } = useLogout();
@@ -254,6 +258,11 @@ export function AppLayout() {
             {canSeeRootTransfer ? (
               <NavLink onNavigate={closeSidebar} to="/root-transfer" icon={ArrowRightLeft}>
                 {t('nav.rootTransfer')}
+              </NavLink>
+            ) : null}
+            {canManageSsoClients ? (
+              <NavLink onNavigate={closeSidebar} to="/sso/clients" icon={KeyRound}>
+                {t('nav.ssoClients')}
               </NavLink>
             ) : null}
             {import.meta.env.DEV ? (

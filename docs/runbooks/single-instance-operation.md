@@ -1,6 +1,6 @@
-# Runbook: Operar con una sola instancia (hasta incorporar Redis)
+# Runbook: Operar con una sola instancia
 
-> **Borrador, pendiente de ensayo antes de producción.** Describe una restricción vigente, no un procedimiento de emergencia. Deja de aplicar cuando los contadores de intentos pasen a Redis (ver [`docs/handoff.md`](../handoff.md), sección 4).
+> **Borrador, pendiente de ensayo antes de producción.** Describe una restricción vigente, no un procedimiento de emergencia. Es permanente: el dueño descartó Redis (2026-11-17). Solo deja de aplicar si se decide escalar a varias instancias, lo que exige una decisión nueva (ver [`docs/handoff.md`](../handoff.md), sección 4).
 
 Referencias: [`docs/backend.md`](../backend.md) §10 y §16; [ADR 0039](../adr/0039-single-instance-until-redis.md) (decisión de instancia única); [ADR 0026](../adr/0026-atomic-failed-attempt-counting.md); [`docs/threat-model.md`](../threat-model.md) §4.1.
 
@@ -27,7 +27,7 @@ Mantener efectivos el bloqueo por intentos fallidos y el límite por dirección 
    La API lo hace cumplir: al arrancar toma un candado consultivo de PostgreSQL sobre una conexión dedicada (aplicación `iam-api-single-instance-guard`). Si otra instancia ya lo tiene, la nueva termina con el error `RUNTIME.SECOND_INSTANCE`. Si la instancia viva pierde esa conexión, se detiene sola (el candado ya no está garantizado). Por eso una actualización superpuesta no arranca: detén la vieja primero. Un latido cada 10 s comprueba que la conexión sigue sosteniendo el candado, así que un corte de red que no cierra la conexión también acaba deteniendo la instancia.
    - `DATABASE_URL` debe ser una conexión **directa** a PostgreSQL. Detrás de un balanceador de conexiones en modo transacción (PgBouncer) el candado de sesión no protege nada: la API lo detecta y no arranca (`RUNTIME.LOCK_UNVERIFIABLE`).
    - La instancia nueva falla de inmediato si la vieja aún figura viva (por ejemplo tras un `SIGKILL`, hasta que PostgreSQL note el socket muerto). Configura al supervisor para reintentar el arranque con espera en vez de dejar el servicio caído.
-5. Registra en el inventario del despliegue que la restricción existe, quién la levanta y que se retira al incorporar Redis.
+5. Registra en el inventario del despliegue que la restricción existe, quién la levanta y que solo se retira con una decisión nueva de escalar.
 
 ## Verificación
 
@@ -47,7 +47,7 @@ Mantener efectivos el bloqueo por intentos fallidos y el límite por dirección 
 | Rol (propuesto) | Responsabilidad |
 | --- | --- |
 | Operaciones | Mantiene una sola réplica y la estrategia de actualización |
-| Ingeniería | Retira la restricción al incorporar Redis y actualiza este runbook |
+| Ingeniería | Retira la restricción solo si el dueño decide escalar a varias instancias, y actualiza este runbook |
 
 ## Historial de ensayos
 

@@ -183,4 +183,33 @@ describe('loadConfig', () => {
       }
     });
   });
+
+  describe('OIDC provider', () => {
+    const KEY = 'k'.repeat(32);
+
+    it('is off by default and needs no cookie keys', () => {
+      expect(loadConfig({})).toMatchObject({ OIDC_ENABLED: false, OIDC_ID_TOKEN_ALG: 'ES256' });
+    });
+
+    it('requires at least one long cookie key when enabled', () => {
+      expect(() => loadConfig({ OIDC_ENABLED: 'true' })).toThrow(/OIDC_COOKIE_KEYS/);
+      expect(() => loadConfig({ OIDC_ENABLED: 'true', OIDC_COOKIE_KEYS: 'short' })).toThrow(
+        /OIDC_COOKIE_KEYS/,
+      );
+    });
+
+    it('accepts several keys for rotation and never echoes them', () => {
+      const config = loadConfig({ OIDC_ENABLED: 'true', OIDC_COOKIE_KEYS: `${KEY}, ${KEY}x` });
+      expect(config.OIDC_COOKIE_KEYS).toEqual([KEY, `${KEY}x`]);
+      try {
+        loadConfig({ OIDC_ENABLED: 'true', OIDC_COOKIE_KEYS: 'short-secret' });
+      } catch (error) {
+        expect(String(error)).not.toContain('short-secret');
+      }
+    });
+
+    it('refuses an unknown signing algorithm', () => {
+      expect(() => loadConfig({ OIDC_ID_TOKEN_ALG: 'none' })).toThrow(/OIDC_ID_TOKEN_ALG/);
+    });
+  });
 });

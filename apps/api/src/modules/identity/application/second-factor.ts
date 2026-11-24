@@ -86,6 +86,22 @@ const failureAction = (
 ): 'auth.mfa_failed' | 'auth.reauth_failed' =>
   purpose === 'reauthentication' ? 'auth.reauth_failed' : 'auth.mfa_failed';
 
+/**
+ * Qué renueva una reautenticación: `step_up` la ventana de 5 minutos de las acciones sensibles de
+ * Compass; `sso` el `mfa_at` de la sesión, que una aplicación OIDC lee como `auth_time`.
+ */
+type ReauthTarget = 'step_up' | 'sso';
+
+const REAUTH_ACTION = {
+  step_up: 'auth.reauthenticated',
+  sso: 'auth.sso_reauthenticated',
+} as const satisfies Record<ReauthTarget, string>;
+
+const REAUTH_PASSKEY_ACTION = {
+  step_up: 'auth.reauthenticated_passkey',
+  sso: 'auth.sso_reauthenticated_passkey',
+} as const satisfies Record<ReauthTarget, string>;
+
 export class SecondFactor {
   constructor(private readonly deps: SecondFactorDeps) {}
 
@@ -307,6 +323,22 @@ export class SecondFactor {
    * de reautenticación. Nunca acepta códigos de recuperación ni de emergencia.
    */
   reauthenticateWithPasskey(response: unknown): Promise<Result<void, DomainError>> {
+    return this.reauthenticateWithPasskeyFor(response, 'step_up');
+  }
+
+  /**
+   * Reautenticación pedida por una aplicación OIDC (`prompt=login` o `max_age`, ADR 0051 §5): misma
+   * verificación, pero renueva `mfa_at` (de donde sale `auth_time`) y NO la ventana de 5 minutos de
+   * las acciones sensibles de Compass, que no se hereda a las aplicaciones.
+   */
+  ssoReauthenticateWithPasskey(response: unknown): Promise<Result<void, DomainError>> {
+    return this.reauthenticateWithPasskeyFor(response, 'sso');
+  }
+
+  private reauthenticateWithPasskeyFor(
+    response: unknown,
+    target: ReauthTarget,
+  ): Promise<Result<void, DomainError>> {
     const { uow, sessions, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, sessionId, requestId } = await this.currentUser();
@@ -315,15 +347,27 @@ export class SecondFactor {
       if (!(await this.verifyPasskeyAssertion(user.id, sessionId, 'reauthentication', response))) {
         return this.failed(user.id, requestId, 'auth.reauth_failed');
       }
-      await sessions.setReauth(sessionId, clock.now());
+      await this.markReauthenticated(sessions, sessionId, clock.now(), target);
       await this.clearFailures(user.id);
-      await audit.record(this.event('auth.reauthenticated_passkey', 'success', user.id, requestId));
+      await audit.record(this.event(REAUTH_PASSKEY_ACTION[target], 'success', user.id, requestId));
       return ok(undefined);
     });
   }
 
   /** Reautenticación (step-up): un factor verificado en los últimos 5 minutos habilita acciones sensibles. */
   reauthenticate(code: string): Promise<Result<void, DomainError>> {
+    return this.reauthenticateWithCode(code, 'step_up');
+  }
+
+  /** Igual que `reauthenticate`, pero para una aplicación OIDC: renueva `mfa_at`, no `reauth_at`. */
+  ssoReauthenticate(code: string): Promise<Result<void, DomainError>> {
+    return this.reauthenticateWithCode(code, 'sso');
+  }
+
+  private reauthenticateWithCode(
+    code: string,
+    target: ReauthTarget,
+  ): Promise<Result<void, DomainError>> {
     const { uow, credentials, sessions, audit, clock } = this.deps;
     return uow.run(async () => {
       const { user, organizationId, sessionId, requestId } = await this.currentUser();
@@ -337,9 +381,9 @@ export class SecondFactor {
       if (!checked.ok) return err(checked.error);
       if (checked.value === null) return this.failed(user.id, requestId);
 
-      await sessions.setReauth(sessionId, clock.now());
+      await this.markReauthenticated(sessions, sessionId, clock.now(), target);
       await this.clearFailures(user.id);
-      await audit.record(this.event('auth.reauthenticated', 'success', user.id, requestId));
+      await audit.record(this.event(REAUTH_ACTION[target], 'success', user.id, requestId));
       return ok(undefined);
     });
   }
@@ -517,6 +561,16 @@ export class SecondFactor {
     const { audit } = this.deps;
     await audit.record(this.event(action, 'failure', userId, requestId, 'AUTH.MFA_INVALID'));
     return err(mfaInvalid());
+  }
+
+  private async markReauthenticated(
+    sessions: SecondFactorDeps['sessions'],
+    sessionId: string,
+    at: Date,
+    target: ReauthTarget,
+  ): Promise<void> {
+    if (target === 'sso') await sessions.setMfa(sessionId, at);
+    else await sessions.setReauth(sessionId, at);
   }
 
   private event(

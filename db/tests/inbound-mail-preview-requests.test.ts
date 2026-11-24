@@ -69,13 +69,13 @@ async function requestIdOf(receiptId: string): Promise<string> {
 }
 
 async function currentDataKeyVersion(tenant: Tenant): Promise<number> {
-  const { rows } = await admin.query<{ version: number }>(
+  const { rows } = await admin.query<{ version: number | null }>(
     'select max(version) as version from data_keys where organization_id = $1',
     [tenant.orgId],
   );
   const version = rows[0]?.version;
   if (version === undefined || version === null) throw new Error('no data key for the tenant');
-  return Number(version);
+  return version;
 }
 
 /** Cierra la petición como lista, con contenido ficticio; lo hace el rol administrador (fixture). */

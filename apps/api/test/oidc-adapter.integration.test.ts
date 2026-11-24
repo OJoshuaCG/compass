@@ -1,3 +1,4 @@
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { ok } from '../src/shared/kernel/index.js';
@@ -144,6 +145,33 @@ describe('PgOidcAdapter', () => {
     expect(row.rows[0]).toEqual({ user_id: fixture.user, compass_session_id: fixture.session });
   });
 
+  it('leer un token de acceso cuenta como actividad de la sesión sin mover su vencimiento (S12)', async () => {
+    const fixture = await seedFixture('oidc-activity');
+    const grantId = `grant-${crypto.randomUUID()}`;
+    await createGrant(fixture, grantId);
+    asClient();
+    const tokenId = `at-${crypto.randomUUID()}`;
+    await new Adapter('AccessToken').upsert(tokenId, { grantId, clientId: fixture.clientId }, 300);
+    await db.admin.query(
+      `update sessions set last_seen_at = now() - interval '20 minutes' where id = $1`,
+      [fixture.session],
+    );
+    const before = await db.admin.query<{ expires_at: Date }>(
+      `select expires_at from sessions where id = $1`,
+      [fixture.session],
+    );
+
+    await new Adapter('AccessToken').find(tokenId);
+
+    const after = await db.admin.query<{ idle_seconds: string; expires_at: Date }>(
+      `select extract(epoch from now() - last_seen_at) as idle_seconds, expires_at
+         from sessions where id = $1`,
+      [fixture.session],
+    );
+    expect(Number(after.rows[0]?.idle_seconds)).toBeLessThan(60);
+    expect(after.rows[0]?.expires_at).toEqual(before.rows[0]?.expires_at);
+  });
+
   it('recorta el vencimiento al de la sesión de Compass', async () => {
     const fixture = await seedFixture('oidc-clip', '10 minutes');
     const grantId = `grant-${crypto.randomUUID()}`;
@@ -248,8 +276,47 @@ describe('PgOidcAdapter', () => {
 
     const found = await new Adapter('Session').findByUid(uid);
     expect(found).toMatchObject({ jti, uid });
+    // La interacción sí se encuentra sin la cookie de Compass; la sesión del proveedor no (ver abajo).
+    const interactionId = `int-${crypto.randomUUID()}`;
+    const interactionUid = crypto.randomUUID();
+    await new Adapter('Interaction').upsert(
+      interactionId,
+      { jti: interactionId, uid: interactionUid, params: { client_id: fixture.clientId } },
+      600,
+    );
     asClient();
-    expect(await new Adapter('Session').findByUid(uid)).toMatchObject({ jti });
+    expect(await new Adapter('Interaction').findByUid(interactionUid)).toMatchObject({
+      jti: interactionId,
+    });
+  });
+
+  it('no sirve la sesión del proveedor sin la sesión de Compass a la que está ligada (L8)', async () => {
+    const fixture = await seedFixture('oidc-session-link');
+    asBrowser(fixture);
+    const uid = crypto.randomUUID();
+    const jti = `sess-${crypto.randomUUID()}`;
+    await new Adapter('Session').upsert(jti, { jti, uid, accountId: fixture.user }, 3600);
+
+    // Sin cookie de Compass (por ejemplo, una llamada de cliente o la cookie del proveedor sola) la sesión del
+    // proveedor no sirve para autenticar a nadie...
+    asClient();
+    expect(await new Adapter('Session').find(jti)).toBeUndefined();
+    // ...pero el vínculo de un token (punto de token) se comprueba por uid mientras viva la sesión de Compass.
+    expect(await new Adapter('Session').findByUid(uid)).toMatchObject({ jti, uid });
+    await db.admin.query(`update sessions set revoked_at = now() where id = $1`, [fixture.session]);
+    expect(await new Adapter('Session').findByUid(uid)).toBeUndefined();
+
+    // Con la cookie de otra sesión de Compass de la misma organización.
+    ambientContext = {
+      organizationId: fixture.organization,
+      compassSessionId: crypto.randomUUID(),
+      userId: fixture.user,
+    };
+    expect(await new Adapter('Session').findByUid(uid)).toBeUndefined();
+    expect(await new Adapter('Session').find(jti)).toBeUndefined();
+
+    asBrowser(fixture);
+    expect(await new Adapter('Session').find(jti)).toMatchObject({ jti, uid });
   });
 
   it('sirve el cliente activo con su secreto y no sirve uno deshabilitado', async () => {
@@ -275,5 +342,110 @@ describe('PgOidcAdapter', () => {
 
   it('falla fuerte con un modelo no habilitado', () => {
     expect(() => new Adapter('DeviceCode')).toThrow('Unsupported');
+  });
+});
+
+// SENSIBLE (revisión humana): prueba de aislamiento y revocación bajo concurrencia real. Una conexión de
+// administrador abre la revocación y la deja SIN confirmar mientras el adaptador (rol de la aplicación)
+// intenta emitir. Si el adaptador no tomara `for share`, leería el estado anterior a la revocación y dejaría
+// un token huérfano que sobrevive al cierre de sesión (T11, L23).
+describe('PgOidcAdapter: carrera entre la revocación y la emisión', () => {
+  /** Tiempo que se espera para comprobar que la emisión sigue bloqueada tras la revocación sin confirmar. */
+  const BLOCKED_PROBE_MS = 400;
+
+  const settlesWithin = async (
+    pending: Promise<unknown>,
+    milliseconds: number,
+  ): Promise<boolean> => {
+    const timeout = new Promise<'timeout'>((resolve) => {
+      setTimeout(() => {
+        resolve('timeout');
+      }, milliseconds);
+    });
+    const outcome = await Promise.race([
+      pending.then(
+        () => 'settled' as const,
+        () => 'settled' as const,
+      ),
+      timeout,
+    ]);
+    return outcome === 'settled';
+  };
+
+  async function openRevoker(): Promise<Client> {
+    const revoker = new Client({ connectionString: db.adminUrl });
+    await revoker.connect();
+    await revoker.query('begin');
+    return revoker;
+  }
+
+  it('no emite un token de acceso mientras se revoca su concesión: espera, reevalúa y no deja huérfano', async () => {
+    const fixture = await seedFixture('oidc-race-grant');
+    const grantId = `grant-${crypto.randomUUID()}`;
+    await createGrant(fixture, grantId);
+    asClient();
+    const revoker = await openRevoker();
+    try {
+      await revoker.query(
+        `delete from oidc_payloads where model = 'Grant' and compass_session_id = $1`,
+        [fixture.session],
+      );
+
+      const issuing = new Adapter('AccessToken').upsert(
+        `at-${crypto.randomUUID()}`,
+        { grantId, clientId: fixture.clientId },
+        300,
+      );
+      const issuingOutcome = issuing.then(
+        () => 'issued' as const,
+        (error: unknown) => (error instanceof Error ? error.message : 'unknown'),
+      );
+
+      // La emisión debe quedar bloqueada mientras la revocación no confirme.
+      expect(await settlesWithin(issuingOutcome, BLOCKED_PROBE_MS)).toBe(false);
+      await revoker.query('commit');
+
+      expect(await issuingOutcome).toBe('Grant was revoked');
+    } finally {
+      await revoker.end();
+    }
+    const orphans = await db.admin.query(
+      `select 1 from oidc_payloads where model = 'AccessToken' and organization_id = $1`,
+      [fixture.organization],
+    );
+    expect(orphans.rows).toHaveLength(0);
+  });
+
+  it('no guarda una sesión del proveedor mientras se revoca la sesión de Compass', async () => {
+    const fixture = await seedFixture('oidc-race-session');
+    asBrowser(fixture);
+    const revoker = await openRevoker();
+    try {
+      await revoker.query(`update sessions set revoked_at = now() where id = $1`, [
+        fixture.session,
+      ]);
+
+      const saving = new Adapter('Session').upsert(
+        `sess-${crypto.randomUUID()}`,
+        { accountId: fixture.user, uid: crypto.randomUUID() },
+        3600,
+      );
+      const savingOutcome = saving.then(
+        () => 'saved' as const,
+        (error: unknown) => (error instanceof Error ? error.message : 'unknown'),
+      );
+
+      expect(await settlesWithin(savingOutcome, BLOCKED_PROBE_MS)).toBe(false);
+      await revoker.query('commit');
+
+      expect(await savingOutcome).toContain('no longer alive');
+    } finally {
+      await revoker.end();
+    }
+    const orphans = await db.admin.query(
+      `select 1 from oidc_payloads where model = 'Session' and organization_id = $1`,
+      [fixture.organization],
+    );
+    expect(orphans.rows).toHaveLength(0);
   });
 });

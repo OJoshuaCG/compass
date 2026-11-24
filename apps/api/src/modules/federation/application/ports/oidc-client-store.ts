@@ -24,3 +24,8 @@ export interface OidcClientStore {
   replaceSecret(id: string, secretCiphertext: Uint8Array): Promise<void>;
   disable(id: string, at: Date): Promise<OidcClientRecord>;
 }
+
+/** Lectura de un cliente por su `client_id` público, dentro de la transacción de su organización (T8). */
+export interface OidcClientLookup {
+  findActiveByClientId(clientId: string): Promise<OidcClientRecord | null>;
+}

@@ -40,6 +40,11 @@ const STORED_MODELS: readonly string[] = [
 /** Modelos que nacen de una concesión: heredan persona y sesión de su Grant. */
 const GRANT_BOUND_MODELS: readonly string[] = ['AccessToken', 'AuthorizationCode', 'RefreshToken'];
 
+/** Modelos cuya lectura indica que una aplicación está en uso (userinfo y refresco). */
+const APPLICATION_ACTIVITY_MODELS: readonly string[] = ['AccessToken', 'RefreshToken'];
+/** Igual que `SESSION_TOUCH_INTERVAL_MS` de identidad (60 s): evita una escritura por cada lectura. */
+const SESSION_ACTIVITY_MIN_INTERVAL_SECONDS = 60;
+
 export interface PgOidcAdapterDeps {
   readonly scope: TenantScope;
   readonly transactions: TransactionProvider;
@@ -54,6 +59,10 @@ export interface PgOidcAdapterDeps {
 interface PayloadRow {
   readonly payload: AdapterPayload;
   readonly consumed_at: Date | null;
+}
+
+interface SessionLinkRow {
+  readonly compass_session_id: string | null;
 }
 
 interface GrantOwnerRow {
@@ -123,13 +132,15 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         ambient.current()?.organizationId ?? (await resolver.byPayloadKey(this.model, hashKey(id)));
       if (organizationId === null) return undefined;
       return runInOrganization(organizationId, async () => {
-        const result = await transactions.current().query<PayloadRow>(
-          `select payload, consumed_at from oidc_payloads
+        const result = await transactions.current().query<PayloadRow & SessionLinkRow>(
+          `select payload, consumed_at, compass_session_id from oidc_payloads
             where model = $1 and key_hash = $2 and expires_at > now()`,
           [this.model, hashKey(id)],
         );
         const row = result.rows[0];
-        return row === undefined ? undefined : toProviderPayload(row, id);
+        if (row === undefined || !this.sessionMatchesCompassSession(row)) return undefined;
+        await this.recordApplicationActivity(row.compass_session_id);
+        return toProviderPayload(row, id);
       });
     }
 
@@ -139,17 +150,40 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         ambient.current()?.organizationId ?? (await resolver.byUid(this.model, uid));
       if (organizationId === null) return undefined;
       return runInOrganization(organizationId, async () => {
-        const result = await transactions.current().query<PayloadRow & { key_hash: Buffer }>(
-          `select payload, consumed_at, key_hash from oidc_payloads
-            where model = $1 and uid = $2 and expires_at > now()`,
-          [this.model, uid],
-        );
+        const result = await transactions
+          .current()
+          .query<PayloadRow & SessionLinkRow & { key_hash: Buffer }>(
+            `select payload, consumed_at, key_hash, compass_session_id from oidc_payloads
+              where model = $1 and uid = $2 and expires_at > now()`,
+            [this.model, uid],
+          );
         const row = result.rows[0];
+        if (row === undefined) return undefined;
+        if (ambient.current() === null) {
+          // Comprobación de vínculo de un token (punto de token, cierre de sesión): no hay cookie de Compass, así
+          // que la sesión del proveedor solo «existe» mientras viva la sesión de Compass a la que está ligada.
+          if (!(await this.compassSessionIsAlive(row.compass_session_id))) return undefined;
+        } else if (!this.sessionMatchesCompassSession(row)) {
+          return undefined;
+        }
         // Sesión e Interacción guardan su `jti` en el contenido (ver `storesJti`); `uid` es solo el respaldo.
-        return row === undefined
-          ? undefined
-          : toProviderPayload(row, stringField(row.payload, 'jti') ?? uid);
+        return toProviderPayload(row, stringField(row.payload, 'jti') ?? uid);
       });
+    }
+
+    /**
+     * La sesión del proveedor no basta por sí sola (ADR 0051 §1, L8): solo vale cuando la petición trae
+     * además la cookie de la sesión de Compass a la que está ligada. Sin ella (otra persona en el mismo
+     * navegador, sesión de Compass cerrada o cookie del proveedor robada) la sesión «no existe».
+     */
+    private sessionMatchesCompassSession(row: SessionLinkRow): boolean {
+      if (this.model !== SESSION_MODEL) return true;
+      const current = ambient.current();
+      return (
+        current !== null &&
+        row.compass_session_id !== null &&
+        row.compass_session_id === current.compassSessionId
+      );
     }
 
     findByUserCode(): Promise<AdapterPayload | undefined> {
@@ -291,8 +325,10 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
         const grantId = stringField(payload, 'grantId');
         if (grantId === null) throw new OidcStorageError('Token without grant');
         const result = await transactions.current().query<GrantOwnerRow>(
+          // `for share`: si la revocación está borrando este Grant en otra transacción, espera a que confirme y
+          // reevalúa (sin fila = revocado). Sin el bloqueo nacería un token huérfano tras el cierre de sesión.
           `select user_id, compass_session_id from oidc_payloads
-            where model = $1 and key_hash = $2 and expires_at > now()`,
+            where model = $1 and key_hash = $2 and expires_at > now() for share`,
           [GRANT_MODEL, hashKey(grantId)],
         );
         const owner = result.rows[0];
@@ -303,18 +339,46 @@ export function createPgOidcAdapter(deps: PgOidcAdapterDeps): AdapterConstructor
       return { userId: null, compassSessionId: null };
     }
 
+    /**
+     * Usar una aplicación cuenta como actividad de la sesión de Compass (ADR 0051 D1, S12): un token de
+     * acceso o de refresco que se lee mantiene viva la sesión ligada. Solo mueve `last_seen_at`; `expires_at`
+     * no cambia, así que el tope absoluto de 12 horas sigue mandando. Una escritura por minuto como mucho.
+     */
+    private async recordApplicationActivity(compassSessionId: string | null): Promise<void> {
+      if (compassSessionId === null || !APPLICATION_ACTIVITY_MODELS.includes(this.model)) return;
+      const now = clock.now();
+      await transactions.current().query(
+        `update sessions set last_seen_at = $2
+          where id = $1 and revoked_at is null and expires_at > $2
+            and last_seen_at <= $2 - make_interval(secs => $3)`,
+        [compassSessionId, now, SESSION_ACTIVITY_MIN_INTERVAL_SECONDS],
+      );
+    }
+
+    private async compassSessionIsAlive(compassSessionId: string | null): Promise<boolean> {
+      if (this.model !== SESSION_MODEL) return true;
+      if (compassSessionId === null) return false;
+      const result = await transactions
+        .current()
+        .query(
+          `select 1 from sessions where id = $1 and revoked_at is null and expires_at > now()`,
+          [compassSessionId],
+        );
+      return result.rows.length > 0;
+    }
+
     private async clipToSession(
       expiresInSeconds: number,
       compassSessionId: string | null,
     ): Promise<Date> {
       const requested = new Date(clock.now().getTime() + expiresInSeconds * 1000);
       if (compassSessionId === null) return requested;
-      const result = await transactions
-        .current()
-        .query<SessionExpiryRow>(
-          `select expires_at from sessions where id = $1 and revoked_at is null and expires_at > now()`,
-          [compassSessionId],
-        );
+      const result = await transactions.current().query<SessionExpiryRow>(
+        // `for share`: serializa con la revocación de la sesión (misma razón que el Grant en `resolveOwner`).
+        `select expires_at from sessions
+            where id = $1 and revoked_at is null and expires_at > now() for share`,
+        [compassSessionId],
+      );
       const session = result.rows[0];
       if (session === undefined) throw new OidcStorageError('Compass session is no longer alive');
       return session.expires_at < requested ? session.expires_at : requested;

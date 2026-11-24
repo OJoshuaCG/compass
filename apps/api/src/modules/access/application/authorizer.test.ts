@@ -181,3 +181,45 @@ describe('Authorizer.requireActiveMember', () => {
     expect(recorded[0]).toMatchObject({ reasonCode: 'AUTHZ.TENANT' });
   });
 });
+
+describe('Authorizer.requireClientEntry', () => {
+  it('admits an active member when the client sets no rank limit', async () => {
+    const { authorizer, recorded } = setup({ actorId: ACTOR_ID, actor: actorWith('active') });
+
+    const actor = await authorizer.requireClientEntry(null);
+
+    expect(actor.id).toBe(ACTOR_ID);
+    expect(recorded).toHaveLength(0);
+  });
+
+  it('admits a member whose rank is within the limit', async () => {
+    const { authorizer } = setup({ actorId: ACTOR_ID, actor: actorWith('active') });
+
+    await expect(authorizer.requireClientEntry(RANK.OPERATOR)).resolves.toMatchObject({
+      id: ACTOR_ID,
+    });
+  });
+
+  it('denies a member with less authority than the limit and audits the denial', async () => {
+    const { authorizer, recorded } = setup({ actorId: ACTOR_ID, actor: actorWith('active') });
+
+    await expect(authorizer.requireClientEntry(RANK.LEADER)).rejects.toMatchObject({
+      code: 'AUTHZ.PERMISSION',
+    });
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]).toMatchObject({
+      action: 'authz.denied',
+      outcome: 'denied',
+      reasonCode: 'AUTHZ.PERMISSION',
+      metadata: { permission: 'sso.entry' },
+    });
+  });
+
+  it('denies a person that is not active before looking at the rank', async () => {
+    const { authorizer } = setup({ actorId: ACTOR_ID, actor: actorWith('suspended') });
+
+    await expect(authorizer.requireClientEntry(null)).rejects.toMatchObject({
+      code: 'AUTHZ.SESSION',
+    });
+  });
+});

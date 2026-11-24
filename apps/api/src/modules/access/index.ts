@@ -9,6 +9,7 @@ export { RootRoleHandoverAdapter } from './application/root-role-handover.js';
 export { ManageRoles } from './application/manage-roles.js';
 export { ManagePersonRoles } from './application/manage-person-roles.js';
 export type { PermissionCatalogEntry, PersonRolesView } from './application/manage-person-roles.js';
+export { meetsMaxRank } from './domain/client-entry.js';
 export { decide } from './domain/decision.js';
 export type { Decision, DenyReason } from './domain/decision.js';
 export { effectivePermissions } from './domain/effective-permissions.js';
