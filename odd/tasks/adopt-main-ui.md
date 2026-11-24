@@ -42,3 +42,10 @@ Objetivo: llevar a `dev` el sistema visual de `main` (latón, temas oscuro y cla
 - Entra: tabla en tarjetas en pantallas estrechas, panel lateral móvil animado, diálogos con margen en móvil, SMTP por organización (migración 0044), canal de Telegram de alertas, aviso de eventos en cuarentena, ADR 0050 y 0051.
 - Conflictos: solo `dialog.tsx` (se conserva la colocación lateral de dev con el margen y `overscroll-contain` de main) y `data-table.tsx` (se toma la versión de main).
 - Sin ejecutar aquí: pruebas de la API (SWC) y de navegador (sin Docker).
+
+### L13 · 2026-11-23 · Unión de main (SSO OIDC y auditoría particionada)
+
+- Entra: proveedor OIDC completo (pantallas SSO de reautenticación y consentimiento, administración de clientes, rotación de claves de firma, cierre de sesión por canal trasero), auditoría particionada por mes y comandos de auditoría, y ajustes de documentación.
+- Unión sin conflictos. El enlace «Aplicaciones SSO» quedó en el grupo Acceso del menú de dev (con permiso `sso.clients.manage`).
+- Una prueba de main (`sso-login-return`) escribía correo y contraseña seguidos; el inicio de sesión de dev tiene el paso «Continuar», así que se agregó ese clic sin cambiar lo que se comprueba.
+- Intermitentes bajo carga, sin tocar: `smtp-settings` (crear el servidor) y `sso-consent` (descripción); pasan solos.

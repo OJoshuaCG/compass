@@ -47,8 +47,10 @@ describe('login with a return path to the OIDC provider', () => {
       await screen.findByLabelText(new RegExp(`^${es.auth['login.email']}`)),
       'a@b.co',
     );
+    // El inicio de sesión de dev pide primero el correo y luego la contraseña.
+    await user.click(screen.getByRole('button', { name: es.auth['login.continue'] }));
     await user.type(
-      screen.getByLabelText(new RegExp(`^${es.auth['login.password']}`)),
+      await screen.findByLabelText(new RegExp(`^${es.auth['login.password']}`)),
       'correct horse battery',
     );
     await user.click(screen.getByRole('button', { name: es.auth['login.submit'] }));
